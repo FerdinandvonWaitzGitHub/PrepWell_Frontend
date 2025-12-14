@@ -1,0 +1,408 @@
+import { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogBody,
+  DialogFooter,
+  DialogClose
+} from '../../../components/ui/dialog';
+import Button from '../../../components/ui/button';
+import { PlusIcon, MinusIcon, TrashIcon, CheckIcon, ChevronDownIcon } from '../../../components/ui/icon';
+import { useUnterrechtsgebiete } from '../../../contexts';
+
+// Fixed law areas (Rechtsgebiete)
+const RECHTSGEBIETE = [
+  { id: 'zivilrecht', name: 'Zivilrecht' },
+  { id: 'oeffentliches-recht', name: 'Öffentliches Recht' },
+  { id: 'strafrecht', name: 'Strafrecht' }
+];
+
+/**
+ * Manage Exam Block Dialog Component
+ * Dialog for viewing and editing an existing exam (Klausuren) block
+ * Shows simple view (toggle only) if hasDetails=false, detail view if hasDetails=true
+ */
+const ManageExamBlockDialog = ({
+  open,
+  onOpenChange,
+  date,
+  block,
+  onSave,
+  onDelete,
+  availableSlots = 3
+}) => {
+  // Use central Unterrechtsgebiete context
+  const {
+    getUnterrechtsgebieteByRechtsgebiet,
+    addUnterrechtsgebiet
+  } = useUnterrechtsgebiete();
+
+  // Toggle state for showing details
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Form state
+  const [blockSize, setBlockSize] = useState(1);
+  const [selectedRechtsgebiet, setSelectedRechtsgebiet] = useState(null);
+  const [selectedUnterrechtsgebiet, setSelectedUnterrechtsgebiet] = useState(null);
+
+  // Dropdown states
+  const [isRechtsgebietOpen, setIsRechtsgebietOpen] = useState(false);
+  const [isUnterrechtsgebietOpen, setIsUnterrechtsgebietOpen] = useState(false);
+
+  // New Unterrechtsgebiet input
+  const [isCreatingUnterrechtsgebiet, setIsCreatingUnterrechtsgebiet] = useState(false);
+  const [newUnterrechtsgebietName, setNewUnterrechtsgebietName] = useState('');
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Load block data when dialog opens
+  useEffect(() => {
+    if (open && block) {
+      setShowDetails(block.hasDetails || false);
+      setBlockSize(block.blockSize || 1);
+      setSelectedRechtsgebiet(block.rechtsgebiet || null);
+      setSelectedUnterrechtsgebiet(block.unterrechtsgebiet || null);
+      setShowDeleteConfirm(false);
+      setIsCreatingUnterrechtsgebiet(false);
+      setNewUnterrechtsgebietName('');
+    }
+  }, [open, block]);
+
+  // Format date for display
+  const formatDate = (date) => {
+    if (!date) return '';
+    const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+    const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    return `${weekdays[date.getDay()]}, ${date.getDate()}. ${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  // Get current Unterrechtsgebiete for selected Rechtsgebiet
+  const getCurrentUnterrechtsgebiete = () => {
+    if (!selectedRechtsgebiet) return [];
+    return getUnterrechtsgebieteByRechtsgebiet(selectedRechtsgebiet.id);
+  };
+
+  // Add new Unterrechtsgebiet
+  const handleAddUnterrechtsgebiet = () => {
+    if (!newUnterrechtsgebietName.trim() || !selectedRechtsgebiet) return;
+
+    const newItem = {
+      id: `urg-${Date.now()}`,
+      name: newUnterrechtsgebietName.trim()
+    };
+
+    addUnterrechtsgebiet(selectedRechtsgebiet.id, newItem);
+
+    setNewUnterrechtsgebietName('');
+    setIsCreatingUnterrechtsgebiet(false);
+    setSelectedUnterrechtsgebiet(newItem);
+  };
+
+  // Calculate total available slots (current block size + free slots)
+  const totalAvailableSlots = (block?.blockSize || 0) + availableSlots;
+
+  // Save and close handler
+  const handleSaveAndClose = () => {
+    if (!date || !onSave) return;
+
+    const updatedBlock = {
+      ...block,
+      title: selectedUnterrechtsgebiet?.name || block.title || 'Klausur',
+      blockType: 'exam',
+      blockSize: showDetails ? blockSize : 1,
+      hasDetails: showDetails
+    };
+
+    // Add detail fields if toggle is on
+    if (showDetails) {
+      updatedBlock.rechtsgebiet = selectedRechtsgebiet;
+      updatedBlock.unterrechtsgebiet = selectedUnterrechtsgebiet;
+    } else {
+      // Remove detail fields if toggle is off
+      delete updatedBlock.rechtsgebiet;
+      delete updatedBlock.unterrechtsgebiet;
+    }
+
+    onSave(date, updatedBlock);
+    onOpenChange(false);
+  };
+
+  // Delete handler
+  const handleDelete = () => {
+    if (onDelete && block) {
+      onDelete(date, block.id);
+      onOpenChange(false);
+    }
+  };
+
+  // Discard handler
+  const handleDiscard = () => {
+    onOpenChange(false);
+  };
+
+  // Check if form is valid for saving
+  const isFormValid = () => {
+    // If details toggle is off, always valid
+    if (!showDetails) return true;
+    // If details toggle is on, need rechtsgebiet and unterrechtsgebiet
+    return selectedRechtsgebiet && selectedUnterrechtsgebiet;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="relative max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogClose onClose={() => onOpenChange(false)} />
+
+        <DialogHeader>
+          <DialogTitle className="text-lg font-light">Klausurenblock verwalten</DialogTitle>
+          <DialogDescription>{formatDate(date)}</DialogDescription>
+        </DialogHeader>
+
+        <DialogBody className="space-y-6">
+          {/* Blockgröße Field - Only shown when details toggle is ON */}
+          {showDetails && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900">
+                Blockgröße <span className="text-xs text-gray-500">({totalAvailableSlots} Slot{totalAvailableSlots !== 1 ? 's' : ''} verfügbar)</span>
+              </label>
+              <div className="inline-flex">
+                <button
+                  type="button"
+                  onClick={() => setBlockSize(Math.max(1, blockSize - 1))}
+                  disabled={blockSize <= 1}
+                  className="w-9 h-9 bg-white rounded-l-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
+                >
+                  <MinusIcon size={16} className="text-gray-900" />
+                </button>
+                <div className="h-9 px-4 py-2 bg-white shadow-sm border-t border-b border-gray-200 flex items-center justify-center">
+                  <span className="text-sm font-medium text-gray-900">{blockSize}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBlockSize(Math.min(totalAvailableSlots, blockSize + 1))}
+                  disabled={blockSize >= totalAvailableSlots}
+                  className="w-9 h-9 bg-white rounded-r-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
+                >
+                  <PlusIcon size={16} className="text-gray-900" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Details Toggle */}
+          <div className="flex items-start gap-3">
+            {/* Toggle Switch */}
+            <button
+              type="button"
+              onClick={() => setShowDetails(!showDetails)}
+              className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 ${
+                showDetails ? 'bg-gray-900' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${
+                  showDetails ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+
+            {/* Toggle Label and Description */}
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">Details eintragen</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Aktiviere den Klausurenblock, um Details einzutragen. Die Klausur wird automatisch in deine Leistungen aufgenommen.
+              </p>
+            </div>
+          </div>
+
+          {/* Detail Fields - Only shown when toggle is ON */}
+          {showDetails && (
+            <div className="space-y-6 pt-4 border-t border-gray-100">
+              {/* Rechtsgebiet Dropdown */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900">
+                  Rechtsgebiet <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRechtsgebietOpen(!isRechtsgebietOpen);
+                      setIsUnterrechtsgebietOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                  >
+                    <span className={`text-sm ${selectedRechtsgebiet ? 'text-gray-900' : 'text-gray-500'}`}>
+                      {selectedRechtsgebiet?.name || 'Rechtsgebiet auswählen'}
+                    </span>
+                    <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isRechtsgebietOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isRechtsgebietOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                      {RECHTSGEBIETE.map(rg => (
+                        <button
+                          key={rg.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedRechtsgebiet(rg);
+                            setSelectedUnterrechtsgebiet(null);
+                            setIsRechtsgebietOpen(false);
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
+                            selectedRechtsgebiet?.id === rg.id ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                          }`}
+                        >
+                          {rg.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Unterrechtsgebiet Dropdown */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900">
+                  Unterrechtsgebiet <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedRechtsgebiet) {
+                        setIsUnterrechtsgebietOpen(!isUnterrechtsgebietOpen);
+                        setIsRechtsgebietOpen(false);
+                      }
+                    }}
+                    disabled={!selectedRechtsgebiet}
+                    className={`w-full flex items-center justify-between px-4 py-2 bg-white border border-gray-200 rounded-lg transition-colors text-left ${
+                      selectedRechtsgebiet ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <span className={`text-sm ${selectedUnterrechtsgebiet ? 'text-gray-900' : 'text-gray-500'}`}>
+                      {selectedUnterrechtsgebiet?.name || (selectedRechtsgebiet ? 'Unterrechtsgebiet auswählen' : 'Erst Rechtsgebiet wählen')}
+                    </span>
+                    <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isUnterrechtsgebietOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isUnterrechtsgebietOpen && selectedRechtsgebiet && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {getCurrentUnterrechtsgebiete().length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                          Noch keine Unterrechtsgebiete vorhanden
+                        </div>
+                      ) : (
+                        getCurrentUnterrechtsgebiete().map(urg => (
+                          <button
+                            key={urg.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedUnterrechtsgebiet(urg);
+                              setIsUnterrechtsgebietOpen(false);
+                            }}
+                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
+                              selectedUnterrechtsgebiet?.id === urg.id ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                            }`}
+                          >
+                            {urg.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add new Unterrechtsgebiet */}
+                {selectedRechtsgebiet && (
+                  isCreatingUnterrechtsgebiet ? (
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={newUnterrechtsgebietName}
+                        onChange={(e) => setNewUnterrechtsgebietName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddUnterrechtsgebiet()}
+                        placeholder="Name eingeben..."
+                        autoFocus
+                        className="flex-1 px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                      />
+                      <Button variant="primary" size="sm" onClick={handleAddUnterrechtsgebiet}>
+                        Speichern
+                      </Button>
+                      <Button variant="default" size="sm" onClick={() => {
+                        setIsCreatingUnterrechtsgebiet(false);
+                        setNewUnterrechtsgebietName('');
+                      }}>
+                        Abbrechen
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingUnterrechtsgebiet(true)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mt-2 bg-primary-100 border-2 border-primary-300 rounded-lg hover:bg-primary-200 transition-colors"
+                    >
+                      <PlusIcon size={16} className="text-gray-900" />
+                      <span className="text-sm font-medium text-gray-900">+ Neues Unterrechtsgebiet erstellen</span>
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+        </DialogBody>
+
+        <DialogFooter className="justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="default" onClick={handleDiscard} className="rounded-3xl">
+              Änderungen verwerfen
+            </Button>
+            {showDeleteConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-red-600">Wirklich löschen?</span>
+                <Button
+                  variant="default"
+                  onClick={handleDelete}
+                  className="rounded-3xl text-red-600 hover:bg-red-50"
+                >
+                  Ja, löschen
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="rounded-3xl"
+                >
+                  Abbrechen
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="rounded-3xl gap-2"
+              >
+                Klausurenblock löschen
+                <TrashIcon size={16} />
+              </Button>
+            )}
+          </div>
+          <Button
+            variant="primary"
+            onClick={handleSaveAndClose}
+            disabled={!isFormValid()}
+            className="rounded-3xl gap-2"
+          >
+            Fertig
+            <CheckIcon size={16} />
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default ManageExamBlockDialog;

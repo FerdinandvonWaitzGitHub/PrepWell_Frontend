@@ -1,0 +1,59 @@
+import React from 'react';
+import LearningBlock from './learning-block';
+
+/**
+ * DayTile component
+ * Represents a single day in the calendar grid
+ *
+ * @param {number} day - Day number (1-31)
+ * @param {Array} learningBlocks - Array of learning blocks for this day
+ * @param {boolean} isToday - Whether this is today's date
+ * @param {boolean} isCurrentMonth - Whether this day belongs to the current month
+ * @param {Function} onClick - Callback when the day is clicked
+ */
+const DayTile = ({
+  day,
+  learningBlocks = [],
+  isToday = false,
+  isCurrentMonth = true,
+  onClick,
+  onAddClick,
+  className = ''
+}) => {
+  return (
+    <div
+      className={`flex flex-col gap-2.5 p-2 bg-white h-full min-h-[143px] ${!isCurrentMonth ? 'opacity-50' : ''} ${isCurrentMonth ? 'cursor-pointer hover:bg-gray-50 transition-colors' : 'cursor-default'} ${className}`}
+      onClick={onClick}
+    >
+      {/* Day Header */}
+      <div className="flex items-start h-3.5">
+        <span
+          className={`text-xs font-normal ${
+            isToday
+              ? 'bg-blue-900 text-white px-1.5 py-0.5 rounded'
+              : 'text-gray-900'
+          }`}
+        >
+          {day}
+        </span>
+      </div>
+
+      {/* Learning Blocks */}
+      <div className="flex flex-col gap-2.5">
+        {learningBlocks.map((block, index) => (
+          <LearningBlock
+            key={index}
+            title={block.title}
+            blockType={block.blockType}
+            unterrechtsgebiet={block.unterrechtsgebiet}
+            isAddButton={block.isAddButton}
+            isOutOfRange={block.isOutOfRange}
+            onAddClick={onAddClick}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default DayTile;

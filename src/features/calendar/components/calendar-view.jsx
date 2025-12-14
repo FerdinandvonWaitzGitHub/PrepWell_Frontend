@@ -1,0 +1,513 @@
+import React, { useState, useEffect } from 'react';
+import CalendarHeader from './calendar-header';
+import CalendarGrid from './calendar-grid';
+import DayManagementDialog from './day-management-dialog';
+import AddThemeDialog from './add-theme-dialog';
+import CreateThemeBlockDialog from './create-theme-block-dialog';
+import CreateRepetitionBlockDialog from './create-repetition-block-dialog';
+import CreateExamBlockDialog from './create-exam-block-dialog';
+import CreatePrivateBlockDialog from './create-private-block-dialog';
+import {
+  createDaySlots,
+  createEmptySlot,
+  formatDateKey,
+  canPlaceTopic,
+  getAvailableSlotPositions,
+  createTopicSlots,
+  updateDaySlots,
+  slotsToLearningBlocks
+} from '../../../utils/slotUtils';
+
+/**
+ * CalendarView component
+ * Main calendar view for exam mode (Examensmodus)
+ * Displays monthly calendar with learning blocks
+ */
+const CalendarView = ({ initialDate = new Date(), className = '' }) => {
+  const [currentDate, setCurrentDate] = useState(initialDate);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedAddDay, setSelectedAddDay] = useState(null);
+  const [isCreateThemeDialogOpen, setIsCreateThemeDialogOpen] = useState(false);
+  const [selectedThemeDay, setSelectedThemeDay] = useState(null);
+  const [isCreateRepetitionDialogOpen, setIsCreateRepetitionDialogOpen] = useState(false);
+  const [isCreateExamDialogOpen, setIsCreateExamDialogOpen] = useState(false);
+  const [isCreatePrivateDialogOpen, setIsCreatePrivateDialogOpen] = useState(false);
+  const [selectedBlockDay, setSelectedBlockDay] = useState(null);
+
+  // State for storing slots by date (Slot-based system)
+  // Format: { 'YYYY-MM-DD': [Slot, Slot, Slot] } - always 3 slots per day
+  const [slotsByDate, setSlotsByDate] = useState({});
+
+  // Update an existing learning block
+  const handleUpdateBlock = (date, updatedBlockData) => {
+    const dateKey = formatDateKey(date);
+    const currentSlots = slotsByDate[dateKey];
+
+    if (!currentSlots) return;
+
+    // Find the slots belonging to this block
+    const blockSlots = currentSlots.filter(s => s.topicId === updatedBlockData.id);
+    if (blockSlots.length === 0) return;
+
+    const oldBlockSize = blockSlots.length;
+    const newBlockSize = updatedBlockData.blockSize || oldBlockSize;
+
+    // If size changed, we need to recalculate slots
+    if (newBlockSize !== oldBlockSize) {
+      // First, clear the old slots
+      let updatedSlots = currentSlots.map(slot => {
+        if (slot.topicId === updatedBlockData.id) {
+          return createEmptySlot(date, slot.position);
+        }
+        return slot;
+      });
+
+      // Check if we can place the new size
+      const freeSlots = updatedSlots.filter(s => s.status === 'empty').length;
+      if (freeSlots < newBlockSize) {
+        console.warn(`Cannot resize block: Not enough free slots. Need ${newBlockSize}, have ${freeSlots}`);
+        return;
+      }
+
+      // Get positions for new size
+      const positions = getAvailableSlotPositions(updatedSlots, newBlockSize);
+      if (!positions) return;
+
+      // Create new topic slots with updated data
+      const topicSlots = createTopicSlots(date, positions, {
+        id: updatedBlockData.id,
+        title: updatedBlockData.title,
+        blockType: updatedBlockData.blockType,
+        progress: updatedBlockData.progress,
+        description: updatedBlockData.description,
+        rechtsgebiet: updatedBlockData.rechtsgebiet,
+        unterrechtsgebiet: updatedBlockData.unterrechtsgebiet,
+        tasks: updatedBlockData.tasks
+      });
+
+      updatedSlots = updateDaySlots(updatedSlots, topicSlots);
+
+      setSlotsByDate(prev => ({
+        ...prev,
+        [dateKey]: updatedSlots
+      }));
+    } else {
+      // Size unchanged, just update the data in existing slots
+      const updatedSlots = currentSlots.map(slot => {
+        if (slot.topicId === updatedBlockData.id) {
+          return {
+            ...slot,
+            topicTitle: updatedBlockData.title,
+            blockType: updatedBlockData.blockType,
+            progress: updatedBlockData.progress,
+            description: updatedBlockData.description,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return slot;
+      });
+
+      setSlotsByDate(prev => ({
+        ...prev,
+        [dateKey]: updatedSlots
+      }));
+    }
+  };
+
+  // Delete a learning block
+  const handleDeleteBlock = (date, blockId) => {
+    const dateKey = formatDateKey(date);
+    const currentSlots = slotsByDate[dateKey];
+
+    if (!currentSlots) return;
+
+    // Replace block slots with empty slots
+    const updatedSlots = currentSlots.map(slot => {
+      if (slot.topicId === blockId) {
+        return createEmptySlot(date, slot.position);
+      }
+      return slot;
+    });
+
+    setSlotsByDate(prev => ({
+      ...prev,
+      [dateKey]: updatedSlots
+    }));
+  };
+
+  // Add a learning block to a specific date (Slot-based)
+  const handleAddBlock = (date, blockData) => {
+    const dateKey = formatDateKey(date);
+
+    // Get current slots for this day, or create empty ones
+    const currentSlots = slotsByDate[dateKey] || createDaySlots(date);
+
+    // Check if we have enough free slots
+    const sizeNeeded = blockData.blockSize || 1;
+
+    if (!canPlaceTopic(currentSlots, sizeNeeded)) {
+      console.warn(`Cannot add block: Not enough free slots. Need ${sizeNeeded}, but day is full.`);
+      // TODO: Show user error message
+      return;
+    }
+
+    // Get available slot positions
+    const positions = getAvailableSlotPositions(currentSlots, sizeNeeded);
+    if (!positions) {
+      console.warn('Cannot get available positions');
+      return;
+    }
+
+    // Create new topic slots
+    const topicSlots = createTopicSlots(date, positions, {
+      id: blockData.id || `topic-${Date.now()}`,
+      title: blockData.title,
+      blockType: blockData.blockType,
+      progress: blockData.progress,
+      description: blockData.description,
+      rechtsgebiet: blockData.rechtsgebiet,
+      unterrechtsgebiet: blockData.unterrechtsgebiet,
+      tasks: blockData.tasks
+    });
+
+    // Update day slots
+    const updatedSlots = updateDaySlots(currentSlots, topicSlots);
+
+    // Save to state
+    setSlotsByDate(prev => ({
+      ...prev,
+      [dateKey]: updatedSlots
+    }));
+  };
+
+  // Initialize with sample slot data for testing
+  useEffect(() => {
+    const sampleSlots = {};
+    const year = new Date().getFullYear();
+    const month = new Date().getMonth();
+
+    // Day 2: 2-slot theme block + 1-slot theme block (3/3 slots full)
+    const date2 = new Date(year, month, 2);
+    const date2Slots = createDaySlots(date2);
+    const date2Topic1 = createTopicSlots(date2, [1, 2], {
+      id: 'sample-1',
+      title: 'Vertragsrecht',
+      blockType: 'theme',
+      progress: '3/3'
+    });
+    const date2Topic2 = createTopicSlots(date2, [3], {
+      id: 'sample-2',
+      title: 'Strafrecht',
+      blockType: 'theme',
+      progress: '2/3'
+    });
+    sampleSlots[formatDateKey(date2)] = updateDaySlots(
+      updateDaySlots(date2Slots, date2Topic1),
+      date2Topic2
+    );
+
+    // Day 5: 2-slot repetition block (1 slot free)
+    const date5 = new Date(year, month, 5);
+    const date5Slots = createDaySlots(date5);
+    const date5Topic = createTopicSlots(date5, [1, 2], {
+      id: 'sample-3',
+      title: 'Wiederholung BGB AT',
+      blockType: 'repetition',
+      progress: '2/5'
+    });
+    sampleSlots[formatDateKey(date5)] = updateDaySlots(date5Slots, date5Topic);
+
+    // Day 10: 3-slot exam block (full day)
+    const date10 = new Date(year, month, 10);
+    const date10Slots = createDaySlots(date10);
+    const date10Topic = createTopicSlots(date10, [1, 2, 3], {
+      id: 'sample-4',
+      title: 'Probeklausur 1',
+      blockType: 'exam',
+      progress: '0/1'
+    });
+    sampleSlots[formatDateKey(date10)] = updateDaySlots(date10Slots, date10Topic);
+
+    // Day 6 & 7: All slots marked as free (3/3 slots)
+    const date6 = new Date(year, month, 6);
+    const date6Slots = createDaySlots(date6);
+    const date6Free = createTopicSlots(date6, [1, 2, 3], {
+      id: 'sample-5',
+      title: 'Wochenende',
+      blockType: 'free',
+      progress: '1/1'
+    });
+    sampleSlots[formatDateKey(date6)] = updateDaySlots(date6Slots, date6Free);
+
+    const date7 = new Date(year, month, 7);
+    const date7Slots = createDaySlots(date7);
+    const date7Free = createTopicSlots(date7, [1, 2, 3], {
+      id: 'sample-6',
+      title: 'Wochenende',
+      blockType: 'free',
+      progress: '1/1'
+    });
+    sampleSlots[formatDateKey(date7)] = updateDaySlots(date7Slots, date7Free);
+
+    setSlotsByDate(sampleSlots);
+  }, []); // Run once on mount
+
+  // Get month and year
+  const getMonthYear = (date) => {
+    const months = [
+      'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+      'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+    ];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  // Navigate to previous month
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  // Navigate to next month
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  // Navigate to today
+  const handleToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Generate days for the calendar
+  // This is a simplified version - you would fetch this data from your backend
+  const generateCalendarDays = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+
+    // Get the day of week for the first day (0 = Sunday, 1 = Monday, etc.)
+    let firstDayOfWeek = firstDay.getDay();
+    // Convert to Monday = 0, Sunday = 6
+    firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+
+    const days = [];
+
+    // Add days from previous month to fill the first week
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      days.push({
+        day: prevMonthLastDay - i,
+        isCurrentMonth: false,
+        learningBlocks: []
+      });
+    }
+
+    // Add days of current month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push({
+        day,
+        isCurrentMonth: true,
+        learningBlocks: getSampleLearningBlocks(day) // Replace with real data
+      });
+    }
+
+    // Add days from next month to complete the grid (6 weeks minimum)
+    const remainingDays = 42 - days.length; // Show 6 weeks
+    for (let day = 1; day <= remainingDays; day++) {
+      days.push({
+        day,
+        isCurrentMonth: false,
+        learningBlocks: []
+      });
+    }
+
+    return days;
+  };
+
+  // Learning blocks - convert from slots
+  const getSampleLearningBlocks = (day) => {
+    // Create date for this day
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dateKey = formatDateKey(date);
+
+    // Get slots for this date, or create empty ones
+    const slots = slotsByDate[dateKey] || createDaySlots(date);
+
+    // Convert slots to learning blocks for display
+    let blocks = slotsToLearningBlocks(slots);
+
+    // Count free slots to determine if plus button should be shown
+    const freeSlots = slots.filter(s => s.status === 'empty').length;
+
+    // If there are free slots (less than 3 slots occupied), add a plus button
+    if (freeSlots > 0) {
+      blocks = [...blocks, { isAddButton: true }];
+    }
+
+    return blocks;
+  };
+
+  const today = new Date().getDate();
+  const isCurrentMonth =
+    currentDate.getMonth() === new Date().getMonth() &&
+    currentDate.getFullYear() === new Date().getFullYear();
+
+  // Handle day click to open management dialog
+  const handleDayClick = (day, learningBlocks) => {
+    console.log('Day clicked:', day, learningBlocks);
+
+    if (!day.isCurrentMonth) {
+      console.log('Day is not in current month, ignoring click');
+      return; // Only allow clicking current month days
+    }
+
+    const clickedDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      day.day
+    );
+
+    // Filter out add buttons and out of range blocks
+    const actualBlocks = learningBlocks.filter(
+      block => !block.isAddButton && !block.isOutOfRange
+    );
+
+    console.log('Opening dialog with:', { clickedDate, actualBlocks });
+
+    setSelectedDay({
+      date: clickedDate,
+      learningBlocks: actualBlocks
+    });
+    setIsDialogOpen(true);
+  };
+
+  // Handle add button click to open add theme dialog
+  const handleAddClick = (day) => {
+    console.log('Add button clicked for day:', day);
+
+    const clickedDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      day.day
+    );
+
+    console.log('Opening add theme dialog for:', clickedDate);
+
+    setSelectedAddDay(clickedDate);
+    setIsAddDialogOpen(true);
+  };
+
+  // Get available slots for a specific date
+  const getAvailableSlotsForDate = (date) => {
+    if (!date) return 3;
+    const dateKey = formatDateKey(date);
+    const slots = slotsByDate[dateKey] || createDaySlots(date);
+    return slots.filter(s => s.status === 'empty').length;
+  };
+
+  // Get learning blocks for a specific date (computed from slots)
+  const getBlocksForDate = (date) => {
+    if (!date) return [];
+    const dateKey = formatDateKey(date);
+    const slots = slotsByDate[dateKey] || createDaySlots(date);
+    return slotsToLearningBlocks(slots);
+  };
+
+  return (
+    <div className={`flex flex-col bg-white shadow-xs rounded ${className}`}>
+      <CalendarHeader
+        title={getMonthYear(currentDate)}
+        onPrevMonth={handlePrevMonth}
+        onNextMonth={handleNextMonth}
+        onToday={handleToday}
+      />
+
+      <CalendarGrid
+        days={generateCalendarDays()}
+        currentDay={isCurrentMonth ? today : null}
+        onDayClick={handleDayClick}
+        onAddClick={handleAddClick}
+      />
+
+      {/* Day Management Dialog */}
+      <DayManagementDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        date={selectedDay?.date}
+        dayType="Lerntag"
+        learningBlocks={getBlocksForDate(selectedDay?.date)}
+        onUpdateBlock={handleUpdateBlock}
+        onDeleteBlock={handleDeleteBlock}
+        availableSlots={getAvailableSlotsForDate(selectedDay?.date)}
+      />
+
+      {/* Add Theme Dialog */}
+      <AddThemeDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        date={selectedAddDay}
+        onSelectType={(type) => {
+          console.log('Selected theme type:', type);
+          setIsAddDialogOpen(false);
+          setSelectedBlockDay(selectedAddDay);
+
+          switch(type) {
+            case 'theme':
+              setSelectedThemeDay(selectedAddDay);
+              setIsCreateThemeDialogOpen(true);
+              break;
+            case 'repetition':
+              setIsCreateRepetitionDialogOpen(true);
+              break;
+            case 'exam':
+              setIsCreateExamDialogOpen(true);
+              break;
+            case 'private':
+              setIsCreatePrivateDialogOpen(true);
+              break;
+            default:
+              console.log('Unknown block type:', type);
+          }
+        }}
+      />
+
+      {/* Create Theme Block Dialog */}
+      <CreateThemeBlockDialog
+        open={isCreateThemeDialogOpen}
+        onOpenChange={setIsCreateThemeDialogOpen}
+        date={selectedThemeDay}
+        onSave={handleAddBlock}
+        availableSlots={getAvailableSlotsForDate(selectedThemeDay)}
+      />
+
+      {/* Create Repetition Block Dialog */}
+      <CreateRepetitionBlockDialog
+        open={isCreateRepetitionDialogOpen}
+        onOpenChange={setIsCreateRepetitionDialogOpen}
+        date={selectedBlockDay}
+        onSave={handleAddBlock}
+        availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
+      />
+
+      {/* Create Exam Block Dialog */}
+      <CreateExamBlockDialog
+        open={isCreateExamDialogOpen}
+        onOpenChange={setIsCreateExamDialogOpen}
+        date={selectedBlockDay}
+        onSave={handleAddBlock}
+      />
+
+      {/* Create Private Block Dialog */}
+      <CreatePrivateBlockDialog
+        open={isCreatePrivateDialogOpen}
+        onOpenChange={setIsCreatePrivateDialogOpen}
+        date={selectedBlockDay}
+        onSave={handleAddBlock}
+      />
+    </div>
+  );
+};
+
+export default CalendarView;

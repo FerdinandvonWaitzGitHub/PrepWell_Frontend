@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude mcp add:*)",
+      "Bash(echo:*)",
+      "Bash(find:*)",
+      "Bash(node extract-figma.js:*)",
+      "Bash(node:*)",
+      "Bash(dir:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: PrepWell Frontend with Lernplan Wizard\n\nFeatures:\n- Dashboard, Calendar (Month/Week), Lernpläne pages\n- Complete Lernplan creation wizard (10 steps)\n- Three creation paths: Manual, Automatic, Templates\n- LocalStorage persistence for wizard progress\n- Responsive UI based on Figma designs\n\nTech stack: React, Vite, TailwindCSS, React Router\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(gh auth:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(git rm:*)"
+    ]
+  }
+}

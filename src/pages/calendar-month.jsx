@@ -1,0 +1,183 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Header } from '../components/layout';
+import { CalendarView } from '../features/calendar/components';
+import { Button, PlusIcon } from '../components/ui';
+
+const daysData_OLD = [
+  // Week 1
+  { day: 1, isCurrentMonth: true, isOutOfRange: true },
+  {
+    day: 2,
+    entries: [
+      { label: 'Vertragsrecht', variant: 'primary', progress: '3/3', title: 'Tagesthema' },
+    ],
+  },
+  {
+    day: 3,
+    entries: [
+      { label: 'Vertragsrecht', variant: 'primary', progress: '1/3', title: 'Tagesthema' },
+      { isAdd: true },
+    ],
+  },
+  { day: 4, entries: [{ isAdd: true }] },
+  {
+    day: 5,
+    entries: [
+      { label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' },
+      { label: 'Wiederholung', variant: 'gray', progress: '1/3' },
+    ],
+  },
+  { day: 6, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  { day: 7, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  // Week 2
+  { day: 8, entries: [{ isAdd: true }] },
+  { day: 9, entries: [{ isAdd: true }] },
+  { day: 10, entries: [{ isAdd: true }] },
+  { day: 11, entries: [{ isAdd: true }] },
+  {
+    day: 12,
+    entries: [
+      { label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' },
+      { label: 'Wiederholung', variant: 'gray', progress: '1/3' },
+    ],
+  },
+  { day: 13, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  { day: 14, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  // Week 3
+  { day: 15, entries: [{ isAdd: true }] },
+  { day: 16, entries: [{ isAdd: true }] },
+  { day: 17, entries: [{ isAdd: true }] },
+  { day: 18, entries: [{ isAdd: true }] },
+  {
+    day: 19,
+    entries: [
+      { label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' },
+      { label: 'Wiederholung', variant: 'gray', progress: '1/3' },
+    ],
+  },
+  { day: 20, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  { day: 21, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  // Week 4
+  { day: 22, entries: [{ isAdd: true }] },
+  { day: 23, entries: [{ isAdd: true }] },
+  { day: 24, entries: [{ isAdd: true }] },
+  { day: 25, entries: [{ isAdd: true }] },
+  {
+    day: 26,
+    entries: [
+      { label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' },
+      { label: 'Wiederholung', variant: 'gray', progress: '1/3' },
+    ],
+  },
+  { day: 27, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  { day: 28, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  // Week 5 (spillover)
+  { day: 29, entries: [{ isAdd: true }] },
+  { day: 30, entries: [{ isAdd: true }] },
+  { day: 1, isCurrentMonth: false, entries: [{ isAdd: true }] },
+  { day: 2, isCurrentMonth: false, entries: [{ isAdd: true }] },
+  { day: 3, isCurrentMonth: false, entries: [{ label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' }] },
+  { day: 4, isCurrentMonth: false, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+  { day: 5, isCurrentMonth: false, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
+];
+
+const weekDays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+
+const Badge = ({ label, variant = 'gray' }) => {
+  const styles = {
+    primary: 'bg-blue-900 text-blue-50',
+    gray: 'bg-gray-100 text-gray-500',
+  };
+  return (
+    <span className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold ${styles[variant] || styles.gray}`}>
+      {label}
+    </span>
+  );
+};
+
+const DayCell = ({ day, isCurrentMonth = true, isOutOfRange = false, entries = [] }) => {
+  const muted = !isCurrentMonth || isOutOfRange;
+  return (
+    <div className={`min-h-28 p-2.5 border border-gray-200 border-t-0 ${muted ? 'opacity-50' : ''}`}>
+      <div className="flex items-start gap-2 mb-2">
+        <span className="text-sm font-light text-gray-900">{day}</span>
+      </div>
+
+      <div className="space-y-2">
+        {entries.map((entry, idx) => {
+          if (entry.isAdd) {
+            return (
+              <div
+                key={idx}
+                className="h-7 px-2.5 bg-gray-100 rounded flex items-center text-xs text-gray-400"
+              >
+                +
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={idx}
+              className="px-2.5 py-2 bg-white rounded border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {entry.label && <Badge label={entry.label} variant={entry.variant} />}
+                  {entry.progress && (
+                    <span className="px-2 py-0.5 rounded-lg text-xs font-semibold text-gray-400 border border-gray-100">
+                      {entry.progress}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {entry.title && (
+                <p className="text-sm font-light text-gray-900 leading-4">{entry.title}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const MonthCalendar = () => {
+  const navigate = useNavigate();
+
+  const handleCreateLernplan = () => {
+    navigate('/lernplan/erstellen', { state: { from: '/kalender/monat' } });
+  };
+
+  return (
+    <div className="relative min-h-screen bg-white flex flex-col">
+      <Header userInitials="CN" currentPage="kalender-monat" />
+
+      {/* Top tinted band */}
+      <div className="absolute top-[72px] left-0 right-0 h-14 bg-rose-100 z-0" />
+
+      <main className="relative z-10 px-8 pb-10 pt-8 flex-1">
+        <div className="max-w-[1489px] mx-auto">
+          {/* Use the new CalendarView component with day management dialog */}
+          <CalendarView initialDate={new Date(2025, 7, 1)} />
+        </div>
+      </main>
+
+      {/* Footer with Create Lernplan Button */}
+      <footer className="sticky bottom-0 bg-white border-t border-gray-200 px-8 py-4 z-20">
+        <div className="max-w-[1489px] mx-auto flex justify-center">
+          <Button
+            onClick={handleCreateLernplan}
+            className="flex items-center gap-2"
+          >
+            <PlusIcon size={14} />
+            Neuen Lernplan erstellen
+          </Button>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default MonthCalendar;
