@@ -17,8 +17,8 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
     },
     {
       label: 'Lernpläne',
-      to: '/lernplaene',
-      key: 'lernplaene'
+      to: '/lernplan',
+      key: 'lernplan'
     },
     {
       label: 'Kalender',
