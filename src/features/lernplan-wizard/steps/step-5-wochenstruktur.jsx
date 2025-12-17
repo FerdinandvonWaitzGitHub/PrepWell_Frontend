@@ -4,178 +4,303 @@ import StepHeader from '../components/step-header';
 
 /**
  * Step 5: Wochenstruktur
- * User defines which days of the week they want to learn
+ * User configures block types for each day of the week
  * Based on Figma: Schritt_5_body
  */
+
+// Block types that can be cycled through (English keys for code consistency)
+const BLOCK_TYPES = ['lernblock', 'exam', 'repetition', 'free'];
+
+// Display names for block types (full and short versions - German UI labels)
+const BLOCK_TYPE_LABELS = {
+  lernblock: { full: 'Lernblock', short: 'Lernen' },
+  exam: { full: 'Klausur', short: 'Klausur' },
+  repetition: { full: 'Wiederholung', short: 'Wdh.' },
+  free: { full: 'Frei', short: 'Frei' },
+};
+
+// Days of the week (full and short versions)
+const DAYS = [
+  { key: 'montag', label: 'Montag', short: 'Mo' },
+  { key: 'dienstag', label: 'Dienstag', short: 'Di' },
+  { key: 'mittwoch', label: 'Mittwoch', short: 'Mi' },
+  { key: 'donnerstag', label: 'Donnerstag', short: 'Do' },
+  { key: 'freitag', label: 'Freitag', short: 'Fr' },
+  { key: 'samstag', label: 'Samstag', short: 'Sa' },
+  { key: 'sonntag', label: 'Sonntag', short: 'So' },
+];
+
+/**
+ * Calculate day type based on blocks
+ * - 'lerntag' if all blocks are 'lernblock'
+ * - 'free' if all blocks are 'free'
+ * - 'gemischt' otherwise
+ */
+const getDayType = (blocks) => {
+  if (!blocks || blocks.length === 0) return 'gemischt';
+
+  const allLernblock = blocks.every(b => b === 'lernblock');
+  const allFree = blocks.every(b => b === 'free');
+
+  if (allLernblock) return 'lerntag';
+  if (allFree) return 'free';
+  return 'gemischt';
+};
+
+/**
+ * Day type badge component
+ */
+const DayTypeBadge = ({ type }) => {
+  const labels = {
+    lerntag: { full: 'Lerntag', short: 'Lern' },
+    free: { full: 'Frei', short: 'Frei' },
+    gemischt: { full: 'Gemischt', short: 'Mix' },
+  };
+
+  return (
+    <span className="px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded-lg text-[10px] sm:text-xs font-semibold text-gray-600">
+      <span className="sm:hidden">{labels[type].short}</span>
+      <span className="hidden sm:inline">{labels[type].full}</span>
+    </span>
+  );
+};
+
+/**
+ * Chevron Left Icon
+ */
+const ChevronLeft = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+/**
+ * Chevron Right Icon
+ */
+const ChevronRight = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
+/**
+ * Info Icon
+ */
+const InfoIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="16" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12.01" y2="8" />
+  </svg>
+);
+
+/**
+ * Warning Icon
+ */
+const WarningIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
+/**
+ * Block selector component with left/right arrows
+ */
+const BlockSelector = ({ blockType, onPrev, onNext }) => {
+  const isLernblock = blockType === 'lernblock';
+
+  return (
+    <div
+      className={`p-1 sm:p-2 md:p-3 rounded-lg flex items-center justify-between gap-0.5 sm:gap-1 ${
+        isLernblock
+          ? 'bg-blue-50/50'
+          : 'bg-white border border-gray-200'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onPrev}
+        className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+        aria-label="Vorheriger Block-Typ"
+      >
+        <ChevronLeft />
+      </button>
+      <span className="flex-1 text-center text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 truncate min-w-0">
+        <span className="md:hidden">{BLOCK_TYPE_LABELS[blockType].short}</span>
+        <span className="hidden md:inline">{BLOCK_TYPE_LABELS[blockType].full}</span>
+      </span>
+      <button
+        type="button"
+        onClick={onNext}
+        className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+        aria-label="Nächster Block-Typ"
+      >
+        <ChevronRight />
+      </button>
+    </div>
+  );
+};
+
+/**
+ * Day column component
+ */
+const DayColumn = ({ day, blocks, onBlockChange }) => {
+  const dayType = getDayType(blocks);
+
+  const cycleBlockType = (blockIndex, direction) => {
+    const currentType = blocks[blockIndex];
+    const currentIndex = BLOCK_TYPES.indexOf(currentType);
+    let newIndex;
+
+    if (direction === 'next') {
+      newIndex = (currentIndex + 1) % BLOCK_TYPES.length;
+    } else {
+      newIndex = (currentIndex - 1 + BLOCK_TYPES.length) % BLOCK_TYPES.length;
+    }
+
+    const newBlocks = [...blocks];
+    newBlocks[blockIndex] = BLOCK_TYPES[newIndex];
+    onBlockChange(day.key, newBlocks);
+  };
+
+  return (
+    <div className="flex flex-col gap-1 sm:gap-2">
+      {/* Day header */}
+      <div className="pb-1 sm:pb-2 flex flex-col items-start gap-0.5 sm:gap-1">
+        <span className="text-xs sm:text-sm md:text-base font-light text-gray-900">
+          <span className="md:hidden">{day.short}</span>
+          <span className="hidden md:inline">{day.label}</span>
+        </span>
+        <DayTypeBadge type={dayType} />
+      </div>
+
+      {/* Block selectors */}
+      {blocks.map((blockType, index) => (
+        <BlockSelector
+          key={index}
+          blockType={blockType}
+          onPrev={() => cycleBlockType(index, 'prev')}
+          onNext={() => cycleBlockType(index, 'next')}
+        />
+      ))}
+    </div>
+  );
+};
+
+/**
+ * Step 5: Wochenstruktur Component
+ */
 const Step5Wochenstruktur = () => {
-  const { weekStructure, updateWizardData } = useWizard();
+  const { weekStructure, blocksPerDay, updateWizardData } = useWizard();
 
-  const days = [
-    { key: 'montag', label: 'Mo', fullLabel: 'Montag' },
-    { key: 'dienstag', label: 'Di', fullLabel: 'Dienstag' },
-    { key: 'mittwoch', label: 'Mi', fullLabel: 'Mittwoch' },
-    { key: 'donnerstag', label: 'Do', fullLabel: 'Donnerstag' },
-    { key: 'freitag', label: 'Fr', fullLabel: 'Freitag' },
-    { key: 'samstag', label: 'Sa', fullLabel: 'Samstag' },
-    { key: 'sonntag', label: 'So', fullLabel: 'Sonntag' },
-  ];
+  // Ensure weekStructure has correct number of blocks per day
+  const normalizedWeekStructure = React.useMemo(() => {
+    const result = {};
+    for (const day of DAYS) {
+      const currentBlocks = weekStructure[day.key] || [];
+      // Adjust to blocksPerDay count
+      if (currentBlocks.length === blocksPerDay) {
+        result[day.key] = currentBlocks;
+      } else if (currentBlocks.length < blocksPerDay) {
+        // Add more blocks (default to first block type or 'lernblock')
+        const defaultType = currentBlocks[0] || 'lernblock';
+        result[day.key] = [
+          ...currentBlocks,
+          ...Array(blocksPerDay - currentBlocks.length).fill(defaultType),
+        ];
+      } else {
+        // Trim extra blocks
+        result[day.key] = currentBlocks.slice(0, blocksPerDay);
+      }
+    }
+    return result;
+  }, [weekStructure, blocksPerDay]);
 
-  const toggleDay = (dayKey) => {
+  // Update weekStructure if normalized version differs
+  React.useEffect(() => {
+    const needsUpdate = DAYS.some(day => {
+      const current = weekStructure[day.key];
+      const normalized = normalizedWeekStructure[day.key];
+      return !current || current.length !== normalized.length ||
+        current.some((b, i) => b !== normalized[i]);
+    });
+
+    if (needsUpdate) {
+      updateWizardData({ weekStructure: normalizedWeekStructure });
+    }
+  }, [normalizedWeekStructure, weekStructure, updateWizardData]);
+
+  const handleBlockChange = (dayKey, newBlocks) => {
     updateWizardData({
       weekStructure: {
         ...weekStructure,
-        [dayKey]: !weekStructure[dayKey],
+        [dayKey]: newBlocks,
       },
     });
   };
 
-  const selectPreset = (preset) => {
-    updateWizardData({ weekStructure: preset });
-  };
-
-  const presets = [
-    {
-      name: 'Werktage',
-      description: 'Mo - Fr',
-      structure: {
-        montag: true, dienstag: true, mittwoch: true,
-        donnerstag: true, freitag: true, samstag: false, sonntag: false,
-      },
-    },
-    {
-      name: 'Ganze Woche',
-      description: 'Mo - So',
-      structure: {
-        montag: true, dienstag: true, mittwoch: true,
-        donnerstag: true, freitag: true, samstag: true, sonntag: true,
-      },
-    },
-    {
-      name: 'Intensiv',
-      description: 'Mo - Sa',
-      structure: {
-        montag: true, dienstag: true, mittwoch: true,
-        donnerstag: true, freitag: true, samstag: true, sonntag: false,
-      },
-    },
-  ];
-
-  const selectedDaysCount = Object.values(weekStructure).filter(Boolean).length;
+  // Check if any day has incomplete configuration (all blocks should be set)
+  const hasIncompleteDay = DAYS.some(day => {
+    const blocks = normalizedWeekStructure[day.key];
+    return !blocks || blocks.length !== blocksPerDay;
+  });
 
   return (
     <div>
       <StepHeader
         step={5}
         title="Strukturiere deine Woche."
-        description="An welchen Wochentagen möchtest du lernen? Du kannst dies später jederzeit anpassen."
+        description="Definiere für jeden Wochentag, wie du deine Lernblöcke nutzen möchtest. Du kannst dies später jederzeit anpassen."
       />
 
-      <div className="space-y-6">
-        {/* Presets */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {presets.map((preset) => {
-            const isActive = JSON.stringify(weekStructure) === JSON.stringify(preset.structure);
-            return (
-              <button
-                key={preset.name}
-                onClick={() => selectPreset(preset.structure)}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  isActive
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <h4 className="font-semibold text-gray-900">{preset.name}</h4>
-                <p className="text-sm text-gray-500">{preset.description}</p>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Day selector */}
-        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-          <h4 className="text-sm font-medium text-gray-700 mb-4">
-            Oder wähle einzelne Tage:
-          </h4>
-          <div className="grid grid-cols-7 gap-2">
-            {days.map((day) => (
-              <button
+      <div className="space-y-7">
+        {/* Week grid - full width with 7 equal columns */}
+        <div className="p-2 sm:p-4 md:p-5 bg-white rounded-[10px] border border-gray-100 w-full">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-4">
+            {DAYS.map((day) => (
+              <DayColumn
                 key={day.key}
-                onClick={() => toggleDay(day.key)}
-                className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
-                  weekStructure[day.key]
-                    ? 'border-primary-500 bg-primary-100 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-                }`}
-              >
-                <span className="text-lg font-semibold">{day.label}</span>
-                <span className="text-xs hidden md:block">{day.fullLabel}</span>
-              </button>
+                day={day}
+                blocks={normalizedWeekStructure[day.key]}
+                onBlockChange={handleBlockChange}
+              />
             ))}
           </div>
         </div>
 
-        {/* Summary */}
-        <div className={`rounded-xl p-4 border flex gap-3 ${
-          selectedDaysCount > 0
-            ? 'bg-green-50 border-green-200'
-            : 'bg-red-50 border-red-200'
-        }`}>
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className={`flex-shrink-0 mt-0.5 ${
-              selectedDaysCount > 0 ? 'text-green-600' : 'text-red-600'
-            }`}
-          >
-            {selectedDaysCount > 0 ? (
-              <polyline points="20 6 9 17 4 12" />
-            ) : (
-              <>
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-              </>
-            )}
-          </svg>
-          <p className={`text-sm ${
-            selectedDaysCount > 0 ? 'text-green-700' : 'text-red-700'
-          }`}>
-            {selectedDaysCount > 0 ? (
-              <>
-                <span className="font-semibold">{selectedDaysCount} Lerntag{selectedDaysCount !== 1 ? 'e' : ''}</span> pro Woche ausgewählt.
-                {selectedDaysCount < 3 && ' Wir empfehlen mindestens 3 Lerntage pro Woche.'}
-              </>
-            ) : (
-              'Bitte wähle mindestens einen Lerntag aus.'
-            )}
-          </p>
+        {/* Info box: Feste und flexible Blöcke */}
+        <div className="max-w-[550px] mx-auto px-4 py-3 rounded-[10px] flex items-start gap-3">
+          <div className="pt-0.5 text-gray-900">
+            <InfoIcon />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-sm font-medium text-gray-900 leading-5">
+              Feste und flexible Blöcke
+            </h4>
+            <p className="text-sm font-normal text-gray-500 leading-5 mt-1">
+              Mit dem intelligenten Lernplan-Manager kannst du einzelne Termine oder ganze Lerntage verschieben. Sobald ein Tag einen festen Termin enthält, wird dieser fixiert und bleibt von Verschiebungen in der Umgebung unbeeinflusst. Feste Blöcke sind "Klausur" und "Frei".
+            </p>
+          </div>
         </div>
 
-        {/* Info */}
-        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 flex gap-3">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="text-blue-600 flex-shrink-0 mt-0.5"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <p className="text-sm text-blue-700">
-            Freie Tage werden automatisch als Erholungstage markiert.
-            Du kannst sie später bei Bedarf zum Lernen nutzen.
-          </p>
-        </div>
+        {/* Warning box (shown if incomplete) */}
+        {hasIncompleteDay && (
+          <div className="max-w-[550px] mx-auto px-4 py-3 bg-red-50 rounded-[10px] flex items-start gap-3">
+            <div className="pt-0.5 text-red-500">
+              <WarningIcon />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-red-500 leading-5">
+                Achtung
+              </h4>
+              <p className="text-sm font-normal text-red-500 leading-5">
+                Bitte wähle für jeden Tag einen Typ aus.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

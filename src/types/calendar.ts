@@ -5,7 +5,7 @@
 
 export type SlotStatus = "empty" | "topic" | "free";
 
-export type BlockType = "theme" | "repetition" | "exam" | "free" | "private";
+export type BlockType = "lernblock" | "repetition" | "exam" | "free" | "private";
 
 export interface Slot {
   // Identifikation

@@ -163,7 +163,7 @@ const ManageThemeBlockDialog = ({
     onSave(date, {
       ...block,
       title: title || selectedUnterrechtsgebiet?.name || 'Tagesthema',
-      blockType: 'theme',
+      blockType: 'lernblock',
       blockSize,
       description,
       rechtsgebiet: selectedRechtsgebiet,

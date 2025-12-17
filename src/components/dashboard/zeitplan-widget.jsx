@@ -3,11 +3,19 @@ import React, { useEffect, useState } from 'react';
 /**
  * ZeitplanWidget component
  * Displays today's schedule with timeline (8-16 hours)
+ * Now with Backend integration via callbacks
  *
- * Status: ✅ Fully implemented from Figma (Node-ID: 2175:1761)
+ * Status: Backend-connected
  */
-const ZeitplanWidget = ({ className = '', data }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
+const ZeitplanWidget = ({
+  className = '',
+  data,
+  onPreviousDay,
+  onNextDay,
+  onToggleTask,
+  onBlockClick,
+  onTimelineClick,
+}) => {
   const [blocks, setBlocks] = useState(data?.blocks || []);
 
   const baseStartHour = 8;
@@ -25,19 +33,25 @@ const ZeitplanWidget = ({ className = '', data }) => {
   const plannedDuration = blocks.reduce((sum, block) => sum + Number(block.duration || 0), 0);
   const plannedLabel = data?.plannedLabel || (plannedDuration > 0 ? `${plannedDuration.toFixed(1)}h geplant` : '');
 
-  const previousDay = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() - 1);
-    setCurrentDate(newDate);
+  const handlePreviousDay = () => {
+    if (onPreviousDay) {
+      onPreviousDay();
+    }
   };
 
-  const nextDay = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + 1);
-    setCurrentDate(newDate);
+  const handleNextDay = () => {
+    if (onNextDay) {
+      onNextDay();
+    }
   };
 
   const toggleTask = (blockIndex, taskId) => {
+    if (onToggleTask) {
+      onToggleTask(taskId);
+      return;
+    }
+
+    // Local fallback if no callback provided
     setBlocks(blocks.map((block, idx) => {
       if (idx !== blockIndex) return block;
       const tasks = (block.tasks || []).map((task) =>
@@ -57,33 +71,41 @@ const ZeitplanWidget = ({ className = '', data }) => {
     };
   };
 
+  // Current time indicator
+  const currentHour = new Date().getHours();
+  const currentMinute = new Date().getMinutes();
+  const isInRange = currentHour >= baseStartHour && currentHour < baseStartHour + hourSpan;
+  const currentTimePosition = isInRange
+    ? ((currentHour - baseStartHour + currentMinute / 60) / hourSpan) * 100
+    : null;
+
   return (
     <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h2 className="text-base font-semibold text-gray-900">Zeitplan für heute</h2>
-              {plannedLabel ? (
-                <span className="inline-flex items-center px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700">
-                  {plannedLabel}
-                </span>
-              ) : null}
-            </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-semibold text-gray-900">Zeitplan für heute</h2>
+            {plannedLabel ? (
+              <span className="inline-flex items-center px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700">
+                {plannedLabel}
+              </span>
+            ) : null}
+          </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={previousDay}
+              onClick={handlePreviousDay}
               className="h-8 w-8 flex items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-              aria-label="Previous day"
+              aria-label="Vorheriger Tag"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
             <button
-              onClick={nextDay}
+              onClick={handleNextDay}
               className="h-8 w-8 flex items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-              aria-label="Next day"
+              aria-label="Nächster Tag"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 6l6 6-6 6" />
@@ -108,29 +130,54 @@ const ZeitplanWidget = ({ className = '', data }) => {
             ))}
           </div>
 
-          {/* Scheduled Blocks */}
-          <div className="absolute top-0 left-12 right-0 bottom-0">
+          {/* Current Time Indicator */}
+          {currentTimePosition !== null && (
+            <div
+              className="absolute left-0 right-0 z-10 pointer-events-none"
+              style={{ top: `${currentTimePosition}%` }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-8 text-xs font-bold text-red-500 text-right">
+                  {currentHour}:{currentMinute.toString().padStart(2, '0')}
+                </span>
+                <div className="flex-1 border-t-2 border-red-500"></div>
+              </div>
+            </div>
+          )}
+
+          {/* Clickable Timeline Area - Opens add dialog when clicked */}
+          <div
+            className="absolute top-0 left-12 right-0 bottom-0 cursor-pointer"
+            onClick={(e) => {
+              // Only trigger if clicking on empty area, not on a block
+              if (e.target === e.currentTarget && onTimelineClick) {
+                onTimelineClick();
+              }
+            }}
+          >
+            {/* Scheduled Blocks */}
             {scheduledBlocks.map((block, index) => {
               const isBlocked = block.isBlocked;
               const tasksForBlock = block.tasks || [];
 
               return (
                 <div
-                  key={index}
-                  className="absolute"
+                  key={block.id || index}
+                  className="absolute cursor-pointer"
                   style={{
                     ...getBlockStyle(block.startHour, block.duration),
                     left: `${blockOffset}px`,
                     width: `${blockWidth}px`,
                   }}
+                  onClick={() => onBlockClick && onBlockClick(block)}
                 >
                   {isBlocked ? (
-                    <div className="relative h-full w-full bg-gray-100 rounded border border-gray-200 text-gray-500 text-sm flex items-center px-4">
+                    <div className="relative h-full w-full bg-gray-100 rounded border border-gray-200 text-gray-500 text-sm flex items-center px-4 hover:bg-gray-200 transition-colors">
                       {block.title || ''}
                       <span className="absolute left-[-16px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-gray-400 bg-white"></span>
                     </div>
                   ) : (
-                    <div className="relative h-full w-full rounded border border-gray-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-4 flex flex-col gap-3">
+                    <div className="relative h-full w-full rounded border border-gray-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-4 flex flex-col gap-3 hover:shadow-md hover:border-gray-300 transition-all">
                       <span className="absolute left-[-16px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-gray-700 bg-white"></span>
                       <div className="flex items-start gap-3">
                         <div className="flex flex-col gap-2 min-w-0">
@@ -175,13 +222,8 @@ const ZeitplanWidget = ({ className = '', data }) => {
                 </div>
               );
             })}
-
-            {/* Current Time Indicator */}
-            {/* Current Time Indicator intentionally omitted to match static Figma view */}
           </div>
         </div>
-
-        {/* Figma-Version: kein Add-Formular im Widget */}
       </div>
     </div>
   );

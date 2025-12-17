@@ -1,192 +1,151 @@
-import React from 'react';
 import { useWizard } from '../context/wizard-context';
-import StepHeader from '../components/step-header';
+import { allTemplates } from '../../../data/templates';
+import { Check, ChevronRight } from 'lucide-react';
 
 /**
  * Step 7 - Template Path: Select a predefined template
  * User selects from available learning plan templates
  * Based on Figma: Schritt_7_Alt_3_body
+ * Templates from: agent3 repository (6 templates for Jura exam preparation)
  */
 const Step7Template = () => {
   const { selectedTemplate, updateWizardData } = useWizard();
 
-  // Sample templates - in production these would come from API
-  const templates = [
-    {
-      id: 'examen-standard',
-      title: 'Examen Standard (12 Monate)',
-      description: 'Klassischer Examensvorbereitungsplan mit allen drei Rechtsgebieten. Ideal für Vollzeit-Vorbereitung.',
-      duration: '12 Monate',
-      difficulty: 'Mittel',
-      rechtsgebiete: ['Zivilrecht', 'Öffentliches Recht', 'Strafrecht'],
-      highlights: [
-        'Systematische Grundlagenphase',
-        'Integrierte Wiederholungszyklen',
-        'Klausurtraining ab Monat 6',
-      ],
-      popular: true,
-    },
-    {
-      id: 'examen-intensiv',
-      title: 'Examen Intensiv (6 Monate)',
-      description: 'Komprimierter Vorbereitungsplan für erfahrene Lernende. Höherer Tagesaufwand.',
-      duration: '6 Monate',
-      difficulty: 'Hoch',
-      rechtsgebiete: ['Zivilrecht', 'Öffentliches Recht', 'Strafrecht'],
-      highlights: [
-        'Kompakte Grundlagen',
-        'Früher Klausurfokus',
-        'Tägliche Wiederholung',
-      ],
-      popular: false,
-    },
-    {
-      id: 'zivilrecht-fokus',
-      title: 'Zivilrecht Fokus',
-      description: 'Spezialisierter Plan für das Zivilrecht. Perfekt als Ergänzung oder bei Schwächen.',
-      duration: '3 Monate',
-      difficulty: 'Mittel',
-      rechtsgebiete: ['Zivilrecht'],
-      highlights: [
-        'BGB AT bis SchuldR',
-        'SachenR und FamErbR',
-        'Klausurtechnik ZR',
-      ],
-      popular: false,
-    },
-    {
-      id: 'strafrecht-fokus',
-      title: 'Strafrecht Fokus',
-      description: 'Spezialisierter Plan für das Strafrecht. Alle wichtigen AT- und BT-Themen.',
-      duration: '2 Monate',
-      difficulty: 'Mittel',
-      rechtsgebiete: ['Strafrecht'],
-      highlights: [
-        'Aufbau und Prüfungsschemata',
-        'Wichtige BT-Delikte',
-        'Klausurtechnik StR',
-      ],
-      popular: false,
-    },
-  ];
+  // Calculate template statistics
+  const getTemplateStats = (template) => {
+    const unterrechtsgebiete = new Set();
+    template.content.forEach(item => {
+      unterrechtsgebiete.add(item.unterrechtsgebiet);
+    });
 
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty) {
-      case 'Leicht': return 'bg-green-100 text-green-700';
-      case 'Mittel': return 'bg-yellow-100 text-yellow-700';
-      case 'Hoch': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
+    const themenCount = template.content.length;
+
+    // Calculate weight per Rechtsgebiet
+    const rechtsgebietCounts = {};
+    template.content.forEach(item => {
+      rechtsgebietCounts[item.rechtsgebiet] = (rechtsgebietCounts[item.rechtsgebiet] || 0) + 1;
+    });
+
+    const weights = Object.entries(rechtsgebietCounts).map(([name, count]) => ({
+      name,
+      percentage: Math.round((count / themenCount) * 100)
+    }));
+
+    return {
+      unterrechtsgebieteCount: unterrechtsgebiete.size,
+      themenCount,
+      weights
+    };
+  };
+
+  const handleSelect = (templateId) => {
+    updateWizardData({ selectedTemplate: templateId });
   };
 
   return (
     <div>
-      <StepHeader
-        step={7}
-        title="Wähle einen Lernplan aus."
-        description="Unten siehst du unsere Auswahl an Lernplänen, die wir stets erweitern."
-      />
-
-      <div className="space-y-4">
-        {templates.map((template) => (
-          <button
-            key={template.id}
-            onClick={() => updateWizardData({ selectedTemplate: template.id })}
-            className={`w-full p-6 rounded-xl border-2 text-left transition-all relative ${
-              selectedTemplate === template.id
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}
-          >
-            {/* Popular badge */}
-            {template.popular && (
-              <span className="absolute top-4 right-4 px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-700 rounded-full">
-                Beliebt
-              </span>
-            )}
-
-            <div className="flex flex-col md:flex-row md:items-start gap-4">
-              {/* Main content */}
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-20">
-                  {template.title}
-                </h3>
-                <p className="text-sm text-gray-500 mb-3">
-                  {template.description}
-                </p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded">
-                    {template.duration}
-                  </span>
-                  <span className={`px-2 py-1 text-xs font-medium rounded ${getDifficultyColor(template.difficulty)}`}>
-                    {template.difficulty}
-                  </span>
-                  {template.rechtsgebiete.map((rg) => (
-                    <span key={rg} className="px-2 py-1 text-xs font-medium bg-primary-100 text-primary-700 rounded">
-                      {rg}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Highlights */}
-                <ul className="flex flex-wrap gap-x-4 gap-y-1">
-                  {template.highlights.map((highlight, i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className="text-green-500"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      {highlight}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Selection indicator */}
-              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                selectedTemplate === template.id
-                  ? 'border-primary-500 bg-primary-500'
-                  : 'border-gray-300'
-              }`}>
-                {selectedTemplate === template.id && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </div>
-            </div>
-          </button>
-        ))}
+      {/* Header */}
+      <div className="w-full flex flex-col items-center gap-2.5 mb-8">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500 text-xl font-medium leading-7">Schritt 7</span>
+        </div>
+        <div className="w-full py-[5px] flex justify-center items-center">
+          <h1 className="text-center text-gray-900 text-3xl md:text-5xl font-extralight leading-tight md:leading-[48px]">
+            Wähle einen Lernplan aus.
+          </h1>
+        </div>
+        <p className="w-full max-w-[900px] text-center text-gray-500 text-sm font-light leading-5">
+          Unten siehst du unsere Auswahl an Lernplänen, die wir stets erweitern.
+        </p>
       </div>
 
-      {/* Info */}
-      <div className="mt-6 bg-blue-50 rounded-xl p-4 border border-blue-200 flex gap-3">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="text-blue-600 flex-shrink-0 mt-0.5"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-        <p className="text-sm text-blue-700">
-          Die Vorlage wird an deinen Lernzeitraum und deine Wochenstruktur angepasst.
-          Du kannst den Plan nach der Erstellung weiter individualisieren.
-        </p>
+      {/* Template Cards */}
+      <div className="w-full flex flex-col gap-2.5 overflow-hidden">
+        {allTemplates.map((template) => {
+          const stats = getTemplateStats(template);
+          const isSelected = selectedTemplate === template.id;
+
+          return (
+            <div
+              key={template.id}
+              className="w-full bg-white rounded-[5px] border border-neutral-200 flex flex-col lg:flex-row overflow-hidden"
+            >
+              {/* Left Section - Info */}
+              <div className="p-6 flex flex-col gap-4 flex-1">
+                {/* Badges */}
+                <div className="flex flex-wrap gap-4">
+                  <div className="px-2 py-0.5 bg-gray-100 rounded-lg flex items-center">
+                    <span className="text-gray-600 text-xs font-semibold leading-4">
+                      {stats.unterrechtsgebieteCount} Unterrechtsgebiete
+                    </span>
+                  </div>
+                  <div className="px-2 py-0.5 bg-gray-100 rounded-lg flex items-center">
+                    <span className="text-gray-600 text-xs font-semibold leading-4">
+                      {stats.themenCount} Themen
+                    </span>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div className="w-full max-w-[384px]">
+                  <h3 className="text-gray-900 text-2xl font-extralight leading-6">
+                    {template.title}
+                  </h3>
+                </div>
+
+                {/* Description */}
+                <p className="w-full max-w-[487px] text-gray-400 text-sm font-normal leading-5">
+                  {template.description}
+                </p>
+              </div>
+
+              {/* Middle Section - Weights */}
+              <div className="px-6 py-6 lg:py-10 flex flex-col gap-4">
+                <div className="flex flex-col gap-[5px]">
+                  <span className="text-gray-900 text-sm font-medium leading-5">
+                    Gewichtung der Themenblöcke
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2.5">
+                  {stats.weights.map((weight) => (
+                    <div
+                      key={weight.name}
+                      className="p-4 rounded-lg border border-gray-200 flex flex-col gap-1"
+                    >
+                      <span className="text-gray-900 text-sm font-medium leading-4">
+                        {weight.percentage} %
+                      </span>
+                      <span className="text-gray-500 text-sm font-normal leading-5 line-clamp-2">
+                        {weight.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Section - Button */}
+              <div className="px-6 py-6 lg:py-10 flex flex-col justify-end items-end">
+                <button
+                  onClick={() => handleSelect(template.id)}
+                  className={`px-5 py-2.5 rounded-3xl flex items-center gap-2 transition-all ${
+                    isSelected
+                      ? 'bg-slate-600 text-white'
+                      : 'bg-white border border-gray-300 text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-sm font-light leading-5">
+                    {isSelected ? 'Ausgewählt' : 'Auswählen'}
+                  </span>
+                  {isSelected ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

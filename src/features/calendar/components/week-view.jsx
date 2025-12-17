@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import WeekViewHeader from './week-view-header';
 import WeekGrid from './week-grid';
 import AddThemeDialog from './add-theme-dialog';
@@ -10,19 +10,28 @@ import ManageThemeBlockDialog from './manage-theme-block-dialog';
 import ManageRepetitionBlockDialog from './manage-repetition-block-dialog';
 import ManageExamBlockDialog from './manage-exam-block-dialog';
 import ManagePrivateBlockDialog from './manage-private-block-dialog';
+import { useCalendar } from '../../../contexts/calendar-context';
+import { slotsToLearningBlocks } from '../../../utils/slotUtils';
 
 /**
  * WeekView component
  * Weekly calendar view for exam mode
  * Displays week schedule with time-based blocks
+ *
+ * Data flow: CalendarContext (slotsByDate + privateBlocksByDate) → WeekView
  */
 const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const [currentDate, setCurrentDate] = useState(initialDate);
 
-  // State for blocks (learning blocks with times)
-  const [blocks, setBlocks] = useState([]);
-  // State for private blocks
-  const [privateBlocks, setPrivateBlocks] = useState([]);
+  // Get data from CalendarContext (Single Source of Truth)
+  const {
+    slotsByDate,
+    privateBlocksByDate,
+    updateDaySlots,
+    addPrivateBlock,
+    updatePrivateBlock,
+    deletePrivateBlock,
+  } = useCalendar();
 
   // Dialog states
   const [selectedBlock, setSelectedBlock] = useState(null);
@@ -44,75 +53,94 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const [isManageExamOpen, setIsManageExamOpen] = useState(false);
   const [isManagePrivateOpen, setIsManagePrivateOpen] = useState(false);
 
-  // Initialize with sample data for testing
-  useEffect(() => {
-    const today = new Date();
-    const formatDate = (d) => d.toISOString().split('T')[0];
+  // Helper: Get week date range (Monday to Sunday)
+  const getWeekDateRange = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+    const monday = new Date(d.setDate(diff));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { monday, sunday };
+  };
 
-    // Sample learning blocks with times
-    const sampleBlocks = [
-      {
-        id: 'block-1',
-        title: 'Vertragsrecht',
-        blockType: 'theme',
-        blockSize: 2,
-        startDate: formatDate(today),
-        startTime: '09:00',
-        endTime: '11:00',
-        isMultiDay: false
-      },
-      {
-        id: 'block-2',
-        title: 'Wiederholung BGB AT',
-        blockType: 'repetition',
-        blockSize: 1,
-        startDate: formatDate(today),
-        startTime: '14:00',
-        endTime: '15:30',
-        isMultiDay: false
-      },
-      {
-        id: 'block-3',
-        title: 'Probeklausur 1',
-        blockType: 'exam',
-        blockSize: 3,
-        startDate: formatDate(new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000)),
-        startTime: '08:00',
-        endTime: '12:00',
-        isMultiDay: false
-      }
-    ];
+  // Helper: Format date to YYYY-MM-DD
+  const formatDateKey = (date) => {
+    return date.toISOString().split('T')[0];
+  };
 
-    // Sample private blocks
-    const samplePrivate = [
-      {
-        id: 'private-1',
-        title: 'Arzttermin',
-        blockType: 'private',
-        blockSize: 1,
-        startDate: formatDate(new Date(today.getTime() + 1 * 24 * 60 * 60 * 1000)),
-        startTime: '10:00',
-        endTime: '11:00',
-        isMultiDay: false,
-        description: 'Zahnarzt'
-      },
-      {
-        id: 'private-2',
-        title: 'Urlaub',
-        blockType: 'private',
-        blockSize: 1,
-        startDate: formatDate(new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)),
-        endDate: formatDate(new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000)),
-        startTime: '00:00',
-        endTime: '23:59',
-        isMultiDay: true,
-        description: 'Kurzurlaub'
-      }
-    ];
+  // Helper: Get position-based time slots
+  const getTimeForPosition = (position) => {
+    const timeSlots = {
+      1: { startTime: '08:00', endTime: '10:00' },
+      2: { startTime: '10:00', endTime: '12:00' },
+      3: { startTime: '14:00', endTime: '16:00' },
+    };
+    return timeSlots[position] || { startTime: '08:00', endTime: '10:00' };
+  };
 
-    setBlocks(sampleBlocks);
-    setPrivateBlocks(samplePrivate);
-  }, []);
+  // Transform CalendarContext slots to week view format
+  const blocks = useMemo(() => {
+    const { monday, sunday } = getWeekDateRange(currentDate);
+    const weekBlocks = [];
+
+    // Iterate through each day of the week
+    for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
+      const dateKey = formatDateKey(d);
+      const daySlots = slotsByDate[dateKey] || [];
+
+      // Convert slots to learning blocks for this day
+      const learningBlocks = slotsToLearningBlocks(daySlots);
+
+      // Transform to week view format with times
+      learningBlocks.forEach(block => {
+        if (block.isAddButton) return; // Skip add buttons
+
+        // Find the original slot to get position
+        const originalSlot = daySlots.find(s => s.topicId === block.id);
+        const position = originalSlot?.position || 1;
+        const { startTime, endTime } = getTimeForPosition(position);
+
+        weekBlocks.push({
+          id: block.id,
+          title: block.title,
+          blockType: block.blockType || 'lernblock',
+          blockSize: block.blockSize || 1,
+          startDate: dateKey,
+          startTime,
+          endTime,
+          isMultiDay: false,
+          description: block.description || '',
+          rechtsgebiet: block.rechtsgebiet,
+          unterrechtsgebiet: block.unterrechtsgebiet,
+        });
+      });
+    }
+
+    return weekBlocks;
+  }, [currentDate, slotsByDate]);
+
+  // Transform CalendarContext private blocks to week view format
+  const privateBlocks = useMemo(() => {
+    const { monday, sunday } = getWeekDateRange(currentDate);
+    const weekPrivateBlocks = [];
+
+    // Iterate through each day of the week
+    for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
+      const dateKey = formatDateKey(d);
+      const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+
+      dayPrivateBlocks.forEach(block => {
+        weekPrivateBlocks.push({
+          ...block,
+          startDate: dateKey,
+          blockType: 'private',
+        });
+      });
+    }
+
+    return weekPrivateBlocks;
+  }, [currentDate, privateBlocksByDate]);
 
   // Get week number - returns "Kalenderwoche X" format
   const getWeekNumber = (date) => {
@@ -149,7 +177,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     setSelectedDate(date);
 
     switch (block.blockType) {
-      case 'theme':
+      case 'lernblock':
         setIsManageThemeOpen(true);
         break;
       case 'repetition':
@@ -177,7 +205,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const handleSelectBlockType = (type) => {
     setIsAddDialogOpen(false);
     switch (type) {
-      case 'theme':
+      case 'lernblock':
         setIsCreateThemeOpen(true);
         break;
       case 'repetition':
@@ -194,55 +222,127 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
   };
 
-  // Update a block
-  const handleUpdateBlock = (_date, updatedBlock) => {
+  // Update a block - uses CalendarContext
+  const handleUpdateBlock = (date, updatedBlock) => {
+    const dateKey = date ? formatDateKey(date) : updatedBlock.startDate;
+
     if (updatedBlock.blockType === 'private') {
-      setPrivateBlocks(prev =>
-        prev.map(b => b.id === updatedBlock.id ? updatedBlock : b)
-      );
+      // Update private block in CalendarContext
+      updatePrivateBlock(dateKey, updatedBlock.id, updatedBlock);
     } else {
-      setBlocks(prev =>
-        prev.map(b => b.id === updatedBlock.id ? updatedBlock : b)
-      );
+      // Update learning block in CalendarContext (update the slot)
+      const daySlots = slotsByDate[dateKey] || [];
+      const updatedSlots = daySlots.map(slot => {
+        if (slot.topicId === updatedBlock.id) {
+          return {
+            ...slot,
+            topicTitle: updatedBlock.title,
+            blockType: updatedBlock.blockType,
+            description: updatedBlock.description,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return slot;
+      });
+      updateDaySlots(dateKey, updatedSlots);
     }
   };
 
-  // Delete a block
-  const handleDeleteBlock = (_date, blockId) => {
-    // Check in private blocks first
-    const isPrivate = privateBlocks.some(b => b.id === blockId);
+  // Delete a block - uses CalendarContext
+  const handleDeleteBlock = (date, blockId) => {
+    const dateKey = date ? formatDateKey(date) : null;
+    if (!dateKey) return;
+
+    // Check if it's a private block
+    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
+
     if (isPrivate) {
-      setPrivateBlocks(prev => prev.filter(b => b.id !== blockId));
+      deletePrivateBlock(dateKey, blockId);
     } else {
-      setBlocks(prev => prev.filter(b => b.id !== blockId));
+      // Delete learning block by clearing the slot
+      const daySlots = slotsByDate[dateKey] || [];
+      const updatedSlots = daySlots.map(slot => {
+        if (slot.topicId === blockId) {
+          return {
+            ...slot,
+            status: 'empty',
+            topicId: null,
+            topicTitle: null,
+            blockType: null,
+            description: null,
+          };
+        }
+        return slot;
+      });
+      updateDaySlots(dateKey, updatedSlots);
     }
   };
 
-  // Add a new learning block (theme, repetition, exam, free)
+  // Add a new learning block - uses CalendarContext
   const handleAddBlock = (_date, blockData) => {
-    // Add time properties based on selected time slot
-    const blockWithTime = {
-      ...blockData,
-      startDate: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      startTime: selectedTime || '09:00',
-      endTime: calculateEndTime(selectedTime || '09:00', blockData.blockSize || 1),
-      isMultiDay: false
+    const dateKey = selectedDate ? formatDateKey(selectedDate) : new Date().toISOString().split('T')[0];
+
+    // Get or create day slots
+    const daySlots = slotsByDate[dateKey] || [];
+
+    // Find next available position
+    const usedPositions = daySlots.filter(s => s.status === 'topic').map(s => s.position);
+    let nextPosition = 1;
+    while (usedPositions.includes(nextPosition) && nextPosition <= 3) {
+      nextPosition++;
+    }
+
+    if (nextPosition > 3) {
+      console.warn('No available slots for this day');
+      return;
+    }
+
+    // Create new slot
+    const newSlot = {
+      id: `slot-${dateKey}-${nextPosition}`,
+      date: dateKey,
+      position: nextPosition,
+      status: 'topic',
+      topicId: blockData.id || `topic-${Date.now()}`,
+      topicTitle: blockData.title,
+      blockType: blockData.blockType || 'lernblock',
+      description: blockData.description || '',
+      rechtsgebiet: blockData.rechtsgebiet,
+      unterrechtsgebiet: blockData.unterrechtsgebiet,
+      createdAt: new Date().toISOString(),
     };
-    setBlocks(prev => [...prev, blockWithTime]);
+
+    // Update slots
+    const existingSlotIndex = daySlots.findIndex(s => s.position === nextPosition);
+    let updatedSlots;
+    if (existingSlotIndex >= 0) {
+      updatedSlots = [...daySlots];
+      updatedSlots[existingSlotIndex] = newSlot;
+    } else {
+      updatedSlots = [...daySlots, newSlot];
+    }
+
+    updateDaySlots(dateKey, updatedSlots);
   };
 
-  // Calculate end time based on start time and block size (1 slot = 1.5 hours)
+  // Calculate end time based on start time and block size (1 slot = 2 hours)
   const calculateEndTime = (startTime, blockSize) => {
     const [hours, minutes] = startTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes + (blockSize * 90); // 1.5 hours per slot
+    const totalMinutes = hours * 60 + minutes + (blockSize * 120); // 2 hours per slot
     const endHours = Math.floor(totalMinutes / 60) % 24;
     const endMins = totalMinutes % 60;
     return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
   };
 
-  // Add a new private block
+  // Add a new private block - uses CalendarContext
   const handleAddPrivateBlock = (_date, blockData) => {
-    setPrivateBlocks(prev => [...prev, blockData]);
+    const dateKey = selectedDate ? formatDateKey(selectedDate) : new Date().toISOString().split('T')[0];
+    addPrivateBlock(dateKey, {
+      ...blockData,
+      startTime: blockData.startTime || selectedTime || '09:00',
+      endTime: blockData.endTime || calculateEndTime(selectedTime || '09:00', blockData.blockSize || 1),
+    });
   };
 
   return (

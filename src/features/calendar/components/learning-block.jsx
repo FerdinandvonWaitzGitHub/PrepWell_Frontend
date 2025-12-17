@@ -46,14 +46,15 @@ const LearningBlock = ({
     );
   }
 
-  // Determine background color based on block type
+  // Determine background color based on block type (English keys)
   const getBackgroundColor = () => {
     switch (blockType.toLowerCase()) {
-      case 'klausur':
+      case 'exam':
         return 'bg-blue-50 border-blue-100';
-      case 'frei':
+      case 'free':
+      case 'private':
         return 'bg-gray-50 border-gray-200';
-      case 'wiederholung':
+      case 'repetition':
         return 'bg-primary-50 border-primary-100';
       default:
         return 'bg-primary-50 border-primary-100';
@@ -62,7 +63,7 @@ const LearningBlock = ({
 
   // Get display name based on block type
   const getDisplayName = () => {
-    if (blockType === 'theme' && unterrechtsgebiet?.name) {
+    if (blockType === 'lernblock' && unterrechtsgebiet?.name) {
       return unterrechtsgebiet.name;
     }
     // For other block types, use title or fallback
@@ -77,7 +78,7 @@ const LearningBlock = ({
       </div>
 
       {/* Optional title (only for theme blocks with unterrechtsgebiet AND custom title) */}
-      {blockType === 'theme' && unterrechtsgebiet?.name && title && title !== unterrechtsgebiet.name && (
+      {blockType === 'lernblock' && unterrechtsgebiet?.name && title && title !== unterrechtsgebiet.name && (
         <div className="bg-gray-50 rounded px-2 py-0.5">
           <p className="text-xs font-light text-gray-500">{title}</p>
         </div>

@@ -9,6 +9,7 @@ import StepHeader from '../components/step-header';
  */
 const Step10Anpassungen = () => {
   const {
+    currentStep,
     startDate,
     endDate,
     bufferDays,
@@ -22,6 +23,23 @@ const Step10Anpassungen = () => {
     goToStep,
   } = useWizard();
 
+  // Calculate correct step numbers based on creation method
+  const getLerntagStep = () => {
+    switch (creationMethod) {
+      case 'template':
+        return 8; // Template path: Lerntage at step 8
+      case 'manual':
+        return null; // Manual path doesn't have Lerntage step
+      default:
+        return 9; // Automatic path: Lerntage at step 9
+    }
+  };
+
+  const getUnterrechtsgebieteStep = () => {
+    // Only automatic path has Unterrechtsgebiete step
+    return creationMethod === 'automatic' ? 8 : null;
+  };
+
   // Format date for display
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -33,9 +51,9 @@ const Step10Anpassungen = () => {
     });
   };
 
-  // Get active days
+  // Get active days (days with at least one 'lernblock')
   const activeDays = Object.entries(weekStructure)
-    .filter(([_, active]) => active)
+    .filter(([_, blocks]) => Array.isArray(blocks) && blocks.some(b => b === 'lernblock'))
     .map(([day]) => day.charAt(0).toUpperCase() + day.slice(1, 2))
     .join(', ');
 
@@ -95,7 +113,7 @@ const Step10Anpassungen = () => {
   return (
     <div>
       <StepHeader
-        step={10}
+        step={currentStep}
         title="Nehme, falls nötig, Anpassungen vor."
         description="Überprüfe deine Einstellungen. Klicke auf 'Bearbeiten', um Änderungen vorzunehmen."
       />
@@ -128,13 +146,13 @@ const Step10Anpassungen = () => {
           </div>
         ))}
 
-        {/* Unterrechtsgebiete summary */}
-        {unterrechtsgebieteOrder.length > 0 && (
+        {/* Unterrechtsgebiete summary - only for automatic path */}
+        {getUnterrechtsgebieteStep() && unterrechtsgebieteOrder.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
               <h4 className="font-semibold text-gray-900">Unterrechtsgebiete</h4>
               <button
-                onClick={() => goToStep(8)}
+                onClick={() => goToStep(getUnterrechtsgebieteStep())}
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"
               >
                 Bearbeiten
@@ -161,13 +179,13 @@ const Step10Anpassungen = () => {
           </div>
         )}
 
-        {/* Lerntage summary */}
-        {learningDaysOrder.length > 0 && (
+        {/* Lerntage summary - for template and automatic paths */}
+        {getLerntagStep() && learningDaysOrder.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
               <h4 className="font-semibold text-gray-900">Lerntage</h4>
               <button
-                onClick={() => goToStep(9)}
+                onClick={() => goToStep(getLerntagStep())}
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"
               >
                 Bearbeiten

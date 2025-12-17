@@ -55,7 +55,7 @@ const DayManagementDialog = ({
     setSelectedBlock(block);
 
     switch (block.blockType) {
-      case 'theme':
+      case 'lernblock':
         setIsManageThemeBlockOpen(true);
         break;
       case 'repetition':

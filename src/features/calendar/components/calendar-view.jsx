@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import CalendarHeader from './calendar-header';
 import CalendarGrid from './calendar-grid';
 import DayManagementDialog from './day-management-dialog';
@@ -7,6 +7,7 @@ import CreateThemeBlockDialog from './create-theme-block-dialog';
 import CreateRepetitionBlockDialog from './create-repetition-block-dialog';
 import CreateExamBlockDialog from './create-exam-block-dialog';
 import CreatePrivateBlockDialog from './create-private-block-dialog';
+import { useCalendar } from '../../../contexts/calendar-context';
 import {
   createDaySlots,
   createEmptySlot,
@@ -36,9 +37,14 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
   const [isCreatePrivateDialogOpen, setIsCreatePrivateDialogOpen] = useState(false);
   const [selectedBlockDay, setSelectedBlockDay] = useState(null);
 
-  // State for storing slots by date (Slot-based system)
-  // Format: { 'YYYY-MM-DD': [Slot, Slot, Slot] } - always 3 slots per day
-  const [slotsByDate, setSlotsByDate] = useState({});
+  // Use CalendarContext for shared calendar data
+  // This data comes from the wizard Step 8 and persists in localStorage
+  const {
+    slotsByDate,
+    updateDaySlots: updateContextDaySlots,
+    lernplanMetadata,
+    hasActiveLernplan
+  } = useCalendar();
 
   // Update an existing learning block
   const handleUpdateBlock = (date, updatedBlockData) => {
@@ -89,10 +95,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
 
       updatedSlots = updateDaySlots(updatedSlots, topicSlots);
 
-      setSlotsByDate(prev => ({
-        ...prev,
-        [dateKey]: updatedSlots
-      }));
+      // Save to CalendarContext (persists to localStorage)
+      updateContextDaySlots(dateKey, updatedSlots);
     } else {
       // Size unchanged, just update the data in existing slots
       const updatedSlots = currentSlots.map(slot => {
@@ -109,10 +113,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         return slot;
       });
 
-      setSlotsByDate(prev => ({
-        ...prev,
-        [dateKey]: updatedSlots
-      }));
+      // Save to CalendarContext (persists to localStorage)
+      updateContextDaySlots(dateKey, updatedSlots);
     }
   };
 
@@ -131,10 +133,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
       return slot;
     });
 
-    setSlotsByDate(prev => ({
-      ...prev,
-      [dateKey]: updatedSlots
-    }));
+    // Save to CalendarContext (persists to localStorage)
+    updateContextDaySlots(dateKey, updatedSlots);
   };
 
   // Add a learning block to a specific date (Slot-based)
@@ -175,84 +175,13 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     // Update day slots
     const updatedSlots = updateDaySlots(currentSlots, topicSlots);
 
-    // Save to state
-    setSlotsByDate(prev => ({
-      ...prev,
-      [dateKey]: updatedSlots
-    }));
+    // Save to CalendarContext (persists to localStorage)
+    updateContextDaySlots(dateKey, updatedSlots);
   };
 
-  // Initialize with sample slot data for testing
-  useEffect(() => {
-    const sampleSlots = {};
-    const year = new Date().getFullYear();
-    const month = new Date().getMonth();
-
-    // Day 2: 2-slot theme block + 1-slot theme block (3/3 slots full)
-    const date2 = new Date(year, month, 2);
-    const date2Slots = createDaySlots(date2);
-    const date2Topic1 = createTopicSlots(date2, [1, 2], {
-      id: 'sample-1',
-      title: 'Vertragsrecht',
-      blockType: 'theme',
-      progress: '3/3'
-    });
-    const date2Topic2 = createTopicSlots(date2, [3], {
-      id: 'sample-2',
-      title: 'Strafrecht',
-      blockType: 'theme',
-      progress: '2/3'
-    });
-    sampleSlots[formatDateKey(date2)] = updateDaySlots(
-      updateDaySlots(date2Slots, date2Topic1),
-      date2Topic2
-    );
-
-    // Day 5: 2-slot repetition block (1 slot free)
-    const date5 = new Date(year, month, 5);
-    const date5Slots = createDaySlots(date5);
-    const date5Topic = createTopicSlots(date5, [1, 2], {
-      id: 'sample-3',
-      title: 'Wiederholung BGB AT',
-      blockType: 'repetition',
-      progress: '2/5'
-    });
-    sampleSlots[formatDateKey(date5)] = updateDaySlots(date5Slots, date5Topic);
-
-    // Day 10: 3-slot exam block (full day)
-    const date10 = new Date(year, month, 10);
-    const date10Slots = createDaySlots(date10);
-    const date10Topic = createTopicSlots(date10, [1, 2, 3], {
-      id: 'sample-4',
-      title: 'Probeklausur 1',
-      blockType: 'exam',
-      progress: '0/1'
-    });
-    sampleSlots[formatDateKey(date10)] = updateDaySlots(date10Slots, date10Topic);
-
-    // Day 6 & 7: All slots marked as free (3/3 slots)
-    const date6 = new Date(year, month, 6);
-    const date6Slots = createDaySlots(date6);
-    const date6Free = createTopicSlots(date6, [1, 2, 3], {
-      id: 'sample-5',
-      title: 'Wochenende',
-      blockType: 'free',
-      progress: '1/1'
-    });
-    sampleSlots[formatDateKey(date6)] = updateDaySlots(date6Slots, date6Free);
-
-    const date7 = new Date(year, month, 7);
-    const date7Slots = createDaySlots(date7);
-    const date7Free = createTopicSlots(date7, [1, 2, 3], {
-      id: 'sample-6',
-      title: 'Wochenende',
-      blockType: 'free',
-      progress: '1/1'
-    });
-    sampleSlots[formatDateKey(date7)] = updateDaySlots(date7Slots, date7Free);
-
-    setSlotsByDate(sampleSlots);
-  }, []); // Run once on mount
+  // Note: Calendar data now comes from CalendarContext
+  // The data is populated when the user completes the Lernplan Wizard (Step 8)
+  // No sample data initialization needed anymore
 
   // Get month and year
   const getMonthYear = (date) => {
@@ -454,7 +383,7 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
           setSelectedBlockDay(selectedAddDay);
 
           switch(type) {
-            case 'theme':
+            case 'lernblock':
               setSelectedThemeDay(selectedAddDay);
               setIsCreateThemeDialogOpen(true);
               break;

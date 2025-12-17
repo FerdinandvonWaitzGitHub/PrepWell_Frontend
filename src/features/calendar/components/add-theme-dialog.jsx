@@ -31,7 +31,7 @@ const AddThemeDialog = ({ open, onOpenChange, date, onSelectType }) => {
 
   const blockTypes = [
     {
-      type: 'theme',
+      type: 'lernblock',
       icon: BookOpenTextIcon,
       title: 'Lernblock',
       description: 'Erstelle einen neuen Lernblock'

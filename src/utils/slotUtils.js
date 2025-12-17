@@ -149,17 +149,18 @@ export const slotsToLearningBlocks = (slots) => {
   const groups = groupSlotsByTopic(slots);
   const blocks = [];
   const processedGroups = new Set();
+  const processedTopicIds = new Set();
 
   slots.forEach(slot => {
     if (slot.status === 'topic' && slot.groupId && !processedGroups.has(slot.groupId)) {
-      // Multi-slot topic - only add once
+      // Multi-slot topic with groupId - only add once per group
       const groupSlots = groups[slot.groupId];
       if (groupSlots && groupSlots.length > 0) {
         const firstSlot = groupSlots[0];
         blocks.push({
           id: firstSlot.topicId || firstSlot.id,
           title: firstSlot.topicTitle || '',
-          blockType: firstSlot.blockType || 'theme',
+          blockType: firstSlot.blockType || 'lernblock',
           progress: firstSlot.progress || '0/1',
           description: firstSlot.description,
           rechtsgebiet: firstSlot.rechtsgebiet,
@@ -168,7 +169,22 @@ export const slotsToLearningBlocks = (slots) => {
           blockSize: groupSlots.length
         });
         processedGroups.add(slot.groupId);
+        if (firstSlot.topicId) processedTopicIds.add(firstSlot.topicId);
       }
+    } else if (slot.status === 'topic' && !slot.groupId && slot.topicId && !processedTopicIds.has(slot.topicId)) {
+      // Single-slot topic without groupId (e.g., from template)
+      blocks.push({
+        id: slot.topicId || slot.id,
+        title: slot.topicTitle || '',
+        blockType: slot.blockType || 'lernblock',
+        progress: slot.progress || '1/1',
+        description: slot.description,
+        rechtsgebiet: slot.rechtsgebiet,
+        unterrechtsgebiet: slot.unterrechtsgebiet,
+        tasks: slot.tasks,
+        blockSize: 1
+      });
+      processedTopicIds.add(slot.topicId);
     } else if (slot.status === 'free') {
       // Free slot
       blocks.push({

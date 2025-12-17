@@ -161,7 +161,7 @@ const CreateThemeBlockDialog = ({ open, onOpenChange, date, onSave, availableSlo
 
     onSave(date, {
       title: title || selectedUnterrechtsgebiet?.name || 'Tagesthema',
-      blockType: 'theme',
+      blockType: 'lernblock',
       blockSize,
       description,
       rechtsgebiet: selectedRechtsgebiet,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
 
@@ -7,141 +7,181 @@ import StepHeader from '../components/step-header';
  * User defines how many learning blocks per day
  * Based on Figma: Schritt_4_body
  */
-const Step4Tagesbloecke = () => {
-  const { blocksPerDay, updateWizardData } = useWizard();
 
-  const blockOptions = [
-    {
-      value: 1,
-      title: '1 Block',
-      description: 'Fokussiertes Lernen in einer Session',
-      icon: (
-        <div className="flex gap-1">
-          <div className="w-8 h-8 rounded bg-primary-500" />
-        </div>
-      ),
-    },
-    {
-      value: 2,
-      title: '2 Blöcke',
-      description: 'Vormittags und nachmittags',
-      icon: (
-        <div className="flex gap-1">
-          <div className="w-8 h-8 rounded bg-primary-500" />
-          <div className="w-8 h-8 rounded bg-primary-400" />
-        </div>
-      ),
-    },
-    {
-      value: 3,
-      title: '3 Blöcke',
-      description: 'Morgens, mittags, abends',
-      icon: (
-        <div className="flex gap-1">
-          <div className="w-8 h-8 rounded bg-primary-500" />
-          <div className="w-8 h-8 rounded bg-primary-400" />
-          <div className="w-8 h-8 rounded bg-primary-300" />
-        </div>
-      ),
-    },
-    {
-      value: 4,
-      title: '4 Blöcke',
-      description: 'Intensives Lernen mit mehreren Pausen',
-      icon: (
-        <div className="flex gap-1">
-          <div className="w-6 h-8 rounded bg-primary-500" />
-          <div className="w-6 h-8 rounded bg-primary-400" />
-          <div className="w-6 h-8 rounded bg-primary-300" />
-          <div className="w-6 h-8 rounded bg-primary-200" />
-        </div>
-      ),
-    },
-  ];
+/**
+ * Chevron Down Icon
+ */
+const ChevronDownIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
+/**
+ * Warning Icon
+ */
+const WarningIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
+const Step4Tagesbloecke = () => {
+  const { blocksPerDay, startDate, endDate, bufferDays, vacationDays, weekStructure, updateWizardData } = useWizard();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const blockOptions = [1, 2, 3, 4, 5, 6];
+
+  // Calculate learning days and blocks
+  const calculateStats = () => {
+    if (!startDate || !endDate) return { blocksPerWeek: 0, totalBlocks: 0 };
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Count learning days based on week structure
+    const weekdayMap = {
+      0: 'sonntag', 1: 'montag', 2: 'dienstag', 3: 'mittwoch',
+      4: 'donnerstag', 5: 'freitag', 6: 'samstag'
+    };
+
+    // Count learning days per week
+    const learningDaysPerWeek = Object.values(weekStructure).filter(blocks =>
+      Array.isArray(blocks) && blocks.some(b => b === 'lernblock')
+    ).length;
+
+    const blocksPerWeek = learningDaysPerWeek * blocksPerDay;
+
+    // Count total learning days
+    let totalLearningDays = 0;
+    const currentDate = new Date(start);
+    while (currentDate <= end) {
+      const dayName = weekdayMap[currentDate.getDay()];
+      const dayBlocks = weekStructure[dayName];
+      if (Array.isArray(dayBlocks) && dayBlocks.some(b => b === 'lernblock')) {
+        totalLearningDays++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const netLearningDays = Math.max(0, totalLearningDays - bufferDays - vacationDays);
+    const totalBlocks = netLearningDays * blocksPerDay;
+
+    return { blocksPerWeek, totalBlocks };
+  };
+
+  const { blocksPerWeek, totalBlocks } = calculateStats();
+
+  const handleSelect = (value) => {
+    updateWizardData({ blocksPerDay: value });
+    setIsDropdownOpen(false);
+  };
 
   return (
     <div>
       <StepHeader
         step={4}
-        title="In wie viele Blöcke soll ein Tag eingeteilt sein?"
-        description="Wir bieten dir folgende Optionen, um deinen Lernplan zu strukturieren. Jeder Block entspricht einer Lerneinheit am Tag."
+        title="In wie viele Blöcke soll ein Tag eingeteilt sein."
+        description="Wir bieten dir folgende Optionen, um deinen Lernplan zu erstellen oder auszuwählen."
       />
 
-      <div className="space-y-6">
-        {/* Block options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {blockOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => updateWizardData({ blocksPerDay: option.value })}
-              className={`p-6 rounded-xl border-2 text-left transition-all ${
-                blocksPerDay === option.value
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                {option.icon}
-                {blocksPerDay === option.value && (
-                  <div className="w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                {option.title}
-              </h3>
-              <p className="text-sm text-gray-500">
-                {option.description}
-              </p>
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col items-center gap-7 py-7">
+        {/* Blocks per Day Selector Card */}
+        <div className="p-5 bg-white rounded-[10px] border border-gray-200">
+          <div className="flex items-center gap-5">
+            <span className="text-lg font-light text-gray-900">
+              Blöcke pro Tag
+            </span>
 
-        {/* Visual representation of day */}
-        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-          <h4 className="text-sm font-medium text-gray-700 mb-4">
-            So sieht ein Tag in deinem Lernplan aus:
-          </h4>
-          <div className="flex items-center gap-2">
-            {Array.from({ length: blocksPerDay }).map((_, i) => (
-              <div
-                key={i}
-                className="flex-1 h-16 rounded-lg bg-gradient-to-b from-primary-100 to-primary-200 border border-primary-300 flex items-center justify-center"
+            {/* Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center"
               >
-                <span className="text-sm font-medium text-primary-700">
-                  Block {i + 1}
-                </span>
-              </div>
-            ))}
+                {/* Number Display */}
+                <div className="h-9 pl-5 pr-4 py-2 bg-gray-50 rounded-l-lg border border-gray-200 flex items-center justify-center">
+                  <span className="text-sm font-light text-gray-900">
+                    {blocksPerDay}
+                  </span>
+                </div>
+                {/* Chevron Button */}
+                <div className="w-9 h-9 bg-gray-50 rounded-r-lg border-t border-r border-b border-gray-200 flex items-center justify-center text-gray-900">
+                  <ChevronDownIcon />
+                </div>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-10 min-w-[80px]">
+                  {blockOptions.map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => handleSelect(option)}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
+                        option === blocksPerDay ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-900'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-3">
-            Du kannst jedem Block ein Thema, eine Wiederholung oder eine Klausur zuweisen.
-          </p>
         </div>
 
-        {/* Info */}
-        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 flex gap-3">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="text-blue-600 flex-shrink-0 mt-0.5"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <p className="text-sm text-blue-700">
-            Mehr Blöcke bedeuten flexiblere Planung, aber auch mehr Aufwand bei der Erstellung.
-            Für die meisten Lernenden sind 2-3 Blöcke optimal.
-          </p>
+        {/* Stats Info */}
+        <div className="w-full max-w-[520px] p-4 bg-blue-50/50 rounded-lg flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-gray-900">
+              Blöcke pro Woche
+            </span>
+            <span className="text-lg font-light text-gray-900">
+              {blocksPerWeek}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-gray-900">
+              Blöcke gesamt
+            </span>
+            <span className="text-lg font-light text-gray-900">
+              {totalBlocks}
+            </span>
+          </div>
         </div>
+
+        {/* Warning Box - shown when no blocks selected */}
+        {blocksPerDay < 1 && (
+          <div className="px-4 py-3 bg-white rounded-[10px] border border-red-100 flex items-start gap-3">
+            <div className="pt-0.5 text-red-500">
+              <WarningIcon />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-red-500 leading-5">
+                Achtung
+              </h4>
+              <p className="text-sm font-normal text-red-500 leading-5">
+                Bitte wähle für jeden Tag einen Typ aus.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

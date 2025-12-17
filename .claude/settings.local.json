@@ -18,7 +18,19 @@
       "Bash(git push:*)",
       "Bash(git reset:*)",
       "Bash(git rm:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel dev:*)",
+      "Bash(npm run dev:api:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(xargs:*)",
+      "Bash(clip)",
+      "Bash(cat:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }

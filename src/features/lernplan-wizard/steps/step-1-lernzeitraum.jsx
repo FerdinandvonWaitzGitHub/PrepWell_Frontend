@@ -14,13 +14,16 @@ const Step1Lernzeitraum = () => {
   const [localStartDate, setLocalStartDate] = useState(startDate || '');
   const [localEndDate, setLocalEndDate] = useState(endDate || '');
 
-  // Calculate learning days
+  // Calculate learning days (inclusive of both start and end date)
   const calculateLearningDays = () => {
     if (!localStartDate || !localEndDate) return null;
-    const start = new Date(localStartDate);
-    const end = new Date(localEndDate);
+    // Parse dates in local time to avoid timezone issues
+    const [startYear, startMonth, startDay] = localStartDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = localEndDate.split('-').map(Number);
+    const start = new Date(startYear, startMonth - 1, startDay);
+    const end = new Date(endYear, endMonth - 1, endDay);
     const diffTime = end - start;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end
     return diffDays > 0 ? diffDays : null;
   };
 
@@ -37,8 +40,16 @@ const Step1Lernzeitraum = () => {
   // Get today's date for min attribute
   const today = new Date().toISOString().split('T')[0];
 
-  // Validate end date is after start date
-  const isEndDateValid = !localStartDate || !localEndDate || new Date(localEndDate) > new Date(localStartDate);
+  // Validate end date is after start date (parse locally)
+  const isEndDateValid = () => {
+    if (!localStartDate || !localEndDate) return true;
+    const [startYear, startMonth, startDay] = localStartDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = localEndDate.split('-').map(Number);
+    const start = new Date(startYear, startMonth - 1, startDay);
+    const end = new Date(endYear, endMonth - 1, endDay);
+    return end > start;
+  };
+  const endDateValid = isEndDateValid();
 
   return (
     <div>
@@ -79,13 +90,13 @@ const Step1Lernzeitraum = () => {
               onChange={(e) => setLocalEndDate(e.target.value)}
               min={localStartDate || today}
               className={`w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary-400 focus:border-primary-400 text-gray-900 bg-white ${
-                !isEndDateValid ? 'border-red-300' : 'border-gray-300'
+                !endDateValid ? 'border-red-300' : 'border-gray-300'
               }`}
             />
             <p className="text-xs text-gray-500 mt-2">
               Wann ist deine Prüfung oder dein Zieldatum?
             </p>
-            {!isEndDateValid && (
+            {!endDateValid && (
               <p className="text-xs text-red-500 mt-1">
                 Das Enddatum muss nach dem Startdatum liegen.
               </p>

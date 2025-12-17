@@ -3,6 +3,8 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 // Context Providers
 import { UnterrechtsgebieteProvider } from './contexts';
+import { CalendarProvider } from './contexts/calendar-context';
+import { TimerProvider } from './contexts/timer-context';
 
 // Pages
 import DashboardPage from './pages/dashboard';
@@ -66,7 +68,11 @@ const router = createBrowserRouter([
 export default function AppRouter() {
   return (
     <UnterrechtsgebieteProvider>
-      <RouterProvider router={router} />
+      <CalendarProvider>
+        <TimerProvider>
+          <RouterProvider router={router} />
+        </TimerProvider>
+      </CalendarProvider>
     </UnterrechtsgebieteProvider>
   );
 }

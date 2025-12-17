@@ -4,71 +4,117 @@ import StepHeader from '../components/step-header';
 
 /**
  * Step 6: Erstellungsmethode wählen
- * User chooses how to create the learning plan: manual, automatic, or template
+ * User chooses how to create the learning plan: manual, automatic, AI-guided, or template
  * Based on Figma: Schritt_6_body
  */
+
+/**
+ * Check icon for selected state
+ */
+const CheckIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+/**
+ * Sparkle icon for AI option
+ */
+const SparkleIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
+  </svg>
+);
+
+/**
+ * Method card component matching Figma design
+ */
+const MethodCard = ({ method, isSelected, onSelect }) => {
+  return (
+    <div
+      className={`flex-1 p-6 bg-white rounded-[10px] flex flex-col justify-between items-end min-h-[280px] cursor-pointer transition-all ${
+        isSelected
+          ? 'outline outline-2 outline-offset-[-2px] outline-slate-600'
+          : 'outline outline-1 outline-offset-[-1px] outline-gray-200 hover:outline-gray-300'
+      }`}
+      onClick={onSelect}
+    >
+      {/* Content section */}
+      <div className="self-stretch flex justify-start items-start gap-2">
+        <div className="flex-1 flex flex-col justify-start items-start gap-2.5">
+          {/* Badge (if any) */}
+          {method.badge && (
+            <div className="h-5 flex justify-start items-center gap-2 overflow-hidden">
+              <div className={`px-2 py-0.5 rounded-lg flex justify-center items-center gap-1 overflow-hidden ${method.badgeColor}`}>
+                <span className="text-xs font-semibold">{method.badge}</span>
+                {method.badgeIcon}
+              </div>
+            </div>
+          )}
+
+          {/* Title */}
+          <div className="self-stretch text-gray-900 text-lg font-light leading-5">
+            {method.title}
+          </div>
+
+          {/* Description */}
+          <div className="self-stretch text-gray-500 text-sm font-light leading-5">
+            {method.description}
+          </div>
+        </div>
+      </div>
+
+      {/* Button section */}
+      <div className="flex justify-end items-center gap-2 mt-6">
+        <button
+          type="button"
+          className={`px-5 py-2.5 rounded-3xl flex justify-center items-center gap-2 transition-all ${
+            isSelected
+              ? 'bg-slate-600 text-white'
+              : 'outline outline-1 outline-offset-[-1px] outline-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <span className="text-sm font-light">
+            {isSelected ? 'Ausgewählt' : 'Auswählen'}
+          </span>
+          <CheckIcon />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const Step6Erstellungsmethode = () => {
   const { creationMethod, updateWizardData } = useWizard();
 
   const methods = [
     {
       id: 'manual',
-      title: 'Manuell erstellen',
-      description: 'Erstelle deinen Lernplan selbst im Kalender. Du hast volle Kontrolle über jeden Block und jedes Thema.',
-      icon: (
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-      ),
-      features: [
-        'Volle Kontrolle über jeden Tag',
-        'Individuelle Themenverteilung',
-        'Flexibel anpassbar',
-      ],
-      recommended: false,
+      title: 'Im Kalender erstellen',
+      description: 'Du kannst deinen Lernplan direkt im Kalender erstellen. Das funktioniert genau wie in Kalendern, die du sonst kennst:\n\n• Klicke einen Tag an und bestimme das Rechtsgebiet sowie das Thema\n• Füge Aufgaben hinzu, die zum dem Thema gehören\n• Verschiebe Tage mit den zur Verfügung stehenden Funktionen\n• Wenn du fertig bist, klicke unten auf "Fertigstellen"',
+      badge: null,
     },
     {
       id: 'automatic',
-      title: 'Automatisch erstellen',
-      description: 'Lass uns deinen Lernplan automatisch generieren. Basierend auf deinen Vorgaben und bewährten Lernstrategien.',
-      icon: (
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M12 2v4" />
-          <path d="M12 18v4" />
-          <path d="m4.93 4.93 2.83 2.83" />
-          <path d="m16.24 16.24 2.83 2.83" />
-          <path d="M2 12h4" />
-          <path d="M18 12h4" />
-          <path d="m4.93 19.07 2.83-2.83" />
-          <path d="m16.24 7.76 2.83-2.83" />
-        </svg>
-      ),
-      features: [
-        'Zeitsparend und effizient',
-        'Optimale Themenverteilung',
-        'Nachträglich anpassbar',
-      ],
-      recommended: true,
+      title: 'Als Liste erstellen & in den Kalender importieren',
+      description: 'Du kannst deinen Lernplan mit unserem Lernplan-Tool erstellen. Für jedes Rechtsgebiet kannst du Unterrechtsgebiete erstellen und innerhalb der Unterrechtsgebiete Lerntage erstellen. Die Lerntage können bis zu 3 Themen beinhalten (die Anzahl an Lernblöcken, die du zuvor festgelegt hast). Jedes Thema erhält Aufgaben, die du zusätzlich als „wichtig" markieren kannst.',
+      badge: null,
+    },
+    {
+      id: 'ai',
+      title: 'KI-geführte Erstellung',
+      description: 'Lass unsere KI deinen optimalen Lernplan erstellen. Basierend auf deinen Vorgaben, Lernzielen und bewährten Strategien generiert die KI einen personalisierten Plan.\n\n• Intelligente Themenverteilung nach Schwierigkeitsgrad\n• Automatische Wiederholungszyklen\n• Anpassung an deinen Lerntyp\n• Kontinuierliche Optimierung',
+      badge: 'Neu',
+      badgeColor: 'bg-purple-600 text-white',
+      badgeIcon: <SparkleIcon />,
     },
     {
       id: 'template',
-      title: 'Vorlage auswählen',
-      description: 'Wähle aus unseren bewährten Lernplan-Vorlagen. Ideal für Examensvorbereitung und spezifische Fachgebiete.',
-      icon: (
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <rect x="14" y="14" width="7" height="7" rx="1" />
-        </svg>
-      ),
-      features: [
-        'Bewährte Strukturen',
-        'Sofort einsatzbereit',
-        'Von Experten erstellt',
-      ],
-      recommended: false,
+      title: 'Lernplan auswählen & anpassen',
+      description: 'Wähle aus verschiedenen Lernplänen von führenden Universitäten und Repetitorien einen passenden Plan aus und passe ihn später deinen Bedürfnissen an.\n\nHinweis: Die Tagesthemen aus dem gewählten Lernplan werden auf die Tage verteilt, die du im vorherigen Schritt als Lerntage definiert hast. Lernpläne stehen in unterschiedlichen Längen zur Verfügung.',
+      badge: 'Empfohlen',
+      badgeColor: 'bg-primary-600 text-white',
+      badgeIcon: <CheckIcon />,
     },
   ];
 
@@ -80,78 +126,15 @@ const Step6Erstellungsmethode = () => {
         description="Wir bieten dir folgende Optionen, um deinen Lernplan zu erstellen oder auszuwählen."
       />
 
-      <div className="space-y-4">
+      {/* Cards grid - 2x2 on large screens, single column on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {methods.map((method) => (
-          <button
+          <MethodCard
             key={method.id}
-            onClick={() => updateWizardData({ creationMethod: method.id })}
-            className={`w-full p-6 rounded-xl border-2 text-left transition-all relative ${
-              creationMethod === method.id
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}
-          >
-            {/* Recommended badge */}
-            {method.recommended && (
-              <span className="absolute top-4 right-4 px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
-                Empfohlen
-              </span>
-            )}
-
-            <div className="flex gap-4">
-              {/* Icon */}
-              <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                creationMethod === method.id
-                  ? 'bg-primary-100 text-primary-600'
-                  : 'bg-gray-100 text-gray-500'
-              }`}>
-                {method.icon}
-              </div>
-
-              {/* Content */}
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  {method.title}
-                </h3>
-                <p className="text-sm text-gray-500 mb-3">
-                  {method.description}
-                </p>
-
-                {/* Features */}
-                <ul className="flex flex-wrap gap-x-4 gap-y-1">
-                  {method.features.map((feature, i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className="text-green-500"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Selection indicator */}
-              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                creationMethod === method.id
-                  ? 'border-primary-500 bg-primary-500'
-                  : 'border-gray-300'
-              }`}>
-                {creationMethod === method.id && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </div>
-            </div>
-          </button>
+            method={method}
+            isSelected={creationMethod === method.id}
+            onSelect={() => updateWizardData({ creationMethod: method.id })}
+          />
         ))}
       </div>
     </div>

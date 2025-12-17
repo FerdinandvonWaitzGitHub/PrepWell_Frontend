@@ -16,12 +16,67 @@ const WizardLayout = ({ children }) => {
     prevStep,
     nextStep,
     validateCurrentStep,
+    completeWizard,
+    completeManualCalendar,
+    completeAutomaticLernplan,
+    createLernplanFromTemplate,
+    creationMethod,
     isLoading,
+    selectedTemplate,
   } = useWizard();
 
   const isFirstStep = currentStep === 1;
   const isLastStep = currentStep === totalSteps;
   const isValid = validateCurrentStep();
+  const isManualCalendarPath = creationMethod === 'manual';
+  const isAutomaticPath = creationMethod === 'automatic';
+  // Only template path goes directly to creation after step 7
+  const isTemplateSelectionStep = currentStep === 7 && creationMethod === 'template';
+
+  // Handle complete button click - use different function based on path
+  const handleComplete = () => {
+    if (isManualCalendarPath) {
+      completeManualCalendar();
+    } else if (isAutomaticPath) {
+      completeAutomaticLernplan();
+    } else {
+      completeWizard();
+    }
+  };
+
+  // Handle next button click
+  const handleNext = () => {
+    if (isTemplateSelectionStep && selectedTemplate) {
+      // For automatic/template path at step 7, create Lernplan from template
+      createLernplanFromTemplate();
+    } else if (isLastStep) {
+      handleComplete();
+    } else {
+      nextStep();
+    }
+  };
+
+  // Get button text based on path and step
+  const getButtonText = () => {
+    if (isLoading) return 'Wird erstellt...';
+    if (isTemplateSelectionStep && selectedTemplate) {
+      return 'Lernplan erstellen';
+    }
+    if (isLastStep) {
+      if (isManualCalendarPath) return 'Fertig';
+      if (isAutomaticPath) return 'Lernplan erstellen';
+      return 'Lernplan erstellen';
+    }
+    return 'Weiter';
+  };
+
+  // Check if button should be disabled
+  const isButtonDisabled = () => {
+    if (isLoading) return true;
+    if (!isValid) return true;
+    if (isTemplateSelectionStep && !selectedTemplate) return true;
+    return false;
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -63,14 +118,14 @@ const WizardLayout = ({ children }) => {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col">
-        <div className="flex-1 max-w-4xl mx-auto w-full px-8 py-12">
+        <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-12">
           {children}
         </div>
       </main>
 
       {/* Footer with navigation buttons */}
-      <footer className="border-t border-gray-100 px-8 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <footer className="border-t border-gray-100 px-4 sm:px-8 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Back button */}
           <Button
             variant="outline"
@@ -83,10 +138,10 @@ const WizardLayout = ({ children }) => {
 
           {/* Next/Complete button */}
           <Button
-            onClick={nextStep}
-            disabled={!isValid || isLoading}
+            onClick={handleNext}
+            disabled={isButtonDisabled()}
           >
-            {isLastStep ? 'Lernplan erstellen' : 'Weiter'}
+            {getButtonText()}
           </Button>
         </div>
       </footer>

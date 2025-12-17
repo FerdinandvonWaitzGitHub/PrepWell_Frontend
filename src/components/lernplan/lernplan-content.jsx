@@ -1,127 +1,77 @@
 import { useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import LernplanCard from './lernplan-card';
-import LernplanEditCard from './lernplan-edit-card';
+import ContentPlanEditCard from './content-plan-edit-card';
 import { Button, PlusIcon } from '../ui';
 import { ChevronDownIcon } from '../ui';
-
-// Generate unique ID
-const generateId = () => `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-// Sample learning plans data
-const SAMPLE_LERNPLAENE = [
-  {
-    id: 'lp-1',
-    title: 'BGB Allgemeiner Teil',
-    description: 'Grundlagen des Bürgerlichen Rechts - Rechtsgeschäftslehre, Willenserklärungen und Vertragsschluss',
-    tags: ['Zivilrecht'],
-    rechtsgebiet: 'zivilrecht',
-    mode: 'standard',
-    archived: false,
-    chapters: [
-      {
-        id: 'ch-1',
-        title: 'Rechtsgeschäftslehre',
-        themes: [
-          {
-            id: 'th-1',
-            title: 'Begriff des Rechtsgeschäfts',
-            tasks: [
-              { id: 't-1', title: 'Definition lernen', completed: true },
-              { id: 't-2', title: 'Beispiele sammeln', completed: true }
-            ]
-          },
-          {
-            id: 'th-2',
-            title: 'Arten von Rechtsgeschäften',
-            tasks: [
-              { id: 't-3', title: 'Einseitige RG', completed: false },
-              { id: 't-4', title: 'Mehrseitige RG', completed: false }
-            ]
-          }
-        ]
-      },
-      {
-        id: 'ch-2',
-        title: 'Willenserklärung',
-        themes: [
-          {
-            id: 'th-3',
-            title: 'Tatbestand',
-            tasks: [
-              { id: 't-5', title: 'Objektiver Tatbestand', completed: true },
-              { id: 't-6', title: 'Subjektiver Tatbestand', completed: false }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'lp-2',
-    title: 'Strafrecht AT Grundlagen',
-    description: 'Aufbau der Straftat, Vorsatz und Fahrlässigkeit, Rechtfertigungsgründe',
-    tags: ['Strafrecht'],
-    rechtsgebiet: 'strafrecht',
-    mode: 'examen',
-    examDate: '2025-06-15',
-    archived: false,
-    chapters: [
-      {
-        id: 'ch-3',
-        title: 'Aufbau der Straftat',
-        themes: [
-          {
-            id: 'th-4',
-            title: 'Dreistufiger Aufbau',
-            tasks: [
-              { id: 't-7', title: 'Tatbestand', completed: true },
-              { id: 't-8', title: 'Rechtswidrigkeit', completed: true },
-              { id: 't-9', title: 'Schuld', completed: false }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-];
+import { useCalendar } from '../../contexts/calendar-context';
 
 /**
  * LernplanContent component
  * Main content area for learning plans overview
- * Supports toggle between normal view and edit mode
+ * Uses CalendarContext for all data (contentPlans)
+ *
+ * New hierarchical structure:
+ * Plan → Rechtsgebiete → Unterrechtsgebiete → Kapitel → Themen → Aufgaben
  */
 const LernplanContent = forwardRef(({ className = '' }, ref) => {
-  const [lernplaene, setLernplaene] = useState(SAMPLE_LERNPLAENE);
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [viewMode, setViewMode] = useState('all'); // 'standard', 'examen', 'all'
   const [showArchived, setShowArchived] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [newLernplanId, setNewLernplanId] = useState(null);
+  const [newPlanId, setNewPlanId] = useState(null);
+
+  // Get data from CalendarContext
+  const {
+    // Calendar-based Lernplan (from wizard)
+    archivedLernplaene: archivedCalendarPlans,
+    restoreArchivedPlan,
+    deleteArchivedPlan,
+    lernplanMetadata: activeCalendarPlan,
+    updateLernplanMetadata,
+    archiveCurrentPlan,
+    deleteCurrentPlan,
+    slotsByDate,
+    // New Content Plans (Lernpläne & Themenlisten)
+    contentPlans,
+    createContentPlan,
+    getContentPlansByType,
+  } = useCalendar();
+
+  // State for editing calendar plan name
+  const [isEditingCalendarPlanName, setIsEditingCalendarPlanName] = useState(false);
+  const [calendarPlanName, setCalendarPlanName] = useState('');
 
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
     openCreateDialog: () => {
-      handleCreateNew();
-    }
+      handleCreateNew('lernplan');
+    },
+    openCreateThemenlisteDialog: () => {
+      handleCreateNew('themenliste');
+    },
   }));
 
-  // Filter learning plans
-  const filteredLernplaene = useMemo(() => {
-    let result = [...lernplaene];
+  // Filter content plans
+  const { filteredLernplaene, filteredThemenlisten } = useMemo(() => {
+    let plans = contentPlans || [];
 
     // Filter by archived status
-    result = result.filter(lp => lp.archived === showArchived);
+    plans = plans.filter(p => p.archived === showArchived);
 
-    // Filter by mode
+    // Filter by mode (for Lernpläne)
     if (viewMode !== 'all') {
-      result = result.filter(lp => lp.mode === viewMode);
+      plans = plans.filter(p => p.type === 'themenliste' || p.mode === viewMode);
     }
 
-    return result;
-  }, [lernplaene, viewMode, showArchived]);
+    // Separate by type
+    const lernplaeneOnly = plans.filter(p => p.type === 'lernplan');
+    const themenlistenOnly = plans.filter(p => p.type === 'themenliste');
 
-  // If only one plan exists, auto-expand it
-  const shouldAutoExpand = filteredLernplaene.length === 1;
+    return { filteredLernplaene: lernplaeneOnly, filteredThemenlisten: themenlistenOnly };
+  }, [contentPlans, viewMode, showArchived]);
+
+  // Auto-expand if only one plan
+  const shouldAutoExpand = filteredLernplaene.length === 1 || filteredThemenlisten.length === 1;
 
   // Toggle expand
   const handleToggleExpand = (id) => {
@@ -136,49 +86,61 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     });
   };
 
-  // Create new learning plan
-  const handleCreateNew = () => {
-    const newId = generateId();
-    const newLernplan = {
-      id: newId,
-      title: '',
-      description: '',
-      tags: [],
-      rechtsgebiet: '',
-      mode: 'standard',
-      archived: false,
-      chapters: []
-    };
-    setLernplaene(prev => [newLernplan, ...prev]);
-    setExpandedIds(prev => new Set([...prev, newId]));
-    setNewLernplanId(newId);
+  // Create new content plan
+  const handleCreateNew = (type = 'lernplan') => {
+    const newPlan = createContentPlan({ type, name: '' });
+    setExpandedIds(prev => new Set([...prev, newPlan.id]));
+    setNewPlanId(newPlan.id);
     setIsEditMode(true);
   };
 
-  // Update learning plan
-  const handleUpdate = (updatedLernplan) => {
-    setLernplaene(prev => prev.map(lp =>
-      lp.id === updatedLernplan.id ? updatedLernplan : lp
-    ));
-    // Clear new flag after first update
-    if (newLernplanId === updatedLernplan.id && updatedLernplan.title) {
-      setNewLernplanId(null);
+  // Calendar Plan handlers
+  const handleStartEditCalendarPlanName = () => {
+    setCalendarPlanName(activeCalendarPlan?.name || '');
+    setIsEditingCalendarPlanName(true);
+  };
+
+  const handleSaveCalendarPlanName = () => {
+    if (calendarPlanName.trim()) {
+      updateLernplanMetadata({ name: calendarPlanName.trim() });
+    }
+    setIsEditingCalendarPlanName(false);
+  };
+
+  const handleCancelEditCalendarPlanName = () => {
+    setIsEditingCalendarPlanName(false);
+    setCalendarPlanName(activeCalendarPlan?.name || '');
+  };
+
+  const handleArchiveCalendarPlan = () => {
+    if (confirm('Möchtest du diesen Kalender-Lernplan archivieren?')) {
+      archiveCurrentPlan();
     }
   };
 
-  // Delete learning plan
-  const handleDelete = (lernplan) => {
-    setLernplaene(prev => prev.filter(lp => lp.id !== lernplan.id));
-    if (newLernplanId === lernplan.id) {
-      setNewLernplanId(null);
+  const handleDeleteCalendarPlan = () => {
+    if (confirm('Möchtest du diesen Kalender-Lernplan dauerhaft löschen? Dies kann nicht rückgängig gemacht werden.')) {
+      deleteCurrentPlan();
     }
   };
 
-  // Archive learning plan
-  const handleArchive = (lernplan) => {
-    setLernplaene(prev => prev.map(lp =>
-      lp.id === lernplan.id ? { ...lp, archived: !lp.archived } : lp
-    ));
+  // Calculate progress for old-style plans (for LernplanCard)
+  const calculateLegacyProgress = (plan) => {
+    let completed = 0;
+    let total = 0;
+    plan.rechtsgebiete?.forEach(rg => {
+      rg.unterrechtsgebiete?.forEach(urg => {
+        urg.kapitel?.forEach(k => {
+          k.themen?.forEach(t => {
+            t.aufgaben?.forEach(a => {
+              total++;
+              if (a.completed) completed++;
+            });
+          });
+        });
+      });
+    });
+    return { completed, total };
   };
 
   return (
@@ -254,33 +216,243 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
         </div>
       </div>
 
-      {/* Learning Plans List */}
+      {/* Content */}
       <div className="flex-1 overflow-auto">
-        {filteredLernplaene.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {filteredLernplaene.map((lernplan) => (
-              isEditMode ? (
-                <LernplanEditCard
-                  key={lernplan.id}
-                  lernplan={lernplan}
-                  isExpanded={shouldAutoExpand || expandedIds.has(lernplan.id)}
-                  onToggleExpand={handleToggleExpand}
-                  onUpdate={handleUpdate}
-                  onDelete={handleDelete}
-                  onArchive={handleArchive}
-                  isNew={newLernplanId === lernplan.id}
-                />
-              ) : (
-                <LernplanCard
-                  key={lernplan.id}
-                  lernplan={lernplan}
-                  isExpanded={shouldAutoExpand || expandedIds.has(lernplan.id)}
-                  onToggleExpand={handleToggleExpand}
-                />
-              )
-            ))}
+        {/* Archived Calendar Plans (only in archive view) */}
+        {showArchived && archivedCalendarPlans && archivedCalendarPlans.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Kalender-Lernpläne</h3>
+            <div className="flex flex-col gap-3">
+              {archivedCalendarPlans.map((plan) => (
+                <div key={plan.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">
+                        {plan.metadata?.name || 'Lernplan'}
+                      </h4>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {plan.metadata?.startDate && plan.metadata?.endDate ? (
+                          <>
+                            {new Date(plan.metadata.startDate).toLocaleDateString('de-DE')} -{' '}
+                            {new Date(plan.metadata.endDate).toLocaleDateString('de-DE')}
+                          </>
+                        ) : 'Keine Datumsangabe'}
+                      </p>
+                      {plan.metadata?.archivedAt && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Archiviert am {new Date(plan.metadata.archivedAt).toLocaleDateString('de-DE')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => restoreArchivedPlan(plan.id)}
+                        className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
+                      >
+                        Wiederherstellen
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('Möchtest du diesen Lernplan dauerhaft löschen?')) {
+                            deleteArchivedPlan(plan.id);
+                          }
+                        }}
+                        className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        Löschen
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                    <span className="px-2 py-0.5 bg-gray-100 rounded">
+                      {Object.keys(plan.slots || {}).length} Tage
+                    </span>
+                    {plan.metadata?.blocksPerDay && (
+                      <span className="px-2 py-0.5 bg-gray-100 rounded">
+                        {plan.metadata.blocksPerDay} Blöcke/Tag
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        ) : (
+        )}
+
+        {/* Active Calendar Plan (only in active view) */}
+        {!showArchived && activeCalendarPlan && (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Aktiver Kalender-Lernplan</h3>
+            <div className={`rounded-lg border p-4 ${isEditMode ? 'bg-white border-gray-200' : 'bg-primary-50 border-primary-200'}`}>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  {isEditMode && isEditingCalendarPlanName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={calendarPlanName}
+                        onChange={(e) => setCalendarPlanName(e.target.value)}
+                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-400"
+                        placeholder="Lernplan Name"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveCalendarPlanName();
+                          if (e.key === 'Escape') handleCancelEditCalendarPlanName();
+                        }}
+                      />
+                      <button
+                        onClick={handleSaveCalendarPlanName}
+                        className="px-2 py-1 text-sm text-white bg-primary-600 hover:bg-primary-700 rounded-md"
+                      >
+                        Speichern
+                      </button>
+                      <button
+                        onClick={handleCancelEditCalendarPlanName}
+                        className="px-2 py-1 text-sm text-gray-600 hover:text-gray-800"
+                      >
+                        Abbrechen
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-gray-900">
+                        {activeCalendarPlan.name || 'Lernplan'}
+                      </h4>
+                      {isEditMode && (
+                        <button
+                          onClick={handleStartEditCalendarPlanName}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                          title="Name bearbeiten"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600 mt-1">
+                    {activeCalendarPlan.startDate && activeCalendarPlan.endDate ? (
+                      <>
+                        {new Date(activeCalendarPlan.startDate).toLocaleDateString('de-DE')} -{' '}
+                        {new Date(activeCalendarPlan.endDate).toLocaleDateString('de-DE')}
+                      </>
+                    ) : 'Keine Datumsangabe'}
+                  </p>
+                  <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+                    <span className="px-2 py-0.5 bg-gray-100 rounded">
+                      {Object.keys(slotsByDate || {}).length} Tage
+                    </span>
+                    {activeCalendarPlan.blocksPerDay && (
+                      <span className="px-2 py-0.5 bg-gray-100 rounded">
+                        {activeCalendarPlan.blocksPerDay} Blöcke/Tag
+                      </span>
+                    )}
+                    {activeCalendarPlan.creationMethod && (
+                      <span className="px-2 py-0.5 bg-gray-100 rounded">
+                        {activeCalendarPlan.creationMethod === 'manual' ? 'Manuell' :
+                         activeCalendarPlan.creationMethod === 'automatic' ? 'Automatisch' :
+                         activeCalendarPlan.creationMethod === 'template' ? 'Vorlage' :
+                         activeCalendarPlan.creationMethod === 'ai' ? 'KI' : activeCalendarPlan.creationMethod}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/kalender/monat"
+                    className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-100 rounded-lg transition-colors"
+                  >
+                    Im Kalender ansehen
+                  </a>
+                  {isEditMode && (
+                    <>
+                      <button
+                        onClick={handleArchiveCalendarPlan}
+                        className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Archivieren"
+                      >
+                        Archivieren
+                      </button>
+                      <button
+                        onClick={handleDeleteCalendarPlan}
+                        className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Löschen"
+                      >
+                        Löschen
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Themenlisten Section */}
+        {filteredThemenlisten.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Themenlisten</h3>
+            <div className="flex flex-col gap-3">
+              {filteredThemenlisten.map((plan) => (
+                isEditMode ? (
+                  <ContentPlanEditCard
+                    key={plan.id}
+                    plan={plan}
+                    isExpanded={shouldAutoExpand || expandedIds.has(plan.id)}
+                    onToggleExpand={handleToggleExpand}
+                    isNew={newPlanId === plan.id}
+                  />
+                ) : (
+                  <LernplanCard
+                    key={plan.id}
+                    lernplan={convertToLegacyFormat(plan)}
+                    isExpanded={shouldAutoExpand || expandedIds.has(plan.id)}
+                    onToggleExpand={handleToggleExpand}
+                  />
+                )
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Lernpläne Section */}
+        {filteredLernplaene.length > 0 && (
+          <>
+            {(showArchived && archivedCalendarPlans?.length > 0) ||
+             (!showArchived && activeCalendarPlan) ||
+             filteredThemenlisten.length > 0 ? (
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Lernpläne</h3>
+            ) : null}
+            <div className="flex flex-col gap-3">
+              {filteredLernplaene.map((plan) => (
+                isEditMode ? (
+                  <ContentPlanEditCard
+                    key={plan.id}
+                    plan={plan}
+                    isExpanded={shouldAutoExpand || expandedIds.has(plan.id)}
+                    onToggleExpand={handleToggleExpand}
+                    isNew={newPlanId === plan.id}
+                  />
+                ) : (
+                  <LernplanCard
+                    key={plan.id}
+                    lernplan={convertToLegacyFormat(plan)}
+                    isExpanded={shouldAutoExpand || expandedIds.has(plan.id)}
+                    onToggleExpand={handleToggleExpand}
+                  />
+                )
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Empty State */}
+        {filteredLernplaene.length === 0 &&
+         filteredThemenlisten.length === 0 &&
+         (!showArchived || !archivedCalendarPlans?.length) &&
+         (!activeCalendarPlan || showArchived) && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-16 h-16 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400">
@@ -289,15 +461,15 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {showArchived ? 'Keine archivierten Lernpläne' : 'Noch keine Lernpläne'}
+              {showArchived ? 'Keine archivierten Einträge' : 'Noch keine Lernpläne oder Themenlisten'}
             </h3>
             <p className="text-sm text-gray-500 mb-4">
               {showArchived
-                ? 'Du hast noch keine Lernpläne archiviert.'
-                : 'Erstelle deinen ersten Lernplan, um loszulegen.'}
+                ? 'Du hast noch keine Einträge archiviert.'
+                : 'Erstelle deinen ersten Lernplan oder eine Themenliste, um loszulegen.'}
             </p>
             {!showArchived && (
-              <Button onClick={handleCreateNew} className="flex items-center gap-2">
+              <Button onClick={() => handleCreateNew('lernplan')} className="flex items-center gap-2">
                 <PlusIcon size={14} />
                 Ersten Lernplan erstellen
               </Button>
@@ -308,6 +480,57 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     </div>
   );
 });
+
+/**
+ * Convert new hierarchical format to legacy format for LernplanCard
+ * This is a temporary adapter until LernplanCard is updated
+ */
+const convertToLegacyFormat = (plan) => {
+  // Calculate progress
+  let completedTasks = 0;
+  let totalTasks = 0;
+  const chapters = [];
+
+  plan.rechtsgebiete?.forEach(rg => {
+    rg.unterrechtsgebiete?.forEach(urg => {
+      urg.kapitel?.forEach(k => {
+        const themes = k.themen?.map(t => {
+          const tasks = t.aufgaben?.map(a => {
+            totalTasks++;
+            if (a.completed) completedTasks++;
+            return { id: a.id, title: a.title, completed: a.completed };
+          }) || [];
+          return { id: t.id, title: t.title, tasks };
+        }) || [];
+        chapters.push({ id: k.id, title: k.title, themes });
+      });
+    });
+  });
+
+  // Get first Rechtsgebiet for tag
+  const firstRg = plan.rechtsgebiete?.[0];
+  const tagMap = {
+    'zivilrecht': 'Zivilrecht',
+    'oeffentliches-recht': 'Öffentliches Recht',
+    'strafrecht': 'Strafrecht',
+    'querschnitt': 'Querschnitt',
+  };
+
+  return {
+    id: plan.id,
+    title: plan.name,
+    description: plan.description,
+    tags: firstRg ? [tagMap[firstRg.rechtsgebietId] || firstRg.name] : [],
+    rechtsgebiet: firstRg?.rechtsgebietId,
+    mode: plan.mode,
+    examDate: plan.examDate,
+    archived: plan.archived,
+    chapters,
+    type: plan.type,
+    // Progress info
+    _progress: { completed: completedTasks, total: totalTasks },
+  };
+};
 
 LernplanContent.displayName = 'LernplanContent';
 

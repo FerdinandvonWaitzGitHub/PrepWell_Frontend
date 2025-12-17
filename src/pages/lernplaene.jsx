@@ -21,19 +21,30 @@ const LernplanPage = () => {
     navigate('/lernplan/erstellen', { state: { from: '/lernplan' } });
   };
 
+  const handleCreateNewThemenliste = () => {
+    // Create Themenliste inline (uses same structure as Lernplan but with type: 'themenliste')
+    contentRef.current?.openCreateThemenlisteDialog();
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <Header userInitials="CN" currentPage="lernplan" />
 
-      {/* Sub-Header with Create Button */}
+      {/* Sub-Header with Create Buttons */}
       <SubHeader
         title="Lernpläne"
         actions={
-          <Button onClick={handleCreateNew} className="flex items-center gap-2">
-            <PlusIcon size={14} />
-            Neuen Lernplan erstellen
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleCreateNewThemenliste} variant="default" className="flex items-center gap-2">
+              <PlusIcon size={14} />
+              Neue Themenliste
+            </Button>
+            <Button onClick={handleCreateNew} variant="primary" className="flex items-center gap-2">
+              <PlusIcon size={14} />
+              Neuen Lernplan erstellen
+            </Button>
+          </div>
         }
       />
 
