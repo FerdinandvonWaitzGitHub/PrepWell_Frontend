@@ -144,23 +144,46 @@ export const groupSlotsByTopic = (slots) => {
 };
 
 /**
+ * Get the primary ID for a slot (supports both contentId and topicId patterns)
+ */
+const getSlotId = (slot) => slot.contentId || slot.topicId || slot.id;
+
+/**
+ * Get the title for a slot (supports both title and topicTitle patterns)
+ */
+const getSlotTitle = (slot) => slot.title || slot.topicTitle || '';
+
+/**
+ * Check if a slot has content (topic, theme, etc.)
+ */
+const slotHasContent = (slot) => {
+  return slot.status === 'topic' || slot.contentId || slot.topicId;
+};
+
+/**
  * Convert slots to learning blocks for display
+ * Supports both old pattern (topicId/topicTitle) and new pattern (contentId/title)
  */
 export const slotsToLearningBlocks = (slots) => {
   const groups = groupSlotsByTopic(slots);
   const blocks = [];
   const processedGroups = new Set();
-  const processedTopicIds = new Set();
+  const processedIds = new Set();
 
   slots.forEach(slot => {
-    if (slot.status === 'topic' && slot.groupId && !processedGroups.has(slot.groupId)) {
+    const slotId = getSlotId(slot);
+
+    if (slot.groupId && !processedGroups.has(slot.groupId)) {
       // Multi-slot topic with groupId - only add once per group
       const groupSlots = groups[slot.groupId];
       if (groupSlots && groupSlots.length > 0) {
         const firstSlot = groupSlots[0];
+        const id = getSlotId(firstSlot);
         blocks.push({
-          id: firstSlot.topicId || firstSlot.id,
-          title: firstSlot.topicTitle || '',
+          id,
+          contentId: firstSlot.contentId,
+          topicId: firstSlot.topicId,
+          title: getSlotTitle(firstSlot),
           blockType: firstSlot.blockType || 'lernblock',
           progress: firstSlot.progress || '0/1',
           description: firstSlot.description,
@@ -170,13 +193,15 @@ export const slotsToLearningBlocks = (slots) => {
           blockSize: groupSlots.length
         });
         processedGroups.add(slot.groupId);
-        if (firstSlot.topicId) processedTopicIds.add(firstSlot.topicId);
+        if (id) processedIds.add(id);
       }
-    } else if (slot.status === 'topic' && !slot.groupId && slot.topicId && !processedTopicIds.has(slot.topicId)) {
-      // Single-slot topic without groupId (e.g., from template)
+    } else if (!slot.groupId && slotHasContent(slot) && slotId && !processedIds.has(slotId)) {
+      // Single-slot topic without groupId (from template, wizard, or manual creation)
       blocks.push({
-        id: slot.topicId || slot.id,
-        title: slot.topicTitle || '',
+        id: slotId,
+        contentId: slot.contentId,
+        topicId: slot.topicId,
+        title: getSlotTitle(slot),
         blockType: slot.blockType || 'lernblock',
         progress: slot.progress || '1/1',
         description: slot.description,
@@ -185,12 +210,12 @@ export const slotsToLearningBlocks = (slots) => {
         tasks: slot.tasks,
         blockSize: 1
       });
-      processedTopicIds.add(slot.topicId);
+      processedIds.add(slotId);
     } else if (slot.status === 'free') {
       // Free slot
       blocks.push({
         id: slot.id,
-        title: slot.topicTitle || 'Frei',
+        title: getSlotTitle(slot) || 'Frei',
         blockType: 'free',
         progress: '1/1',
         blockSize: 1

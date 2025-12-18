@@ -1359,6 +1359,94 @@ export const CalendarProvider = ({ children }) => {
     saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
   }, [contentPlans]);
 
+  /**
+   * Schedule an Aufgabe to a Block (marks it as scheduled in the themenliste)
+   * Used when dragging an Aufgabe from Themenliste to a Calendar Block
+   * @param {string} aufgabeId - The Aufgabe ID to schedule
+   * @param {Object} blockInfo - { slotId, date, blockTitle }
+   */
+  const scheduleAufgabeToBlock = useCallback((aufgabeId, blockInfo) => {
+    const updated = contentPlans.map(plan => {
+      let found = false;
+      const updatedPlan = {
+        ...plan,
+        rechtsgebiete: plan.rechtsgebiete.map(rg => ({
+          ...rg,
+          unterrechtsgebiete: rg.unterrechtsgebiete.map(urg => ({
+            ...urg,
+            kapitel: urg.kapitel.map(k => ({
+              ...k,
+              themen: k.themen.map(t => ({
+                ...t,
+                aufgaben: t.aufgaben.map(a => {
+                  if (a.id === aufgabeId) {
+                    found = true;
+                    return {
+                      ...a,
+                      scheduledInBlock: {
+                        slotId: blockInfo.slotId,
+                        date: blockInfo.date,
+                        blockTitle: blockInfo.blockTitle,
+                        scheduledAt: new Date().toISOString(),
+                      },
+                    };
+                  }
+                  return a;
+                }),
+              })),
+            })),
+          })),
+        })),
+      };
+      if (found) {
+        updatedPlan.updatedAt = new Date().toISOString();
+      }
+      return updatedPlan;
+    });
+    setContentPlans(updated);
+    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+  }, [contentPlans]);
+
+  /**
+   * Unschedule an Aufgabe from a Block (removes the scheduledInBlock marker)
+   * Used when removing an Aufgabe from a Calendar Block
+   * @param {string} aufgabeId - The Aufgabe ID to unschedule
+   */
+  const unscheduleAufgabeFromBlock = useCallback((aufgabeId) => {
+    const updated = contentPlans.map(plan => {
+      let found = false;
+      const updatedPlan = {
+        ...plan,
+        rechtsgebiete: plan.rechtsgebiete.map(rg => ({
+          ...rg,
+          unterrechtsgebiete: rg.unterrechtsgebiete.map(urg => ({
+            ...urg,
+            kapitel: urg.kapitel.map(k => ({
+              ...k,
+              themen: k.themen.map(t => ({
+                ...t,
+                aufgaben: t.aufgaben.map(a => {
+                  if (a.id === aufgabeId && a.scheduledInBlock) {
+                    found = true;
+                    const { scheduledInBlock, ...rest } = a;
+                    return rest;
+                  }
+                  return a;
+                }),
+              })),
+            })),
+          })),
+        })),
+      };
+      if (found) {
+        updatedPlan.updatedAt = new Date().toISOString();
+      }
+      return updatedPlan;
+    });
+    setContentPlans(updated);
+    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+  }, [contentPlans]);
+
   // ============================================
   // CUSTOM UNTERRECHTSGEBIETE (Global)
   // ============================================
@@ -1514,6 +1602,10 @@ export const CalendarProvider = ({ children }) => {
     updateAufgabeInPlan,
     toggleAufgabeInPlan,
     deleteAufgabeFromPlan,
+
+    // Aufgabe Scheduling (for drag & drop from Themenliste to Block)
+    scheduleAufgabeToBlock,
+    unscheduleAufgabeFromBlock,
 
     // Custom Unterrechtsgebiete
     addCustomUnterrechtsgebiet,

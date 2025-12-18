@@ -460,6 +460,7 @@ const ThemeListKapitelRow = ({
 
 /**
  * ThemeListThemaRow - Thema-Zeile mit Aufgaben (draggable)
+ * Scheduled aufgaben are grayed out and not draggable
  */
 const ThemeListThemaRow = ({
   thema,
@@ -468,10 +469,18 @@ const ThemeListThemaRow = ({
   onToggleAufgabe,
   kapitelTitle = '',
 }) => {
-  const completedCount = thema.aufgaben?.filter(a => a.completed).length || 0;
-  const totalCount = thema.aufgaben?.length || 0;
+  // Only count non-scheduled aufgaben for progress
+  const availableAufgaben = thema.aufgaben?.filter(a => !a.scheduledInBlock) || [];
+  const completedCount = availableAufgaben.filter(a => a.completed).length;
+  const totalCount = availableAufgaben.length;
+  const scheduledCount = (thema.aufgaben?.length || 0) - availableAufgaben.length;
 
   const handleAufgabeDragStart = (e, aufgabe) => {
+    // Don't allow dragging scheduled aufgaben
+    if (aufgabe.scheduledInBlock) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('application/json', JSON.stringify({
       type: 'task',
       source: 'themenliste',
@@ -502,35 +511,72 @@ const ThemeListThemaRow = ({
           <ChevronDownIcon className={`text-gray-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
           <span className="text-sm text-gray-600">{thema.title}</span>
         </div>
-        <span className="text-xs text-gray-400">{completedCount}/{totalCount}</span>
+        <div className="flex items-center gap-2">
+          {scheduledCount > 0 && (
+            <span className="text-xs text-blue-500" title={`${scheduledCount} eingeplant`}>
+              {scheduledCount} eingeplant
+            </span>
+          )}
+          <span className="text-xs text-gray-400">{completedCount}/{totalCount}</span>
+        </div>
       </button>
 
       {/* Expanded: Aufgaben */}
       {isExpanded && thema.aufgaben && thema.aufgaben.length > 0 && (
         <div className="px-8 pb-2 bg-gray-50">
-          {thema.aufgaben.map((aufgabe) => (
-            <div
-              key={aufgabe.id}
-              className="flex items-center gap-3 py-1.5 pl-4 rounded cursor-grab active:cursor-grabbing hover:bg-gray-100 transition-colors group"
-              draggable
-              onDragStart={(e) => handleAufgabeDragStart(e, aufgabe)}
-              onDragEnd={handleAufgabeDragEnd}
-            >
-              <span className="text-gray-300 group-hover:text-gray-400 flex-shrink-0">
-                <DragHandleIcon />
-              </span>
-              <input
-                type="checkbox"
-                checked={aufgabe.completed}
-                onChange={() => onToggleAufgabe(aufgabe.id)}
-                onClick={(e) => e.stopPropagation()}
-                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
-              />
-              <span className={`text-sm ${aufgabe.completed ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                {aufgabe.title}
-              </span>
-            </div>
-          ))}
+          {thema.aufgaben.map((aufgabe) => {
+            const isScheduled = !!aufgabe.scheduledInBlock;
+
+            return (
+              <div
+                key={aufgabe.id}
+                className={`flex items-center gap-3 py-1.5 pl-4 rounded transition-colors group ${
+                  isScheduled
+                    ? 'opacity-50 cursor-default'
+                    : 'cursor-grab active:cursor-grabbing hover:bg-gray-100'
+                }`}
+                draggable={!isScheduled}
+                onDragStart={(e) => handleAufgabeDragStart(e, aufgabe)}
+                onDragEnd={handleAufgabeDragEnd}
+                title={isScheduled ? `Eingeplant: ${aufgabe.scheduledInBlock.blockTitle} (${aufgabe.scheduledInBlock.date})` : undefined}
+              >
+                {/* Drag Handle - hidden for scheduled */}
+                <span className={`flex-shrink-0 ${isScheduled ? 'text-gray-200' : 'text-gray-300 group-hover:text-gray-400'}`}>
+                  {isScheduled ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  ) : (
+                    <DragHandleIcon />
+                  )}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={aufgabe.completed}
+                  onChange={() => onToggleAufgabe(aufgabe.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  disabled={isScheduled}
+                  className={`h-4 w-4 rounded border-gray-300 focus:ring-gray-500 ${
+                    isScheduled ? 'text-gray-400' : 'text-gray-900'
+                  }`}
+                />
+                <span className={`text-sm ${
+                  isScheduled
+                    ? 'text-gray-400 italic'
+                    : aufgabe.completed
+                      ? 'text-gray-400 line-through'
+                      : 'text-gray-700'
+                }`}>
+                  {aufgabe.title}
+                </span>
+                {isScheduled && (
+                  <span className="text-xs text-blue-400 ml-auto">
+                    → {aufgabe.scheduledInBlock.date}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

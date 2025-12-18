@@ -212,7 +212,7 @@ const WeekGrid = ({
       <div className="flex-1 overflow-auto">
         <table className="w-full border-collapse table-fixed">
           {/* Sticky Header */}
-          <thead className="sticky top-0 z-10 bg-white">
+          <thead className="sticky top-0 z-20 bg-white">
             <tr>
               {/* Time column header */}
               <th className="w-10 border-b border-r border-gray-200 bg-white" />
@@ -359,13 +359,26 @@ const WeekGrid = ({
                     <td
                       key={`${hour}-${dayIndex}`}
                       onClick={() => dayBlocks.length === 0 && handleSlotClick(date, hour)}
-                      className={`relative border-r border-b border-gray-100 last:border-r-0 p-1 align-top ${
+                      className={`relative border-r border-b border-gray-100 last:border-r-0 p-1 align-top overflow-visible ${
                         dayBlocks.length === 0 ? 'hover:bg-gray-50 cursor-pointer' : ''
                       }`}
                     >
                       {dayBlocks.map((block) => {
                         const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.theme;
-                        const blockHeight = block.blockSize ? (block.blockSize * 30) + 24 : 44;
+
+                        // Calculate block height based on actual time duration
+                        let durationHours = 1; // default 1 hour
+                        if (block.startTime && block.endTime) {
+                          const [startH, startM] = block.startTime.split(':').map(Number);
+                          const [endH, endM] = block.endTime.split(':').map(Number);
+                          durationHours = (endH + endM / 60) - (startH + startM / 60);
+                        } else if (block.duration) {
+                          durationHours = block.duration;
+                        }
+
+                        // Each hour row is approximately 54px
+                        const hourHeight = 54;
+                        const blockHeight = Math.max(44, durationHours * hourHeight - 8);
 
                         return (
                           <button
@@ -374,8 +387,8 @@ const WeekGrid = ({
                               e.stopPropagation();
                               onBlockClick && onBlockClick(block, date);
                             }}
-                            style={{ height: `${Math.min(blockHeight, getRowHeight(hour) - 10)}px` }}
-                            className={`w-full rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-colors ${colorClass}`}
+                            style={{ height: `${blockHeight}px` }}
+                            className={`w-full rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-colors absolute top-1 left-1 right-1 z-10 ${colorClass}`}
                           >
                             <div className="text-xs font-medium text-gray-900 truncate">
                               {block.title}

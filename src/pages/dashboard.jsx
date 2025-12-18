@@ -58,6 +58,8 @@ const DashboardPage = () => {
     // Content Plans (Themenlisten)
     contentPlans,
     updateContentPlan,
+    // Aufgabe Scheduling (for drag & drop)
+    scheduleAufgabeToBlock,
   } = useCalendar();
 
   // Selected theme list state
@@ -65,6 +67,7 @@ const DashboardPage = () => {
 
   // Convert contentPlans (type='themenliste') to the format expected by LernblockWidget
   // Preserves full hierarchy: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
+  // Also includes scheduledInBlock info for graying out scheduled aufgaben
   const themeLists = useMemo(() => {
     if (!contentPlans) return [];
 
@@ -89,6 +92,8 @@ const DashboardPage = () => {
                     id: a.id,
                     title: a.title,
                     completed: a.completed || false,
+                    // Include scheduling info for UI display
+                    scheduledInBlock: a.scheduledInBlock || null,
                   };
                 }) || [];
                 return {
@@ -277,16 +282,24 @@ const DashboardPage = () => {
   }, [dateString, slotsByDate, addSlotWithContent]);
 
   // Update a block (updates both Slot and Content)
+  // Supports both contentId and topicId patterns for cross-view compatibility
   const handleUpdateBlock = useCallback((_date, updatedBlock) => {
     if (updatedBlock.blockType === 'private') {
       updatePrivateBlock(dateString, updatedBlock.id, updatedBlock);
     } else {
       const daySlots = slotsByDate[dateString] || [];
 
-      // Find the slot by contentId (new model) or id
+      // Find the slot by contentId, topicId, or id (supports both patterns)
       const updatedSlots = daySlots.map(slot => {
-        if (slot.contentId === updatedBlock.id || slot.contentId === updatedBlock.contentId) {
-          // Update Content separately
+        const isMatch =
+          slot.contentId === updatedBlock.id ||
+          slot.contentId === updatedBlock.contentId ||
+          slot.topicId === updatedBlock.id ||
+          slot.topicId === updatedBlock.topicId ||
+          slot.id === updatedBlock.id;
+
+        if (isMatch) {
+          // Update Content separately if using contentId pattern
           if (slot.contentId) {
             saveContent({
               id: slot.contentId,
@@ -298,10 +311,16 @@ const DashboardPage = () => {
             });
           }
 
-          // Update Slot data (time, repeat, tasks)
+          // Update Slot data (supports both patterns)
           return {
             ...slot,
+            // Update title in both patterns
+            title: updatedBlock.title,
+            topicTitle: updatedBlock.title,
             blockType: updatedBlock.blockType,
+            description: updatedBlock.description,
+            rechtsgebiet: updatedBlock.rechtsgebiet,
+            unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
             // Time data
             hasTime: updatedBlock.hasTime || false,
             startTime: updatedBlock.startTime,
@@ -325,6 +344,7 @@ const DashboardPage = () => {
   }, [dateString, slotsByDate, updateDaySlots, updatePrivateBlock, saveContent]);
 
   // Delete a block (removes Slot, Content remains for potential reuse)
+  // Supports both contentId and topicId patterns for cross-view compatibility
   const handleDeleteBlock = useCallback((_date, blockId) => {
     const dayPrivateBlocks = privateBlocksByDate[dateString] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
@@ -333,10 +353,14 @@ const DashboardPage = () => {
       deletePrivateBlock(dateString, blockId);
     } else {
       const daySlots = slotsByDate[dateString] || [];
-      // Filter out the slot with matching contentId
-      const updatedSlots = daySlots.filter(slot =>
-        slot.contentId !== blockId && slot.id !== blockId
-      );
+      // Filter out the slot with matching contentId, topicId, or id (supports both patterns)
+      const updatedSlots = daySlots.filter(slot => {
+        const isMatch =
+          slot.contentId === blockId ||
+          slot.topicId === blockId ||
+          slot.id === blockId;
+        return !isMatch;
+      });
       updateDaySlots(dateString, updatedSlots);
       // Note: Content is NOT deleted - it can be reused later
     }
@@ -352,11 +376,22 @@ const DashboardPage = () => {
   }, [dateString, addPrivateBlock]);
 
   // Handle dropping a task onto a block
+  // Supports both contentId and topicId patterns for cross-view compatibility
   const handleDropTaskToBlock = useCallback((block, droppedTask, source) => {
     const daySlots = slotsByDate[dateString] || [];
+    let taskWasAdded = false;
+    let targetSlotId = null;
+
     const updatedSlots = daySlots.map(slot => {
-      // Match by contentId (new model) or by id
-      if (slot.contentId === block.id || slot.contentId === block.contentId) {
+      // Match by contentId, topicId, or id (supports both patterns)
+      const isMatch =
+        slot.contentId === block.id ||
+        slot.contentId === block.contentId ||
+        slot.topicId === block.id ||
+        slot.topicId === block.topicId ||
+        slot.id === block.id;
+
+      if (isMatch) {
         // Add the task to this slot's tasks array
         const existingTasks = slot.tasks || [];
         // Check if task already exists (by sourceId or id)
@@ -367,6 +402,9 @@ const DashboardPage = () => {
         if (alreadyExists) {
           return slot; // Don't add duplicate
         }
+
+        taskWasAdded = true;
+        targetSlotId = slot.id;
 
         const newTask = {
           id: `dropped-${Date.now()}`,
@@ -389,13 +427,19 @@ const DashboardPage = () => {
 
     updateDaySlots(dateString, updatedSlots);
 
-    // Remove the task from the source (so it only exists once)
+    // Handle source-specific behavior
     if (source === 'todos') {
       // Remove from To-Do list
       removeTask(droppedTask.id);
+    } else if (source === 'themenliste' && taskWasAdded) {
+      // Mark the aufgabe as scheduled in the themenliste (grays it out)
+      scheduleAufgabeToBlock(droppedTask.id, {
+        slotId: targetSlotId,
+        date: dateString,
+        blockTitle: block.title || 'Lernblock',
+      });
     }
-    // Note: For themenliste, we don't delete since they are part of the learning plan structure
-  }, [dateString, slotsByDate, updateDaySlots, removeTask]);
+  }, [dateString, slotsByDate, updateDaySlots, removeTask, scheduleAufgabeToBlock]);
 
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);

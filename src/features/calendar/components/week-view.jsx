@@ -79,6 +79,15 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     return timeSlots[position] || { startTime: '08:00', endTime: '10:00' };
   };
 
+  // Helper: Find slot by ID (supports both contentId and topicId patterns)
+  const findSlotById = (slots, blockId) => {
+    return slots.find(s =>
+      s.contentId === blockId ||
+      s.topicId === blockId ||
+      s.id === blockId
+    );
+  };
+
   // Transform CalendarContext slots to week view format
   const blocks = useMemo(() => {
     const { monday, sunday } = getWeekDateRange(currentDate);
@@ -96,13 +105,18 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       learningBlocks.forEach(block => {
         if (block.isAddButton) return; // Skip add buttons
 
-        // Find the original slot to get position
-        const originalSlot = daySlots.find(s => s.topicId === block.id);
+        // Find the original slot to get position and other data (supports both contentId and topicId)
+        const originalSlot = findSlotById(daySlots, block.id);
         const position = originalSlot?.position || 1;
-        const { startTime, endTime } = getTimeForPosition(position);
+        // Use slot's time settings if available, otherwise use position-based defaults
+        const defaultTimes = getTimeForPosition(position);
+        const startTime = originalSlot?.startTime || defaultTimes.startTime;
+        const endTime = originalSlot?.endTime || defaultTimes.endTime;
 
         weekBlocks.push({
           id: block.id,
+          contentId: block.contentId || originalSlot?.contentId,
+          topicId: block.topicId || originalSlot?.topicId,
           title: block.title,
           blockType: block.blockType || 'lernblock',
           blockSize: block.blockSize || 1,
@@ -113,6 +127,17 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
           description: block.description || '',
           rechtsgebiet: block.rechtsgebiet,
           unterrechtsgebiet: block.unterrechtsgebiet,
+          // Time settings from slot
+          hasTime: originalSlot?.hasTime || false,
+          startHour: originalSlot?.startHour,
+          duration: originalSlot?.duration,
+          // Repeat settings from slot
+          repeatEnabled: originalSlot?.repeatEnabled || false,
+          repeatType: originalSlot?.repeatType,
+          repeatCount: originalSlot?.repeatCount,
+          customDays: originalSlot?.customDays,
+          // Tasks from slot
+          tasks: originalSlot?.tasks || [],
         });
       });
     }
@@ -135,6 +160,12 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
           ...block,
           startDate: dateKey,
           blockType: 'private',
+          // Ensure time and repeat settings are included
+          hasTime: block.hasTime !== undefined ? block.hasTime : true,
+          repeatEnabled: block.repeatEnabled || false,
+          repeatType: block.repeatType,
+          repeatCount: block.repeatCount,
+          customDays: block.customDays,
         });
       });
     }
@@ -223,6 +254,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   };
 
   // Update a block - uses CalendarContext
+  // Supports both contentId and topicId patterns for cross-view compatibility
   const handleUpdateBlock = (date, updatedBlock) => {
     const dateKey = date ? formatDateKey(date) : updatedBlock.startDate;
 
@@ -233,12 +265,37 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       // Update learning block in CalendarContext (update the slot)
       const daySlots = slotsByDate[dateKey] || [];
       const updatedSlots = daySlots.map(slot => {
-        if (slot.topicId === updatedBlock.id) {
+        // Match by contentId, topicId, or id (supports both patterns)
+        const isMatch =
+          slot.contentId === updatedBlock.id ||
+          slot.contentId === updatedBlock.contentId ||
+          slot.topicId === updatedBlock.id ||
+          slot.topicId === updatedBlock.topicId ||
+          slot.id === updatedBlock.id;
+
+        if (isMatch) {
           return {
             ...slot,
+            // Update title in both patterns
+            title: updatedBlock.title,
             topicTitle: updatedBlock.title,
             blockType: updatedBlock.blockType,
             description: updatedBlock.description,
+            rechtsgebiet: updatedBlock.rechtsgebiet,
+            unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
+            // Time settings
+            hasTime: updatedBlock.hasTime || false,
+            startTime: updatedBlock.startTime,
+            endTime: updatedBlock.endTime,
+            startHour: updatedBlock.startHour,
+            duration: updatedBlock.duration,
+            // Repeat settings
+            repeatEnabled: updatedBlock.repeatEnabled || false,
+            repeatType: updatedBlock.repeatType,
+            repeatCount: updatedBlock.repeatCount,
+            customDays: updatedBlock.customDays,
+            // Tasks
+            tasks: updatedBlock.tasks || [],
             updatedAt: new Date().toISOString(),
           };
         }
@@ -249,6 +306,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   };
 
   // Delete a block - uses CalendarContext
+  // Supports both contentId and topicId patterns for cross-view compatibility
   const handleDeleteBlock = (date, blockId) => {
     const dateKey = date ? formatDateKey(date) : null;
     if (!dateKey) return;
@@ -260,34 +318,33 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     if (isPrivate) {
       deletePrivateBlock(dateKey, blockId);
     } else {
-      // Delete learning block by clearing the slot
+      // Delete learning block by removing the slot entirely
+      // This is more compatible with Dashboard's delete behavior
       const daySlots = slotsByDate[dateKey] || [];
-      const updatedSlots = daySlots.map(slot => {
-        if (slot.topicId === blockId) {
-          return {
-            ...slot,
-            status: 'empty',
-            topicId: null,
-            topicTitle: null,
-            blockType: null,
-            description: null,
-          };
-        }
-        return slot;
+      const updatedSlots = daySlots.filter(slot => {
+        // Match by contentId, topicId, or id (supports both patterns)
+        const isMatch =
+          slot.contentId === blockId ||
+          slot.topicId === blockId ||
+          slot.id === blockId;
+        return !isMatch;
       });
       updateDaySlots(dateKey, updatedSlots);
     }
   };
 
   // Add a new learning block - uses CalendarContext
+  // Creates slots compatible with both contentId and topicId patterns
   const handleAddBlock = (_date, blockData) => {
     const dateKey = selectedDate ? formatDateKey(selectedDate) : new Date().toISOString().split('T')[0];
 
     // Get or create day slots
     const daySlots = slotsByDate[dateKey] || [];
 
-    // Find next available position
-    const usedPositions = daySlots.filter(s => s.status === 'topic').map(s => s.position);
+    // Find next available position - check for slots with content (both patterns)
+    const usedPositions = daySlots
+      .filter(s => s.status === 'topic' || s.contentId || s.topicId)
+      .map(s => s.position);
     let nextPosition = 1;
     while (usedPositions.includes(nextPosition) && nextPosition <= 3) {
       nextPosition++;
@@ -298,18 +355,39 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       return;
     }
 
-    // Create new slot
+    // Generate a unified ID for both patterns
+    const blockId = blockData.id || `content-${Date.now()}`;
+
+    // Create new slot with BOTH contentId and topicId for cross-view compatibility
     const newSlot = {
       id: `slot-${dateKey}-${nextPosition}`,
       date: dateKey,
       position: nextPosition,
       status: 'topic',
-      topicId: blockData.id || `topic-${Date.now()}`,
+      // Both ID patterns for compatibility
+      contentId: blockId,
+      topicId: blockId,
+      // Both title patterns for compatibility
+      title: blockData.title,
       topicTitle: blockData.title,
       blockType: blockData.blockType || 'lernblock',
       description: blockData.description || '',
       rechtsgebiet: blockData.rechtsgebiet,
       unterrechtsgebiet: blockData.unterrechtsgebiet,
+      // Time settings
+      hasTime: blockData.hasTime || false,
+      startTime: blockData.startTime,
+      endTime: blockData.endTime,
+      startHour: blockData.startHour,
+      duration: blockData.duration,
+      // Repeat settings
+      repeatEnabled: blockData.repeatEnabled || false,
+      repeatType: blockData.repeatType,
+      repeatCount: blockData.repeatCount,
+      customDays: blockData.customDays,
+      // Tasks
+      tasks: blockData.tasks || [],
+      isFromLernplan: false, // Manual creation, not from wizard
       createdAt: new Date().toISOString(),
     };
 
@@ -342,6 +420,15 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       ...blockData,
       startTime: blockData.startTime || selectedTime || '09:00',
       endTime: blockData.endTime || calculateEndTime(selectedTime || '09:00', blockData.blockSize || 1),
+      // Time settings
+      hasTime: blockData.hasTime !== undefined ? blockData.hasTime : true,
+      startHour: blockData.startHour,
+      duration: blockData.duration,
+      // Repeat settings
+      repeatEnabled: blockData.repeatEnabled || false,
+      repeatType: blockData.repeatType,
+      repeatCount: blockData.repeatCount,
+      customDays: blockData.customDays,
     });
   };
 

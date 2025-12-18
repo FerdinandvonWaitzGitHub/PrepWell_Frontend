@@ -10,7 +10,26 @@ import {
   DialogClose
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
-import { TrashIcon, CheckIcon } from '../../../components/ui/icon';
+import { TrashIcon, CheckIcon, ChevronDownIcon } from '../../../components/ui/icon';
+
+// Repeat type options
+const repeatTypeOptions = [
+  { id: 'daily', name: 'Täglich' },
+  { id: 'weekly', name: 'Wöchentlich' },
+  { id: 'monthly', name: 'Monatlich' },
+  { id: 'custom', name: 'Benutzerdefiniert' },
+];
+
+// Weekday options
+const weekdayOptions = [
+  { id: 0, short: 'So', name: 'Sonntag' },
+  { id: 1, short: 'Mo', name: 'Montag' },
+  { id: 2, short: 'Di', name: 'Dienstag' },
+  { id: 3, short: 'Mi', name: 'Mittwoch' },
+  { id: 4, short: 'Do', name: 'Donnerstag' },
+  { id: 5, short: 'Fr', name: 'Freitag' },
+  { id: 6, short: 'Sa', name: 'Samstag' },
+];
 
 /**
  * Manage Private Block Dialog Component
@@ -32,6 +51,13 @@ const ManagePrivateBlockDialog = ({
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('10:00');
 
+  // Repeat settings
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatType, setRepeatType] = useState('weekly');
+  const [repeatCount, setRepeatCount] = useState(20);
+  const [customDays, setCustomDays] = useState([1, 3, 5]);
+  const [isRepeatTypeOpen, setIsRepeatTypeOpen] = useState(false);
+
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -44,6 +70,12 @@ const ManagePrivateBlockDialog = ({
       setStartTime(block.startTime || '09:00');
       setEndDate(block.endDate || formatDateForInput(date));
       setEndTime(block.endTime || '10:00');
+      // Load repeat settings
+      setRepeatEnabled(block.repeatEnabled || false);
+      setRepeatType(block.repeatType || 'weekly');
+      setRepeatCount(block.repeatCount || 20);
+      setCustomDays(block.customDays || [1, 3, 5]);
+      setIsRepeatTypeOpen(false);
       setShowDeleteConfirm(false);
     } else if (open && date) {
       // New block
@@ -53,6 +85,12 @@ const ManagePrivateBlockDialog = ({
       setStartTime('09:00');
       setEndDate(formatDateForInput(date));
       setEndTime('10:00');
+      // Reset repeat settings
+      setRepeatEnabled(false);
+      setRepeatType('weekly');
+      setRepeatCount(20);
+      setCustomDays([1, 3, 5]);
+      setIsRepeatTypeOpen(false);
       setShowDeleteConfirm(false);
     }
   }, [open, block, date]);
@@ -76,6 +114,36 @@ const ManagePrivateBlockDialog = ({
   const isMultiDay = () => {
     if (!startDate || !endDate) return false;
     return startDate !== endDate;
+  };
+
+  // Toggle custom day
+  const toggleCustomDay = (dayId) => {
+    setCustomDays(prev => {
+      if (prev.includes(dayId)) {
+        return prev.filter(d => d !== dayId);
+      } else {
+        return [...prev, dayId].sort((a, b) => a - b);
+      }
+    });
+  };
+
+  // Get repeat type name
+  const getRepeatTypeName = () => {
+    return repeatTypeOptions.find(opt => opt.id === repeatType)?.name || 'Wöchentlich';
+  };
+
+  // Calculate duration and start hour
+  const calculateDuration = () => {
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    return Math.max(0.5, (endMinutes - startMinutes) / 60);
+  };
+
+  const calculateStartHour = () => {
+    const [startH, startM] = startTime.split(':').map(Number);
+    return startH + startM / 60;
   };
 
   // Generate time options in 5-minute intervals
@@ -106,7 +174,16 @@ const ManagePrivateBlockDialog = ({
       startTime,
       endDate,
       endTime,
-      isMultiDay: isMultiDay()
+      isMultiDay: isMultiDay(),
+      // Time calculations
+      hasTime: true,
+      startHour: calculateStartHour(),
+      duration: calculateDuration(),
+      // Repeat settings
+      repeatEnabled,
+      repeatType: repeatEnabled ? repeatType : null,
+      repeatCount: repeatEnabled ? repeatCount : null,
+      customDays: repeatEnabled && repeatType === 'custom' ? customDays : null,
     });
     onOpenChange(false);
   };
@@ -203,6 +280,88 @@ const ManagePrivateBlockDialog = ({
                 rows={3}
                 className="w-full px-3 py-2 bg-white rounded-lg shadow-sm border border-gray-200 text-sm resize-none"
               />
+            </div>
+
+            {/* Wiederholung */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={repeatEnabled}
+                  onChange={(e) => setRepeatEnabled(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                />
+                <span className="text-sm font-medium text-gray-900">Termin wiederholen</span>
+              </label>
+
+              {repeatEnabled && (
+                <div className="space-y-4 pl-8">
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-600">Wiederholung</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsRepeatTypeOpen(!isRepeatTypeOpen)}
+                        className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
+                      >
+                        <span className="text-sm text-gray-900">{getRepeatTypeName()}</span>
+                        <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {isRepeatTypeOpen && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                          {repeatTypeOptions.map(opt => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => { setRepeatType(opt.id); setIsRepeatTypeOpen(false); }}
+                              className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
+                                repeatType === opt.id ? 'bg-gray-100 font-medium' : ''
+                              }`}
+                            >
+                              {opt.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {repeatType === 'custom' && (
+                    <div className="space-y-2">
+                      <label className="text-sm text-gray-600">An diesen Tagen</label>
+                      <div className="flex flex-wrap gap-2">
+                        {weekdayOptions.map(day => (
+                          <button
+                            key={day.id}
+                            type="button"
+                            onClick={() => toggleCustomDay(day.id)}
+                            className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                              customDays.includes(day.id) ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {day.short}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-600">Anzahl Wiederholungen</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={repeatCount}
+                        onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                        className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm text-center"
+                      />
+                      <span className="text-sm text-gray-600">mal</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Multi-day indicator */}
