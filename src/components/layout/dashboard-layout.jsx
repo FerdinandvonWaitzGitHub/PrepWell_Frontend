@@ -10,7 +10,7 @@ import React from 'react';
  */
 const DashboardLayout = ({ leftColumn, rightColumn, className = '' }) => {
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 ${className}`}>
+    <div className={`grid grid-cols-1 md:grid-cols-[2fr_3fr] gap-5 md:gap-6 ${className}`}>
       {/* Left Column */}
       <div className="flex flex-col">
         {leftColumn}

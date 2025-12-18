@@ -18,7 +18,7 @@ const CalendarHeader = ({
   className = ''
 }) => {
   return (
-    <div className={`flex items-center justify-between bg-white px-12.5 py-7.5 border-b border-gray-200 ${className}`}>
+    <div className={`flex items-center justify-between bg-white px-12.5 py-3 border-b border-gray-200 ${className}`}>
       {/* Title */}
       <div className="flex items-center">
         <h2 className="text-2xl font-light text-gray-900">{title}</h2>

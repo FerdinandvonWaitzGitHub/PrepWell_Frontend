@@ -65,8 +65,20 @@ const ChecklistIcon = () => (
   </svg>
 );
 
+// Drag handle icon
+const DragHandleIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+    <circle cx="9" cy="6" r="2" />
+    <circle cx="15" cy="6" r="2" />
+    <circle cx="9" cy="12" r="2" />
+    <circle cx="15" cy="12" r="2" />
+    <circle cx="9" cy="18" r="2" />
+    <circle cx="15" cy="18" r="2" />
+  </svg>
+);
+
 /**
- * TaskItem component - einzelne Aufgabe
+ * TaskItem component - einzelne Aufgabe (draggable)
  */
 const TaskItem = ({
   task,
@@ -79,7 +91,28 @@ const TaskItem = ({
   onEditChange,
   onEditSubmit,
   onEditCancel,
+  draggable = true,
+  dragSource = 'todos',
 }) => {
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'task',
+      source: dragSource,
+      task: {
+        id: task.id,
+        text: task.text,
+        completed: task.completed,
+        priority: task.priority,
+      }
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.classList.remove('opacity-50');
+  };
+
   if (isEditing) {
     return (
       <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 bg-white">
@@ -112,11 +145,21 @@ const TaskItem = ({
   }
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 bg-white group">
+    <div
+      className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 bg-white group cursor-grab active:cursor-grabbing"
+      draggable={draggable}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      {/* Drag Handle */}
+      <span className="text-gray-300 group-hover:text-gray-400 flex-shrink-0">
+        <DragHandleIcon />
+      </span>
       <input
         type="checkbox"
         checked={task.completed}
         onChange={() => onToggle(task.id)}
+        onClick={(e) => e.stopPropagation()}
         className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500 flex-shrink-0"
       />
       <span className={`flex-1 text-sm ${task.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>
@@ -298,84 +341,63 @@ const TaskList = ({
 };
 
 /**
- * ThemeListTopicBlock - einzelnes Thema in einer Themenliste (klickbar zum Durchstreichen)
+ * ThemeListUnterrechtsgebietRow - Unterrechtsgebiet mit Kapitel
  */
-const ThemeListTopicBlock = ({
-  topic,
-  index,
-  totalTopics,
+const ThemeListUnterrechtsgebietRow = ({
+  unterrechtsgebiet,
   isExpanded,
   onToggleExpand,
-  onToggleComplete,
+  expandedKapitelId,
+  onToggleKapitel,
+  expandedThemaId,
+  onToggleThema,
+  onToggleAufgabe,
 }) => {
+  // Calculate progress for this unterrechtsgebiet
+  let completedCount = 0;
+  let totalCount = 0;
+  unterrechtsgebiet.kapitel?.forEach(k => {
+    k.themen?.forEach(t => {
+      t.aufgaben?.forEach(a => {
+        totalCount++;
+        if (a.completed) completedCount++;
+      });
+    });
+  });
+
   return (
-    <div className={`border rounded-lg overflow-hidden bg-white ${topic.completed ? 'border-gray-100 bg-gray-50' : 'border-gray-200'}`}>
-      {/* Header - always visible */}
-      <div
-        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+      {/* Unterrechtsgebiet Header */}
+      <button
         onClick={onToggleExpand}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            {/* Badges */}
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                topic.completed ? 'bg-gray-400 text-white' : 'bg-black text-white'
-              }`}>
-                {topic.rechtsgebiet || 'Rechtsgebiet'}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-gray-200 text-xs text-gray-600">
-                {index + 1} von {totalTopics} Themen
-              </span>
-            </div>
-
-            {/* Title - click to toggle complete */}
-            <h3
-              className={`text-base font-medium leading-snug cursor-pointer ${
-                topic.completed ? 'line-through text-gray-400' : 'text-gray-900'
-              } ${isExpanded ? '' : 'line-clamp-2'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleComplete(topic.id);
-              }}
-            >
-              {topic.title || 'Thema'}
-            </h3>
-          </div>
-
-          {/* Expand/Collapse Button */}
-          <button
-            type="button"
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 flex-shrink-0"
-          >
-            <span>{isExpanded ? 'Einklappen' : 'Ausklappen'}</span>
-            {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded Content */}
-      {isExpanded && (
-        <div className="px-4 pb-4 border-t border-gray-100">
-          {/* Description */}
-          {topic.description && (
-            <p className={`text-sm mt-3 ${topic.completed ? 'text-gray-400' : 'text-gray-600'}`}>
-              {topic.description}
-            </p>
+        <div className="flex items-center gap-3">
+          <ChevronDownIcon className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          <span className="text-sm font-medium text-gray-900">{unterrechtsgebiet.name}</span>
+          {unterrechtsgebiet.rechtsgebiet && (
+            <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+              {unterrechtsgebiet.rechtsgebiet}
+            </span>
           )}
+        </div>
+        <span className="text-xs text-gray-500">{completedCount}/{totalCount}</span>
+      </button>
 
-          {/* Mark as complete button */}
-          <button
-            type="button"
-            onClick={() => onToggleComplete(topic.id)}
-            className={`mt-4 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              topic.completed
-                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                : 'bg-green-50 text-green-700 hover:bg-green-100'
-            }`}
-          >
-            {topic.completed ? 'Als nicht erledigt markieren' : 'Als erledigt markieren'}
-          </button>
+      {/* Expanded: Kapitel */}
+      {isExpanded && unterrechtsgebiet.kapitel && (
+        <div className="border-t border-gray-100 bg-gray-50">
+          {unterrechtsgebiet.kapitel.map((kapitel) => (
+            <ThemeListKapitelRow
+              key={kapitel.id}
+              kapitel={kapitel}
+              isExpanded={expandedKapitelId === kapitel.id}
+              onToggleExpand={() => onToggleKapitel(kapitel.id)}
+              expandedThemaId={expandedThemaId}
+              onToggleThema={onToggleThema}
+              onToggleAufgabe={onToggleAufgabe}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -383,21 +405,152 @@ const ThemeListTopicBlock = ({
 };
 
 /**
- * ThemeListView - Ansicht für eine ausgewählte Themenliste
+ * ThemeListKapitelRow - Kapitel-Zeile mit Themen
+ */
+const ThemeListKapitelRow = ({
+  kapitel,
+  isExpanded,
+  onToggleExpand,
+  expandedThemaId,
+  onToggleThema,
+  onToggleAufgabe,
+}) => {
+  // Calculate progress for this kapitel
+  let completedCount = 0;
+  let totalCount = 0;
+  kapitel.themen?.forEach(t => {
+    t.aufgaben?.forEach(a => {
+      totalCount++;
+      if (a.completed) completedCount++;
+    });
+  });
+
+  return (
+    <div className="border-b border-gray-100 last:border-b-0">
+      {/* Kapitel Header */}
+      <button
+        onClick={onToggleExpand}
+        className="w-full flex items-center justify-between px-6 py-2.5 hover:bg-gray-100 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <ChevronDownIcon className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          <span className="text-sm font-medium text-gray-700">{kapitel.title}</span>
+        </div>
+        <span className="text-xs text-gray-500">{completedCount}/{totalCount}</span>
+      </button>
+
+      {/* Expanded: Themen */}
+      {isExpanded && kapitel.themen && (
+        <div className="bg-white border-t border-gray-100">
+          {kapitel.themen.map((thema) => (
+            <ThemeListThemaRow
+              key={thema.id}
+              thema={thema}
+              isExpanded={expandedThemaId === thema.id}
+              onToggleExpand={() => onToggleThema(thema.id)}
+              onToggleAufgabe={onToggleAufgabe}
+              kapitelTitle={kapitel.title}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * ThemeListThemaRow - Thema-Zeile mit Aufgaben (draggable)
+ */
+const ThemeListThemaRow = ({
+  thema,
+  isExpanded,
+  onToggleExpand,
+  onToggleAufgabe,
+  kapitelTitle = '',
+}) => {
+  const completedCount = thema.aufgaben?.filter(a => a.completed).length || 0;
+  const totalCount = thema.aufgaben?.length || 0;
+
+  const handleAufgabeDragStart = (e, aufgabe) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'task',
+      source: 'themenliste',
+      task: {
+        id: aufgabe.id,
+        text: aufgabe.title,
+        completed: aufgabe.completed,
+        thema: thema.title,
+        kapitel: kapitelTitle,
+      }
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleAufgabeDragEnd = (e) => {
+    e.currentTarget.classList.remove('opacity-50');
+  };
+
+  return (
+    <div className="border-b border-gray-50 last:border-b-0">
+      {/* Thema Header */}
+      <button
+        onClick={onToggleExpand}
+        className="w-full flex items-center justify-between px-8 py-2 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <ChevronDownIcon className={`text-gray-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          <span className="text-sm text-gray-600">{thema.title}</span>
+        </div>
+        <span className="text-xs text-gray-400">{completedCount}/{totalCount}</span>
+      </button>
+
+      {/* Expanded: Aufgaben */}
+      {isExpanded && thema.aufgaben && thema.aufgaben.length > 0 && (
+        <div className="px-8 pb-2 bg-gray-50">
+          {thema.aufgaben.map((aufgabe) => (
+            <div
+              key={aufgabe.id}
+              className="flex items-center gap-3 py-1.5 pl-4 rounded cursor-grab active:cursor-grabbing hover:bg-gray-100 transition-colors group"
+              draggable
+              onDragStart={(e) => handleAufgabeDragStart(e, aufgabe)}
+              onDragEnd={handleAufgabeDragEnd}
+            >
+              <span className="text-gray-300 group-hover:text-gray-400 flex-shrink-0">
+                <DragHandleIcon />
+              </span>
+              <input
+                type="checkbox"
+                checked={aufgabe.completed}
+                onChange={() => onToggleAufgabe(aufgabe.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+              />
+              <span className={`text-sm ${aufgabe.completed ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                {aufgabe.title}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * ThemeListView - Ansicht für eine ausgewählte Themenliste (hierarchisch)
+ * Hierarchie: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
  */
 const ThemeListView = ({
   themeList,
-  expandedTopicId,
-  onToggleExpand,
-  onToggleTopicComplete,
+  expandedUnterrechtsgebietId,
+  onToggleUnterrechtsgebiet,
+  expandedKapitelId,
+  onToggleKapitel,
+  expandedThemaId,
+  onToggleThema,
+  onToggleAufgabe,
 }) => {
-  const stats = useMemo(() => {
-    const topics = themeList?.topics || [];
-    const total = topics.length;
-    const completed = topics.filter(t => t.completed).length;
-    return { total, completed };
-  }, [themeList]);
-
   if (!themeList) {
     return (
       <div className="text-sm text-gray-500 py-4">
@@ -406,29 +559,42 @@ const ThemeListView = ({
     );
   }
 
-  const topics = themeList.topics || [];
+  const unterrechtsgebiete = themeList.unterrechtsgebiete || [];
+  const progress = themeList.progress || { completed: 0, total: 0 };
 
   return (
     <div className="flex flex-col gap-3">
       {/* Stats */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-600">{themeList.name}</span>
-        <span className="text-gray-500">{stats.completed}/{stats.total} erledigt</span>
+        <span className="text-gray-600 font-medium">{themeList.name}</span>
+        <span className="text-gray-500">{progress.completed}/{progress.total} Aufgaben</span>
       </div>
 
-      {/* Topic Blocks */}
-      {topics.length === 0 ? (
-        <p className="text-sm text-gray-500 py-2">Diese Themenliste hat keine Themen.</p>
+      {/* Progress Bar */}
+      {progress.total > 0 && (
+        <div className="w-full bg-gray-200 rounded-full h-1.5">
+          <div
+            className="bg-gray-900 h-1.5 rounded-full transition-all"
+            style={{ width: `${Math.round((progress.completed / progress.total) * 100)}%` }}
+          />
+        </div>
+      )}
+
+      {/* Unterrechtsgebiet Blocks */}
+      {unterrechtsgebiete.length === 0 ? (
+        <p className="text-sm text-gray-500 py-2">Diese Themenliste hat keine Inhalte.</p>
       ) : (
-        topics.map((topic, index) => (
-          <ThemeListTopicBlock
-            key={topic.id}
-            topic={topic}
-            index={index}
-            totalTopics={topics.length}
-            isExpanded={expandedTopicId === topic.id}
-            onToggleExpand={() => onToggleExpand(topic.id)}
-            onToggleComplete={onToggleTopicComplete}
+        unterrechtsgebiete.map((urg) => (
+          <ThemeListUnterrechtsgebietRow
+            key={urg.id}
+            unterrechtsgebiet={urg}
+            isExpanded={expandedUnterrechtsgebietId === urg.id}
+            onToggleExpand={() => onToggleUnterrechtsgebiet(urg.id)}
+            expandedKapitelId={expandedKapitelId}
+            onToggleKapitel={onToggleKapitel}
+            expandedThemaId={expandedThemaId}
+            onToggleThema={onToggleThema}
+            onToggleAufgabe={onToggleAufgabe}
           />
         ))
       )}
@@ -464,7 +630,7 @@ const TopicBlock = ({
             {/* Badges */}
             <div className="flex items-center gap-2 mb-2">
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-black text-white text-xs font-medium">
-                {topic.rechtsgebiet || 'Rechtsgebiet'}
+                {typeof topic.rechtsgebiet === 'object' ? topic.rechtsgebiet?.name : topic.rechtsgebiet || 'Rechtsgebiet'}
               </span>
               <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-gray-200 text-xs text-gray-600">
                 {index + 1} von {totalTopics} Blöcken
@@ -535,7 +701,7 @@ const SingleTopicView = ({
         {/* Badge */}
         <div className="flex items-center gap-2 mb-3">
           <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-black text-white text-xs font-medium">
-            {topic.rechtsgebiet || 'Rechtsgebiet'}
+            {typeof topic.rechtsgebiet === 'object' ? topic.rechtsgebiet?.name : topic.rechtsgebiet || 'Rechtsgebiet'}
           </span>
         </div>
 
@@ -580,54 +746,74 @@ const NoTopicsView = ({
   themeLists = [],
   selectedThemeListId,
   onSelectThemeList,
-  onToggleThemeListTopicComplete,
+  onToggleThemeListAufgabe,
 }) => {
   const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themelist'
-  const [themeListExpandedTopicId, setThemeListExpandedTopicId] = useState(null);
+  const [expandedUnterrechtsgebietId, setExpandedUnterrechtsgebietId] = useState(null);
+  const [expandedKapitelId, setExpandedKapitelId] = useState(null);
+  const [expandedThemaId, setExpandedThemaId] = useState(null);
 
   const selectedThemeList = useMemo(() => {
     return themeLists.find(list => list.id === selectedThemeListId) || null;
   }, [themeLists, selectedThemeListId]);
 
-  const handleToggleThemeListExpand = useCallback((topicId) => {
-    setThemeListExpandedTopicId(prev => prev === topicId ? null : topicId);
+  const handleToggleUnterrechtsgebiet = useCallback((urgId) => {
+    setExpandedUnterrechtsgebietId(prev => prev === urgId ? null : urgId);
+    setExpandedKapitelId(null);
+    setExpandedThemaId(null);
+  }, []);
+
+  const handleToggleKapitel = useCallback((kapitelId) => {
+    setExpandedKapitelId(prev => prev === kapitelId ? null : kapitelId);
+    setExpandedThemaId(null);
+  }, []);
+
+  const handleToggleThema = useCallback((themaId) => {
+    setExpandedThemaId(prev => prev === themaId ? null : themaId);
   }, []);
 
   const hasThemeLists = themeLists.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header with Toggle */}
+      {/* Header with Toggle Switch */}
       <div className="border-b border-gray-200 pb-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {viewMode === 'todos' ? 'Aufgaben' : 'Themenliste'}
-          </h2>
+        {/* Toggle Switch - only show if there are theme lists */}
+        {hasThemeLists ? (
+          <div className="flex items-center justify-center mb-3">
+            <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode('todos')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  viewMode === 'todos'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <ChecklistIcon />
+                <span>To-Dos</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('themelist')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  viewMode === 'themelist'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <ListIcon />
+                <span>Themenliste</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Aufgaben</h2>
+        )}
 
-          {/* Toggle Button - only show if there are theme lists */}
-          {hasThemeLists && (
-            <button
-              type="button"
-              onClick={() => setViewMode(prev => prev === 'todos' ? 'themelist' : 'todos')}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              {viewMode === 'todos' ? (
-                <>
-                  <ListIcon />
-                  <span>Themenliste</span>
-                </>
-              ) : (
-                <>
-                  <ChecklistIcon />
-                  <span>To-Dos</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
-
-        <p className="text-sm text-gray-500">
-          {viewMode === 'todos' ? 'Deine To-Dos' : 'Themen aus deinem Lernplan'}
+        <p className="text-sm text-gray-500 text-center">
+          {viewMode === 'todos' ? 'Deine To-Dos' : 'Unterrechtsgebiete, Kapitel, Themen und Aufgaben'}
         </p>
 
         {/* Themenliste Dropdown - only show in themelist mode */}
@@ -641,7 +827,7 @@ const NoTopicsView = ({
               <option value="">Themenliste auswählen...</option>
               {themeLists.map(list => (
                 <option key={list.id} value={list.id}>
-                  {list.name} ({list.topics?.length || 0} Themen)
+                  {list.name} ({list.progress?.total || 0} Aufgaben)
                 </option>
               ))}
             </select>
@@ -663,9 +849,13 @@ const NoTopicsView = ({
       ) : (
         <ThemeListView
           themeList={selectedThemeList}
-          expandedTopicId={themeListExpandedTopicId}
-          onToggleExpand={handleToggleThemeListExpand}
-          onToggleTopicComplete={onToggleThemeListTopicComplete}
+          expandedUnterrechtsgebietId={expandedUnterrechtsgebietId}
+          onToggleUnterrechtsgebiet={handleToggleUnterrechtsgebiet}
+          expandedKapitelId={expandedKapitelId}
+          onToggleKapitel={handleToggleKapitel}
+          expandedThemaId={expandedThemaId}
+          onToggleThema={handleToggleThema}
+          onToggleAufgabe={onToggleThemeListAufgabe}
         />
       )}
     </div>
@@ -731,7 +921,7 @@ const LernblockWidget = ({
   themeLists = [],
   selectedThemeListId,
   onSelectThemeList,
-  onToggleThemeListTopicComplete,
+  onToggleThemeListAufgabe,
 }) => {
   // Accordion state - nur ein Topic auf einmal expanded
   const [expandedTopicId, setExpandedTopicId] = useState(() => {
@@ -761,7 +951,7 @@ const LernblockWidget = ({
             themeLists={themeLists}
             selectedThemeListId={selectedThemeListId}
             onSelectThemeList={onSelectThemeList}
-            onToggleThemeListTopicComplete={onToggleThemeListTopicComplete}
+            onToggleThemeListAufgabe={onToggleThemeListAufgabe}
           />
         )}
 

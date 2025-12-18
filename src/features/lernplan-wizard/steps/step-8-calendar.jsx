@@ -280,6 +280,7 @@ const Step8Calendar = () => {
             groupSize: 1,
             groupIndex: 0,
             isFromTemplate: true,
+            isFromLernplan: true, // Marks as wizard-created (overrides left side)
             createdAt: now,
             updatedAt: now,
           };
@@ -438,7 +439,8 @@ const Step8Calendar = () => {
       description: blockData.description,
       rechtsgebiet: blockData.rechtsgebiet,
       unterrechtsgebiet: blockData.unterrechtsgebiet,
-      tasks: blockData.tasks
+      tasks: blockData.tasks,
+      isFromLernplan: true, // Marks as wizard-created
     });
 
     // Update day slots
@@ -495,7 +497,8 @@ const Step8Calendar = () => {
         description: updatedBlockData.description,
         rechtsgebiet: updatedBlockData.rechtsgebiet,
         unterrechtsgebiet: updatedBlockData.unterrechtsgebiet,
-        tasks: updatedBlockData.tasks
+        tasks: updatedBlockData.tasks,
+        isFromLernplan: true, // Marks as wizard-created
       });
 
       updatedSlots = updateDaySlots(updatedSlots, topicSlots);

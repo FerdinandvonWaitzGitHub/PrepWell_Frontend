@@ -2,13 +2,16 @@
  * useDashboard Hook
  * Manages dashboard data and state
  *
+ * Data Model:
+ * - CONTENT: What to learn (timeless) - stored in contentsById
+ * - SLOT: When to learn (date + position) - stored in slotsByDate
+ * - BLOCK: How to display (derived from Slot + Content)
+ *
  * Data flow: CalendarContext → useDashboard → Startseite
- * Uses the same data source as Wochenansicht, filtered to current day
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCalendar } from '../contexts/calendar-context';
-import { slotsToLearningBlocks } from '../utils/slotUtils';
 
 /**
  * Format date to YYYY-MM-DD
@@ -38,18 +41,6 @@ const formatDisplayDate = (date) => {
 };
 
 /**
- * Get time slot based on position
- */
-const getTimeForPosition = (position) => {
-  const timeSlots = {
-    1: { startHour: 8, endHour: 10 },
-    2: { startHour: 10, endHour: 12 },
-    3: { startHour: 14, endHour: 16 },
-  };
-  return timeSlots[position] || { startHour: 8, endHour: 10 };
-};
-
-/**
  * useDashboard hook
  * @returns Dashboard state and actions
  */
@@ -69,6 +60,7 @@ export function useDashboard() {
     updateTask: updateTaskInContext,
     toggleTaskComplete,
     deleteTask: deleteTaskFromContext,
+    getBlocksForDate, // NEW: Get derived blocks from context
   } = useCalendar();
 
   // Derived date values
@@ -98,36 +90,41 @@ export function useDashboard() {
     });
   }, [dateString, updateTaskInContext]);
 
-  // Transform slots from CalendarContext to dashboard format
+  // Get blocks for today from CalendarContext (uses new Content→Slot→Block model)
   const todaySlots = useMemo(() => {
-    const daySlots = slotsByDate[dateString] || [];
+    // getBlocksForDate returns derived blocks (Slot + Content merged)
+    const blocks = getBlocksForDate(dateString);
 
-    // Convert slots to learning blocks
-    const learningBlocks = slotsToLearningBlocks(daySlots);
+    // Transform to zeitplan widget format
+    return blocks.map(block => ({
+      id: block.id,
+      startHour: block.startHour,
+      duration: block.duration,
+      title: block.title || 'Lernblock',
+      description: block.description || '',
+      tags: block.blockType ? [block.blockType] : [],
+      isBlocked: block.isLocked || block.isBlocked || false,
+      blockType: block.blockType,
+      rechtsgebiet: block.rechtsgebiet,
+      unterrechtsgebiet: block.unterrechtsgebiet,
+      isFromLernplan: block.isFromLernplan || false, // Wizard-created vs manual
+      // Time data
+      hasTime: block.hasTime || false,
+      startTime: block.startTime,
+      endTime: block.endTime,
+      // Repeat data
+      repeatEnabled: block.repeatEnabled || false,
+      repeatType: block.repeatType,
+      repeatCount: block.repeatCount,
+      // Tasks
+      tasks: block.tasks || [],
+    }));
+  }, [dateString, getBlocksForDate]);
 
-    // Transform to zeitplan format with time information
-    return learningBlocks
-      .filter(block => !block.isAddButton)
-      .map(block => {
-        // Find original slot to get position
-        const originalSlot = daySlots.find(s => s.topicId === block.id);
-        const position = originalSlot?.position || 1;
-        const { startHour, endHour } = getTimeForPosition(position);
-
-        return {
-          id: block.id,
-          startHour,
-          duration: endHour - startHour,
-          title: block.title || 'Lernblock',
-          description: block.description || '',
-          tags: block.blockType ? [block.blockType] : [],
-          isBlocked: originalSlot?.isLocked || false,
-          blockType: block.blockType,
-          rechtsgebiet: block.rechtsgebiet,
-          unterrechtsgebiet: block.unterrechtsgebiet,
-        };
-      });
-  }, [dateString, slotsByDate]);
+  // Check if there are "real" Lernplan slots (from wizard, not manual)
+  const hasRealLernplanSlots = useMemo(() => {
+    return todaySlots.some(slot => slot.isFromLernplan === true);
+  }, [todaySlots]);
 
   // Get private blocks for today
   const todayPrivateBlocks = useMemo(() => {
@@ -293,6 +290,7 @@ export function useDashboard() {
     error: null,
     checkInDone,
     hasActiveLernplan: hasActiveLernplan(),
+    hasRealLernplanSlots, // true if wizard-created slots exist for today
 
     // Actions
     refresh,

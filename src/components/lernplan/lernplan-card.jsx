@@ -21,12 +21,18 @@ const LernplanCard = ({
   isExpanded = false,
   onToggleExpand
 }) => {
-  // Calculate progress
-  const completedTopics = lernplan.chapters?.reduce((acc, ch) =>
-    acc + (ch.topics?.filter(t => t.completed).length || 0), 0) || 0;
-  const totalTopics = lernplan.chapters?.reduce((acc, ch) =>
-    acc + (ch.topics?.length || 0), 0) || 0;
-  const progressPercent = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+  // Calculate progress - count Aufgaben (tasks) for consistency with edit mode
+  let completedTasks = 0;
+  let totalTasks = 0;
+  lernplan.chapters?.forEach(ch => {
+    ch.topics?.forEach(t => {
+      t.tasks?.forEach(task => {
+        totalTasks++;
+        if (task.completed) completedTasks++;
+      });
+    });
+  });
+  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
     <div className="bg-white rounded border border-gray-200 overflow-hidden">
@@ -60,7 +66,7 @@ const LernplanCard = ({
               />
             </div>
             <span className="text-sm text-gray-500 whitespace-nowrap">
-              {completedTopics} von {totalTopics} Themen abgeschlossen
+              {completedTasks} von {totalTasks} Aufgaben abgeschlossen
             </span>
           </div>
         </div>
@@ -100,8 +106,15 @@ const LernplanCard = ({
 const ChapterRow = ({ chapter }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const completedCount = chapter.topics?.filter(t => t.completed).length || 0;
-  const totalCount = chapter.topics?.length || 0;
+  // Count tasks (Aufgaben) within all topics of this chapter
+  let completedCount = 0;
+  let totalCount = 0;
+  chapter.topics?.forEach(t => {
+    t.tasks?.forEach(task => {
+      totalCount++;
+      if (task.completed) completedCount++;
+    });
+  });
 
   return (
     <div className="border-b border-gray-100 last:border-b-0">

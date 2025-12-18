@@ -15,6 +15,7 @@ const CalendarContext = createContext(null);
 
 // Local storage keys
 const STORAGE_KEY_SLOTS = 'prepwell_calendar_slots';
+const STORAGE_KEY_CONTENTS = 'prepwell_contents'; // NEW: Separate content storage
 const STORAGE_KEY_ARCHIVED = 'prepwell_archived_lernplaene';
 const STORAGE_KEY_METADATA = 'prepwell_lernplan_metadata';
 const STORAGE_KEY_PRIVATE_BLOCKS = 'prepwell_private_blocks';
@@ -89,6 +90,18 @@ export const CalendarProvider = ({ children }) => {
   // Custom Unterrechtsgebiete (user-created, global)
   const [customUnterrechtsgebiete, setCustomUnterrechtsgebiete] = useState(() =>
     loadFromStorage(STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE, {})
+  );
+
+  // ============================================
+  // NEW DATA MODEL: Content (separate from Slots)
+  // Content = What to learn (timeless)
+  // Slot = When to learn (date + position)
+  // Block = How to display (derived: Slot + Content + time)
+  // ============================================
+
+  // Contents by ID (the learning material itself)
+  const [contentsById, setContentsById] = useState(() =>
+    loadFromStorage(STORAGE_KEY_CONTENTS, {})
   );
 
   /**
@@ -275,6 +288,171 @@ export const CalendarProvider = ({ children }) => {
   const hasActiveLernplan = useCallback(() => {
     return Object.keys(slotsByDate).length > 0;
   }, [slotsByDate]);
+
+  // ============================================
+  // CONTENT CRUD (NEW DATA MODEL)
+  // Content = the learning material itself (timeless)
+  // ============================================
+
+  /**
+   * Add or update a content item
+   * @param {Object} content - The content data
+   * @returns {Object} The saved content with ID
+   */
+  const saveContent = useCallback((content) => {
+    const contentWithId = {
+      ...content,
+      id: content.id || `content-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: content.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = {
+      ...contentsById,
+      [contentWithId.id]: contentWithId,
+    };
+
+    setContentsById(updated);
+    saveToStorage(STORAGE_KEY_CONTENTS, updated);
+    return contentWithId;
+  }, [contentsById]);
+
+  /**
+   * Get a content item by ID
+   * @param {string} contentId - The content ID
+   * @returns {Object|null} The content or null
+   */
+  const getContent = useCallback((contentId) => {
+    return contentsById[contentId] || null;
+  }, [contentsById]);
+
+  /**
+   * Delete a content item
+   * @param {string} contentId - The content ID
+   */
+  const deleteContent = useCallback((contentId) => {
+    const updated = { ...contentsById };
+    delete updated[contentId];
+    setContentsById(updated);
+    saveToStorage(STORAGE_KEY_CONTENTS, updated);
+  }, [contentsById]);
+
+  /**
+   * Add a slot with automatic content creation
+   * Creates content from slot data if not exists
+   * @param {string} dateKey - The date (YYYY-MM-DD)
+   * @param {Object} slotData - Slot data with embedded content
+   * @returns {{ slot: Object, content: Object }}
+   */
+  const addSlotWithContent = useCallback((dateKey, slotData) => {
+    // Create or get content ID
+    const contentId = slotData.contentId || slotData.topicId || `content-${Date.now()}`;
+
+    // Save content if it has content fields
+    const content = saveContent({
+      id: contentId,
+      title: slotData.title || slotData.topicTitle || 'Lernblock',
+      description: slotData.description || '',
+      rechtsgebiet: slotData.rechtsgebiet || '',
+      unterrechtsgebiet: slotData.unterrechtsgebiet || '',
+      blockType: slotData.blockType || 'lernblock',
+      aufgaben: slotData.aufgaben || [],
+    });
+
+    // Create slot referencing the content
+    const slot = {
+      id: slotData.id || `slot-${Date.now()}`,
+      contentId: content.id,
+      position: slotData.position || 1,
+      blockType: slotData.blockType || 'lernblock',
+      isLocked: slotData.isLocked || false,
+      isFromLernplan: slotData.isFromLernplan || false, // true = wizard-created, false = manual
+      tasks: slotData.tasks || [],
+      // Time overrides (optional)
+      hasTime: slotData.hasTime || false,
+      startHour: slotData.startHour,
+      duration: slotData.duration,
+      startTime: slotData.startTime,
+      endTime: slotData.endTime,
+      // Repeat settings
+      repeatEnabled: slotData.repeatEnabled || false,
+      repeatType: slotData.repeatType,
+      repeatCount: slotData.repeatCount,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Add slot to date
+    const currentSlots = slotsByDate[dateKey] || [];
+    const updatedSlots = {
+      ...slotsByDate,
+      [dateKey]: [...currentSlots, slot],
+    };
+
+    setSlotsByDate(updatedSlots);
+    saveToStorage(STORAGE_KEY_SLOTS, updatedSlots);
+
+    return { slot, content };
+  }, [slotsByDate, contentsById, saveContent]);
+
+  /**
+   * Build a display block from slot (merges slot + content)
+   * @param {Object} slot - The slot
+   * @returns {Object} Block for display
+   */
+  const buildBlockFromSlot = useCallback((slot) => {
+    const content = contentsById[slot.contentId] || {};
+
+    // Position to time mapping
+    const positionTimes = {
+      1: { startHour: 8, endHour: 10 },
+      2: { startHour: 10, endHour: 12 },
+      3: { startHour: 14, endHour: 16 },
+    };
+    const posTime = positionTimes[slot.position] || positionTimes[1];
+
+    return {
+      // IDs
+      id: content.id || slot.contentId,
+      slotId: slot.id,
+      contentId: slot.contentId,
+
+      // Time (from slot override or position default)
+      startHour: slot.startHour ?? posTime.startHour,
+      duration: slot.duration ?? (posTime.endHour - posTime.startHour),
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      hasTime: slot.hasTime || false,
+
+      // From Content
+      title: content.title || 'Lernblock',
+      description: content.description || '',
+      rechtsgebiet: content.rechtsgebiet,
+      unterrechtsgebiet: content.unterrechtsgebiet,
+
+      // From Slot
+      position: slot.position,
+      blockType: slot.blockType || content.blockType || 'lernblock',
+      isBlocked: slot.isLocked || false,
+      isLocked: slot.isLocked || false,
+      isFromLernplan: slot.isFromLernplan || false, // Distinguishes wizard vs manual
+      tasks: slot.tasks || [],
+
+      // Repeat
+      repeatEnabled: slot.repeatEnabled || false,
+      repeatType: slot.repeatType,
+      repeatCount: slot.repeatCount,
+    };
+  }, [contentsById]);
+
+  /**
+   * Get blocks for a date (slots merged with content)
+   * @param {string} dateKey - The date (YYYY-MM-DD)
+   * @returns {Array} Array of display blocks
+   */
+  const getBlocksForDate = useCallback((dateKey) => {
+    const slots = slotsByDate[dateKey] || [];
+    return slots.map(buildBlockFromSlot);
+  }, [slotsByDate, buildBlockFromSlot]);
 
   // ============================================
   // PRIVATE BLOCKS CRUD
@@ -1261,6 +1439,7 @@ export const CalendarProvider = ({ children }) => {
     themeLists,
     contentPlans,
     customUnterrechtsgebiete,
+    contentsById, // NEW: Content storage
 
     // Lernplan Slot Actions
     setCalendarData,
@@ -1272,6 +1451,14 @@ export const CalendarProvider = ({ children }) => {
     restoreArchivedPlan,
     deleteArchivedPlan,
     clearAllData,
+
+    // Content Actions (NEW DATA MODEL)
+    saveContent,
+    getContent,
+    deleteContent,
+    addSlotWithContent,
+    buildBlockFromSlot,
+    getBlocksForDate,
 
     // Private Block Actions
     addPrivateBlock,

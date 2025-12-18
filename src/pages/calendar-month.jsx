@@ -1,8 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/layout';
 import { CalendarView } from '../features/calendar/components';
-import { Button, PlusIcon } from '../components/ui';
 
 const daysData_OLD = [
   // Week 1
@@ -144,38 +142,16 @@ const DayCell = ({ day, isCurrentMonth = true, isOutOfRange = false, entries = [
 };
 
 const MonthCalendar = () => {
-  const navigate = useNavigate();
-
-  const handleCreateLernplan = () => {
-    navigate('/lernplan/erstellen', { state: { from: '/kalender/monat' } });
-  };
-
   return (
     <div className="relative min-h-screen bg-white flex flex-col">
       <Header userInitials="CN" currentPage="kalender-monat" />
 
-      {/* Top tinted band */}
-      <div className="absolute top-[72px] left-0 right-0 h-14 bg-rose-100 z-0" />
-
-      <main className="relative z-10 px-8 pb-10 pt-8 flex-1">
+      <main className="px-8 pb-10 pt-4 flex-1">
         <div className="max-w-[1489px] mx-auto">
           {/* Use the new CalendarView component with day management dialog */}
           <CalendarView initialDate={new Date(2025, 7, 1)} />
         </div>
       </main>
-
-      {/* Footer with Create Lernplan Button */}
-      <footer className="sticky bottom-0 bg-white border-t border-gray-200 px-8 py-4 z-20">
-        <div className="max-w-[1489px] mx-auto flex justify-center">
-          <Button
-            onClick={handleCreateLernplan}
-            className="flex items-center gap-2"
-          >
-            <PlusIcon size={14} />
-            Neuen Lernplan erstellen
-          </Button>
-        </div>
-      </footer>
     </div>
   );
 };

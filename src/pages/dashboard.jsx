@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Header, DashboardLayout } from '../components/layout';
 import { LernblockWidget, ZeitplanWidget, TimerButton } from '../components/dashboard';
 import { useDashboard } from '../hooks';
@@ -32,6 +32,7 @@ const DashboardPage = () => {
     dayProgress,
     loading,
     checkInDone,
+    hasRealLernplanSlots, // true if wizard-created slots exist
     refresh,
     previousDay,
     nextDay,
@@ -51,20 +52,108 @@ const DashboardPage = () => {
     addPrivateBlock,
     updatePrivateBlock,
     deletePrivateBlock,
-    // Themenliste
-    themeLists,
-    toggleThemeListTopicComplete,
+    // NEW DATA MODEL: Content management
+    addSlotWithContent,
+    saveContent,
+    // Content Plans (Themenlisten)
+    contentPlans,
+    updateContentPlan,
   } = useCalendar();
 
   // Selected theme list state
   const [selectedThemeListId, setSelectedThemeListId] = useState(null);
 
-  // Handle theme list topic complete toggle
-  const handleToggleThemeListTopicComplete = useCallback((topicId) => {
-    if (selectedThemeListId) {
-      toggleThemeListTopicComplete(selectedThemeListId, topicId);
-    }
-  }, [selectedThemeListId, toggleThemeListTopicComplete]);
+  // Convert contentPlans (type='themenliste') to the format expected by LernblockWidget
+  // Preserves full hierarchy: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
+  const themeLists = useMemo(() => {
+    if (!contentPlans) return [];
+
+    return contentPlans
+      .filter(plan => plan.type === 'themenliste' && !plan.archived)
+      .map(plan => {
+        // Build unterrechtsgebiete with full hierarchy
+        const unterrechtsgebiete = [];
+        let totalAufgaben = 0;
+        let completedAufgaben = 0;
+
+        plan.rechtsgebiete?.forEach(rg => {
+          rg.unterrechtsgebiete?.forEach(urg => {
+            const kapitel = [];
+
+            urg.kapitel?.forEach(k => {
+              const themen = k.themen?.map(t => {
+                const aufgaben = t.aufgaben?.map(a => {
+                  totalAufgaben++;
+                  if (a.completed) completedAufgaben++;
+                  return {
+                    id: a.id,
+                    title: a.title,
+                    completed: a.completed || false,
+                  };
+                }) || [];
+                return {
+                  id: t.id,
+                  title: t.title,
+                  description: t.description || '',
+                  completed: t.completed || false,
+                  aufgaben,
+                };
+              }) || [];
+
+              if (themen.length > 0) {
+                kapitel.push({
+                  id: k.id,
+                  title: k.title,
+                  themen,
+                });
+              }
+            });
+
+            if (kapitel.length > 0) {
+              unterrechtsgebiete.push({
+                id: urg.id,
+                name: urg.name,
+                rechtsgebiet: rg.name || rg.rechtsgebietId,
+                kapitel,
+              });
+            }
+          });
+        });
+
+        return {
+          id: plan.id,
+          name: plan.name,
+          unterrechtsgebiete,
+          progress: { completed: completedAufgaben, total: totalAufgaben },
+        };
+      });
+  }, [contentPlans]);
+
+  // Handle theme list Aufgabe (task) toggle
+  const handleToggleThemeListAufgabe = useCallback((aufgabeId) => {
+    if (!selectedThemeListId) return;
+
+    const plan = contentPlans?.find(p => p.id === selectedThemeListId);
+    if (!plan) return;
+
+    // Deep clone and update the aufgabe's completed status
+    const updatedPlan = JSON.parse(JSON.stringify(plan));
+    updatedPlan.rechtsgebiete?.forEach(rg => {
+      rg.unterrechtsgebiete?.forEach(urg => {
+        urg.kapitel?.forEach(k => {
+          k.themen?.forEach(t => {
+            t.aufgaben?.forEach(a => {
+              if (a.id === aufgabeId) {
+                a.completed = !a.completed;
+              }
+            });
+          });
+        });
+      });
+    });
+
+    updateContentPlan(selectedThemeListId, updatedPlan);
+  }, [selectedThemeListId, contentPlans, updateContentPlan]);
 
   // Dialog states
   const [selectedBlock, setSelectedBlock] = useState(null);
@@ -144,12 +233,12 @@ const DashboardPage = () => {
     }
   }, []);
 
-  // Add a new learning block
+  // Add a new learning block (uses new Content → Slot model)
   const handleAddBlock = useCallback((_date, blockData) => {
     const daySlots = slotsByDate[dateString] || [];
 
     // Find next available position (1, 2, or 3)
-    const usedPositions = daySlots.filter(s => s.status === 'topic').map(s => s.position);
+    const usedPositions = daySlots.filter(s => s.contentId).map(s => s.position);
     let position = 1;
     while (usedPositions.includes(position) && position <= 3) {
       position++;
@@ -160,47 +249,72 @@ const DashboardPage = () => {
       return;
     }
 
-    // Create new slot
-    const newSlot = {
-      id: `slot-${dateString}-${position}`,
-      date: dateString,
+    // Use addSlotWithContent from context (creates Content + Slot)
+    addSlotWithContent(dateString, {
       position,
-      status: 'topic',
-      topicId: blockData.id || `topic-${Date.now()}`,
-      topicTitle: blockData.title,
       blockType: blockData.blockType || 'lernblock',
+      // Content data
+      title: blockData.title,
       description: blockData.description || '',
       rechtsgebiet: blockData.rechtsgebiet,
       unterrechtsgebiet: blockData.unterrechtsgebiet,
-      createdAt: new Date().toISOString(),
-    };
+      // Time data (optional)
+      hasTime: blockData.hasTime || false,
+      startTime: blockData.startTime,
+      endTime: blockData.endTime,
+      startHour: blockData.startHour,
+      duration: blockData.duration,
+      // Repeat data
+      repeatEnabled: blockData.repeatEnabled || false,
+      repeatType: blockData.repeatType,
+      repeatCount: blockData.repeatCount,
+      customDays: blockData.customDays,
+      // Tasks
+      tasks: blockData.tasks || [],
+    });
 
-    // Update slots
-    const existingSlotIndex = daySlots.findIndex(s => s.position === position);
-    let updatedSlots;
-    if (existingSlotIndex >= 0) {
-      updatedSlots = [...daySlots];
-      updatedSlots[existingSlotIndex] = newSlot;
-    } else {
-      updatedSlots = [...daySlots, newSlot];
-    }
+    // TODO: Handle repeat logic - create additional slots for repeated days
+  }, [dateString, slotsByDate, addSlotWithContent]);
 
-    updateDaySlots(dateString, updatedSlots);
-  }, [dateString, slotsByDate, updateDaySlots]);
-
-  // Update a block
+  // Update a block (updates both Slot and Content)
   const handleUpdateBlock = useCallback((_date, updatedBlock) => {
     if (updatedBlock.blockType === 'private') {
       updatePrivateBlock(dateString, updatedBlock.id, updatedBlock);
     } else {
       const daySlots = slotsByDate[dateString] || [];
+
+      // Find the slot by contentId (new model) or id
       const updatedSlots = daySlots.map(slot => {
-        if (slot.topicId === updatedBlock.id) {
+        if (slot.contentId === updatedBlock.id || slot.contentId === updatedBlock.contentId) {
+          // Update Content separately
+          if (slot.contentId) {
+            saveContent({
+              id: slot.contentId,
+              title: updatedBlock.title,
+              description: updatedBlock.description,
+              rechtsgebiet: updatedBlock.rechtsgebiet,
+              unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
+              blockType: updatedBlock.blockType,
+            });
+          }
+
+          // Update Slot data (time, repeat, tasks)
           return {
             ...slot,
-            topicTitle: updatedBlock.title,
             blockType: updatedBlock.blockType,
-            description: updatedBlock.description,
+            // Time data
+            hasTime: updatedBlock.hasTime || false,
+            startTime: updatedBlock.startTime,
+            endTime: updatedBlock.endTime,
+            startHour: updatedBlock.startHour,
+            duration: updatedBlock.duration,
+            // Repeat data
+            repeatEnabled: updatedBlock.repeatEnabled || false,
+            repeatType: updatedBlock.repeatType,
+            repeatCount: updatedBlock.repeatCount,
+            customDays: updatedBlock.customDays,
+            // Tasks
+            tasks: updatedBlock.tasks || [],
             updatedAt: new Date().toISOString(),
           };
         }
@@ -208,9 +322,9 @@ const DashboardPage = () => {
       });
       updateDaySlots(dateString, updatedSlots);
     }
-  }, [dateString, slotsByDate, updateDaySlots, updatePrivateBlock]);
+  }, [dateString, slotsByDate, updateDaySlots, updatePrivateBlock, saveContent]);
 
-  // Delete a block
+  // Delete a block (removes Slot, Content remains for potential reuse)
   const handleDeleteBlock = useCallback((_date, blockId) => {
     const dayPrivateBlocks = privateBlocksByDate[dateString] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
@@ -219,20 +333,12 @@ const DashboardPage = () => {
       deletePrivateBlock(dateString, blockId);
     } else {
       const daySlots = slotsByDate[dateString] || [];
-      const updatedSlots = daySlots.map(slot => {
-        if (slot.topicId === blockId) {
-          return {
-            ...slot,
-            status: 'empty',
-            topicId: null,
-            topicTitle: null,
-            blockType: null,
-            description: null,
-          };
-        }
-        return slot;
-      });
+      // Filter out the slot with matching contentId
+      const updatedSlots = daySlots.filter(slot =>
+        slot.contentId !== blockId && slot.id !== blockId
+      );
       updateDaySlots(dateString, updatedSlots);
+      // Note: Content is NOT deleted - it can be reused later
     }
   }, [dateString, slotsByDate, privateBlocksByDate, updateDaySlots, deletePrivateBlock]);
 
@@ -245,18 +351,67 @@ const DashboardPage = () => {
     });
   }, [dateString, addPrivateBlock]);
 
+  // Handle dropping a task onto a block
+  const handleDropTaskToBlock = useCallback((block, droppedTask, source) => {
+    const daySlots = slotsByDate[dateString] || [];
+    const updatedSlots = daySlots.map(slot => {
+      // Match by contentId (new model) or by id
+      if (slot.contentId === block.id || slot.contentId === block.contentId) {
+        // Add the task to this slot's tasks array
+        const existingTasks = slot.tasks || [];
+        // Check if task already exists (by sourceId or id)
+        const alreadyExists = existingTasks.some(t =>
+          t.sourceId === droppedTask.id || t.id === droppedTask.id
+        );
+
+        if (alreadyExists) {
+          return slot; // Don't add duplicate
+        }
+
+        const newTask = {
+          id: `dropped-${Date.now()}`,
+          sourceId: droppedTask.id,
+          text: droppedTask.text,
+          completed: droppedTask.completed || false,
+          source: source,
+          thema: droppedTask.thema,
+          kapitel: droppedTask.kapitel,
+        };
+
+        return {
+          ...slot,
+          tasks: [...existingTasks, newTask],
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return slot;
+    });
+
+    updateDaySlots(dateString, updatedSlots);
+
+    // Remove the task from the source (so it only exists once)
+    if (source === 'todos') {
+      // Remove from To-Do list
+      removeTask(droppedTask.id);
+    }
+    // Note: For themenliste, we don't delete since they are part of the learning plan structure
+  }, [dateString, slotsByDate, updateDaySlots, removeTask]);
+
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);
 
   // Transform todaySlots to topics for LernblockWidget
-  const topics = todaySlots.map(slot => ({
-    id: slot.id,
-    title: slot.title,
-    description: slot.description,
-    rechtsgebiet: slot.rechtsgebiet || slot.blockType,
-    unterrechtsgebiet: slot.unterrechtsgebiet,
-    blockType: slot.blockType,
-  }));
+  // Only include "real" Lernplan slots (isFromLernplan: true) for left side override
+  const topics = todaySlots
+    .filter(slot => slot.isFromLernplan === true)
+    .map(slot => ({
+      id: slot.id,
+      title: slot.title,
+      description: slot.description,
+      rechtsgebiet: slot.rechtsgebiet || slot.blockType,
+      unterrechtsgebiet: slot.unterrechtsgebiet,
+      blockType: slot.blockType,
+    }));
 
   const zeitplanData = {
     completedBlocks: todaySlots.filter(s => s.isBlocked).length,
@@ -345,7 +500,7 @@ const DashboardPage = () => {
                 themeLists={themeLists}
                 selectedThemeListId={selectedThemeListId}
                 onSelectThemeList={setSelectedThemeListId}
-                onToggleThemeListTopicComplete={handleToggleThemeListTopicComplete}
+                onToggleThemeListAufgabe={handleToggleThemeListAufgabe}
               />
             }
             rightColumn={
@@ -355,6 +510,7 @@ const DashboardPage = () => {
                 onNextDay={nextDay}
                 onBlockClick={handleBlockClick}
                 onTimelineClick={handleTimelineClick}
+                onDropTaskToBlock={handleDropTaskToBlock}
               />
             }
           />
@@ -377,6 +533,8 @@ const DashboardPage = () => {
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
         availableSlots={3}
+        availableTasks={aufgaben}
+        themeLists={themeLists}
       />
 
       {/* Manage Repetition Block Dialog */}
@@ -426,6 +584,8 @@ const DashboardPage = () => {
         date={currentDateObj}
         onSave={handleAddBlock}
         availableSlots={3}
+        availableTasks={aufgaben}
+        themeLists={themeLists}
       />
 
       {/* Create Repetition Block Dialog */}

@@ -98,6 +98,7 @@ export const createTopicSlots = (date, positions, topicData) => {
     unterrechtsgebiet: topicData.unterrechtsgebiet,
     tasks: topicData.tasks,
     isLocked: false,
+    isFromLernplan: topicData.isFromLernplan || false, // true = wizard-created
     createdAt: now,
     updatedAt: now
   }));

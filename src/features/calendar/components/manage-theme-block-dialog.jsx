@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,18 +10,17 @@ import {
   DialogClose
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
-import { PlusIcon, MinusIcon, TrashIcon, ChevronDownIcon, CheckIcon } from '../../../components/ui/icon';
-
-// Fixed law areas (Rechtsgebiete)
-const RECHTSGEBIETE = [
-  { id: 'zivilrecht', name: 'Zivilrecht' },
-  { id: 'oeffentliches-recht', name: 'Öffentliches Recht' },
-  { id: 'strafrecht', name: 'Strafrecht' }
-];
+import { ChevronDownIcon, PlusIcon, TrashIcon, CheckIcon } from '../../../components/ui/icon';
 
 /**
  * Manage Theme Block Dialog Component
- * Dialog for viewing and editing an existing theme learning block
+ * Dialog for viewing and editing an existing learning block
+ *
+ * Features:
+ * - Title and description editing
+ * - Time selection (required)
+ * - Repeat options
+ * - Task management (create new, add from existing)
  */
 const ManageThemeBlockDialog = ({
   open,
@@ -30,34 +29,34 @@ const ManageThemeBlockDialog = ({
   block,
   onSave,
   onDelete,
-  availableSlots = 3
+  availableSlots = 3,
+  // Task sources
+  availableTasks = [],      // To-Dos
+  themeLists = [],          // Themenlisten
 }) => {
   // Form state
-  const [blockSize, setBlockSize] = useState(1);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedRechtsgebiet, setSelectedRechtsgebiet] = useState(null);
-  const [selectedUnterrechtsgebiet, setSelectedUnterrechtsgebiet] = useState(null);
 
-  // Dropdown states
-  const [isRechtsgebietOpen, setIsRechtsgebietOpen] = useState(false);
-  const [isUnterrechtsgebietOpen, setIsUnterrechtsgebietOpen] = useState(false);
+  // Time settings (always required)
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('11:00');
 
-  // Unterrechtsgebiete state (grouped by Rechtsgebiet)
-  const [unterrechtsgebiete, setUnterrechtsgebiete] = useState({
-    'zivilrecht': [],
-    'oeffentliches-recht': [],
-    'strafrecht': []
-  });
+  // Repeat settings
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatType, setRepeatType] = useState('weekly');
+  const [repeatCount, setRepeatCount] = useState(20);
+  const [customDays, setCustomDays] = useState([1, 3, 5]);
 
-  // New Unterrechtsgebiet input
-  const [isCreatingUnterrechtsgebiet, setIsCreatingUnterrechtsgebiet] = useState(false);
-  const [newUnterrechtsgebietName, setNewUnterrechtsgebietName] = useState('');
-
-  // Tasks state
+  // Tasks for this block
   const [tasks, setTasks] = useState([]);
   const [newTaskText, setNewTaskText] = useState('');
-  const [newTaskDifficulty, setNewTaskDifficulty] = useState(0);
+  const [showTaskSource, setShowTaskSource] = useState(false);
+  const [selectedSource, setSelectedSource] = useState(null);
+  const [selectedThemeListId, setSelectedThemeListId] = useState(null);
+
+  // Dropdown states
+  const [isRepeatTypeOpen, setIsRepeatTypeOpen] = useState(false);
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -65,14 +64,20 @@ const ManageThemeBlockDialog = ({
   // Load block data when dialog opens
   useEffect(() => {
     if (open && block) {
-      setBlockSize(block.blockSize || 1);
       setTitle(block.title || '');
       setDescription(block.description || '');
-      setSelectedRechtsgebiet(block.rechtsgebiet || null);
-      setSelectedUnterrechtsgebiet(block.unterrechtsgebiet || null);
+      setStartTime(block.startTime || '09:00');
+      setEndTime(block.endTime || '11:00');
+      setRepeatEnabled(block.repeatEnabled || false);
+      setRepeatType(block.repeatType || 'weekly');
+      setRepeatCount(block.repeatCount || 20);
+      setCustomDays(block.customDays || [1, 3, 5]);
       setTasks(block.tasks || []);
       setNewTaskText('');
-      setNewTaskDifficulty(0);
+      setShowTaskSource(false);
+      setSelectedSource(null);
+      setSelectedThemeListId(null);
+      setIsRepeatTypeOpen(false);
       setShowDeleteConfirm(false);
     }
   }, [open, block]);
@@ -85,92 +90,153 @@ const ManageThemeBlockDialog = ({
     return `${weekdays[date.getDay()]}, ${date.getDate()}. ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
-  // Get current Unterrechtsgebiete for selected Rechtsgebiet
-  const getCurrentUnterrechtsgebiete = () => {
-    if (!selectedRechtsgebiet) return [];
-    return unterrechtsgebiete[selectedRechtsgebiet.id] || [];
+  // Repeat type options
+  const repeatTypeOptions = [
+    { id: 'daily', name: 'Täglich' },
+    { id: 'weekly', name: 'Wöchentlich' },
+    { id: 'monthly', name: 'Monatlich' },
+    { id: 'custom', name: 'Benutzerdefiniert' },
+  ];
+
+  // Weekday options
+  const weekdayOptions = [
+    { id: 0, short: 'So', name: 'Sonntag' },
+    { id: 1, short: 'Mo', name: 'Montag' },
+    { id: 2, short: 'Di', name: 'Dienstag' },
+    { id: 3, short: 'Mi', name: 'Mittwoch' },
+    { id: 4, short: 'Do', name: 'Donnerstag' },
+    { id: 5, short: 'Fr', name: 'Freitag' },
+    { id: 6, short: 'Sa', name: 'Samstag' },
+  ];
+
+  // Get available tasks from selected source
+  const sourceTaskOptions = useMemo(() => {
+    if (selectedSource === 'todos') {
+      return availableTasks.filter(t => !tasks.some(bt => bt.sourceId === t.id));
+    }
+    if (selectedSource === 'themenliste' && selectedThemeListId) {
+      const list = themeLists.find(l => l.id === selectedThemeListId);
+      if (!list) return [];
+      // Flatten all aufgaben from the hierarchical structure
+      const aufgaben = [];
+      list.unterrechtsgebiete?.forEach(urg => {
+        urg.kapitel?.forEach(k => {
+          k.themen?.forEach(t => {
+            t.aufgaben?.forEach(a => {
+              if (!tasks.some(bt => bt.sourceId === a.id)) {
+                aufgaben.push({
+                  id: a.id,
+                  text: a.title,
+                  source: 'themenliste',
+                  thema: t.title,
+                  kapitel: k.title,
+                });
+              }
+            });
+          });
+        });
+      });
+      return aufgaben;
+    }
+    return [];
+  }, [selectedSource, selectedThemeListId, availableTasks, themeLists, tasks]);
+
+  // Toggle custom day
+  const toggleCustomDay = (dayId) => {
+    setCustomDays(prev => {
+      if (prev.includes(dayId)) {
+        return prev.filter(d => d !== dayId);
+      } else {
+        return [...prev, dayId].sort((a, b) => a - b);
+      }
+    });
   };
 
-  // Add new Unterrechtsgebiet
-  const handleAddUnterrechtsgebiet = () => {
-    if (!newUnterrechtsgebietName.trim() || !selectedRechtsgebiet) return;
-    const newItem = {
-      id: `urg-${Date.now()}`,
-      name: newUnterrechtsgebietName.trim()
-    };
-    setUnterrechtsgebiete(prev => ({
-      ...prev,
-      [selectedRechtsgebiet.id]: [...(prev[selectedRechtsgebiet.id] || []), newItem]
-    }));
-    setNewUnterrechtsgebietName('');
-    setIsCreatingUnterrechtsgebiet(false);
-    setSelectedUnterrechtsgebiet(newItem);
-  };
-
-  // Task handlers
-  const handleAddTask = () => {
+  // Add new task (created in dialog)
+  const handleAddNewTask = () => {
     if (!newTaskText.trim()) return;
     const newTask = {
-      id: `task-${Date.now()}`,
+      id: `new-task-${Date.now()}`,
       text: newTaskText.trim(),
-      difficulty: newTaskDifficulty,
-      completed: false
+      completed: false,
+      isNew: true,
     };
     setTasks(prev => [...prev, newTask]);
     setNewTaskText('');
-    setNewTaskDifficulty(0);
   };
 
+  // Add existing task from source
+  const handleAddExistingTask = (sourceTask) => {
+    const newTask = {
+      id: `assigned-${Date.now()}`,
+      sourceId: sourceTask.id,
+      text: sourceTask.text || sourceTask.title,
+      completed: sourceTask.completed || false,
+      source: selectedSource,
+      sourceDetails: sourceTask,
+    };
+    setTasks(prev => [...prev, newTask]);
+  };
+
+  // Remove task
+  const handleRemoveTask = (taskId) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  // Toggle task completion
   const handleToggleTask = (taskId) => {
-    setTasks(prev => prev.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, completed: !t.completed } : t
     ));
   };
 
-  const handleDeleteTask = (taskId) => {
-    setTasks(prev => prev.filter(task => task.id !== taskId));
+  // Check if form is valid
+  const isFormValid = () => {
+    return title.trim().length > 0;
   };
 
-  const handleUpdateTaskDifficulty = (taskId, newDifficulty) => {
-    setTasks(prev => prev.map(task =>
-      task.id === taskId ? { ...task, difficulty: newDifficulty } : task
-    ));
+  // Calculate duration and start hour
+  const calculateDuration = () => {
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    return Math.max(0.5, (endMinutes - startMinutes) / 60);
   };
 
-  // Difficulty selector component
-  const DifficultySelector = ({ value, onChange }) => (
-    <div className="flex items-center gap-0.5">
-      <button
-        type="button"
-        onClick={() => onChange(value >= 1 ? 0 : 1)}
-        className={`text-xl font-semibold transition-colors ${value >= 1 ? 'text-gray-900' : 'text-gray-300'}`}
-      >
-        !
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(value >= 2 ? 1 : 2)}
-        className={`text-xl font-semibold transition-colors ${value >= 2 ? 'text-gray-900' : 'text-gray-300'}`}
-      >
-        !
-      </button>
-    </div>
-  );
+  const calculateStartHour = () => {
+    const [startH, startM] = startTime.split(':').map(Number);
+    return startH + startM / 60;
+  };
 
   // Save handler (keep dialog open)
   const handleSave = () => {
-    if (!date || !onSave) return;
-    onSave(date, {
+    if (!isFormValid() || !date || !onSave) return;
+
+    const blockData = {
       ...block,
-      title: title || selectedUnterrechtsgebiet?.name || 'Tagesthema',
+      title: title.trim(),
       blockType: 'lernblock',
-      blockSize,
-      description,
-      rechtsgebiet: selectedRechtsgebiet,
-      unterrechtsgebiet: selectedUnterrechtsgebiet,
-      tasks
-    });
-    // Dialog bleibt offen
+      description: description.trim(),
+      hasTime: true,
+      startTime,
+      endTime,
+      startHour: calculateStartHour(),
+      duration: calculateDuration(),
+      repeatEnabled,
+      repeatType: repeatEnabled ? repeatType : null,
+      repeatCount: repeatEnabled ? repeatCount : null,
+      customDays: repeatEnabled && repeatType === 'custom' ? customDays : null,
+      tasks: tasks.map(t => ({
+        id: t.id,
+        text: t.text,
+        completed: t.completed,
+        sourceId: t.sourceId,
+        source: t.source,
+      })),
+    };
+
+    onSave(date, blockData);
   };
 
   // Save and close handler
@@ -192,289 +258,296 @@ const ManageThemeBlockDialog = ({
     onOpenChange(false);
   };
 
-  // Calculate total available slots (current block size + free slots)
-  const totalAvailableSlots = (block?.blockSize || 0) + availableSlots;
+  const getRepeatTypeName = () => {
+    return repeatTypeOptions.find(opt => opt.id === repeatType)?.name || 'Wöchentlich';
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="relative max-w-[942px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="relative max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogClose onClose={() => onOpenChange(false)} />
 
         <DialogHeader>
-          <DialogTitle className="text-lg font-light">Themenblock verwalten</DialogTitle>
+          <DialogTitle>Lernblock bearbeiten</DialogTitle>
           <DialogDescription>{formatDate(date)}</DialogDescription>
         </DialogHeader>
 
-        <DialogBody>
-          {/* Two Column Layout */}
-          <div className="flex gap-7">
-            {/* Left Column - Form Fields */}
-            <div className="flex-1 space-y-4">
-              {/* Rechtsgebiet Dropdown */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Rechtsgebiet</label>
-                <div className="relative">
-                  <div className="inline-flex">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsRechtsgebietOpen(!isRechtsgebietOpen);
-                        setIsUnterrechtsgebietOpen(false);
-                      }}
-                      className="h-9 px-4 py-2 bg-white rounded-l-lg shadow-sm border border-gray-200 flex items-center gap-2"
-                    >
-                      <span className="text-sm font-medium text-gray-900">
-                        {selectedRechtsgebiet?.name || 'Rechtsgebiet auswählen'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsRechtsgebietOpen(!isRechtsgebietOpen);
-                        setIsUnterrechtsgebietOpen(false);
-                      }}
-                      className="w-9 h-9 px-4 py-2 bg-white rounded-r-lg shadow-sm border-r border-t border-b border-gray-200 flex items-center justify-center"
-                    >
-                      <ChevronDownIcon size={16} className={`text-gray-900 transition-transform ${isRechtsgebietOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                  </div>
-                  {isRechtsgebietOpen && (
-                    <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
-                      {RECHTSGEBIETE.map(rg => (
-                        <button
-                          key={rg.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedRechtsgebiet(rg);
-                            setSelectedUnterrechtsgebiet(null);
-                            setIsRechtsgebietOpen(false);
-                          }}
-                          className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                            selectedRechtsgebiet?.id === rg.id ? 'bg-primary-50 font-medium' : ''
-                          }`}
-                        >
-                          {rg.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+        <DialogBody className="space-y-5">
+          {/* Titel */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-900">
+              Titel <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="z.B. Vorlesung Mathe, Lerngruppe..."
+              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+              autoFocus
+            />
+          </div>
 
-              {/* Unterrechtsgebiet Dropdown */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Unterrechtsgebiet</label>
-                <div className="relative">
-                  <div className="inline-flex">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (selectedRechtsgebiet) {
-                          setIsUnterrechtsgebietOpen(!isUnterrechtsgebietOpen);
-                          setIsRechtsgebietOpen(false);
-                        }
-                      }}
-                      disabled={!selectedRechtsgebiet}
-                      className={`h-9 px-4 py-2 bg-white rounded-l-lg shadow-sm border border-gray-200 flex items-center gap-2 ${!selectedRechtsgebiet ? 'opacity-50' : ''}`}
-                    >
-                      <span className="text-sm font-medium text-gray-900">
-                        {selectedUnterrechtsgebiet?.name || 'Unterrechtsgebiet auswählen'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (selectedRechtsgebiet) {
-                          setIsUnterrechtsgebietOpen(!isUnterrechtsgebietOpen);
-                          setIsRechtsgebietOpen(false);
-                        }
-                      }}
-                      disabled={!selectedRechtsgebiet}
-                      className={`w-9 h-9 px-4 py-2 bg-white rounded-r-lg shadow-sm border-r border-t border-b border-gray-200 flex items-center justify-center ${!selectedRechtsgebiet ? 'opacity-50' : ''}`}
-                    >
-                      <ChevronDownIcon size={16} className={`text-gray-900 transition-transform ${isUnterrechtsgebietOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                  </div>
-                  {isUnterrechtsgebietOpen && selectedRechtsgebiet && (
-                    <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {getCurrentUnterrechtsgebiete().length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-gray-500 text-center">
-                          Noch keine Unterrechtsgebiete
-                        </div>
-                      ) : (
-                        getCurrentUnterrechtsgebiete().map(urg => (
-                          <button
-                            key={urg.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedUnterrechtsgebiet(urg);
-                              setIsUnterrechtsgebietOpen(false);
-                            }}
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${
-                              selectedUnterrechtsgebiet?.id === urg.id ? 'bg-primary-50 font-medium' : ''
-                            }`}
-                          >
-                            {urg.name}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
+          {/* Beschreibung */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-900">Beschreibung</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optionale Notizen..."
+              rows={2}
+              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm resize-none"
+            />
+          </div>
 
-                {/* Add new Unterrechtsgebiet */}
-                {selectedRechtsgebiet && (
-                  isCreatingUnterrechtsgebiet ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={newUnterrechtsgebietName}
-                        onChange={(e) => setNewUnterrechtsgebietName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddUnterrechtsgebiet()}
-                        placeholder="Name eingeben..."
-                        autoFocus
-                        className="flex-1 h-8 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                      />
-                      <Button variant="primary" size="sm" onClick={handleAddUnterrechtsgebiet}>OK</Button>
-                      <Button variant="default" size="sm" onClick={() => setIsCreatingUnterrechtsgebiet(false)}>✕</Button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingUnterrechtsgebiet(true)}
-                      className="h-8 flex items-center gap-2 text-gray-500 hover:text-gray-700"
-                    >
-                      <PlusIcon size={16} />
-                      <span className="text-xs font-medium">Neues Unterrechtsgebiet erstellen</span>
-                    </button>
-                  )
-                )}
-              </div>
-
-              {/* Blockbelegung */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Blockbelegung</label>
-                <div className="inline-flex">
-                  <button
-                    type="button"
-                    onClick={() => setBlockSize(Math.max(1, blockSize - 1))}
-                    disabled={blockSize <= 1}
-                    className="w-9 h-9 bg-white rounded-l-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
-                  >
-                    <MinusIcon size={16} className="text-gray-900" />
-                  </button>
-                  <div className="h-9 px-4 py-2 bg-white shadow-sm border-t border-b border-gray-200 flex items-center justify-center">
-                    <span className="text-sm font-medium text-gray-900">{blockSize}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setBlockSize(Math.min(totalAvailableSlots, blockSize + 1))}
-                    disabled={blockSize >= totalAvailableSlots}
-                    className="w-9 h-9 bg-white rounded-r-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
-                  >
-                    <PlusIcon size={16} className="text-gray-900" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Titel */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Titel</label>
+          {/* Uhrzeit */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-900">
+              Uhrzeit <span className="text-red-500">*</span>
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600">Von</label>
                 <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Titel eintragen..."
-                  className="w-full h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-gray-200 text-sm"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
                 />
               </div>
-
-              {/* Beschreibung */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Beschreibung</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Beschreibung eintragen..."
-                  rows={3}
-                  className="w-full px-3 py-2 bg-white rounded-lg shadow-sm border border-gray-200 text-sm resize-none"
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600">Bis</label>
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
                 />
               </div>
             </div>
+          </div>
 
-            {/* Right Column - Tasks */}
-            <div className="flex-1 py-2.5 space-y-3">
-              <label className="text-sm font-medium text-gray-900">Aufgaben</label>
+          {/* Wiederholung */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={repeatEnabled}
+                onChange={(e) => setRepeatEnabled(e.target.checked)}
+                className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+              />
+              <span className="text-sm font-medium text-gray-900">Termin wiederholen</span>
+            </label>
 
-              {/* Task List */}
-              <div className="space-y-2.5">
-                {tasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-2.5">
-                    <div className="flex-1 max-w-[578px] p-2.5 rounded-lg border border-gray-200 flex justify-between items-center">
-                      <div className="flex items-start gap-2">
-                        <input
-                          type="checkbox"
-                          checked={task.completed}
-                          onChange={() => handleToggleTask(task.id)}
-                          className="w-4 h-4 mt-0.5 rounded border-gray-300"
-                        />
-                        <div className="flex flex-col gap-1.5">
-                          <span className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                            {task.text}
-                          </span>
-                        </div>
-                      </div>
-                      <DifficultySelector
-                        value={task.difficulty}
-                        onChange={(d) => handleUpdateTaskDifficulty(task.id, d)}
-                      />
-                    </div>
+            {repeatEnabled && (
+              <div className="space-y-4 pl-8">
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-600">Wiederholung</label>
+                  <div className="relative">
                     <button
                       type="button"
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="p-1 text-gray-400 hover:text-red-500"
+                      onClick={() => setIsRepeatTypeOpen(!isRepeatTypeOpen)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
                     >
-                      <TrashIcon size={16} />
+                      <span className="text-sm text-gray-900">{getRepeatTypeName()}</span>
+                      <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isRepeatTypeOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                        {repeatTypeOptions.map(opt => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => { setRepeatType(opt.id); setIsRepeatTypeOpen(false); }}
+                            className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
+                              repeatType === opt.id ? 'bg-gray-100 font-medium' : ''
+                            }`}
+                          >
+                            {opt.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {repeatType === 'custom' && (
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-600">An diesen Tagen</label>
+                    <div className="flex flex-wrap gap-2">
+                      {weekdayOptions.map(day => (
+                        <button
+                          key={day.id}
+                          type="button"
+                          onClick={() => toggleCustomDay(day.id)}
+                          className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                            customDays.includes(day.id) ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {day.short}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-600">Anzahl Wiederholungen</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={repeatCount}
+                      onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                      className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm text-center"
+                    />
+                    <span className="text-sm text-gray-600">mal</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Aufgaben */}
+          <div className="space-y-3 pt-2 border-t border-gray-200">
+            <label className="text-sm font-medium text-gray-900">Aufgaben</label>
+
+            {/* Task List */}
+            {tasks.length > 0 && (
+              <div className="space-y-2">
+                {tasks.map(task => (
+                  <div key={task.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg group">
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      onChange={() => handleToggleTask(task.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                    />
+                    <span className={`flex-1 text-sm ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                      {task.text}
+                    </span>
+                    {task.source && (
+                      <span className="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded">
+                        {task.source === 'todos' ? 'To-Do' : task.source === 'themenliste' ? 'Themenliste' : 'Lernplan'}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTask(task.id)}
+                      className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <TrashIcon size={14} />
                     </button>
                   </div>
                 ))}
-
-                {/* Add Task Button */}
-                <div className="flex items-center gap-2.5">
-                  <div className="flex-1 max-w-[578px] p-2.5 rounded-lg border border-gray-200 flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      disabled
-                      className="w-4 h-4 rounded border-gray-300 opacity-50"
-                    />
-                    <input
-                      type="text"
-                      value={newTaskText}
-                      onChange={(e) => setNewTaskText(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-                      placeholder="Neue Aufgabe..."
-                      className="flex-1 text-sm bg-transparent border-none focus:outline-none"
-                    />
-                    <DifficultySelector value={newTaskDifficulty} onChange={setNewTaskDifficulty} />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddTask}
-                    disabled={!newTaskText.trim()}
-                    className="h-8 px-3 py-2 bg-white rounded-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
-                  >
-                    <PlusIcon size={16} className="text-gray-900" />
-                  </button>
-                </div>
               </div>
+            )}
+
+            {/* Add New Task */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newTaskText}
+                onChange={(e) => setNewTaskText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddNewTask()}
+                placeholder="Neue Aufgabe eingeben..."
+                className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleAddNewTask}
+                disabled={!newTaskText.trim()}
+                className="px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Hinzufügen
+              </button>
+            </div>
+
+            {/* Add from existing sources */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowTaskSource(!showTaskSource)}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                <PlusIcon size={14} />
+                <span>Aus vorhandenen Aufgaben hinzufügen</span>
+              </button>
+
+              {showTaskSource && (
+                <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                  {/* Source Selection */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedSource('todos'); setSelectedThemeListId(null); }}
+                      className={`px-3 py-1.5 rounded-lg text-sm ${
+                        selectedSource === 'todos' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      To-Dos ({availableTasks.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedSource('themenliste'); }}
+                      className={`px-3 py-1.5 rounded-lg text-sm ${
+                        selectedSource === 'themenliste' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      Themenlisten ({themeLists.length})
+                    </button>
+                  </div>
+
+                  {/* Themenliste Selection */}
+                  {selectedSource === 'themenliste' && themeLists.length > 0 && (
+                    <select
+                      value={selectedThemeListId || ''}
+                      onChange={(e) => setSelectedThemeListId(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
+                    >
+                      <option value="">Themenliste wählen...</option>
+                      {themeLists.map(list => (
+                        <option key={list.id} value={list.id}>{list.name}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Task Options */}
+                  {sourceTaskOptions.length > 0 ? (
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {sourceTaskOptions.map(task => (
+                        <button
+                          key={task.id}
+                          type="button"
+                          onClick={() => handleAddExistingTask(task)}
+                          className="w-full flex items-center gap-2 p-2 text-left text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-100"
+                        >
+                          <PlusIcon size={12} className="text-gray-400" />
+                          <span className="flex-1 truncate">{task.text || task.title}</span>
+                          {task.thema && (
+                            <span className="text-xs text-gray-400 truncate max-w-[100px]">{task.thema}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : selectedSource && (
+                    <p className="text-sm text-gray-500 text-center py-2">
+                      {selectedSource === 'themenliste' && !selectedThemeListId
+                        ? 'Bitte eine Themenliste wählen'
+                        : 'Keine verfügbaren Aufgaben'}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </DialogBody>
 
         <DialogFooter className="justify-between">
           <div className="flex items-center gap-2">
-            <Button variant="default" onClick={handleDiscard} className="rounded-3xl">
-              Änderungen verwerfen
+            <Button variant="default" onClick={handleDiscard}>
+              Abbrechen
             </Button>
             {showDeleteConfirm ? (
               <div className="flex items-center gap-2">
@@ -482,26 +555,25 @@ const ManageThemeBlockDialog = ({
                 <Button
                   variant="default"
                   onClick={handleDelete}
-                  className="rounded-3xl text-red-600 hover:bg-red-50"
+                  className="text-red-600 hover:bg-red-50"
                 >
                   Ja, löschen
                 </Button>
                 <Button
                   variant="default"
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="rounded-3xl"
                 >
-                  Abbrechen
+                  Nein
                 </Button>
               </div>
             ) : (
               <Button
                 variant="default"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="rounded-3xl gap-2"
+                className="gap-2 text-red-600 hover:bg-red-50"
               >
-                Themenblock löschen
                 <TrashIcon size={16} />
+                Löschen
               </Button>
             )}
           </div>
@@ -509,14 +581,15 @@ const ManageThemeBlockDialog = ({
             <Button
               variant="default"
               onClick={handleSave}
-              className="rounded-3xl"
+              disabled={!isFormValid()}
             >
               Speichern
             </Button>
             <Button
               variant="primary"
               onClick={handleSaveAndClose}
-              className="rounded-3xl gap-2"
+              disabled={!isFormValid()}
+              className="gap-2"
             >
               Fertig
               <CheckIcon size={16} />
