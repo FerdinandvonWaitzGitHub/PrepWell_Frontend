@@ -35,7 +35,7 @@ const weekdayOptions = [
  * Create Repetition Block Dialog Component
  * Form for creating a new repetition learning block
  */
-const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availableSlots = 3 }) => {
+const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availableSlots = 4 }) => {
   const [blockSize, setBlockSize] = useState(2);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

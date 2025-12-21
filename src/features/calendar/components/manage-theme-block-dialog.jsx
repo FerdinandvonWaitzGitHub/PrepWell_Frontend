@@ -29,7 +29,7 @@ const ManageThemeBlockDialog = ({
   block,
   onSave,
   onDelete,
-  availableSlots = 3,
+  availableSlots = 4,
   // Task sources
   availableTasks = [],      // To-Dos
   themeLists = [],          // Themenlisten

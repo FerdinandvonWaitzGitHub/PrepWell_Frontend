@@ -25,17 +25,18 @@ Vor Änderungen am Projekt bitte [PRD.md](PRD.md) lesen für vollständige Detai
 ### Architektur: Content-Slot-Block Modell
 
 ```
-Zeitliche Hierarchie: Lernplan → Monat → Woche → Tag → Position (1-4)
+Zeitliche Hierarchie: Lernplan → Monat → Woche → Tag
 
-Position 1 ─┐
-Position 2 ─┼─► CONTENT (1:n) ─┬─► SLOT (Monat)
-Position 3 ─┘                  └─► BLOCK (Woche/Tag)
+Pro Tag: bis zu 4 Slots (08:00-10:00, 10:00-12:00, 14:00-16:00, 16:00-18:00)
+
+CONTENT ─────► SLOT ─────► BLOCK
+(Was)         (Wann)       (Wie anzeigen)
 ```
 
 - **CONTENT**: Zeitlose Lerninhalte (Fach → Kapitel → Themen → Aufgaben)
-- **SLOT**: Kompakte Ansicht im Monatskalender
-- **BLOCK**: Detaillierte Ansicht im Wochenkalender/Startseite
-- **1:n Beziehung**: 1 Content kann mehrere Positionen pro Tag belegen
+- **SLOT**: Wann gelernt wird (Datum + Position im Tag)
+- **BLOCK**: Visuelle Darstellung im Kalender mit Uhrzeiten
+- **1:n Beziehung**: 1 Content kann mehrere Slots belegen
 
 ### State Management
 

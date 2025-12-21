@@ -27,7 +27,7 @@ const CreateThemeBlockDialog = ({
   onOpenChange,
   date,
   onSave,
-  availableSlots = 3,
+  availableSlots = 4,
   // Task sources
   availableTasks = [],      // To-Dos
   themeLists = [],          // Themenlisten

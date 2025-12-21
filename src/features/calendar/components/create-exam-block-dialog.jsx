@@ -44,7 +44,7 @@ const RECHTSGEBIETE = [
  * Form for creating a new exam (Klausuren) block
  * Features a toggle to optionally add details (Rechtsgebiet, Unterrechtsgebiet)
  */
-const CreateExamBlockDialog = ({ open, onOpenChange, date, onSave, availableSlots = 3 }) => {
+const CreateExamBlockDialog = ({ open, onOpenChange, date, onSave, availableSlots = 4 }) => {
   // Use central Unterrechtsgebiete context
   const {
     getUnterrechtsgebieteByRechtsgebiet,

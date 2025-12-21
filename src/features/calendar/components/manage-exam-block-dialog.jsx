@@ -51,7 +51,7 @@ const ManageExamBlockDialog = ({
   block,
   onSave,
   onDelete,
-  availableSlots = 3
+  availableSlots = 4
 }) => {
   // Use central Unterrechtsgebiete context
   const {

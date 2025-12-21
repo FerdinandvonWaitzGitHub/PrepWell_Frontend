@@ -39,7 +39,7 @@
  *
  * @property {string} id - Unique ID des Slots
  * @property {string} date - Datum im Format "YYYY-MM-DD"
- * @property {1|2|3} position - Position am Tag (1, 2 oder 3)
+ * @property {1|2|3|4} position - Position am Tag (1, 2, 3 oder 4)
  * @property {string} contentId - Referenz auf Content.id
  * @property {'lernblock'|'exam'|'repetition'|'private'} blockType - Art des Blocks
  * @property {boolean} [isLocked] - Gesperrt/abgeschlossen?
@@ -88,11 +88,13 @@
  * Position 1: 08:00 - 10:00
  * Position 2: 10:00 - 12:00
  * Position 3: 14:00 - 16:00
+ * Position 4: 16:00 - 18:00
  */
 export const POSITION_TIME_MAP = {
   1: { startHour: 8, endHour: 10, startTime: '08:00', endTime: '10:00' },
   2: { startHour: 10, endHour: 12, startTime: '10:00', endTime: '12:00' },
   3: { startHour: 14, endHour: 16, startTime: '14:00', endTime: '16:00' },
+  4: { startHour: 16, endHour: 18, startTime: '16:00', endTime: '18:00' },
 };
 
 /**

@@ -22,13 +22,14 @@ export const createEmptySlot = (date, position) => {
 };
 
 /**
- * Create initial 3 empty slots for a day
+ * Create initial 4 empty slots for a day
  */
 export const createDaySlots = (date) => {
   return [
     createEmptySlot(date, 1),
     createEmptySlot(date, 2),
-    createEmptySlot(date, 3)
+    createEmptySlot(date, 3),
+    createEmptySlot(date, 4)
   ];
 };
 

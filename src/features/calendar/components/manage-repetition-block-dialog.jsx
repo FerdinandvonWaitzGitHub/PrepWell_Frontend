@@ -42,7 +42,7 @@ const ManageRepetitionBlockDialog = ({
   block,
   onSave,
   onDelete,
-  availableSlots = 3
+  availableSlots = 4
 }) => {
   // Form state
   const [blockSize, setBlockSize] = useState(2);

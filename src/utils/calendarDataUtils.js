@@ -45,7 +45,7 @@ export function createSlot(data) {
 
 /**
  * Get time info for a slot position
- * @param {1|2|3} position - Slot position
+ * @param {1|2|3|4} position - Slot position
  * @returns {Object} { startHour, endHour, startTime, endTime }
  */
 export function getTimeForPosition(position) {

@@ -413,6 +413,7 @@ export const CalendarProvider = ({ children }) => {
       1: { startHour: 8, endHour: 10 },
       2: { startHour: 10, endHour: 12 },
       3: { startHour: 14, endHour: 16 },
+      4: { startHour: 16, endHour: 18 },
     };
     const posTime = positionTimes[slot.position] || positionTimes[1];
 

@@ -53,25 +53,22 @@ PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    ZEITLICHE HIERARCHIE                      │
-│          Lernplan → Monat → Woche → Tag → Position          │
+│                    ZEITLICHE HIERARCHIE                     │
+│              Lernplan → Monat → Woche → Tag                 │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                         TAG                                  │
+│                         TAG                                 │
 │                    (z.B. 2025-01-15)                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ Position 1  │  │ Position 2  │  │ Position 3  │         │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-└─────────┼────────────────┼────────────────┼─────────────────┘
-          │                │                │
-          └────────────────┼────────────────┘
-                           │ (1 Content : n Positionen)
-                           ▼
+│  Bis zu 4 Slots pro Tag:                                    │
+│  08:00-10:00 │ 10:00-12:00 │ 14:00-16:00 │ 16:00-18:00      │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
                     ┌─────────────┐
                     │   CONTENT   │
-                    │ (Schuldrecht)│
+                    │(Schuldrecht)│
                     └──────┬──────┘
                            │
               ┌────────────┴────────────┐
@@ -82,9 +79,9 @@ PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
         └──────────┘              └──────────┘
 ```
 
-**Beziehung Content : Positionen (1:n)**
-- 1 Content kann mehrere Positionen am gleichen Tag belegen
-- Beispiel: "Schuldrecht" belegt Positionen 1, 2 und 3 (ganztägig)
+**Beziehung Content : Slots (1:n)**
+- 1 Content kann mehrere Slots am gleichen Tag belegen
+- Beispiel: "Schuldrecht" belegt 3 Slots (08:00-16:00)
 
 **CONTENT (Was):**
 - Zeitlose Lerninhalte
@@ -93,7 +90,7 @@ PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
 
 **SLOT (Monatskalender):**
 - Kompakte Darstellung (Titel, Farbe)
-- Zeitliche Zuordnung (Datum + Position 1-4)
+- Zeitliche Zuordnung (Datum + Slot 1-4)
 - Speicherung: `slotsByDate` (CalendarContext)
 
 **BLOCK (Wochenkalender/Startseite):**
@@ -596,7 +593,7 @@ Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
 | Lernplan | Strukturierter Zeitplan für die Examensvorbereitung |
 | Themenliste | Hierarchische Sammlung von Lerninhalten |
 | Themenlistendatenbank | Repository für vorgefertigte und geteilte Themenlisten |
-| Slot | Kompakte Kalenderansicht (Monatskalender) - Datum + Position |
+| Slot | Kompakte Kalenderansicht (Monatskalender) - Zeitfenster im Tag (1-4) |
 | Block | Detaillierte Kalenderansicht (Wochenkalender/Startseite) - interaktiv |
 | Fach | Hauptkategorie (= Rechtsgebiet: Öffentl. Recht, Zivilrecht, Strafrecht) |
 | Kapitel | Unterkategorie (= Unterrechtsgebiet: z.B. BGB AT, StGB BT) |

@@ -75,6 +75,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       1: { startTime: '08:00', endTime: '10:00' },
       2: { startTime: '10:00', endTime: '12:00' },
       3: { startTime: '14:00', endTime: '16:00' },
+      4: { startTime: '16:00', endTime: '18:00' },
     };
     return timeSlots[position] || { startTime: '08:00', endTime: '10:00' };
   };
@@ -346,11 +347,11 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       .filter(s => s.status === 'topic' || s.contentId || s.topicId)
       .map(s => s.position);
     let nextPosition = 1;
-    while (usedPositions.includes(nextPosition) && nextPosition <= 3) {
+    while (usedPositions.includes(nextPosition) && nextPosition <= 4) {
       nextPosition++;
     }
 
-    if (nextPosition > 3) {
+    if (nextPosition > 4) {
       console.warn('No available slots for this day');
       return;
     }
@@ -456,7 +457,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Manage Repetition Block Dialog */}
@@ -467,7 +468,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Manage Exam Block Dialog */}
@@ -478,7 +479,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Manage Private Block Dialog */}
@@ -505,7 +506,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onOpenChange={setIsCreateThemeOpen}
         date={selectedDate}
         onSave={handleAddBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Create Repetition Block Dialog */}
@@ -514,7 +515,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onOpenChange={setIsCreateRepetitionOpen}
         date={selectedDate}
         onSave={handleAddBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Create Exam Block Dialog */}
@@ -523,7 +524,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onOpenChange={setIsCreateExamOpen}
         date={selectedDate}
         onSave={handleAddBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Create Private Block Dialog */}

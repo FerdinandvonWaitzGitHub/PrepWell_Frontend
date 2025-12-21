@@ -39,7 +39,7 @@ const DayManagementDialog = ({
   learningBlocks = [],
   onUpdateBlock,
   onDeleteBlock,
-  availableSlots = 3
+  availableSlots = 4
 }) => {
   // State for selected block
   const [selectedBlock, setSelectedBlock] = useState(null);

@@ -206,6 +206,7 @@ const DashboardPage = () => {
       1: { startTime: '08:00', endTime: '10:00' },
       2: { startTime: '10:00', endTime: '12:00' },
       3: { startTime: '14:00', endTime: '16:00' },
+      4: { startTime: '16:00', endTime: '18:00' },
     };
     return timeSlots[position] || { startTime: '08:00', endTime: '10:00' };
   };
@@ -264,14 +265,14 @@ const DashboardPage = () => {
   const handleAddBlock = useCallback((_date, blockData) => {
     const daySlots = slotsByDate[dateString] || [];
 
-    // Find next available position (1, 2, or 3)
+    // Find next available position (1, 2, 3, or 4)
     const usedPositions = daySlots.filter(s => s.contentId).map(s => s.position);
     let position = 1;
-    while (usedPositions.includes(position) && position <= 3) {
+    while (usedPositions.includes(position) && position <= 4) {
       position++;
     }
 
-    if (position > 3) {
+    if (position > 4) {
       console.warn('Alle Slots für diesen Tag sind belegt');
       return;
     }
@@ -600,7 +601,7 @@ const DashboardPage = () => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={3}
+        availableSlots={4}
         availableTasks={aufgaben}
         themeLists={themeLists}
       />
@@ -613,7 +614,7 @@ const DashboardPage = () => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Manage Exam Block Dialog */}
@@ -624,7 +625,7 @@ const DashboardPage = () => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Manage Private Block Dialog */}
@@ -651,7 +652,7 @@ const DashboardPage = () => {
         onOpenChange={setIsCreateThemeOpen}
         date={currentDateObj}
         onSave={handleAddBlock}
-        availableSlots={3}
+        availableSlots={4}
         availableTasks={aufgaben}
         themeLists={themeLists}
       />
@@ -662,7 +663,7 @@ const DashboardPage = () => {
         onOpenChange={setIsCreateRepetitionOpen}
         date={currentDateObj}
         onSave={handleAddBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Create Exam Block Dialog */}
@@ -671,7 +672,7 @@ const DashboardPage = () => {
         onOpenChange={setIsCreateExamOpen}
         date={currentDateObj}
         onSave={handleAddBlock}
-        availableSlots={3}
+        availableSlots={4}
       />
 
       {/* Create Private Block Dialog */}
