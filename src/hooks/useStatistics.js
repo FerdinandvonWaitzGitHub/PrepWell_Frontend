@@ -1294,6 +1294,65 @@ export const useStatistics = () => {
     }).filter(Boolean);
   };
 
+  /**
+   * DAILY PERFORMANCE - For yearly heatmap view
+   * Returns object with date keys and score values (0-100)
+   */
+  const dailyPerformance = useMemo(() => {
+    const performance = {};
+    const allSessions = timerHistory || [];
+    const allSlots = slotsByDate || {};
+    const allTasks = tasksByDate || {};
+
+    // Create a map of date -> timer duration
+    const durationByDate = {};
+    allSessions.forEach(session => {
+      const dateKey = session.date;
+      durationByDate[dateKey] = (durationByDate[dateKey] || 0) + (session.duration || 0);
+    });
+
+    // Calculate performance for each date that has any activity
+    const allDates = new Set([
+      ...Object.keys(allSlots),
+      ...Object.keys(allTasks),
+      ...Object.keys(durationByDate)
+    ]);
+
+    allDates.forEach(dateKey => {
+      const daySlots = allSlots[dateKey] || [];
+      const dayTasks = allTasks[dateKey] || [];
+      const dayDuration = durationByDate[dateKey] || 0;
+
+      // Calculate score based on:
+      // - Timer activity (weight: 40%)
+      // - Completed tasks (weight: 30%)
+      // - Planned slots done (weight: 30%)
+
+      let score = 0;
+
+      // Timer activity score (0-40 points)
+      // 60+ minutes = full score
+      const timerScore = Math.min(40, (dayDuration / 60 / 60) * 40);
+
+      // Task completion score (0-30 points)
+      const completedTasks = dayTasks.filter(t => t.completed).length;
+      const taskScore = dayTasks.length > 0
+        ? (completedTasks / dayTasks.length) * 30
+        : (completedTasks > 0 ? 30 : 0);
+
+      // Slot activity score (0-30 points)
+      const slotScore = daySlots.length > 0 ? 30 : 0;
+
+      score = Math.round(timerScore + taskScore + slotScore);
+
+      if (score > 0) {
+        performance[dateKey] = { score };
+      }
+    });
+
+    return performance;
+  }, [timerHistory, slotsByDate, tasksByDate]);
+
   return {
     // All statistics categories
     lernzeit: lernzeitStats,
@@ -1310,6 +1369,7 @@ export const useStatistics = () => {
     scores,
     heatmapData,
     flatStats,
+    dailyPerformance,
 
     // Chart data
     chartDataSeries,

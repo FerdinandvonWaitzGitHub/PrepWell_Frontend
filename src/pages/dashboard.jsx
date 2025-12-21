@@ -29,8 +29,12 @@ const DashboardPage = () => {
   const navigate = useNavigate();
 
   // CheckIn and Mentor contexts for redirect logic
-  const { isCheckInNeeded } = useCheckIn();
+  const { isCheckInNeeded, getCurrentPeriod } = useCheckIn();
   const { isActivated: mentorIsActivated } = useMentor();
+
+  // Get current period label for check-in button
+  const currentPeriod = getCurrentPeriod();
+  const periodLabel = currentPeriod === 'evening' ? 'Abend' : 'Morgen';
 
   const {
     displayDate,
@@ -41,7 +45,6 @@ const DashboardPage = () => {
     dayProgress,
     loading,
     checkInDone,
-    isCheckInButtonEnabled,
     isMentorActivated,
     wasMorningSkipped,
     hasRealLernplanSlots, // true if wizard-created slots exist
@@ -499,36 +502,31 @@ const DashboardPage = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-4 flex-1 justify-center md:justify-start lg:justify-center">
-            <button
-              onClick={doCheckIn}
-              disabled={!isCheckInButtonEnabled}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full border text-sm transition-colors ${
-                checkInDone
-                  ? 'border-green-200 bg-green-50 text-green-700 cursor-default'
-                  : !isCheckInButtonEnabled
-                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
-              }`}
-            >
-              {checkInDone ? (
-                <>
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Check-in erledigt
-                </>
-              ) : wasMorningSkipped && isMentorActivated ? (
-                <>
-                  Check-in nachholen
-                  <span aria-hidden className="text-gray-500">→</span>
-                </>
-              ) : (
-                <>
-                  Check-in am Morgen
-                  <span aria-hidden className="text-gray-500">→</span>
-                </>
-              )}
-            </button>
+            {checkInDone ? (
+              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-green-200 bg-green-50 text-green-700 text-sm">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Check-in erledigt
+              </div>
+            ) : (
+              <button
+                onClick={doCheckIn}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 text-sm transition-colors"
+              >
+                {wasMorningSkipped && isMentorActivated ? (
+                  <>
+                    Check-in nachholen
+                    <span aria-hidden className="text-gray-500">→</span>
+                  </>
+                ) : (
+                  <>
+                    Check-in am {periodLabel}
+                    <span aria-hidden className="text-gray-500">→</span>
+                  </>
+                )}
+              </button>
+            )}
 
             <div className="flex flex-col gap-1 min-w-[220px]">
               <div className="flex items-center justify-between text-xs text-gray-700">

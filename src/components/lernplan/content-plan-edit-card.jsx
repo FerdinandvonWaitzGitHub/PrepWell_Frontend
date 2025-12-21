@@ -33,6 +33,9 @@ const ContentPlanEditCard = ({
     updateAufgabeInPlan,
     toggleAufgabeInPlan,
     deleteAufgabeFromPlan,
+    exportThemenlisteAsJson,
+    publishThemenliste,
+    unpublishThemenliste,
   } = useCalendar();
 
   const { RECHTSGEBIET_LABELS, RECHTSGEBIET_COLORS } = useUnterrechtsgebiete();
@@ -188,6 +191,37 @@ const ContentPlanEditCard = ({
 
         {/* Actions */}
         <div className="flex items-center gap-1 ml-4 flex-shrink-0">
+          {/* Export Button (only for Themenlisten) */}
+          {plan.type === 'themenliste' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); exportThemenlisteAsJson(plan.id); }}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+              title="Als JSON exportieren"
+            >
+              <ExportIcon size={16} />
+            </button>
+          )}
+          {/* Publish/Unpublish Button (only for Themenlisten) */}
+          {plan.type === 'themenliste' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (plan.isPublished) {
+                  unpublishThemenliste(plan.publishedId);
+                } else {
+                  publishThemenliste(plan.id);
+                }
+              }}
+              className={`p-1.5 rounded transition-colors ${
+                plan.isPublished
+                  ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+              }`}
+              title={plan.isPublished ? 'Veröffentlichung aufheben' : 'In Community veröffentlichen'}
+            >
+              <PublishIcon size={16} filled={plan.isPublished} />
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); archiveContentPlan(plan.id); }}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
@@ -821,6 +855,22 @@ const ArchiveIcon = ({ size = 16 }) => (
     <polyline points="21 8 21 21 3 21 3 8" />
     <rect x="1" y="3" width="22" height="5" />
     <line x1="10" y1="12" x2="14" y2="12" />
+  </svg>
+);
+
+const ExportIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
+const PublishIcon = ({ size = 16, filled = false }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <polyline points="16 6 12 2 8 6" />
+    <line x1="12" y1="2" x2="12" y2="15" />
   </svg>
 );
 

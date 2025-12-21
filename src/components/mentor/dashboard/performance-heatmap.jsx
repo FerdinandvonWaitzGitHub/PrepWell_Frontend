@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import YearViewDialog from './year-view-dialog';
 
 /**
  * PerformanceHeatmap - Horizontal bar of 30 colored rectangles
@@ -12,6 +13,8 @@ import { useMemo } from 'react';
  * - gray-200: no activity
  */
 const PerformanceHeatmap = ({ data = [], stats = {} }) => {
+  const [isYearViewOpen, setIsYearViewOpen] = useState(false);
+
   const {
     avgDuration = '0h 0min',
     avgDurationChange = 0,
@@ -106,7 +109,10 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
 
       {/* Jahresansicht Button */}
       <div className="flex justify-center items-center gap-2">
-        <button className="px-5 py-2.5 rounded-full border border-gray-300 flex items-center gap-2 hover:bg-gray-50 transition-colors">
+        <button
+          onClick={() => setIsYearViewOpen(true)}
+          className="px-5 py-2.5 rounded-full border border-gray-300 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+        >
           <span className="text-gray-900 text-sm font-light leading-5">
             Jahresansicht
           </span>
@@ -115,6 +121,12 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
           </svg>
         </button>
       </div>
+
+      {/* Year View Dialog */}
+      <YearViewDialog
+        open={isYearViewOpen}
+        onClose={() => setIsYearViewOpen(false)}
+      />
     </div>
   );
 };

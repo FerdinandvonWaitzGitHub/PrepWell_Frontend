@@ -1,8 +1,8 @@
 # Product Requirements Document (PRD)
 # PrepWell WebApp
 
-**Version:** 1.0
-**Datum:** 19. Dezember 2025
+**Version:** 1.1
+**Datum:** 21. Dezember 2025
 **Status:** MVP Development
 
 ---
@@ -104,11 +104,28 @@ PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
 ### 3.2 State Management
 
 **React Context Provider:**
-1. `CalendarProvider` - Single Source of Truth für Kalender, Slots, Aufgaben
-2. `TimerProvider` - Timer-Zustand und Einstellungen
-3. `UnterrechtsgebieteProvider` - Verwaltung der Rechtsgebiete
+1. `CalendarProvider` - SSOT für Kalender, Slots, Aufgaben, ContentPlans, Themenlisten
+2. `TimerProvider` - Timer-Zustand, Einstellungen, Session-Historie
+3. `UnterrechtsgebieteProvider` - Verwaltung der Rechtsgebiete-Auswahl
+4. `MentorProvider` - Aktivierungsstatus des Mentors
+5. `CheckInProvider` - Tägliches Check-In System
+6. `ExamsProvider` - Klausuren und Leistungen
 
 **Persistenz:** LocalStorage für alle Daten (offline-fähig)
+
+**LocalStorage-Keys:**
+| Key | Inhalt |
+|-----|--------|
+| `prepwell_calendar_slots` | Kalender-Slots |
+| `prepwell_contents` | Content-Objekte |
+| `prepwell_tasks` | Aufgaben |
+| `prepwell_content_plans` | Lernpläne/Themenlisten |
+| `prepwell_published_themenlisten` | Veröffentlichte Community-Themenlisten |
+| `prepwell_timer_settings` | Timer-Einstellungen |
+| `prepwell_timer_history` | Timer-Session-Historie |
+| `prepwell_mentor_activated` | Mentor-Aktivierungsstatus |
+| `prepwell_checkin_responses` | Check-In Antworten |
+| `prepwell_exams` | Klausuren |
 
 ### 3.3 Projektstruktur
 
@@ -244,6 +261,103 @@ Lernplan
 - Fortschrittsanzeige pro Ebene
 - Aufgaben in Kalenderblöcke ziehen
 - Themen bearbeiten/löschen
+
+### 4.7 Themenlistendatenbank
+
+Die Themenlistendatenbank ermöglicht Nutzern, vorgefertigte Themenlisten zu importieren oder eigene Themenlisten mit der Community zu teilen.
+
+**Zugriff:**
+- Button "Themenlistendatenbank" auf der Lernpläne-Seite (neben "Neue Themenliste")
+- Öffnet Full-Screen-Dialog mit Datenbank-Übersicht
+
+**Tabs:**
+| Tab | Beschreibung |
+|-----|--------------|
+| Vorlagen | Vordefinierte Templates (z.B. Examensvorbereitung, Zivilrecht Intensiv) |
+| Community | Vom Nutzer veröffentlichte Themenlisten |
+
+**Template-Informationen:**
+- Name und Beschreibung
+- Statistiken: Anzahl Unterrechtsgebiete, Anzahl Themen
+- Gewichtung der Rechtsgebiete (in %)
+- Modus: Examen/Standard
+- Tags für Filterung
+
+**Filter & Suche:**
+- Volltextsuche nach Name, Beschreibung, Tags
+- Filter nach Rechtsgebiet (Zivilrecht, Öffentliches Recht, Strafrecht)
+- Filter nach Modus (Examen, Standard)
+
+**Import/Export-Funktionen:**
+
+| Funktion | Beschreibung |
+|----------|--------------|
+| Template importieren | Vordefiniertes Template als neue Themenliste übernehmen |
+| JSON importieren | Themenliste aus JSON-Datei importieren |
+| JSON exportieren | Eigene Themenliste als JSON-Datei herunterladen |
+| Veröffentlichen | Eigene Themenliste zur Community hinzufügen |
+| Veröffentlichung aufheben | Aus Community entfernen |
+
+**JSON-Export Format:**
+```json
+{
+  "id": "export-...",
+  "name": "Themenliste Name",
+  "description": "Beschreibung",
+  "exportedAt": "2025-12-21T...",
+  "stats": {
+    "unterrechtsgebiete": 12,
+    "themen": 156
+  },
+  "gewichtung": {
+    "zivilrecht": 45,
+    "oeffentliches-recht": 35,
+    "strafrecht": 20
+  },
+  "rechtsgebiete": [...]
+}
+```
+
+**LocalStorage-Keys:**
+- `prepwell_published_themenlisten` - Vom Nutzer veröffentlichte Themenlisten
+
+### 4.8 Mentor & Check-In
+
+Der Mentor bietet Statistiken und Auswertungen zum Lernfortschritt.
+
+**Aktivierung:**
+- Erster Besuch zeigt "Mentor aktivieren" Dialog
+- Nach Aktivierung: Vollständiges Statistik-Dashboard
+
+**Check-In System:**
+- Täglicher Check-In beim ersten Besuch
+- Erfasst: Stimmung, Energielevel, Fokus-Level
+- Optionale Notiz
+- Ergebnisse fließen in Statistiken ein
+
+**Statistik-Kategorien:**
+
+| Kategorie | Metriken |
+|-----------|----------|
+| Lernzeit | Ø pro Tag/Woche, längste Session, Gesamt |
+| Zeitpunkte | Produktivste Tageszeit, Ø Start/Ende |
+| Fächer | Verteilung nach Rechtsgebiet |
+| Aufgaben | Erledigungsrate, Kapitel-Fortschritt |
+| Planung | Planerfüllung, On-Track-Score |
+| Konsistenz | Streaks, Lerntage/Woche |
+| Wiederholungen | Rep-Blöcke, Überfällige |
+| Timer | Sessions/Tag, Abschlussrate |
+
+**Visualisierungen:**
+- Performance-Heatmap (letzte 30 Tage)
+- Jahresansicht (12 Monate als Heatmap-Grid)
+- Liniendiagramme für Trends
+- Score-Cards für Einzelwerte
+
+**LocalStorage-Keys:**
+- `prepwell_mentor_activated` - Aktivierungsstatus
+- `prepwell_checkin_responses` - Check-In Historie
+- `prepwell_timer_history` - Timer-Session-Historie
 
 ---
 
@@ -418,6 +532,14 @@ Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
 - [x] Context-basiertes State Management
 - [x] LocalStorage-Persistenz
 - [x] Responsive Routing
+- [x] Themenlistendatenbank mit Templates
+- [x] Themenlisten Export/Import (JSON)
+- [x] Community-Veröffentlichung von Themenlisten
+- [x] Mentor-Aktivierung mit Dialog
+- [x] Tägliches Check-In System
+- [x] Statistik-Dashboard mit Heatmaps
+- [x] Jahresansicht für Produktivität
+- [x] Timer-Historie für Statistiken
 
 ### 9.2 In Entwicklung (🔄)
 - [ ] Backend-API-Integration
@@ -473,6 +595,7 @@ Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
 |---------|------------|
 | Lernplan | Strukturierter Zeitplan für die Examensvorbereitung |
 | Themenliste | Hierarchische Sammlung von Lerninhalten |
+| Themenlistendatenbank | Repository für vorgefertigte und geteilte Themenlisten |
 | Slot | Kompakte Kalenderansicht (Monatskalender) - Datum + Position |
 | Block | Detaillierte Kalenderansicht (Wochenkalender/Startseite) - interaktiv |
 | Fach | Hauptkategorie (= Rechtsgebiet: Öffentl. Recht, Zivilrecht, Strafrecht) |
@@ -481,6 +604,10 @@ Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
 | Aufgaben | Konkrete Lernaktivitäten (z.B. Fall lösen, Klausur) |
 | Pomodoro | Zeitmanagement-Methode (25 Min Arbeit, 5 Min Pause) |
 | SSOT | Single Source of Truth - zentrale Datenquelle |
+| Check-In | Tägliche Erfassung von Stimmung/Energie/Fokus |
+| Mentor | KI-gestütztes Statistik- und Auswertungs-Dashboard |
+| Community | Lokal gespeicherte, vom Nutzer geteilte Themenlisten |
+| Heatmap | Farbcodierte Visualisierung von Aktivität/Produktivität |
 
 ---
 

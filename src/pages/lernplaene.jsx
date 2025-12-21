@@ -1,8 +1,9 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, SubHeader } from '../components/layout';
-import { LernplanContent } from '../components/lernplan';
+import { LernplanContent, ThemenlistenDatabaseDialog } from '../components/lernplan';
 import { Button, PlusIcon } from '../components/ui';
+import { useCalendar } from '../contexts/calendar-context';
 
 /**
  * LernplanPage - Lernpläne Übersicht
@@ -15,6 +16,8 @@ const LernplanPage = () => {
   const navigate = useNavigate();
   // Use ref to trigger create new in content component
   const contentRef = useRef(null);
+  const [isDatabaseOpen, setIsDatabaseOpen] = useState(false);
+  const { importThemenlisteTemplate } = useCalendar();
 
   const handleCreateNew = () => {
     // Navigate to wizard instead of inline creation
@@ -24,6 +27,11 @@ const LernplanPage = () => {
   const handleCreateNewThemenliste = () => {
     // Create Themenliste inline (uses same structure as Lernplan but with type: 'themenliste')
     contentRef.current?.openCreateThemenlisteDialog();
+  };
+
+  const handleImportTemplate = (template) => {
+    importThemenlisteTemplate(template);
+    setIsDatabaseOpen(false);
   };
 
   return (
@@ -36,6 +44,14 @@ const LernplanPage = () => {
         title="Lernpläne"
         actions={
           <div className="flex items-center gap-2">
+            <Button onClick={() => setIsDatabaseOpen(true)} variant="default" className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <ellipse cx="12" cy="5" rx="9" ry="3" />
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+              </svg>
+              Themenlistendatenbank
+            </Button>
             <Button onClick={handleCreateNewThemenliste} variant="default" className="flex items-center gap-2">
               <PlusIcon size={14} />
               Neue Themenliste
@@ -59,6 +75,13 @@ const LernplanPage = () => {
           </p>
         </footer>
       </main>
+
+      {/* Themenlisten Database Dialog */}
+      <ThemenlistenDatabaseDialog
+        open={isDatabaseOpen}
+        onClose={() => setIsDatabaseOpen(false)}
+        onImport={handleImportTemplate}
+      />
     </div>
   );
 };

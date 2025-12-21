@@ -6,3 +6,4 @@ export { default as CompactStatItem } from './compact-stat-item';
 export { default as StatsSidebar } from './stats-sidebar';
 export { default as StatsSelectionDialog } from './stats-selection-dialog';
 export { default as ChartSelectionDialog, CHART_STATISTICS } from './chart-selection-dialog';
+export { default as YearViewDialog } from './year-view-dialog';

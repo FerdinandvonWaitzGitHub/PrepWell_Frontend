@@ -49,9 +49,7 @@ const MentorPage = () => {
       <Header userInitials="CN" currentPage="mentor" />
 
       {/* Sub-Header - Custom for Mentor page */}
-      <div className={`flex items-center justify-between px-4 py-3 border-b border-gray-200 ${
-        isActivated && checkInDone ? 'bg-red-100' : 'bg-white'
-      }`}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
         {/* Left: Title + Date */}
         <div className="flex flex-col">
           <h1 className="text-lg font-medium text-gray-900">Mentor</h1>

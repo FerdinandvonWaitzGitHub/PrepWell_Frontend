@@ -23,6 +23,7 @@ const STORAGE_KEY_TASKS = 'prepwell_tasks';
 const STORAGE_KEY_THEME_LISTS = 'prepwell_theme_lists';
 const STORAGE_KEY_CONTENT_PLANS = 'prepwell_content_plans';
 const STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE = 'prepwell_custom_unterrechtsgebiete';
+const STORAGE_KEY_PUBLISHED_THEMENLISTEN = 'prepwell_published_themenlisten';
 
 /**
  * Load data from localStorage
@@ -90,6 +91,11 @@ export const CalendarProvider = ({ children }) => {
   // Custom Unterrechtsgebiete (user-created, global)
   const [customUnterrechtsgebiete, setCustomUnterrechtsgebiete] = useState(() =>
     loadFromStorage(STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE, {})
+  );
+
+  // Published Themenlisten (user-shared, for community database)
+  const [publishedThemenlisten, setPublishedThemenlisten] = useState(() =>
+    loadFromStorage(STORAGE_KEY_PUBLISHED_THEMENLISTEN, [])
   );
 
   // ============================================
@@ -877,6 +883,253 @@ export const CalendarProvider = ({ children }) => {
     return contentPlans.find(p => p.id === planId) || null;
   }, [contentPlans]);
 
+  /**
+   * Import a Themenliste from a template
+   * Creates a new content plan with copied and re-ID'd structure
+   * @param {Object} template - The template data from themenlisten-templates.js
+   * @returns {Object} The created plan
+   */
+  const importThemenlisteTemplate = useCallback((template) => {
+    // Helper to regenerate all IDs in the hierarchy
+    const regenerateIds = (rechtsgebiete) => {
+      return rechtsgebiete.map(rg => ({
+        id: generateId(),
+        rechtsgebietId: rg.rechtsgebietId,
+        name: rg.name,
+        unterrechtsgebiete: rg.unterrechtsgebiete?.map(urg => ({
+          id: generateId(),
+          unterrechtsgebietId: urg.id || urg.unterrechtsgebietId,
+          name: urg.name,
+          kategorie: urg.kategorie || '',
+          kapitel: urg.kapitel?.map(k => ({
+            id: generateId(),
+            title: k.title,
+            themen: k.themen?.map(t => ({
+              id: generateId(),
+              title: t.title,
+              aufgaben: t.aufgaben?.map(a => ({
+                id: generateId(),
+                title: a.title || '',
+                completed: false,
+              })) || [],
+            })) || [],
+          })) || [],
+        })) || [],
+      }));
+    };
+
+    const newPlan = {
+      id: generateId(),
+      name: template.name,
+      type: 'themenliste',
+      description: template.description || '',
+      mode: template.mode || 'standard',
+      archived: false,
+      rechtsgebiete: regenerateIds(template.rechtsgebiete || []),
+      importedFrom: template.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = [newPlan, ...contentPlans];
+    setContentPlans(updated);
+    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+    return newPlan;
+  }, [contentPlans]);
+
+  /**
+   * Export a Themenliste as JSON file for sharing
+   * @param {string} planId - The plan ID to export
+   */
+  const exportThemenlisteAsJson = useCallback((planId) => {
+    const plan = contentPlans.find(p => p.id === planId);
+    if (!plan) {
+      console.error('Plan not found:', planId);
+      return;
+    }
+
+    // Calculate stats for export
+    let unterrechtsgebieteCount = 0;
+    let themenCount = 0;
+    const gewichtung = {
+      'oeffentliches-recht': 0,
+      'zivilrecht': 0,
+      'strafrecht': 0,
+    };
+
+    plan.rechtsgebiete?.forEach(rg => {
+      const urgCount = rg.unterrechtsgebiete?.length || 0;
+      unterrechtsgebieteCount += urgCount;
+
+      rg.unterrechtsgebiete?.forEach(urg => {
+        urg.kapitel?.forEach(k => {
+          themenCount += k.themen?.length || 0;
+        });
+      });
+
+      // Calculate gewichtung based on unterrechtsgebiete count
+      if (gewichtung[rg.rechtsgebietId] !== undefined) {
+        gewichtung[rg.rechtsgebietId] = urgCount;
+      }
+    });
+
+    // Convert to percentages
+    const totalUrg = unterrechtsgebieteCount || 1;
+    Object.keys(gewichtung).forEach(key => {
+      gewichtung[key] = Math.round((gewichtung[key] / totalUrg) * 100);
+    });
+
+    const exportData = {
+      id: `exported-${Date.now()}`,
+      name: plan.name,
+      description: plan.description || '',
+      mode: plan.mode || 'standard',
+      stats: {
+        unterrechtsgebiete: unterrechtsgebieteCount,
+        themen: themenCount,
+      },
+      gewichtung,
+      rechtsgebiete: plan.rechtsgebiete,
+      exportedAt: new Date().toISOString(),
+      exportedFrom: 'PrepWell',
+      version: '1.0',
+    };
+
+    // Create and download file
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${plan.name.replace(/[^a-z0-9]/gi, '_')}_themenliste.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [contentPlans]);
+
+  /**
+   * Import a Themenliste from JSON data
+   * @param {Object} jsonData - The parsed JSON data
+   * @returns {Object} The created plan
+   */
+  const importThemenlisteFromJson = useCallback((jsonData) => {
+    // Validate basic structure
+    if (!jsonData.name || !jsonData.rechtsgebiete) {
+      throw new Error('Ungültiges Dateiformat: Name oder Rechtsgebiete fehlen');
+    }
+
+    // Use the existing import function with the JSON data as template
+    return importThemenlisteTemplate({
+      id: jsonData.id || `imported-${Date.now()}`,
+      name: jsonData.name,
+      description: jsonData.description || '',
+      mode: jsonData.mode || 'standard',
+      rechtsgebiete: jsonData.rechtsgebiete,
+    });
+  }, [importThemenlisteTemplate]);
+
+  /**
+   * Publish a Themenliste to the local community database
+   * @param {string} planId - The plan ID to publish
+   */
+  const publishThemenliste = useCallback((planId) => {
+    const plan = contentPlans.find(p => p.id === planId);
+    if (!plan) {
+      console.error('Plan not found:', planId);
+      return;
+    }
+
+    // Check if already published
+    if (publishedThemenlisten.some(p => p.sourceId === planId)) {
+      console.warn('Plan already published');
+      return;
+    }
+
+    // Calculate stats
+    let unterrechtsgebieteCount = 0;
+    let themenCount = 0;
+    const gewichtung = {
+      'oeffentliches-recht': 0,
+      'zivilrecht': 0,
+      'strafrecht': 0,
+    };
+
+    plan.rechtsgebiete?.forEach(rg => {
+      const urgCount = rg.unterrechtsgebiete?.length || 0;
+      unterrechtsgebieteCount += urgCount;
+
+      rg.unterrechtsgebiete?.forEach(urg => {
+        urg.kapitel?.forEach(k => {
+          themenCount += k.themen?.length || 0;
+        });
+      });
+
+      if (gewichtung[rg.rechtsgebietId] !== undefined) {
+        gewichtung[rg.rechtsgebietId] = urgCount;
+      }
+    });
+
+    const totalUrg = unterrechtsgebieteCount || 1;
+    Object.keys(gewichtung).forEach(key => {
+      gewichtung[key] = Math.round((gewichtung[key] / totalUrg) * 100);
+    });
+
+    const publishedPlan = {
+      id: generateId(),
+      sourceId: planId,
+      name: plan.name,
+      description: plan.description || '',
+      mode: plan.mode || 'standard',
+      stats: {
+        unterrechtsgebiete: unterrechtsgebieteCount,
+        themen: themenCount,
+      },
+      gewichtung,
+      rechtsgebiete: plan.rechtsgebiete,
+      publishedAt: new Date().toISOString(),
+      tags: ['Benutzer'],
+    };
+
+    const updated = [publishedPlan, ...publishedThemenlisten];
+    setPublishedThemenlisten(updated);
+    saveToStorage(STORAGE_KEY_PUBLISHED_THEMENLISTEN, updated);
+
+    // Mark the original plan as published
+    updateContentPlan(planId, { isPublished: true, publishedId: publishedPlan.id });
+
+    return publishedPlan;
+  }, [contentPlans, publishedThemenlisten, updateContentPlan]);
+
+  /**
+   * Unpublish a Themenliste from the local community database
+   * @param {string} publishedId - The published plan ID to remove
+   */
+  const unpublishThemenliste = useCallback((publishedId) => {
+    const publishedPlan = publishedThemenlisten.find(p => p.id === publishedId);
+    if (!publishedPlan) {
+      console.error('Published plan not found:', publishedId);
+      return;
+    }
+
+    // Remove from published list
+    const updated = publishedThemenlisten.filter(p => p.id !== publishedId);
+    setPublishedThemenlisten(updated);
+    saveToStorage(STORAGE_KEY_PUBLISHED_THEMENLISTEN, updated);
+
+    // Update original plan
+    if (publishedPlan.sourceId) {
+      updateContentPlan(publishedPlan.sourceId, { isPublished: false, publishedId: null });
+    }
+  }, [publishedThemenlisten, updateContentPlan]);
+
+  /**
+   * Get all published Themenlisten
+   * @returns {Array} Published Themenlisten
+   */
+  const getPublishedThemenlisten = useCallback(() => {
+    return publishedThemenlisten;
+  }, [publishedThemenlisten]);
+
   // ============================================
   // NESTED CRUD: Rechtsgebiete
   // ============================================
@@ -1578,6 +1831,15 @@ export const CalendarProvider = ({ children }) => {
     archiveContentPlan,
     getContentPlansByType,
     getContentPlanById,
+    importThemenlisteTemplate,
+
+    // Export/Import/Publish Themenlisten
+    exportThemenlisteAsJson,
+    importThemenlisteFromJson,
+    publishThemenliste,
+    unpublishThemenliste,
+    getPublishedThemenlisten,
+    publishedThemenlisten,
 
     // Nested CRUD: Rechtsgebiete
     addRechtsgebietToPlan,
