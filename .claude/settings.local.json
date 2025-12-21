@@ -30,7 +30,9 @@
       "Bash(xargs:*)",
       "Bash(clip)",
       "Bash(cat:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(ls:*)",
+      "Bash(timeout:*)"
     ]
   }
 }

@@ -1,0 +1,503 @@
+# Product Requirements Document (PRD)
+# PrepWell WebApp
+
+**Version:** 1.0
+**Datum:** 19. Dezember 2025
+**Status:** MVP Development
+
+---
+
+## 1. Produktübersicht
+
+### 1.1 Vision
+PrepWell ist eine webbasierte Lernmanagement-Plattform, die Jurastudierenden bei der strukturierten Vorbereitung auf das deutsche Staatsexamen unterstützt. Die App ermöglicht es Nutzern, personalisierte Lernpläne zu erstellen, ihren Lernfortschritt zu verfolgen und ihre Prüfungsvorbereitung effizient zu organisieren.
+
+### 1.2 Problem Statement
+Jurastudierende stehen vor der Herausforderung, ein umfangreiches Stoffgebiet systematisch zu erlernen. Bestehende Lösungen bieten keine spezialisierte Unterstützung für die Strukturierung des juristischen Lernstoffs nach Rechtsgebieten und Unterrechtsgebieten. Viele Studierende verlieren den Überblick über ihren Lernfortschritt und kämpfen mit ineffizienter Zeitplanung.
+
+### 1.3 Lösung
+PrepWell bietet:
+- Einen geführten Wizard zur Erstellung individueller Lernpläne
+- Eine hierarchische Struktur für juristische Inhalte (Fach → Kapitel → Themen → Aufgaben)
+- Einen integrierten Kalender zur Visualisierung und Verwaltung von Lernblöcken
+- Aufgabenmanagement mit Verknüpfung zu Lernblöcken
+- Timer-Funktionalität für fokussiertes Lernen (Pomodoro, Countdown)
+
+### 1.4 Zielgruppe
+- **Primär:** Jurastudierende in der Examensvorbereitung (1. und 2. Staatsexamen)
+- **Sekundär:** Referendare, Studierende anderer Fachrichtungen mit strukturiertem Lernbedarf
+
+---
+
+## 2. Technischer Stack
+
+| Komponente | Technologie | Version |
+|------------|-------------|---------|
+| Frontend Framework | React | 18.3.1 |
+| Build Tool | Vite | 5.4.11 |
+| Routing | React Router | 6.22.0 |
+| Styling | Tailwind CSS | 3.4.15 |
+| Icons | Lucide React | 0.561.0 |
+| Validierung | Zod | 4.2.1 |
+| Backend (Dev) | Express | 5.2.1 |
+| KI-Integration | OpenAI API | - |
+| Deployment | Vercel | - |
+
+---
+
+## 3. Architektur
+
+### 3.1 Datenmodell (Content-Slot-Block)
+
+PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ZEITLICHE HIERARCHIE                      │
+│          Lernplan → Monat → Woche → Tag → Position          │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                         TAG                                  │
+│                    (z.B. 2025-01-15)                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │ Position 1  │  │ Position 2  │  │ Position 3  │         │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
+└─────────┼────────────────┼────────────────┼─────────────────┘
+          │                │                │
+          └────────────────┼────────────────┘
+                           │ (1 Content : n Positionen)
+                           ▼
+                    ┌─────────────┐
+                    │   CONTENT   │
+                    │ (Schuldrecht)│
+                    └──────┬──────┘
+                           │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+        ┌──────────┐              ┌──────────┐
+        │   SLOT   │              │  BLOCK   │
+        │ (Monat)  │              │ (Woche)  │
+        └──────────┘              └──────────┘
+```
+
+**Beziehung Content : Positionen (1:n)**
+- 1 Content kann mehrere Positionen am gleichen Tag belegen
+- Beispiel: "Schuldrecht" belegt Positionen 1, 2 und 3 (ganztägig)
+
+**CONTENT (Was):**
+- Zeitlose Lerninhalte
+- Hierarchie: Fach → Kapitel → Themen → Aufgaben
+- Speicherung: `contentsById` (CalendarContext)
+
+**SLOT (Monatskalender):**
+- Kompakte Darstellung (Titel, Farbe)
+- Zeitliche Zuordnung (Datum + Position 1-4)
+- Speicherung: `slotsByDate` (CalendarContext)
+
+**BLOCK (Wochenkalender/Startseite):**
+- Detaillierte Darstellung (Themen, Aufgaben, Timer)
+- UI-Komponente für interaktive Bearbeitung
+- Teile von Content können aus Slots in Blocks übernommen werden
+
+### 3.2 State Management
+
+**React Context Provider:**
+1. `CalendarProvider` - Single Source of Truth für Kalender, Slots, Aufgaben
+2. `TimerProvider` - Timer-Zustand und Einstellungen
+3. `UnterrechtsgebieteProvider` - Verwaltung der Rechtsgebiete
+
+**Persistenz:** LocalStorage für alle Daten (offline-fähig)
+
+### 3.3 Projektstruktur
+
+```
+src/
+├── pages/              # Seitenkomponenten
+├── components/         # UI-Komponenten
+│   ├── layout/         # Header, Navigation, Layout
+│   ├── ui/             # Wiederverwendbare UI-Elemente
+│   ├── dashboard/      # Dashboard-spezifisch
+│   ├── lernplan/       # Lernplan-Komponenten
+│   └── verwaltung/     # Verwaltungs-Komponenten
+├── features/           # Feature-Module
+│   ├── calendar/       # Kalender-Feature
+│   └── lernplan-wizard/# Wizard-Feature
+├── contexts/           # React Context
+├── hooks/              # Custom Hooks
+├── services/           # API-Services
+├── data/               # Statische Daten
+└── utils/              # Hilfsfunktionen
+```
+
+---
+
+## 4. Funktionale Anforderungen
+
+### 4.1 Seitenstruktur
+
+| # | Seite | Route | Status | Beschreibung |
+|---|-------|-------|--------|--------------|
+| 1 | Startseite | `/` | ✅ | Dashboard mit Tagesübersicht |
+| 2 | Lernpläne | `/lernplan` | ✅ | Übersicht aller Lernpläne |
+| 3 | Kalender (Woche) | `/kalender/woche` | ✅ | Wochenansicht |
+| 4 | Kalender (Monat) | `/kalender/monat` | ✅ | Monatsansicht |
+| 5 | Verwaltung > Leistungen | `/verwaltung/leistungen` | ✅ | Klausurverwaltung |
+| 6 | Verwaltung > Aufgaben | `/verwaltung/aufgaben` | ✅ | Aufgabenverwaltung |
+| 7 | Einstellungen | `/einstellungen` | ✅ | Benutzereinstellungen |
+| 8 | Mentor | `/mentor` | ✅ | KI-Mentor |
+| 9 | Wizard | `/lernplan/erstellen` | ✅ | 10-Schritte Wizard |
+
+### 4.2 Lernplan-Wizard (10 Schritte)
+
+Der Wizard führt Nutzer durch die Erstellung eines personalisierten Lernplans:
+
+| Schritt | Name | Beschreibung |
+|---------|------|--------------|
+| 1 | Lernzeitraum | Start- und Enddatum festlegen |
+| 2 | Puffertage | Anzahl unverplanter Tage |
+| 3 | Urlaubstage | Freie Tage markieren |
+| 4 | Tagesblöcke | Anzahl Lernblöcke pro Tag (1-4) |
+| 5 | Wochenstruktur | Aktive Lerntage auswählen |
+| 6 | Erstellungsmethode | Manual/Automatisch/Vorlage/KI |
+| 7a | Manual | Manuelle Themenverteilung |
+| 7b | Automatisch | Automatische Generierung |
+| 7c | Vorlage | Vordefinierte Vorlagen |
+| 7d | KI | KI-gestützte Erstellung |
+| 8 | Unterrechtsgebiete | Rechtsgebiete auswählen |
+| 9 | Lerntage | Feinabstimmung der Tage |
+| 10 | Anpassungen | Finale Überprüfung |
+
+**Erstellungsmethoden:**
+- **Manual:** Nutzer verteilt Themen selbst auf Tage
+- **Automatisch:** System verteilt Themen gleichmäßig
+- **Vorlage:** Vordefinierte Lernpläne (z.B. "6-Monats-Intensivkurs")
+- **KI:** OpenAI-basierte intelligente Planerstellung
+
+### 4.3 Kalender-Feature
+
+**Blocktypen:**
+| Typ | Farbe | Beschreibung |
+|-----|-------|--------------|
+| Tagesthema | Rechtsgebiet-Farbe | Hauptlernblock |
+| Wiederholung | Orange | Wiederholungseinheit |
+| Klausur | Rot | Prüfungstermin |
+| Privat | Grau | Persönlicher Termin |
+| Freizeit | Grün | Freizeitaktivität |
+
+**Funktionen:**
+- Drag & Drop für Aufgaben in Blöcke
+- Wiederholungsfunktion (täglich/wöchentlich/monatlich)
+- Zeitangaben (Start/Ende)
+- Fortschrittstracking pro Block
+- Sperren/Entsperren von Blöcken
+
+### 4.4 Dashboard (Startseite)
+
+**Widgets:**
+- **Lernblock-Widget:** Aktueller/nächster Lernblock
+- **Zeitplan-Widget:** Tagesübersicht mit Stunden
+- **Aufgaben-Widget:** Heutige Aufgaben
+- **Timer-Widget:** Pomodoro/Countdown/Count-up
+- **Fortschritts-Widget:** Täglicher Fortschritt
+
+**Timer-Modi:**
+| Modus | Beschreibung |
+|-------|--------------|
+| Pomodoro | 25 Min Arbeit + 5 Min Pause |
+| Countdown | Individuelle Zeit |
+| Count-up | Unbegrenzt aufwärts |
+
+### 4.5 Aufgabenverwaltung
+
+**Aufgaben-Eigenschaften:**
+- Titel und Beschreibung
+- Priorität (mittel/hoch)
+- Verknüpfung mit Lernblock
+- Fälligkeitsdatum
+- Status (offen/erledigt)
+
+**Ansichten:**
+- Kanban-Board
+- Listenansicht
+- Filter nach Rechtsgebiet, Priorität, Status
+
+### 4.6 Themenlisten (Hierarchie)
+
+```
+Lernplan
+└── Fach (z.B. Zivilrecht)
+    └── Kapitel (z.B. Schuldrecht)
+        └── Themen (z.B. Kaufvertrag)
+            └── Aufgaben (z.B. Fall 1 lösen)
+```
+
+**Terminologie-Mapping:**
+| Synonym | Primärer Begriff |
+|---------|------------------|
+| Rechtsgebiet | Fach |
+| Unterrechtsgebiet | Kapitel |
+
+**Funktionen:**
+- Aufklappbare Hierarchie
+- Fortschrittsanzeige pro Ebene
+- Aufgaben in Kalenderblöcke ziehen
+- Themen bearbeiten/löschen
+
+---
+
+## 5. Nicht-funktionale Anforderungen
+
+### 5.1 Performance
+- First Contentful Paint: < 1.5s
+- Time to Interactive: < 3s
+- LocalStorage-Operationen: < 50ms
+
+### 5.2 Kompatibilität
+- Browser: Chrome, Firefox, Safari, Edge (aktuelle Versionen)
+- Viewport: Desktop-first (≥1024px), Tablet-Support (≥768px)
+
+### 5.3 Barrierefreiheit
+- Tastaturnavigation
+- ARIA-Labels
+- Kontrastverhältnis ≥ 4.5:1
+
+### 5.4 Datensicherheit
+- Alle Daten lokal im Browser (MVP)
+- Keine sensiblen Daten in URLs
+- HTTPS-only in Produktion
+
+---
+
+## 6. Design System
+
+### 6.1 Farbpalette
+
+**Primärfarben (Brand):**
+- Primary-50: #FFE7E7
+- Primary-100: #FFD7D7
+- Primary-200: #FFCECE
+- Primary-300: #FFC3C3
+- Primary-400: #FFC4C4
+
+**Rechtsgebiete:**
+| Rechtsgebiet | Farbe |
+|--------------|-------|
+| Öffentliches Recht | Grün (#10B981) |
+| Zivilrecht | Blau (#3B82F6) |
+| Strafrecht | Rot (#EF4444) |
+| Querschnittsrecht | Violett (#8B5CF6) |
+
+**Graustufen:**
+- Gray-50 bis Gray-950
+
+### 6.2 Typografie
+
+**Schriftart:** DM Sans (Google Fonts)
+
+| Verwendung | Größe | Gewicht |
+|------------|-------|---------|
+| H1 | 24px | Semibold (600) |
+| H2 | 20px | Semibold (600) |
+| H3 | 18px | Medium (500) |
+| Body | 16px | Normal (400) |
+| Small | 14px | Normal (400) |
+| XSmall | 12px | Normal (400) |
+
+### 6.3 Komponenten
+
+**Button-Varianten:**
+- `primary` - Hauptaktion
+- `default` - Sekundäraktion
+- `ghost` - Tertiäraktion
+- `icon` - Nur Icon
+
+**Badge-Varianten:**
+- `default` - Standard
+- `primary` - Hervorgehoben
+- `outline` - Umrandet
+
+**Dialog:**
+- Modal mit Overlay
+- Schließbar via X oder Escape
+- Responsive Breite
+
+---
+
+## 7. API-Spezifikation
+
+### 7.1 Lokaler Entwicklungsserver
+
+**Base URL:** `http://localhost:3010`
+
+### 7.2 Endpoints
+
+**Lernpläne:**
+```
+GET    /api/lernplaene         # Alle Lernpläne
+GET    /api/lernplaene/:id     # Einzelner Lernplan
+POST   /api/lernplaene         # Neuer Lernplan
+PUT    /api/lernplaene/:id     # Lernplan aktualisieren
+DELETE /api/lernplaene/:id     # Lernplan löschen
+```
+
+**Kalender:**
+```
+GET    /api/kalender/:lernplanId/slots     # Alle Slots
+PUT    /api/kalender/:lernplanId/slots     # Slots aktualisieren
+PATCH  /api/kalender/:lernplanId/slot/:id  # Einzelner Slot
+```
+
+**Aufgaben:**
+```
+GET    /api/aufgaben           # Alle Aufgaben
+POST   /api/aufgaben           # Neue Aufgabe
+PUT    /api/aufgaben/:id       # Aufgabe aktualisieren
+DELETE /api/aufgaben/:id       # Aufgabe löschen
+```
+
+**KI-Generierung:**
+```
+POST   /api/generate-plan      # KI-Lernplan generieren
+```
+
+---
+
+## 8. Datenbank (Rechtsgebiete)
+
+Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
+
+### 8.1 Öffentliches Recht
+- Staatsorganisationsrecht
+- Grundrechte
+- Allgemeines Verwaltungsrecht
+- Besonderes Verwaltungsrecht
+- Polizei- und Ordnungsrecht
+- Kommunalrecht
+- Baurecht
+- Umweltrecht
+- Europarecht
+- Steuerrecht
+- Sozialrecht
+
+### 8.2 Zivilrecht
+- BGB Allgemeiner Teil
+- Schuldrecht Allgemeiner Teil
+- Schuldrecht Besonderer Teil
+- Sachenrecht
+- Familienrecht
+- Erbrecht
+- Handelsrecht
+- Gesellschaftsrecht
+- Arbeitsrecht
+
+### 8.3 Strafrecht
+- StGB Allgemeiner Teil
+- StGB Besonderer Teil
+- Strafprozessrecht
+
+### 8.4 Querschnittsrecht
+- Zivilprozessrecht
+- Zwangsvollstreckungsrecht
+- Insolvenzrecht
+
+---
+
+## 9. Implementierungsstatus
+
+### 9.1 Abgeschlossen (✅)
+- [x] Alle 9 Hauptseiten mit Navigation
+- [x] 10-Schritte Lernplan-Wizard
+- [x] Kalender Monats-/Wochenansicht
+- [x] Dashboard mit Lernblöcken
+- [x] Timer-Feature (3 Modi)
+- [x] Aufgabenverwaltung
+- [x] Themenlisten mit Hierarchie
+- [x] Aufgaben-Scheduling in Blöcke
+- [x] Context-basiertes State Management
+- [x] LocalStorage-Persistenz
+- [x] Responsive Routing
+
+### 9.2 In Entwicklung (🔄)
+- [ ] Backend-API-Integration
+- [ ] Benutzerauthentifizierung
+- [ ] Echte OpenAI-Integration
+- [ ] Mobile Optimierung
+
+### 9.3 Geplant (📋)
+- [ ] Echtzeit-Synchronisation
+- [ ] Offline-Modus mit Sync
+- [ ] Erweiterte Analytik
+- [ ] Lerngruppen-Feature
+- [ ] Integration mit Rechtsdatenbanken
+- [ ] Mobile App (React Native)
+
+---
+
+## 10. Metriken & KPIs
+
+### 10.1 Engagement-Metriken
+- Täglich aktive Nutzer (DAU)
+- Durchschnittliche Sitzungsdauer
+- Wizard-Abschlussrate
+- Timer-Nutzungsrate
+
+### 10.2 Lern-Metriken
+- Abgeschlossene Lernblöcke pro Woche
+- Aufgaben-Erledigungsrate
+- Fortschritt pro Rechtsgebiet
+- Konsistenz (Streak-Tage)
+
+### 10.3 Technische Metriken
+- Seitenladezzeit
+- Fehlerrate
+- LocalStorage-Nutzung
+
+---
+
+## 11. Risiken & Mitigationen
+
+| Risiko | Wahrscheinlichkeit | Auswirkung | Mitigation |
+|--------|-------------------|------------|------------|
+| LocalStorage-Limit erreicht | Niedrig | Hoch | Komprimierung, Backend-Migration |
+| Browser-Inkompatibilität | Niedrig | Mittel | Progressive Enhancement |
+| OpenAI-API Ausfälle | Mittel | Mittel | Fallback zu manueller Erstellung |
+| Datenverlust | Mittel | Hoch | Export-Funktion, Cloud-Backup |
+
+---
+
+## 12. Glossar
+
+| Begriff | Definition |
+|---------|------------|
+| Lernplan | Strukturierter Zeitplan für die Examensvorbereitung |
+| Themenliste | Hierarchische Sammlung von Lerninhalten |
+| Slot | Kompakte Kalenderansicht (Monatskalender) - Datum + Position |
+| Block | Detaillierte Kalenderansicht (Wochenkalender/Startseite) - interaktiv |
+| Fach | Hauptkategorie (= Rechtsgebiet: Öffentl. Recht, Zivilrecht, Strafrecht) |
+| Kapitel | Unterkategorie (= Unterrechtsgebiet: z.B. BGB AT, StGB BT) |
+| Themen | Spezifische Lerninhalte innerhalb eines Kapitels |
+| Aufgaben | Konkrete Lernaktivitäten (z.B. Fall lösen, Klausur) |
+| Pomodoro | Zeitmanagement-Methode (25 Min Arbeit, 5 Min Pause) |
+| SSOT | Single Source of Truth - zentrale Datenquelle |
+
+---
+
+## 13. Anhänge
+
+### 13.1 Design-Ressourcen
+- **Figma:** [PrepWell WebApp Design](https://www.figma.com/design/vVbrqavbI9IKnC1KInXg3H/PrepWell-WebApp)
+
+### 13.2 Dokumentation
+- [README.md](README.md) - Schnellstart
+- [COMPONENTS.md](COMPONENTS.md) - Komponentendokumentation
+- [SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md) - Einrichtungsanleitung
+
+### 13.3 Kontakt
+- **Repository:** PrepWell_Frontend
+- **Deployment:** Vercel
+
+---
+
+*Dieses Dokument wird kontinuierlich aktualisiert, um den aktuellen Entwicklungsstand widerzuspiegeln.*

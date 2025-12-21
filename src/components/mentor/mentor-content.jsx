@@ -1,102 +1,153 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { useStatistics } from '../../hooks/useStatistics';
+import {
+  ScoreCard,
+  PerformanceHeatmap,
+  LineChart,
+  StatsSidebar,
+  ChartSelectionDialog
+} from './dashboard';
+
+// LocalStorage keys
+const STORAGE_KEY_SELECTED_SIDEBAR_STATS = 'prepwell_mentor_selected_sidebar_stats';
+const STORAGE_KEY_SELECTED_CHARTS = 'prepwell_mentor_selected_charts';
+
+// Default selected stats for sidebar (up to 10)
+const DEFAULT_SELECTED_SIDEBAR_STATS = [
+  'lernzeit-per-day',
+  'lernzeit-per-week',
+  'streak-history',
+  'learning-days-week',
+  'task-completion-week',
+  'pomodoro-sessions'
+];
+
+// Default selected charts for line chart (up to 3)
+const DEFAULT_SELECTED_CHARTS = [
+  'lernzeit-per-day',
+  'task-completion-week'
+];
 
 /**
- * MentorContent component
- * AI Mentor dashboard with scores, statistics, and check-in functionality
+ * MentorContent component - Matching Figma design exactly
  *
- * Status: 🚧 Placeholder - to be implemented from Figma
+ * Layout:
+ * - Left column (flex-1): Score cards + Heatmap (top), Statistik chart (bottom)
+ * - Right column (500px): Statistics sidebar
  */
 const MentorContent = ({ className = '' }) => {
+  const {
+    scores,
+    heatmapData,
+    lernzeit,
+    formatDuration,
+    getChartSeriesForIds,
+    getSidebarStatsForIds
+  } = useStatistics();
+
+  // State for selected sidebar stats (up to 10)
+  const [selectedSidebarStatsIds, setSelectedSidebarStatsIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_SELECTED_SIDEBAR_STATS);
+      return stored ? JSON.parse(stored) : DEFAULT_SELECTED_SIDEBAR_STATS;
+    } catch {
+      return DEFAULT_SELECTED_SIDEBAR_STATS;
+    }
+  });
+
+  // State for selected charts (line chart display, up to 3)
+  const [selectedChartIds, setSelectedChartIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_SELECTED_CHARTS);
+      return stored ? JSON.parse(stored) : DEFAULT_SELECTED_CHARTS;
+    } catch {
+      return DEFAULT_SELECTED_CHARTS;
+    }
+  });
+
+  // State for chart selection dialog
+  const [isChartDialogOpen, setIsChartDialogOpen] = useState(false);
+
+  // Persist selections
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SELECTED_SIDEBAR_STATS, JSON.stringify(selectedSidebarStatsIds));
+  }, [selectedSidebarStatsIds]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SELECTED_CHARTS, JSON.stringify(selectedChartIds));
+  }, [selectedChartIds]);
+
+  // Calculate heatmap stats
+  const heatmapStats = {
+    avgDuration: formatDuration(lernzeit.avgPerLearningDay),
+    avgDurationChange: Math.round((lernzeit.weekComparison || 0) * 0.6), // Approximate minutes
+    activeDays: heatmapData.stats.activeDays
+  };
+
+  // Get chart series data for selected charts
+  const chartSeries = getChartSeriesForIds(selectedChartIds);
+
+  // Get common x-labels from first series or default
+  const chartXLabels = chartSeries[0]?.xLabels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+
+  // Calculate appropriate yMax for selected series
+  const chartYMax = chartSeries.length > 0
+    ? Math.max(...chartSeries.map(s => s.yMax || 400))
+    : 400;
+
+  // Get sidebar stats with current values
+  const sidebarStats = getSidebarStatsForIds(selectedSidebarStatsIds);
+
   return (
-    <div className={`space-y-6 ${className}`}>
-      {/* Top Stats Row - PrepScore, WellScore, Streaks */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* PrepScore Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">PrepScore</h3>
-          <div className="text-3xl font-bold text-gray-900 mb-2">--</div>
-          <p className="text-xs text-gray-500">Platzhalter für PrepScore-Berechnung</p>
-        </div>
-
-        {/* WellScore Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">WellScore</h3>
-          <div className="text-3xl font-bold text-gray-900 mb-2">--</div>
-          <p className="text-xs text-gray-500">Platzhalter für WellScore-Berechnung</p>
-        </div>
-
-        {/* Streaks Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Streaks & Jahresübersicht</h3>
-          <button className="text-sm text-blue-600 hover:text-blue-800 font-medium mt-2">
-            Übersicht öffnen →
-          </button>
-          <p className="text-xs text-gray-500 mt-2">Platzhalter für Streaks-Daten</p>
-        </div>
-      </div>
-
-      {/* Main Content Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Statistics Chart */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Ausgewählte Statistiken</h3>
-
-          {/* Chart Placeholder */}
-          <div className="h-64 bg-gray-100 rounded flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-sm text-gray-500 mb-2">Diagramm</p>
-              <p className="text-xs text-gray-400">Platzhalter für Statistik-Diagramm</p>
-            </div>
+    <div className={`flex h-full overflow-hidden ${className}`}>
+      {/* Left Column - Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Row: Score Card + Heatmap */}
+        <div className="flex overflow-hidden">
+          {/* Score Card - Fixed width */}
+          <div className="w-96 flex-shrink-0">
+            <ScoreCard
+              prepScore={scores.prepScore}
+              prepTrend={scores.prepTrend}
+              wellScore={scores.wellScore}
+              wellTrend={scores.wellTrend}
+            />
           </div>
-        </div>
 
-        {/* Right Column - Learning Period Stats */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Lernzeitraum bestimmen</h3>
-
-          {/* Stats Grid */}
-          <div className="space-y-4">
-            <div className="border border-gray-200 rounded p-4">
-              <p className="text-sm text-gray-500 mb-2">Durchschnittliche Lernzeit pro Woche</p>
-              <p className="text-2xl font-semibold text-gray-900">35h 20min</p>
-            </div>
-
-            <div className="border border-gray-200 rounded p-4">
-              <p className="text-sm text-gray-500 mb-2">Durchschnittliche Lernzeit pro Woche</p>
-              <p className="text-2xl font-semibold text-gray-900">35h 20min</p>
-            </div>
-
-            <div className="text-xs text-gray-500 mt-4">
-              <p>Platzhalter für weitere Lernzeitraum-Statistiken</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Mentor Interaction Area */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">AI Mentor Chat</h3>
-        <div className="bg-gray-50 rounded p-4 mb-4 min-h-[200px] flex items-center justify-center">
-          <p className="text-sm text-gray-500">Platzhalter für AI Mentor Chat-Interface</p>
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Frage den Mentor..."
-            className="flex-1 px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled
+          {/* Performance Heatmap - Flex grow */}
+          <PerformanceHeatmap
+            data={heatmapData.data}
+            stats={heatmapStats}
           />
-          <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors" disabled>
-            Senden
-          </button>
+        </div>
+
+        {/* Bottom: Line Chart Section */}
+        <div className="flex-1 p-5 bg-white rounded-[10px] border border-gray-200 flex flex-col overflow-hidden">
+          <LineChart
+            title="Diagramm"
+            series={chartSeries}
+            xLabels={chartXLabels}
+            yMax={chartYMax}
+            ySteps={4}
+            onSelectClick={() => setIsChartDialogOpen(true)}
+          />
         </div>
       </div>
 
-      {/* Placeholder message */}
-      <div className="text-center py-8 text-gray-500">
-        <p className="text-sm">Detaillierte Mentor-Funktionen werden aus Figma implementiert</p>
-        <p className="text-xs mt-2">Score-Berechnungen, Diagramme, Chat-Interface, Check-In-Logik, etc.</p>
-      </div>
+      {/* Right Column - Sidebar */}
+      <StatsSidebar
+        stats={sidebarStats}
+        selectedStatsIds={selectedSidebarStatsIds}
+        onSelectedStatsChange={setSelectedSidebarStatsIds}
+      />
+
+      {/* Chart Selection Dialog */}
+      <ChartSelectionDialog
+        open={isChartDialogOpen}
+        onOpenChange={setIsChartDialogOpen}
+        selectedCharts={selectedChartIds}
+        onSelectionChange={setSelectedChartIds}
+      />
     </div>
   );
 };

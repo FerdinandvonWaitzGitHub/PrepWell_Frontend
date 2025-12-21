@@ -1,55 +1,114 @@
 import React from 'react';
-import { Header, SubHeader } from '../components/layout';
-import { MentorContent } from '../components/mentor';
+import { useNavigate } from 'react-router-dom';
+import { Header } from '../components/layout';
+import { MentorContent, MentorNotActivated } from '../components/mentor';
+import { useMentor } from '../contexts/mentor-context';
+import { useCheckIn } from '../contexts/checkin-context';
+import { useStatistics } from '../hooks/useStatistics';
 
 /**
  * MentorPage - Mentor
- * AI Mentor dashboard with check-in, scores, and statistics
- *
- * Figma: "⚠️ Mentor" (Node-ID: 2439:2921)
- * Status: ✅ Base layout implemented with placeholders
+ * Statistics and analytics dashboard for learning progress
  */
 const MentorPage = () => {
+  const navigate = useNavigate();
+  const { isActivated, activatedAt, deactivateMentor } = useMentor();
+  const { isCheckInNeeded, todayCheckIn, getCurrentPeriod } = useCheckIn();
+  const { scores } = useStatistics();
+
+  // Format activation date
+  const activatedDate = activatedAt
+    ? new Date(activatedAt).toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      })
+    : null;
+
+  // Current date display
+  const today = new Date();
+  const weekday = today.toLocaleDateString('de-DE', { weekday: 'long' });
+  const dateStr = today.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  // Check if today's check-in is done (not skipped)
+  const checkInDone = (todayCheckIn.morning?.answers && !todayCheckIn.morning?.skipped) ||
+                      (todayCheckIn.evening?.answers && !todayCheckIn.evening?.skipped);
+
+  // Get period label for button
+  const currentPeriod = getCurrentPeriod();
+  const periodLabel = currentPeriod === 'evening' ? 'Abend' : 'Morgen';
+
+  // Handle check-in click
+  const handleCheckInClick = () => {
+    navigate('/checkin');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen flex flex-col bg-white overflow-hidden">
       {/* Header */}
       <Header userInitials="CN" currentPage="mentor" />
 
-      {/* Sub-Header */}
-      <SubHeader
-        title="Mentor"
-        actions={
+      {/* Sub-Header - Custom for Mentor page */}
+      <div className={`flex items-center justify-between px-4 py-3 border-b border-gray-200 ${
+        isActivated && checkInDone ? 'bg-red-100' : 'bg-white'
+      }`}>
+        {/* Left: Title + Date */}
+        <div className="flex flex-col">
+          <h1 className="text-lg font-medium text-gray-900">Mentor</h1>
+          <span className="text-xs text-gray-500">{weekday}, {dateStr}</span>
+        </div>
+
+        {/* Right: Actions */}
+        {isActivated ? (
+          <div className="flex items-center gap-3">
+            {checkInDone ? (
+              /* Check-in completed state */
+              <div className="flex items-center gap-2 text-gray-700">
+                <span className="text-sm">Check-Ins erledigt</span>
+                {/* Double checkmark icon */}
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 7L9.5 15.5L6 12" />
+                  <path d="M22 7L13.5 15.5L12 14" />
+                </svg>
+              </div>
+            ) : (
+              /* Check-in needed state */
+              <>
+                {/* Well Score Badge */}
+                <div className="flex items-center justify-center w-10 h-10 bg-blue-500 text-white rounded-lg font-semibold">
+                  {Math.round(scores.wellScore || 0)}
+                </div>
+
+                {/* Check-in Button */}
+                <button
+                  onClick={handleCheckInClick}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+                >
+                  Check-In am {periodLabel}
+                  <span className="text-gray-400">→</span>
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          /* Not activated state - show activate hint */
           <div className="flex items-center gap-4">
-            {/* Day Display */}
             <div className="flex flex-col items-end">
-              <span className="text-sm font-medium text-gray-900">
-                {new Date().toLocaleDateString('de-DE', { weekday: 'long' })}
-              </span>
-              <span className="text-xs text-gray-500">
-                {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              <span className="text-sm font-medium text-gray-500">
+                Mentor nicht aktiv
               </span>
             </div>
-
-            {/* Check-In Button */}
-            <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors">
-              Check-In
-            </button>
           </div>
-        }
-      />
+        )}
+      </div>
 
       {/* Main Content */}
-      <main className="p-12.5">
-        <div className="max-w-[1440px] mx-auto">
-          <MentorContent />
-
-          {/* Footer */}
-          <footer className="mt-8 pt-8 border-t border-gray-200">
-            <p className="text-sm text-gray-500 text-center">
-              © 2026 PrepWell GmbH - Impressum & Datenschutzerklärung
-            </p>
-          </footer>
-        </div>
+      <main className="flex-1 overflow-hidden">
+        {isActivated ? (
+          <MentorContent className="h-full" />
+        ) : (
+          <MentorNotActivated />
+        )}
       </main>
     </div>
   );

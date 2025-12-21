@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import Button from '../ui/button';
 import { PlusIcon, ChevronDownIcon } from '../ui/icon';
+import { useExams } from '../../contexts/exams-context';
 
 // Dialog imports
 import NeueKlausurDialog from './dialogs/neue-klausur-dialog.jsx';
@@ -8,65 +9,6 @@ import KlausurBearbeitenDialog from './dialogs/klausur-bearbeiten-dialog.jsx';
 import AnalyseDialog from './dialogs/analyse-dialog.jsx';
 import FilterSortierenDialog from './dialogs/filter-sortieren-dialog.jsx';
 import LoeschenDialog from './dialogs/loeschen-dialog.jsx';
-
-// Sample exam data for placeholder
-const SAMPLE_EXAMS = [
-  {
-    id: 'exam-1',
-    title: 'Vertragsrecht & Handelsrecht',
-    subject: 'Zivilrecht',
-    description: 'MGT00012345, Raum H209',
-    date: '2025-07-24',
-    time: '13:00 - 15:00',
-    ects: 6,
-    grade: null,
-    status: 'angemeldet'
-  },
-  {
-    id: 'exam-2',
-    title: 'Strafrecht AT',
-    subject: 'Strafrecht',
-    description: 'MGT00023456',
-    date: '2025-06-15',
-    time: '09:00 - 12:00',
-    ects: 8,
-    grade: 11,
-    status: 'bestanden'
-  },
-  {
-    id: 'exam-3',
-    title: 'Verwaltungsrecht',
-    subject: 'Öffentliches Recht',
-    description: 'MGT00034567',
-    date: '2025-05-10',
-    time: '14:00 - 17:00',
-    ects: 6,
-    grade: 9,
-    status: 'bestanden'
-  },
-  {
-    id: 'exam-4',
-    title: 'BGB AT',
-    subject: 'Zivilrecht',
-    description: 'MGT00045678',
-    date: '2025-04-20',
-    time: '10:00 - 12:00',
-    ects: 5,
-    grade: 12,
-    status: 'bestanden'
-  },
-  {
-    id: 'exam-5',
-    title: 'Verfassungsrecht',
-    subject: 'Öffentliches Recht',
-    description: 'MGT00056789',
-    date: '2025-03-15',
-    time: '09:00 - 11:00',
-    ects: 6,
-    grade: 10,
-    status: 'bestanden'
-  }
-];
 
 // Status badge colors
 const STATUS_COLORS = {
@@ -92,8 +34,9 @@ const SUBJECT_COLORS = {
  * Two-column layout: Left (Klausurenverwaltung) + Right (Klausurenauswertung)
  */
 const LeistungenContent = ({ className = '' }) => {
-  // Exams state
-  const [exams, setExams] = useState(SAMPLE_EXAMS);
+  // Use ExamsContext for persistent storage
+  const { exams, stats: contextStats, addExam, updateExam, deleteExam } = useExams();
+
   const [selectedExam, setSelectedExam] = useState(null);
 
   // Dialog states
@@ -115,32 +58,20 @@ const LeistungenContent = ({ className = '' }) => {
     sortDirection: 'desc'
   });
 
-  // Calculate statistics
+  // Calculate statistics for display (formatted)
   const stats = useMemo(() => {
-    const gradedExams = exams.filter(e => e.grade !== null);
-    const bySubject = {};
-
-    gradedExams.forEach(exam => {
-      if (!bySubject[exam.subject]) {
-        bySubject[exam.subject] = { count: 0, totalGrade: 0, totalEcts: 0 };
-      }
-      bySubject[exam.subject].count++;
-      bySubject[exam.subject].totalGrade += exam.grade * exam.ects;
-      bySubject[exam.subject].totalEcts += exam.ects;
-    });
-
-    const subjectStats = Object.entries(bySubject).map(([subject, data]) => ({
-      subject,
-      count: data.count,
-      average: data.totalEcts > 0 ? (data.totalGrade / data.totalEcts).toFixed(1) : '-'
+    const subjectStats = (contextStats.subjectStats || []).map(s => ({
+      subject: s.subject,
+      count: s.count,
+      average: s.average > 0 ? s.average.toFixed(1) : '-'
     }));
 
-    const totalEcts = gradedExams.reduce((sum, e) => sum + e.ects, 0);
-    const weightedSum = gradedExams.reduce((sum, e) => sum + (e.grade * e.ects), 0);
-    const totalAverage = totalEcts > 0 ? (weightedSum / totalEcts).toFixed(1) : '-';
-
-    return { subjectStats, totalCount: gradedExams.length, totalAverage };
-  }, [exams]);
+    return {
+      subjectStats,
+      totalCount: contextStats.totalCount || 0,
+      totalAverage: contextStats.totalAverage > 0 ? contextStats.totalAverage.toFixed(1) : '-'
+    };
+  }, [contextStats]);
 
   // Filtered exams
   const filteredExams = useMemo(() => {
@@ -176,17 +107,17 @@ const LeistungenContent = ({ className = '' }) => {
     return result;
   }, [exams, searchQuery, filters]);
 
-  // Handlers
+  // Handlers - using ExamsContext functions
   const handleAddExam = (examData) => {
-    setExams(prev => [...prev, { ...examData, id: `exam-${Date.now()}` }]);
+    addExam(examData);
   };
 
   const handleUpdateExam = (updatedExam) => {
-    setExams(prev => prev.map(e => e.id === updatedExam.id ? updatedExam : e));
+    updateExam(updatedExam);
   };
 
   const handleDeleteExam = (examId) => {
-    setExams(prev => prev.filter(e => e.id !== examId));
+    deleteExam(examId);
     setIsLoeschenOpen(false);
     setIsBearbeitenOpen(false);
     setSelectedExam(null);

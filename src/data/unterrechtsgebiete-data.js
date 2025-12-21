@@ -1,6 +1,11 @@
 /**
- * Vollständige Liste aller Unterrechtsgebiete
- * Gruppiert nach Hauptrechtsgebieten
+ * Vollständige Liste aller Kapitel (Unterrechtsgebiete)
+ * Gruppiert nach Fächern (Rechtsgebieten)
+ *
+ * TERMINOLOGIE-MAPPING:
+ * - Im Code: "Rechtsgebiet" → Im UI: "Fach" (4 Hauptkategorien)
+ * - Im Code: "Unterrechtsgebiet" → Im UI: "Kapitel"
+ * - Hierarchie: Fach → Kapitel → Themen → Aufgaben
  */
 
 export const RECHTSGEBIET_LABELS = {

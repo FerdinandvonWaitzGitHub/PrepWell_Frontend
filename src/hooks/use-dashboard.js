@@ -11,7 +11,10 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCalendar } from '../contexts/calendar-context';
+import { useCheckIn } from '../contexts/checkin-context';
+import { useMentor } from '../contexts/mentor-context';
 
 /**
  * Format date to YYYY-MM-DD
@@ -47,7 +50,17 @@ const formatDisplayDate = (date) => {
 export function useDashboard() {
   // Current date state
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [checkInDone, setCheckInDone] = useState(false);
+
+  // CheckIn context for Well Score questionnaire
+  const {
+    isCheckInNeeded,
+    isCheckInButtonEnabled,
+    wasMorningSkipped,
+    todayCheckIn,
+  } = useCheckIn();
+
+  // Mentor context for activation status
+  const { isActivated: isMentorActivated } = useMentor();
 
   // Get data from CalendarContext (Single Source of Truth)
   const {
@@ -143,11 +156,17 @@ export function useDashboard() {
     }));
   }, [dateString, tasksByDate]);
 
-  // Check check-in status on date change
-  useEffect(() => {
-    const lastCheckIn = localStorage.getItem('prepwell_last_checkin');
-    setCheckInDone(lastCheckIn === dateString);
-  }, [dateString]);
+  // Check-in is done if mentor is activated and today's check-in is completed (not skipped)
+  const checkInDone = useMemo(() => {
+    if (!isMentorActivated) {
+      // If mentor is not activated, use legacy check-in tracking
+      const lastCheckIn = localStorage.getItem('prepwell_last_checkin');
+      return lastCheckIn === dateString;
+    }
+    // Check if any period has been completed (not skipped)
+    return (todayCheckIn.morning?.answers && !todayCheckIn.morning?.skipped) ||
+           (todayCheckIn.evening?.answers && !todayCheckIn.evening?.skipped);
+  }, [isMentorActivated, dateString, todayCheckIn]);
 
   /**
    * Navigate to previous day
@@ -180,11 +199,18 @@ export function useDashboard() {
 
   /**
    * Perform morning check-in
+   * If mentor is activated, navigate to questionnaire page
+   * Otherwise, just mark as done (legacy behavior)
    */
   const doCheckIn = useCallback(() => {
-    localStorage.setItem('prepwell_last_checkin', dateString);
-    setCheckInDone(true);
-  }, [dateString]);
+    if (isMentorActivated) {
+      // Navigate to check-in questionnaire
+      window.location.href = '/checkin';
+    } else {
+      // Legacy behavior: just mark as done
+      localStorage.setItem('prepwell_last_checkin', dateString);
+    }
+  }, [dateString, isMentorActivated]);
 
   /**
    * Toggle task completion - uses CalendarContext
@@ -291,6 +317,9 @@ export function useDashboard() {
     checkInDone,
     hasActiveLernplan: hasActiveLernplan(),
     hasRealLernplanSlots, // true if wizard-created slots exist for today
+    isMentorActivated,
+    isCheckInButtonEnabled: isMentorActivated ? isCheckInButtonEnabled : !checkInDone,
+    wasMorningSkipped,
 
     // Actions
     refresh,

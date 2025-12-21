@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
-// LocalStorage key
+// LocalStorage keys
 const STORAGE_KEY = 'prepwell_timer_state';
+const HISTORY_STORAGE_KEY = 'prepwell_timer_history';
 
 // Timer types
 export const TIMER_TYPES = {
@@ -67,6 +68,40 @@ const saveToStorage = (data) => {
     }));
   } catch (error) {
     console.error('Error saving timer to localStorage:', error);
+  }
+};
+
+/**
+ * Load timer history from localStorage
+ */
+const loadHistoryFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading timer history:', error);
+  }
+  return [];
+};
+
+/**
+ * Save timer session to history
+ */
+const saveSessionToHistory = (session) => {
+  try {
+    const history = loadHistoryFromStorage();
+    history.push({
+      ...session,
+      id: `session-${Date.now()}`,
+      savedAt: new Date().toISOString()
+    });
+    // Keep last 1000 sessions max
+    const trimmedHistory = history.slice(-1000);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
+  } catch (error) {
+    console.error('Error saving timer session to history:', error);
   }
 };
 
@@ -199,6 +234,9 @@ export const TimerProvider = ({ children }) => {
   // Visual notification state
   const [showNotification, setShowNotification] = useState(false);
 
+  // Timer history
+  const [timerHistory, setTimerHistory] = useState(loadHistoryFromStorage);
+
   // Save state to localStorage whenever it changes
   useEffect(() => {
     if (timerType) {
@@ -258,6 +296,34 @@ export const TimerProvider = ({ children }) => {
     // Show visual notification
     setShowNotification(true);
     setTimeout(() => setShowNotification(false), 3000);
+
+    // Save completed session to history
+    if (timerType === TIMER_TYPES.POMODORO && !isBreak) {
+      // Save completed Pomodoro work session
+      const session = {
+        type: TIMER_TYPES.POMODORO,
+        date: new Date().toISOString().split('T')[0],
+        startTime: startTime?.toISOString(),
+        endTime: new Date().toISOString(),
+        duration: pomodoroSettings.sessionDuration * 60,
+        sessionNumber: currentSession,
+        completed: true
+      };
+      saveSessionToHistory(session);
+      setTimerHistory(loadHistoryFromStorage());
+    } else if (timerType === TIMER_TYPES.COUNTDOWN) {
+      // Save completed countdown session
+      const session = {
+        type: TIMER_TYPES.COUNTDOWN,
+        date: new Date().toISOString().split('T')[0],
+        startTime: startTime?.toISOString(),
+        endTime: new Date().toISOString(),
+        duration: countdownSettings.duration * 60,
+        completed: true
+      };
+      saveSessionToHistory(session);
+      setTimerHistory(loadHistoryFromStorage());
+    }
 
     if (timerType === TIMER_TYPES.POMODORO) {
       if (isBreak) {
@@ -378,6 +444,33 @@ export const TimerProvider = ({ children }) => {
 
   // Stop timer completely
   const stopTimer = useCallback(() => {
+    // Save partial session to history if timer was running
+    if (timerState === TIMER_STATES.RUNNING || timerState === TIMER_STATES.PAUSED) {
+      let actualDuration = 0;
+
+      if (timerType === TIMER_TYPES.COUNTUP) {
+        actualDuration = elapsedSeconds;
+      } else if (timerType === TIMER_TYPES.POMODORO) {
+        actualDuration = (pomodoroSettings.sessionDuration * 60) - remainingSeconds;
+      } else if (timerType === TIMER_TYPES.COUNTDOWN) {
+        actualDuration = (countdownSettings.duration * 60) - remainingSeconds;
+      }
+
+      // Only save if at least 1 minute was spent
+      if (actualDuration >= 60) {
+        const session = {
+          type: timerType,
+          date: new Date().toISOString().split('T')[0],
+          startTime: startTime?.toISOString(),
+          endTime: new Date().toISOString(),
+          duration: actualDuration,
+          completed: false // manually stopped
+        };
+        saveSessionToHistory(session);
+        setTimerHistory(loadHistoryFromStorage());
+      }
+    }
+
     setTimerType(null);
     setTimerState(TIMER_STATES.IDLE);
     setRemainingSeconds(0);
@@ -387,7 +480,8 @@ export const TimerProvider = ({ children }) => {
     setCurrentSession(1);
     setIsBreak(false);
     localStorage.removeItem(STORAGE_KEY);
-  }, []);
+  }, [timerType, timerState, elapsedSeconds, remainingSeconds, startTime,
+      pomodoroSettings, countdownSettings]);
 
   // Get display info based on timer type
   const getDisplayInfo = useCallback(() => {
@@ -472,6 +566,34 @@ export const TimerProvider = ({ children }) => {
     // Settings
     setPomodoroSettings,
     setCountdownSettings,
+
+    // History
+    timerHistory,
+    getTimerStats: () => {
+      const today = new Date().toISOString().split('T')[0];
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const todaySessions = timerHistory.filter(s => s.date === today);
+      const weekSessions = timerHistory.filter(s => s.date >= weekAgo);
+      const monthSessions = timerHistory.filter(s => s.date >= monthAgo);
+
+      const calcStats = (sessions) => ({
+        count: sessions.length,
+        totalDuration: sessions.reduce((sum, s) => sum + (s.duration || 0), 0),
+        completedCount: sessions.filter(s => s.completed).length,
+        pomodoroCount: sessions.filter(s => s.type === TIMER_TYPES.POMODORO).length,
+        countdownCount: sessions.filter(s => s.type === TIMER_TYPES.COUNTDOWN).length,
+        countupCount: sessions.filter(s => s.type === TIMER_TYPES.COUNTUP).length
+      });
+
+      return {
+        today: calcStats(todaySessions),
+        week: calcStats(weekSessions),
+        month: calcStats(monthSessions),
+        all: calcStats(timerHistory)
+      };
+    }
   };
 
   return (
