@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD)
 # PrepWell WebApp
 
-**Version:** 1.2
+**Version:** 1.5
 **Datum:** 26. Dezember 2025
 **Status:** MVP Development
 
@@ -40,9 +40,31 @@ PrepWell bietet:
 | Icons | Lucide React | 0.561.0 |
 | Charts | Recharts | 3.6.0 |
 | Validierung | Zod | 4.2.1 |
-| Backend (Dev) | Express | 5.2.1 |
-| KI-Integration | OpenAI API | - |
+| Backend | Vercel Serverless Functions | @vercel/node |
+| Datenbank | Vercel KV (Redis) | @vercel/kv |
+| KI-Integration | OpenAI API | gpt-4o-mini |
 | Deployment | Vercel | - |
+| Pre-Commit Hooks | Husky + lint-staged | 9.x / 16.x |
+| Linting | ESLint | 8.57.1 |
+
+### 2.1 Entwicklungswerkzeuge
+
+**Pre-Commit Hooks:**
+Automatische Code-Qualitätsprüfung vor jedem Commit.
+
+```bash
+# Konfiguration in package.json
+"lint-staged": {
+  "src/**/*.{js,jsx}": ["eslint --fix --max-warnings 0"],
+  "api/**/*.ts": ["eslint --fix --max-warnings 0"]
+}
+```
+
+**Was passiert bei `git commit`:**
+1. Husky aktiviert den Pre-Commit Hook
+2. lint-staged führt ESLint nur auf geänderten Dateien aus
+3. Bei Fehlern wird der Commit abgebrochen
+4. `--fix` behebt automatisch behebbare Probleme
 
 ---
 
@@ -132,24 +154,126 @@ PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
 
 ### 3.3 Projektstruktur
 
+#### Root-Verzeichnis
+```
+PrepWell_Frontend/
+├── api/                    # Vercel Serverless Functions (Produktion)
+├── data/                   # Lokale JSON-Daten (Entwicklung, gitignored)
+├── node_modules/           # Dependencies (gitignored)
+├── public/                 # Statische Assets
+├── src/                    # Frontend-Quellcode
+│
+├── .env.local              # Umgebungsvariablen (gitignored)
+├── .eslintrc.cjs           # ESLint-Konfiguration
+├── .gitignore              # Git-Ausschlüsse
+├── CLAUDE.md               # AI-Kontext für Claude Code
+├── index.html              # HTML-Einstiegspunkt
+├── package.json            # Projektdefinition & Scripts
+├── postcss.config.js       # PostCSS (für Tailwind)
+├── PRD.md                  # Produktdokumentation
+├── server.js               # Lokaler Express-Server
+├── tailwind.config.js      # Tailwind CSS Konfiguration
+├── vercel.json             # Vercel Deployment-Konfiguration
+└── vite.config.js          # Vite Build-Konfiguration
+```
+
+#### Frontend (src/)
 ```
 src/
-├── pages/              # Seitenkomponenten
-├── components/         # UI-Komponenten
-│   ├── layout/         # Header, Navigation, Layout
-│   ├── ui/             # Wiederverwendbare UI-Elemente
-│   ├── dashboard/      # Dashboard-spezifisch
-│   ├── lernplan/       # Lernplan-Komponenten
-│   └── verwaltung/     # Verwaltungs-Komponenten
-├── features/           # Feature-Module
-│   ├── calendar/       # Kalender-Feature
-│   └── lernplan-wizard/# Wizard-Feature
-├── contexts/           # React Context
-├── hooks/              # Custom Hooks
-├── services/           # API-Services
-├── data/               # Statische Daten
-└── utils/              # Hilfsfunktionen
+├── app.jsx                 # Root-Komponente
+├── main.jsx                # React-Einstiegspunkt
+├── router.jsx              # React Router Konfiguration
+├── index.css               # Globale Styles
+├── design-tokens.js        # Design-System Tokens
+│
+├── pages/                  # Seitenkomponenten (1 pro Route)
+│   ├── Dashboard.jsx
+│   ├── Kalender.jsx
+│   ├── Lernplaene.jsx
+│   ├── Leistungen.jsx
+│   ├── Aufgaben.jsx
+│   ├── Einstellungen.jsx
+│   └── Mentor.jsx
+│
+├── components/             # UI-Komponenten
+│   ├── layout/             # Header, Navigation, Sidebar
+│   ├── ui/                 # Wiederverwendbare UI (Button, Modal, etc.)
+│   ├── dashboard/          # Dashboard-spezifisch
+│   │   └── timer/          # Timer-Komponenten
+│   ├── lernplan/           # Lernplan-Karten, Listen
+│   ├── mentor/             # Mentor-Feature
+│   │   ├── dashboard/
+│   │   └── stats/
+│   ├── settings/           # Einstellungs-Komponenten
+│   ├── uebungsklausuren/   # Übungsklausuren (Examen-Modus)
+│   │   └── dialogs/
+│   └── verwaltung/         # Verwaltungs-Komponenten
+│       └── dialogs/
+│
+├── features/               # Feature-Module (in sich geschlossen)
+│   ├── calendar/           # Kalender-Feature
+│   │   ├── components/     # Kalender-UI
+│   │   ├── hooks/          # Kalender-Hooks
+│   │   └── utils/          # Kalender-Hilfsfunktionen
+│   └── lernplan-wizard/    # Wizard-Feature
+│       ├── components/     # Wizard-UI
+│       ├── context/        # Wizard-State
+│       └── steps/          # Wizard-Schritte (1-10)
+│
+├── contexts/               # React Context Provider
+│   ├── CalendarContext.jsx # SSOT für Kalender, Slots, Aufgaben
+│   ├── TimerContext.jsx    # Timer-State
+│   ├── AppModeContext.jsx  # Normal/Examen-Modus
+│   └── ...
+│
+├── hooks/                  # Custom React Hooks
+├── services/               # API-Service Layer
+├── data/                   # Statische Daten (Rechtsgebiete, etc.)
+├── types/                  # TypeScript/JSDoc Typen
+├── utils/                  # Allgemeine Hilfsfunktionen
+└── styles/                 # Zusätzliche CSS-Dateien
 ```
+
+#### Backend (api/)
+```
+api/
+├── lib/
+│   ├── kv.ts               # Vercel KV Datenbankoperationen
+│   └── utils.ts            # CORS, Validierung, Hilfsfunktionen
+├── types.ts                # Shared TypeScript Types
+│
+├── lernplaene/
+│   ├── index.ts            # GET/POST /api/lernplaene
+│   └── [id].ts             # GET/PUT/DELETE /api/lernplaene/:id
+├── kalender/
+│   └── [lernplanId]/
+│       ├── slots.ts        # GET/PUT/POST /api/kalender/:id/slots
+│       └── slots/
+│           └── bulk.ts     # POST /api/kalender/:id/slots/bulk
+├── aufgaben/
+│   ├── index.ts            # GET/POST /api/aufgaben
+│   └── [id].ts             # GET/PUT/DELETE /api/aufgaben/:id
+├── leistungen/
+│   ├── index.ts            # GET/POST /api/leistungen
+│   └── [id].ts             # GET/PUT/DELETE /api/leistungen/:id
+├── wizard/
+│   ├── draft.ts            # GET/PUT/DELETE /api/wizard/draft
+│   └── complete.ts         # POST /api/wizard/complete
+├── unterrechtsgebiete/
+│   ├── index.ts            # GET/POST /api/unterrechtsgebiete
+│   └── [id].ts             # DELETE /api/unterrechtsgebiete/:id
+└── generate-plan.ts        # POST /api/generate-plan
+```
+
+#### Konventionen
+
+| Regel | Beschreibung |
+|-------|--------------|
+| **Keine neuen Root-Ordner** | Neue Funktionalität gehört in `src/features/` |
+| **Komponenten-Struktur** | `components/` = wiederverwendbar, `features/` = feature-spezifisch |
+| **Keine tiefen Imports** | Max. 3 Ebenen: `../../components/ui/Button` |
+| **Feature-Isolation** | Features importieren nur aus `components/`, `hooks/`, `utils/` |
+| **Datei-Benennung** | PascalCase für Komponenten, camelCase für Utilities |
 
 ---
 
@@ -531,40 +655,183 @@ Verwaltung von Übungsklausuren zur Staatsexamensvorbereitung.
 
 ## 7. API-Spezifikation
 
-### 7.1 Lokaler Entwicklungsserver
+### 7.1 Backend-Architektur
 
-**Base URL:** `http://localhost:3010`
+Das Backend unterstützt zwei Umgebungen mit identischen Endpoints:
+
+| Umgebung | Technologie | Datenbank | Port |
+|----------|-------------|-----------|------|
+| **Produktion** | Vercel Serverless Functions | Vercel KV (Redis) | - |
+| **Lokale Entwicklung** | Express.js | JSON-Dateien | 3010 |
+
+**Base URLs:**
+- Produktion: `https://[projekt].vercel.app/api`
+- Lokale Entwicklung: `http://localhost:3010/api`
+
+#### 7.1.1 Produktion (Vercel Serverless)
+
+**Projektstruktur:**
+```
+api/
+├── lib/
+│   ├── kv.ts              # Vercel KV Datenbankoperationen
+│   └── utils.ts           # CORS, Validierung, Hilfsfunktionen
+├── types.ts               # Shared TypeScript Types
+├── lernplaene/
+│   ├── index.ts           # GET/POST /api/lernplaene
+│   └── [id].ts            # GET/PUT/DELETE /api/lernplaene/:id
+├── kalender/
+│   └── [lernplanId]/
+│       ├── slots.ts       # GET/PUT/POST /api/kalender/:lernplanId/slots
+│       └── slots/
+│           └── bulk.ts    # POST /api/kalender/:lernplanId/slots/bulk
+├── aufgaben/
+│   ├── index.ts           # GET/POST /api/aufgaben
+│   └── [id].ts            # GET/PUT/DELETE /api/aufgaben/:id
+├── leistungen/
+│   ├── index.ts           # GET/POST /api/leistungen
+│   └── [id].ts            # GET/PUT/DELETE /api/leistungen/:id
+├── wizard/
+│   ├── draft.ts           # GET/PUT/DELETE /api/wizard/draft
+│   └── complete.ts        # POST /api/wizard/complete
+├── unterrechtsgebiete/
+│   ├── index.ts           # GET/POST /api/unterrechtsgebiete
+│   └── [id].ts            # DELETE /api/unterrechtsgebiete/:id
+└── generate-plan.ts       # POST /api/generate-plan
+```
+
+#### 7.1.2 Lokale Entwicklung (Express Server)
+
+Für Entwicklung ohne Vercel CLI steht ein lokaler Express-Server zur Verfügung.
+
+**Datei:** `server.js`
+
+**Starten:**
+```bash
+# Nur API-Server
+npm run dev:api
+
+# Frontend + API parallel
+npm run dev:full
+```
+
+**Lokale Datenspeicherung:**
+```
+data/
+├── lernplaene.json        # Lernpläne
+├── slots.json             # Kalender-Slots
+├── aufgaben.json          # Aufgaben
+├── leistungen.json        # Leistungen/Klausuren
+├── wizard-draft.json      # Wizard-Zwischenspeicher
+└── unterrechtsgebiete.json # Unterrechtsgebiete
+```
+
+**Hinweise:**
+- Daten werden persistent in JSON-Dateien gespeichert
+- `data/*.json` ist in `.gitignore` (wird nicht committet)
+- Unterstützt OpenAI-Integration via `.env.local`
 
 ### 7.2 Endpoints
 
 **Lernpläne:**
 ```
-GET    /api/lernplaene         # Alle Lernpläne
-GET    /api/lernplaene/:id     # Einzelner Lernplan
-POST   /api/lernplaene         # Neuer Lernplan
+GET    /api/lernplaene         # Alle Lernpläne abrufen
+GET    /api/lernplaene/:id     # Einzelnen Lernplan abrufen
+POST   /api/lernplaene         # Neuen Lernplan erstellen
 PUT    /api/lernplaene/:id     # Lernplan aktualisieren
 DELETE /api/lernplaene/:id     # Lernplan löschen
 ```
 
-**Kalender:**
+**Kalender/Slots:**
 ```
-GET    /api/kalender/:lernplanId/slots     # Alle Slots
-PUT    /api/kalender/:lernplanId/slots     # Slots aktualisieren
-PATCH  /api/kalender/:lernplanId/slot/:id  # Einzelner Slot
+GET    /api/kalender/:lernplanId/slots       # Alle Slots eines Lernplans
+PUT    /api/kalender/:lernplanId/slots       # Alle Slots ersetzen
+POST   /api/kalender/:lernplanId/slots       # Einzelnen Slot hinzufügen/aktualisieren
+POST   /api/kalender/:lernplanId/slots/bulk  # Mehrere Slots in einer Anfrage
 ```
 
 **Aufgaben:**
 ```
-GET    /api/aufgaben           # Alle Aufgaben
-POST   /api/aufgaben           # Neue Aufgabe
+GET    /api/aufgaben           # Alle Aufgaben abrufen
+GET    /api/aufgaben/:id       # Einzelne Aufgabe abrufen
+POST   /api/aufgaben           # Neue Aufgabe erstellen
 PUT    /api/aufgaben/:id       # Aufgabe aktualisieren
 DELETE /api/aufgaben/:id       # Aufgabe löschen
 ```
 
+**Leistungen/Klausuren:**
+```
+GET    /api/leistungen         # Alle Leistungen abrufen
+GET    /api/leistungen/:id     # Einzelne Leistung abrufen
+POST   /api/leistungen         # Neue Leistung erstellen
+PUT    /api/leistungen/:id     # Leistung aktualisieren
+DELETE /api/leistungen/:id     # Leistung löschen
+```
+
+**Wizard (Zwischenspeicherung):**
+```
+GET    /api/wizard/draft       # Wizard-Entwurf abrufen
+PUT    /api/wizard/draft       # Wizard-Entwurf speichern
+DELETE /api/wizard/draft       # Wizard-Entwurf löschen
+POST   /api/wizard/complete    # Wizard abschließen & Lernplan erstellen
+```
+
+**Unterrechtsgebiete:**
+```
+GET    /api/unterrechtsgebiete      # Alle Unterrechtsgebiete abrufen
+POST   /api/unterrechtsgebiete      # Neues Unterrechtsgebiet hinzufügen
+DELETE /api/unterrechtsgebiete/:id  # Unterrechtsgebiet löschen
+```
+
 **KI-Generierung:**
 ```
-POST   /api/generate-plan      # KI-Lernplan generieren
+POST   /api/generate-plan      # KI-gestützten Lernplan generieren
 ```
+
+### 7.3 Datenbank-Schema (Vercel KV)
+
+**Key-Struktur:**
+| Key-Pattern | Datentyp | Beschreibung |
+|-------------|----------|--------------|
+| `lernplaene` | Set | IDs aller Lernpläne |
+| `lernplan:{id}` | JSON | Einzelner Lernplan |
+| `slots:{lernplanId}` | JSON Array | Slots eines Lernplans |
+| `aufgaben` | Set | IDs aller Aufgaben |
+| `aufgabe:{id}` | JSON | Einzelne Aufgabe |
+| `leistungen` | Set | IDs aller Leistungen |
+| `leistung:{id}` | JSON | Einzelne Leistung |
+| `wizard:draft` | JSON | Aktueller Wizard-Entwurf |
+| `unterrechtsgebiete` | JSON Array | Alle Unterrechtsgebiete |
+
+### 7.4 Response-Format
+
+Alle Endpoints verwenden ein einheitliches Response-Format:
+
+**Erfolg:**
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+**Fehler:**
+```json
+{
+  "success": false,
+  "error": "Fehlermeldung"
+}
+```
+
+**HTTP Status Codes:**
+| Code | Bedeutung |
+|------|-----------|
+| 200 | Erfolg |
+| 201 | Erfolgreich erstellt |
+| 400 | Ungültige Anfrage |
+| 404 | Nicht gefunden |
+| 405 | Methode nicht erlaubt |
+| 500 | Serverfehler |
 
 ---
 
@@ -640,11 +907,15 @@ Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
 - [x] Auswertungs-Dialog mit Recharts
 - [x] Notenentwicklungs-Diagramm
 - [x] Rechtsgebiete-Verteilungs-Diagramm
+- [x] Backend-API (Vercel Serverless Functions)
+- [x] Vercel KV Datenbank-Integration
+- [x] OpenAI-Integration mit Fallback
+- [x] Lokaler Express-Server für Entwicklung
+- [x] Persistente JSON-Datenspeicherung (lokal)
 
 ### 9.2 In Entwicklung (🔄)
-- [ ] Backend-API-Integration
+- [ ] Frontend-Backend-Synchronisation
 - [ ] Benutzerauthentifizierung
-- [ ] Echte OpenAI-Integration
 - [ ] Mobile Optimierung
 
 ### 9.3 Geplant (📋)

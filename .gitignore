@@ -32,3 +32,6 @@ analyze-*.cjs
 
 # VSCode MCP config (contains API tokens)
 .vscode/mcp.json
+
+# Local development data (server.js)
+data/*.json

@@ -28,6 +28,10 @@ app.use(express.json());
 const DATA_DIR = path.join(__dirname, 'data');
 const LERNPLAENE_FILE = path.join(DATA_DIR, 'lernplaene.json');
 const SLOTS_FILE = path.join(DATA_DIR, 'slots.json');
+const AUFGABEN_FILE = path.join(DATA_DIR, 'aufgaben.json');
+const LEISTUNGEN_FILE = path.join(DATA_DIR, 'leistungen.json');
+const WIZARD_DRAFT_FILE = path.join(DATA_DIR, 'wizard-draft.json');
+const UNTERRECHTSGEBIETE_FILE = path.join(DATA_DIR, 'unterrechtsgebiete.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -35,7 +39,7 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 // Load data from file
-function loadData(filePath) {
+function loadData(filePath, defaultValue = {}) {
   try {
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf8');
@@ -44,7 +48,7 @@ function loadData(filePath) {
   } catch (error) {
     console.error(`Error loading ${filePath}:`, error.message);
   }
-  return {};
+  return defaultValue;
 }
 
 // Save data to file
@@ -56,12 +60,25 @@ function saveData(filePath, data) {
   }
 }
 
+// Generate unique ID
+function generateId() {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 // Initialize storage from files
 const lernplaeneData = loadData(LERNPLAENE_FILE);
 const slotsData = loadData(SLOTS_FILE);
+const aufgabenData = loadData(AUFGABEN_FILE);
+const leistungenData = loadData(LEISTUNGEN_FILE);
+let wizardDraftData = loadData(WIZARD_DRAFT_FILE, null);
+let unterrechtsgebieteData = loadData(UNTERRECHTSGEBIETE_FILE, []);
 
 console.log(`📂 Geladene Lernpläne: ${Object.keys(lernplaeneData).length}`);
 console.log(`📂 Geladene Slots: ${Object.keys(slotsData).length}`);
+console.log(`📂 Geladene Aufgaben: ${Object.keys(aufgabenData).length}`);
+console.log(`📂 Geladene Leistungen: ${Object.keys(leistungenData).length}`);
+console.log(`📂 Wizard Draft: ${wizardDraftData ? 'vorhanden' : 'leer'}`);
+console.log(`📂 Unterrechtsgebiete: ${unterrechtsgebieteData.length}`);
 
 // ============================================
 // GENERATE PLAN ENDPOINT (OpenAI Integration)
@@ -553,6 +570,71 @@ app.get('/api/lernplaene', (req, res) => {
   });
 });
 
+// POST - Create new Lernplan
+app.post('/api/lernplaene', (req, res) => {
+  const body = req.body;
+
+  if (!body.title) {
+    return res.status(400).json({
+      success: false,
+      error: 'Title ist erforderlich',
+    });
+  }
+
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  const newLernplan = {
+    id,
+    title: body.title,
+    description: body.description || '',
+    tags: body.tags || [],
+    rechtsgebiet: body.rechtsgebiet || '',
+    mode: body.mode || 'standard',
+    examDate: body.examDate,
+    archived: body.archived || false,
+    chapters: body.chapters || [],
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  lernplaeneData[id] = newLernplan;
+  saveData(LERNPLAENE_FILE, lernplaeneData);
+
+  res.status(201).json({
+    success: true,
+    data: newLernplan,
+  });
+});
+
+// PUT - Update Lernplan
+app.put('/api/lernplaene/:id', (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+
+  if (!lernplaeneData[id]) {
+    return res.status(404).json({
+      success: false,
+      error: 'Lernplan nicht gefunden',
+    });
+  }
+
+  const updated = {
+    ...lernplaeneData[id],
+    ...body,
+    id, // ID kann nicht geändert werden
+    updatedAt: new Date().toISOString(),
+  };
+
+  lernplaeneData[id] = updated;
+  saveData(LERNPLAENE_FILE, lernplaeneData);
+
+  res.json({
+    success: true,
+    data: updated,
+  });
+});
+
 // GET Slots for Lernplan
 app.get('/api/kalender/:lernplanId/slots', (req, res) => {
   const { lernplanId } = req.params;
@@ -561,6 +643,124 @@ app.get('/api/kalender/:lernplanId/slots', (req, res) => {
   res.json({
     success: true,
     data: lernplanSlots,
+  });
+});
+
+// PUT - Replace all Slots for Lernplan
+app.put('/api/kalender/:lernplanId/slots', (req, res) => {
+  const { lernplanId } = req.params;
+  const body = req.body;
+
+  if (!Array.isArray(body)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Body muss ein Array von Slots sein',
+    });
+  }
+
+  const now = new Date().toISOString();
+  const slots = body.map(slot => ({
+    ...slot,
+    updatedAt: now,
+    createdAt: slot.createdAt || now,
+  }));
+
+  slotsData[lernplanId] = slots;
+  saveData(SLOTS_FILE, slotsData);
+
+  res.json({
+    success: true,
+    data: slots,
+  });
+});
+
+// POST - Add/Update single Slot
+app.post('/api/kalender/:lernplanId/slots', (req, res) => {
+  const { lernplanId } = req.params;
+  const slot = req.body;
+
+  if (!slot.date || !slot.position) {
+    return res.status(400).json({
+      success: false,
+      error: 'date und position sind erforderlich',
+    });
+  }
+
+  const now = new Date().toISOString();
+  const slots = slotsData[lernplanId] || [];
+
+  const newSlot = {
+    id: slot.id || `${slot.date}-${slot.position}`,
+    date: slot.date,
+    position: slot.position,
+    status: slot.status || 'empty',
+    topicId: slot.topicId,
+    topicTitle: slot.topicTitle,
+    blockType: slot.blockType,
+    groupId: slot.groupId,
+    groupSize: slot.groupSize,
+    groupIndex: slot.groupIndex,
+    progress: slot.progress,
+    description: slot.description,
+    isLocked: slot.isLocked || false,
+    createdAt: slot.createdAt || now,
+    updatedAt: now,
+  };
+
+  // Update existing or add new
+  const existingIndex = slots.findIndex(s => s.id === newSlot.id);
+  if (existingIndex >= 0) {
+    slots[existingIndex] = newSlot;
+  } else {
+    slots.push(newSlot);
+  }
+
+  slotsData[lernplanId] = slots;
+  saveData(SLOTS_FILE, slotsData);
+
+  res.status(201).json({
+    success: true,
+    data: slots,
+  });
+});
+
+// POST - Bulk update Slots
+app.post('/api/kalender/:lernplanId/slots/bulk', (req, res) => {
+  const { lernplanId } = req.params;
+  const body = req.body;
+
+  if (!Array.isArray(body)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Body muss ein Array von Slots sein',
+    });
+  }
+
+  const now = new Date().toISOString();
+  const existingSlots = slotsData[lernplanId] || [];
+
+  body.forEach(slot => {
+    const newSlot = {
+      ...slot,
+      id: slot.id || `${slot.date}-${slot.position}`,
+      updatedAt: now,
+      createdAt: slot.createdAt || now,
+    };
+
+    const existingIndex = existingSlots.findIndex(s => s.id === newSlot.id);
+    if (existingIndex >= 0) {
+      existingSlots[existingIndex] = newSlot;
+    } else {
+      existingSlots.push(newSlot);
+    }
+  });
+
+  slotsData[lernplanId] = existingSlots;
+  saveData(SLOTS_FILE, slotsData);
+
+  res.json({
+    success: true,
+    data: existingSlots,
   });
 });
 
@@ -590,11 +790,358 @@ app.delete('/api/lernplaene/:id', (req, res) => {
 });
 
 // ============================================
+// AUFGABEN ENDPOINTS
+// ============================================
+
+// GET all Aufgaben
+app.get('/api/aufgaben', (req, res) => {
+  const allAufgaben = Object.values(aufgabenData);
+  res.json({
+    success: true,
+    data: allAufgaben,
+  });
+});
+
+// GET single Aufgabe
+app.get('/api/aufgaben/:id', (req, res) => {
+  const { id } = req.params;
+  const aufgabe = aufgabenData[id];
+
+  if (!aufgabe) {
+    return res.status(404).json({
+      success: false,
+      error: 'Aufgabe nicht gefunden',
+    });
+  }
+
+  res.json({
+    success: true,
+    data: aufgabe,
+  });
+});
+
+// POST - Create Aufgabe
+app.post('/api/aufgaben', (req, res) => {
+  const body = req.body;
+
+  if (!body.title || !body.subject) {
+    return res.status(400).json({
+      success: false,
+      error: 'title und subject sind erforderlich',
+    });
+  }
+
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  const newAufgabe = {
+    id,
+    subject: body.subject,
+    title: body.title,
+    description: body.description || '',
+    lernplanthema: body.lernplanthema,
+    lernblock: body.lernblock,
+    priority: body.priority || 'medium',
+    status: body.status || 'unerledigt',
+    date: body.date || now.split('T')[0],
+    lernplanId: body.lernplanId,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  aufgabenData[id] = newAufgabe;
+  saveData(AUFGABEN_FILE, aufgabenData);
+
+  res.status(201).json({
+    success: true,
+    data: newAufgabe,
+  });
+});
+
+// PUT - Update Aufgabe
+app.put('/api/aufgaben/:id', (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+
+  if (!aufgabenData[id]) {
+    return res.status(404).json({
+      success: false,
+      error: 'Aufgabe nicht gefunden',
+    });
+  }
+
+  const updated = {
+    ...aufgabenData[id],
+    ...body,
+    id,
+    updatedAt: new Date().toISOString(),
+  };
+
+  aufgabenData[id] = updated;
+  saveData(AUFGABEN_FILE, aufgabenData);
+
+  res.json({
+    success: true,
+    data: updated,
+  });
+});
+
+// DELETE Aufgabe
+app.delete('/api/aufgaben/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!aufgabenData[id]) {
+    return res.status(404).json({
+      success: false,
+      error: 'Aufgabe nicht gefunden',
+    });
+  }
+
+  delete aufgabenData[id];
+  saveData(AUFGABEN_FILE, aufgabenData);
+
+  res.json({
+    success: true,
+    data: { deleted: true },
+  });
+});
+
+// ============================================
+// LEISTUNGEN ENDPOINTS
+// ============================================
+
+// GET all Leistungen
+app.get('/api/leistungen', (req, res) => {
+  const allLeistungen = Object.values(leistungenData);
+  res.json({
+    success: true,
+    data: allLeistungen,
+  });
+});
+
+// GET single Leistung
+app.get('/api/leistungen/:id', (req, res) => {
+  const { id } = req.params;
+  const leistung = leistungenData[id];
+
+  if (!leistung) {
+    return res.status(404).json({
+      success: false,
+      error: 'Leistung nicht gefunden',
+    });
+  }
+
+  res.json({
+    success: true,
+    data: leistung,
+  });
+});
+
+// POST - Create Leistung
+app.post('/api/leistungen', (req, res) => {
+  const body = req.body;
+
+  if (!body.title || !body.subject || !body.date) {
+    return res.status(400).json({
+      success: false,
+      error: 'title, subject und date sind erforderlich',
+    });
+  }
+
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  const newLeistung = {
+    id,
+    title: body.title,
+    subject: body.subject,
+    description: body.description,
+    date: body.date,
+    time: body.time,
+    ects: body.ects || 0,
+    grade: body.grade ?? null,
+    status: body.status || 'angemeldet',
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  leistungenData[id] = newLeistung;
+  saveData(LEISTUNGEN_FILE, leistungenData);
+
+  res.status(201).json({
+    success: true,
+    data: newLeistung,
+  });
+});
+
+// PUT - Update Leistung
+app.put('/api/leistungen/:id', (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+
+  if (!leistungenData[id]) {
+    return res.status(404).json({
+      success: false,
+      error: 'Leistung nicht gefunden',
+    });
+  }
+
+  const updated = {
+    ...leistungenData[id],
+    ...body,
+    id,
+    updatedAt: new Date().toISOString(),
+  };
+
+  leistungenData[id] = updated;
+  saveData(LEISTUNGEN_FILE, leistungenData);
+
+  res.json({
+    success: true,
+    data: updated,
+  });
+});
+
+// DELETE Leistung
+app.delete('/api/leistungen/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!leistungenData[id]) {
+    return res.status(404).json({
+      success: false,
+      error: 'Leistung nicht gefunden',
+    });
+  }
+
+  delete leistungenData[id];
+  saveData(LEISTUNGEN_FILE, leistungenData);
+
+  res.json({
+    success: true,
+    data: { deleted: true },
+  });
+});
+
+// ============================================
+// WIZARD DRAFT ENDPOINTS
+// ============================================
+
+// GET Wizard Draft
+app.get('/api/wizard/draft', (req, res) => {
+  res.json({
+    success: true,
+    data: wizardDraftData,
+  });
+});
+
+// PUT - Save Wizard Draft
+app.put('/api/wizard/draft', (req, res) => {
+  const body = req.body;
+
+  wizardDraftData = {
+    ...body,
+    lastModified: new Date().toISOString(),
+  };
+
+  saveData(WIZARD_DRAFT_FILE, wizardDraftData);
+
+  res.json({
+    success: true,
+    data: wizardDraftData,
+  });
+});
+
+// DELETE Wizard Draft
+app.delete('/api/wizard/draft', (req, res) => {
+  wizardDraftData = null;
+  saveData(WIZARD_DRAFT_FILE, null);
+
+  res.json({
+    success: true,
+    data: { deleted: true },
+  });
+});
+
+// ============================================
+// UNTERRECHTSGEBIETE ENDPOINTS
+// ============================================
+
+// GET all Unterrechtsgebiete
+app.get('/api/unterrechtsgebiete', (req, res) => {
+  res.json({
+    success: true,
+    data: unterrechtsgebieteData,
+  });
+});
+
+// POST - Add Unterrechtsgebiet
+app.post('/api/unterrechtsgebiete', (req, res) => {
+  const body = req.body;
+
+  if (!body.name || !body.rechtsgebiet) {
+    return res.status(400).json({
+      success: false,
+      error: 'name und rechtsgebiet sind erforderlich',
+    });
+  }
+
+  const newGebiet = {
+    id: generateId(),
+    name: body.name,
+    rechtsgebiet: body.rechtsgebiet,
+    createdAt: new Date().toISOString(),
+  };
+
+  unterrechtsgebieteData.push(newGebiet);
+  saveData(UNTERRECHTSGEBIETE_FILE, unterrechtsgebieteData);
+
+  res.status(201).json({
+    success: true,
+    data: unterrechtsgebieteData,
+  });
+});
+
+// DELETE Unterrechtsgebiet
+app.delete('/api/unterrechtsgebiete/:id', (req, res) => {
+  const { id } = req.params;
+  const index = unterrechtsgebieteData.findIndex(g => g.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({
+      success: false,
+      error: 'Unterrechtsgebiet nicht gefunden',
+    });
+  }
+
+  unterrechtsgebieteData.splice(index, 1);
+  saveData(UNTERRECHTSGEBIETE_FILE, unterrechtsgebieteData);
+
+  res.json({
+    success: true,
+    data: unterrechtsgebieteData,
+  });
+});
+
+// ============================================
 // START SERVER
 // ============================================
 
 app.listen(PORT, () => {
   console.log(`\n🚀 API Server läuft auf http://localhost:${PORT}`);
   console.log(`   OpenAI API Key: ${process.env.OPENAI_API_KEY ? '✅ Konfiguriert' : '❌ Nicht gefunden'}`);
-  console.log(`   Model: ${process.env.OPENAI_MODEL || 'gpt-4o-mini'}\n`);
+  console.log(`   Model: ${process.env.OPENAI_MODEL || 'gpt-4o-mini'}`);
+  console.log(`\n📋 Verfügbare Endpoints:`);
+  console.log(`   GET/POST       /api/lernplaene`);
+  console.log(`   GET/PUT/DELETE /api/lernplaene/:id`);
+  console.log(`   GET/PUT/POST   /api/kalender/:lernplanId/slots`);
+  console.log(`   POST           /api/kalender/:lernplanId/slots/bulk`);
+  console.log(`   GET/POST       /api/aufgaben`);
+  console.log(`   GET/PUT/DELETE /api/aufgaben/:id`);
+  console.log(`   GET/POST       /api/leistungen`);
+  console.log(`   GET/PUT/DELETE /api/leistungen/:id`);
+  console.log(`   GET/PUT/DELETE /api/wizard/draft`);
+  console.log(`   POST           /api/wizard/complete`);
+  console.log(`   GET/POST       /api/unterrechtsgebiete`);
+  console.log(`   DELETE         /api/unterrechtsgebiete/:id`);
+  console.log(`   POST           /api/generate-plan\n`);
 });
