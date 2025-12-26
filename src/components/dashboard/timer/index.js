@@ -4,3 +4,5 @@ export { default as TimerSelectionDialog } from './timer-selection-dialog';
 export { default as PomodoroSettingsDialog } from './pomodoro-settings-dialog';
 export { default as CountdownSettingsDialog } from './countdown-settings-dialog';
 export { default as TimerControlsDialog } from './timer-controls-dialog';
+export { default as TimerMainDialog } from './timer-main-dialog';
+export { default as TimerLogbuchDialog } from './timer-logbuch-dialog';

@@ -1,11 +1,17 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, DashboardLayout } from '../components/layout';
-import { LernblockWidget, ZeitplanWidget, TimerButton } from '../components/dashboard';
+import { LernblockWidget, ZeitplanWidget, DashboardSubHeader } from '../components/dashboard';
+import TimerSelectionDialog from '../components/dashboard/timer/timer-selection-dialog';
+import PomodoroSettingsDialog from '../components/dashboard/timer/pomodoro-settings-dialog';
+import CountdownSettingsDialog from '../components/dashboard/timer/countdown-settings-dialog';
+import TimerMainDialog from '../components/dashboard/timer/timer-main-dialog';
 import { useDashboard } from '../hooks';
 import { useCalendar } from '../contexts/calendar-context';
 import { useCheckIn } from '../contexts/checkin-context';
 import { useMentor } from '../contexts/mentor-context';
+import { useTimer, TIMER_TYPES } from '../contexts/timer-context';
+import { useAppMode } from '../contexts/appmode-context';
 
 // Dialog components (same as WeekView)
 import AddThemeDialog from '../features/calendar/components/add-theme-dialog';
@@ -32,9 +38,23 @@ const DashboardPage = () => {
   const { isCheckInNeeded, getCurrentPeriod } = useCheckIn();
   const { isActivated: mentorIsActivated } = useMentor();
 
-  // Get current period label for check-in button
-  const currentPeriod = getCurrentPeriod();
-  const periodLabel = currentPeriod === 'evening' ? 'Abend' : 'Morgen';
+  // App Mode context for exam/normal mode
+  const { isExamMode } = useAppMode();
+
+  // Timer context for sub-header and learning progress
+  const { saveTimerConfig, pomodoroSettings, timerHistory, elapsedSeconds, isActive } = useTimer();
+
+  // Timer dialog states
+  const [showTimerSelection, setShowTimerSelection] = useState(false);
+  const [showPomodoroSettings, setShowPomodoroSettings] = useState(false);
+  const [showCountdownSettings, setShowCountdownSettings] = useState(false);
+  const [showTimerMain, setShowTimerMain] = useState(false);
+
+  // Handle settings click from timer main dialog - show selection dialog
+  const handleTimerSettingsClick = () => {
+    setShowTimerMain(false);
+    setShowTimerSelection(true);
+  };
 
   const {
     displayDate,
@@ -480,6 +500,49 @@ const DashboardPage = () => {
       blockType: slot.blockType,
     }));
 
+  // Calculate daily learning goal from Lernplan slots (in minutes)
+  // Each slot is 2 hours (120 min) by default, unless custom duration is set
+  const dailyLearningGoalMinutes = useMemo(() => {
+    // Only count learning blocks (not private blocks)
+    const learningSlots = todaySlots.filter(slot =>
+      slot.blockType !== 'private' && slot.isFromLernplan === true
+    );
+
+    let totalMinutes = 0;
+    learningSlots.forEach(slot => {
+      if (slot.duration) {
+        // Custom duration in minutes
+        totalMinutes += slot.duration;
+      } else if (slot.startTime && slot.endTime) {
+        // Calculate from start/end time
+        const [startH, startM] = slot.startTime.split(':').map(Number);
+        const [endH, endM] = slot.endTime.split(':').map(Number);
+        totalMinutes += (endH * 60 + endM) - (startH * 60 + startM);
+      } else {
+        // Default: each position-based slot is 2 hours
+        totalMinutes += 120;
+      }
+    });
+
+    // Fallback to 8 hours if no slots planned
+    return totalMinutes > 0 ? totalMinutes : 480;
+  }, [todaySlots]);
+
+  // Calculate completed learning minutes from timer history (today's sessions)
+  // Plus current active timer elapsed time
+  const completedLearningMinutes = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Sum completed sessions from today
+    const todaySessions = timerHistory?.filter(s => s.date === today) || [];
+    const historyMinutes = todaySessions.reduce((sum, s) => sum + (s.duration || 0), 0) / 60;
+
+    // Add current active session elapsed time
+    const currentMinutes = isActive ? Math.floor(elapsedSeconds / 60) : 0;
+
+    return Math.round(historyMinutes + currentMinutes);
+  }, [timerHistory, isActive, elapsedSeconds]);
+
   const zeitplanData = {
     completedBlocks: todaySlots.filter(s => s.isBlocked).length,
     totalBlocks: todaySlots.length,
@@ -494,64 +557,19 @@ const DashboardPage = () => {
       {/* Header */}
       <Header userInitials="CN" currentPage="startseite" />
 
-      {/* Hero / Status Bar */}
-      <section className="px-8 py-4 border-b border-gray-200 bg-white">
-        <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm text-gray-900">{displayDate}</p>
-            <p className="text-xs text-gray-500">Dashboard</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 flex-1 justify-center md:justify-start lg:justify-center">
-            {checkInDone ? (
-              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-green-200 bg-green-50 text-green-700 text-sm">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                Check-in erledigt
-              </div>
-            ) : (
-              <button
-                onClick={doCheckIn}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 text-sm transition-colors"
-              >
-                {wasMorningSkipped && isMentorActivated ? (
-                  <>
-                    Check-in nachholen
-                    <span aria-hidden className="text-gray-500">→</span>
-                  </>
-                ) : (
-                  <>
-                    Check-in am {periodLabel}
-                    <span aria-hidden className="text-gray-500">→</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            <div className="flex flex-col gap-1 min-w-[220px]">
-              <div className="flex items-center justify-between text-xs text-gray-700">
-                <span>
-                  {dayProgress.tasksCompleted} von {dayProgress.tasksTotal} Aufgaben erledigt
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-1.5">
-                <div
-                  className="bg-gray-900 h-1.5 rounded-full transition-all"
-                  style={{ width: `${dayProgress.percentage}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {loading && (
-              <span className="text-xs text-gray-500">Lädt...</span>
-            )}
-            <TimerButton />
-          </div>
-        </div>
-      </section>
+      {/* Sub-Header / Status Bar */}
+      <DashboardSubHeader
+        displayDate={displayDate}
+        tasksCompleted={dayProgress.tasksCompleted}
+        tasksTotal={dayProgress.tasksTotal}
+        learningMinutesCompleted={completedLearningMinutes}
+        learningMinutesGoal={dailyLearningGoalMinutes}
+        checkInDone={checkInDone}
+        onTimerClick={() => {
+          // Always show timer main dialog - it handles all states
+          setShowTimerMain(true);
+        }}
+      />
 
       {/* Main Content */}
       <main className="px-8 py-8 bg-white">
@@ -570,6 +588,7 @@ const DashboardPage = () => {
                 selectedThemeListId={selectedThemeListId}
                 onSelectThemeList={setSelectedThemeListId}
                 onToggleThemeListAufgabe={handleToggleThemeListAufgabe}
+                isExamMode={isExamMode}
               />
             }
             rightColumn={
@@ -682,6 +701,62 @@ const DashboardPage = () => {
         date={currentDateObj}
         initialTime="09:00"
         onSave={handleAddPrivateBlock}
+      />
+
+      {/* Timer Selection Dialog */}
+      <TimerSelectionDialog
+        open={showTimerSelection}
+        onOpenChange={setShowTimerSelection}
+        onSelectType={(type) => {
+          setShowTimerSelection(false);
+          switch (type) {
+            case 'pomodoro':
+              setShowPomodoroSettings(true);
+              break;
+            case 'countdown':
+              setShowCountdownSettings(true);
+              break;
+            case 'countup':
+              // For countup, just save config and return to main dialog
+              // The startFromConfig will be called when user clicks "Starten"
+              saveTimerConfig({ timerType: TIMER_TYPES.COUNTUP });
+              setShowTimerMain(true);
+              break;
+          }
+        }}
+      />
+
+      {/* Pomodoro Settings Dialog */}
+      <PomodoroSettingsDialog
+        open={showPomodoroSettings}
+        onOpenChange={(open) => {
+          setShowPomodoroSettings(open);
+          if (!open) {
+            // When closing settings, return to main dialog
+            setShowTimerMain(true);
+          }
+        }}
+        initialSettings={pomodoroSettings}
+      />
+
+      {/* Countdown Settings Dialog */}
+      <CountdownSettingsDialog
+        open={showCountdownSettings}
+        onOpenChange={(open) => {
+          setShowCountdownSettings(open);
+          if (!open) {
+            // When closing settings, return to main dialog
+            setShowTimerMain(true);
+          }
+        }}
+      />
+
+      {/* Timer Main Dialog */}
+      <TimerMainDialog
+        open={showTimerMain}
+        onOpenChange={setShowTimerMain}
+        onSettingsClick={handleTimerSettingsClick}
+        dailyLearningGoalMinutes={dailyLearningGoalMinutes}
       />
     </div>
   );

@@ -6,7 +6,7 @@ const CheckInContext = createContext(null);
 const STORAGE_KEY_RESPONSES = 'prepwell_checkin_responses';
 const STORAGE_KEY_SETTINGS = 'prepwell_checkin_settings';
 
-// Check-in questions
+// Check-in questions (Morning)
 export const CHECKIN_QUESTIONS = [
   {
     id: 'positivity',
@@ -14,7 +14,7 @@ export const CHECKIN_QUESTIONS = [
     options: [
       { value: 1, label: 'sehr negativ' },
       { value: 2, label: 'eher negativ' },
-      { value: 3, label: 'neutral' },
+      { value: 3, label: 'mittelmäßig' },
       { value: 4, label: 'eher positiv' },
       { value: 5, label: 'sehr positiv' }
     ]
@@ -24,20 +24,20 @@ export const CHECKIN_QUESTIONS = [
     question: 'Wie energiegeladen bist du?',
     options: [
       { value: 1, label: 'sehr müde' },
-      { value: 2, label: 'eher müde' },
-      { value: 3, label: 'neutral' },
-      { value: 4, label: 'eher energiegeladen' },
-      { value: 5, label: 'sehr energiegeladen' }
+      { value: 2, label: 'eher träge' },
+      { value: 3, label: 'mittelmäßig' },
+      { value: 4, label: 'aktiviert' },
+      { value: 5, label: 'voller Energie' }
     ]
   },
   {
     id: 'motivation',
     question: 'Wie motiviert bist du?',
     options: [
-      { value: 1, label: 'sehr unmotiviert' },
-      { value: 2, label: 'eher unmotiviert' },
-      { value: 3, label: 'neutral' },
-      { value: 4, label: 'eher motiviert' },
+      { value: 1, label: 'demotiviert' },
+      { value: 2, label: 'eher demotiviert' },
+      { value: 3, label: 'mittelmäßig' },
+      { value: 4, label: 'motiviert' },
       { value: 5, label: 'sehr motiviert' }
     ]
   },
@@ -45,11 +45,48 @@ export const CHECKIN_QUESTIONS = [
     id: 'stress',
     question: 'Wie gestresst fühlst du dich?',
     options: [
-      { value: 5, label: 'gar nicht gestresst' },
-      { value: 4, label: 'wenig gestresst' },
-      { value: 3, label: 'neutral' },
+      { value: 5, label: 'gar nicht' },
+      { value: 4, label: 'wenig' },
+      { value: 3, label: 'mittelmäßig' },
       { value: 2, label: 'eher gestresst' },
       { value: 1, label: 'sehr gestresst' }
+    ]
+  }
+];
+
+// Check-out questions (Evening)
+export const CHECKOUT_QUESTIONS = [
+  {
+    id: 'productivity',
+    question: 'Bist du mit deiner Produktivität zufrieden?',
+    options: [
+      { value: 1, label: 'unzufrieden' },
+      { value: 2, label: 'eher nicht' },
+      { value: 3, label: 'mittelmäßig' },
+      { value: 4, label: 'eher ja' },
+      { value: 5, label: 'sehr zufrieden' }
+    ]
+  },
+  {
+    id: 'concentration',
+    question: 'Wie gut konntest du dich konzentrieren?',
+    options: [
+      { value: 1, label: 'sehr schlecht' },
+      { value: 2, label: 'eher schlecht' },
+      { value: 3, label: 'mittelmäßig' },
+      { value: 4, label: 'gut' },
+      { value: 5, label: 'sehr gut' }
+    ]
+  },
+  {
+    id: 'stress',
+    question: 'Wie gestresst fühlst du dich?',
+    options: [
+      { value: 1, label: 'sehr gestresst' },
+      { value: 2, label: 'gestresst' },
+      { value: 3, label: 'mittelmäßig' },
+      { value: 4, label: 'entspannt' },
+      { value: 5, label: 'sehr entspannt' }
     ]
   }
 ];

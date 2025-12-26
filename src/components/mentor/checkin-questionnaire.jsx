@@ -1,45 +1,44 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCheckIn, CHECKIN_QUESTIONS } from '../../contexts/checkin-context';
+import { useCheckIn, CHECKIN_QUESTIONS, CHECKOUT_QUESTIONS } from '../../contexts/checkin-context';
+import { Header } from '../layout';
 
 /**
  * CheckInQuestionnaire - Full-page questionnaire for Well Score check-in
  *
- * Shows 4 questions with 5-point scale answers
- * Can be submitted or skipped
+ * Shows all questions on one page with horizontal pill-button options
+ * Design based on Figma "Check-In" screen
+ * Responsive: fits on screen without scrolling
  */
 const CheckInQuestionnaire = ({ onComplete, onSkip }) => {
   const navigate = useNavigate();
   const { submitCheckIn, skipCheckIn, getCurrentPeriod } = useCheckIn();
 
-  // Current question index
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  // Determine if morning (Check-In) or evening (Check-Out)
+  const currentPeriod = getCurrentPeriod();
+  const isEvening = currentPeriod === 'evening';
+
+  // Use appropriate questions based on period
+  const questions = isEvening ? CHECKOUT_QUESTIONS : CHECKIN_QUESTIONS;
 
   // Answers: { [questionId]: value }
   const [answers, setAnswers] = useState({});
 
-  const currentQuestion = CHECKIN_QUESTIONS[currentQuestionIndex];
-  const totalQuestions = CHECKIN_QUESTIONS.length;
-  const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
+  const totalQuestions = questions.length;
   const allAnswered = Object.keys(answers).length === totalQuestions;
 
   // Handle option selection
-  const handleOptionSelect = (value) => {
+  const handleOptionSelect = (questionId, value) => {
     setAnswers(prev => ({
       ...prev,
-      [currentQuestion.id]: value
+      [questionId]: value
     }));
-
-    // Auto-advance to next question after short delay
-    if (!isLastQuestion) {
-      setTimeout(() => {
-        setCurrentQuestionIndex(prev => prev + 1);
-      }, 300);
-    }
   };
 
   // Handle submit
   const handleSubmit = () => {
+    if (!allAnswered) return;
+
     submitCheckIn(answers, getCurrentPeriod());
     if (onComplete) {
       onComplete();
@@ -58,141 +57,114 @@ const CheckInQuestionnaire = ({ onComplete, onSkip }) => {
     }
   };
 
-  // Go to previous question
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
-    }
-  };
-
-  // Get period label for header
-  const periodLabel = getCurrentPeriod() === 'evening' ? 'Abend' : 'Morgen';
+  // Get titles based on period
+  const title = isEvening ? 'Dein Check-Out am Abend' : 'Dein Check-In am Morgen';
+  const subtitle = isEvening
+    ? 'Nimm dir einen Augenblick Zeit für dich, um zu reflektieren, wie dein Tag war.'
+    : 'Nimm dir einen Augenblick Zeit für dich, um zu reflektieren, wie du heute in den Tag startest.';
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-light text-gray-900 mb-2">
-            {periodLabel}-Check-In
-          </h1>
-          <p className="text-gray-500 text-sm">
-            Beantworte kurz diese Fragen, um deinen Well-Score zu aktualisieren
-          </p>
+    <div className="h-screen bg-white flex flex-col overflow-hidden">
+      {/* Header */}
+      <Header userInitials="CN" currentPage="checkin" />
+
+      {/* Main Content - fills remaining space */}
+      <div className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4">
+        {/* Title Section */}
+        <div className="shrink-0 bg-neutral-200 py-4 lg:py-6 px-4">
+          <div className="max-w-[1389px] mx-auto flex flex-col items-center gap-2 lg:gap-4">
+            <h1 className="text-center text-gray-900 text-2xl lg:text-4xl xl:text-5xl font-extralight leading-tight">
+              {title}
+            </h1>
+            <p className="max-w-[900px] text-center text-gray-500 text-xs lg:text-sm font-light leading-5">
+              {subtitle}
+            </p>
+          </div>
         </div>
 
-        {/* Progress indicator */}
-        <div className="flex gap-2 mb-8 justify-center">
-          {CHECKIN_QUESTIONS.map((_, index) => (
-            <div
-              key={index}
-              className={`h-1.5 w-12 rounded-full transition-colors ${
-                index < currentQuestionIndex
-                  ? 'bg-blue-600'
-                  : index === currentQuestionIndex
-                  ? 'bg-blue-400'
-                  : 'bg-gray-200'
-              }`}
-            />
-          ))}
-        </div>
+        {/* Divider */}
+        <div className="shrink-0 h-px bg-neutral-200 my-3 lg:my-4" />
 
-        {/* Question Card */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-          {/* Question number */}
-          <div className="text-sm text-gray-400 mb-2">
-            Frage {currentQuestionIndex + 1} von {totalQuestions}
+        {/* Questions Section - flexible, takes remaining space */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 max-w-[1252px] w-full mx-auto bg-neutral-200 rounded-lg p-3 lg:p-6 flex flex-col gap-2 lg:gap-4 overflow-auto">
+            {questions.map((question) => (
+              <QuestionRow
+                key={question.id}
+                question={question}
+                selectedValue={answers[question.id]}
+                onSelect={(value) => handleOptionSelect(question.id, value)}
+              />
+            ))}
           </div>
 
-          {/* Question text */}
-          <h2 className="text-xl font-normal text-gray-900 mb-8">
-            {currentQuestion.question}
-          </h2>
-
-          {/* Options */}
-          <div className="flex flex-col gap-3">
-            {currentQuestion.options.map((option) => {
-              const isSelected = answers[currentQuestion.id] === option.value;
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => handleOptionSelect(option.value)}
-                  className={`w-full py-4 px-5 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? 'border-blue-600 bg-blue-50 text-blue-900'
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* Radio indicator */}
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        isSelected ? 'border-blue-600' : 'border-gray-300'
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                      )}
-                    </div>
-                    <span className="text-base">{option.label}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Navigation */}
-          <div className="flex justify-between mt-8">
-            {/* Previous button */}
-            <button
-              onClick={handlePrevious}
-              disabled={currentQuestionIndex === 0}
-              className={`px-5 py-2.5 rounded-full text-sm transition-colors ${
-                currentQuestionIndex === 0
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              Zurück
-            </button>
-
-            {/* Next/Submit button */}
-            {isLastQuestion ? (
+          {/* Submit Button */}
+          {allAnswered && (
+            <div className="shrink-0 flex justify-center pt-3 lg:pt-4">
               <button
                 onClick={handleSubmit}
-                disabled={!allAnswered}
-                className={`px-6 py-2.5 rounded-full text-sm font-medium transition-colors ${
-                  allAnswered
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
+                className="px-6 lg:px-8 py-2.5 lg:py-3 bg-slate-600 text-white rounded-full text-sm font-medium hover:bg-slate-700 transition-colors"
               >
-                Absenden
+                {isEvening ? 'Check-Out absenden' : 'Check-In absenden'}
               </button>
-            ) : (
-              <button
-                onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                disabled={!answers[currentQuestion.id]}
-                className={`px-6 py-2.5 rounded-full text-sm font-medium transition-colors ${
-                  answers[currentQuestion.id]
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                Weiter
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Skip button */}
-        <div className="text-center mt-6">
+        {/* Footer - Skip Button */}
+        <div className="shrink-0 pt-3 lg:pt-4">
           <button
             onClick={handleSkip}
-            className="text-gray-400 text-sm hover:text-gray-600 transition-colors"
+            className="px-4 lg:px-5 py-2 lg:py-2.5 rounded-3xl border border-gray-200 flex items-center gap-2 hover:bg-gray-50 transition-colors"
           >
-            Mentor Quiz überspringen
+            <span className="text-gray-700 text-xs lg:text-sm font-light">
+              Mentor Quiz überspringen
+            </span>
+            <svg className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-gray-900" viewBox="0 0 16 16" fill="none">
+              <path d="M3.33 8h9.33M9.33 4.67L12.67 8l-3.34 3.33" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * QuestionRow - Single question with horizontal pill options
+ * Responsive: stacks on small screens, horizontal on larger
+ */
+const QuestionRow = ({ question, selectedValue, onSelect }) => {
+  return (
+    <div className="bg-white rounded-[5px] border border-neutral-200 flex flex-col lg:flex-row lg:items-stretch overflow-hidden">
+      {/* Question Text */}
+      <div className="shrink-0 lg:w-72 xl:w-96 p-3 lg:p-4 xl:p-6 flex items-center">
+        <h2 className="text-gray-900 text-base lg:text-lg xl:text-2xl font-extralight leading-snug">
+          {question.question}
+        </h2>
+      </div>
+
+      {/* Options */}
+      <div className="flex-1 px-3 lg:px-4 xl:px-6 py-2 lg:py-3 xl:py-5 flex items-center">
+        <div className="w-full flex flex-wrap lg:flex-nowrap gap-1.5 lg:gap-2 xl:gap-2.5">
+          {question.options.map((option) => {
+            const isSelected = selectedValue === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => onSelect(option.value)}
+                className={`flex-1 min-w-0 px-2 lg:px-3 xl:px-4 py-2 lg:py-3 xl:py-4 rounded-full lg:rounded-[30px] flex justify-center items-center transition-all ${
+                  isSelected
+                    ? 'bg-slate-600 text-white'
+                    : 'border border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span className="text-xs lg:text-sm font-normal leading-tight text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                  {option.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

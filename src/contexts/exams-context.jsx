@@ -1,14 +1,91 @@
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 
 const STORAGE_KEY = 'prepwell_exams';
+const STORAGE_KEY_SUBJECTS = 'prepwell_custom_subjects';
+const STORAGE_KEY_GRADE_SYSTEM = 'prepwell_grade_system';
 
 /**
  * ExamsContext - Manages exam/Klausur data with persistence
  *
  * Provides CRUD operations for exams and calculates statistics
  * for the Leistungen page and Mentor analytics.
+ *
+ * Supports dual notation system:
+ * - Punkte: 0-18 (Jura/German law exam system)
+ * - Noten: 1.0-5.0 (Standard German university grades)
  */
 const ExamsContext = createContext(null);
+
+// Grade system constants
+export const GRADE_SYSTEMS = {
+  PUNKTE: 'punkte',  // 0-18 points (Jura)
+  NOTEN: 'noten',    // 1.0-5.0 (standard)
+};
+
+// Default subjects
+export const DEFAULT_SUBJECTS = [
+  'Zivilrecht',
+  'Strafrecht',
+  'Öffentliches Recht',
+  'Zivilrechtliche Nebengebiete',
+  'Rechtsgeschichte',
+  'Philosophie',
+];
+
+// Semester options
+export const SEMESTER_OPTIONS = [
+  'WS 2024/25',
+  'SS 2024',
+  'WS 2023/24',
+  'SS 2023',
+  'WS 2022/23',
+  'SS 2022',
+  'WS 2021/22',
+  'SS 2021',
+];
+
+/**
+ * Convert between grade systems
+ * Punkte (0-18) <-> Noten (1.0-5.0)
+ */
+export const convertGrade = (value, fromSystem, toSystem) => {
+  if (value === null || value === undefined) return null;
+  if (fromSystem === toSystem) return value;
+
+  if (fromSystem === GRADE_SYSTEMS.PUNKTE && toSystem === GRADE_SYSTEMS.NOTEN) {
+    // Punkte to Noten: 18 -> 1.0, 0 -> 5.0
+    if (value >= 18) return 1.0;
+    if (value <= 0) return 5.0;
+    // Linear interpolation: 18->1.0, 4->4.0, 0->5.0
+    if (value >= 4) {
+      return Math.round((5.0 - (value - 4) * (4.0 / 14)) * 10) / 10;
+    }
+    return Math.round((5.0 - value * 0.25) * 10) / 10;
+  }
+
+  if (fromSystem === GRADE_SYSTEMS.NOTEN && toSystem === GRADE_SYSTEMS.PUNKTE) {
+    // Noten to Punkte: 1.0 -> 18, 5.0 -> 0
+    if (value <= 1.0) return 18;
+    if (value >= 5.0) return 0;
+    if (value <= 4.0) {
+      return Math.round(4 + (4.0 - value) * (14 / 3));
+    }
+    return Math.round((5.0 - value) * 4);
+  }
+
+  return value;
+};
+
+/**
+ * Format grade for display
+ */
+export const formatGrade = (value, system) => {
+  if (value === null || value === undefined) return '-';
+  if (system === GRADE_SYSTEMS.PUNKTE) {
+    return `${value} Pkt.`;
+  }
+  return value.toFixed(1);
+};
 
 /**
  * Default sample exams for initial state
@@ -18,55 +95,65 @@ const DEFAULT_EXAMS = [
     id: 'exam-1',
     title: 'Vertragsrecht & Handelsrecht',
     subject: 'Zivilrecht',
+    semester: 'WS 2024/25',
     description: 'MGT00012345, Raum H209',
     date: '2025-07-24',
     time: '13:00 - 15:00',
     ects: 6,
-    grade: null,
+    gradeValue: null,
+    gradeSystem: GRADE_SYSTEMS.PUNKTE,
     status: 'angemeldet'
   },
   {
     id: 'exam-2',
     title: 'Strafrecht AT',
     subject: 'Strafrecht',
+    semester: 'WS 2024/25',
     description: 'MGT00023456',
     date: '2025-06-15',
     time: '09:00 - 12:00',
     ects: 8,
-    grade: 11,
+    gradeValue: 11,
+    gradeSystem: GRADE_SYSTEMS.PUNKTE,
     status: 'bestanden'
   },
   {
     id: 'exam-3',
     title: 'Verwaltungsrecht',
     subject: 'Öffentliches Recht',
+    semester: 'SS 2024',
     description: 'MGT00034567',
     date: '2025-05-10',
     time: '14:00 - 17:00',
     ects: 6,
-    grade: 9,
+    gradeValue: 9,
+    gradeSystem: GRADE_SYSTEMS.PUNKTE,
     status: 'bestanden'
   },
   {
     id: 'exam-4',
     title: 'BGB AT',
     subject: 'Zivilrecht',
+    semester: 'SS 2024',
     description: 'MGT00045678',
     date: '2025-04-20',
     time: '10:00 - 12:00',
     ects: 5,
-    grade: 12,
+    gradeValue: 12,
+    gradeSystem: GRADE_SYSTEMS.PUNKTE,
     status: 'bestanden'
   },
   {
     id: 'exam-5',
     title: 'Verfassungsrecht',
     subject: 'Öffentliches Recht',
+    semester: 'WS 2023/24',
     description: 'MGT00056789',
     date: '2025-03-15',
     time: '09:00 - 11:00',
     ects: 6,
-    grade: 10,
+    gradeValue: 10,
+    gradeSystem: GRADE_SYSTEMS.PUNKTE,
     status: 'bestanden'
   }
 ];
@@ -98,20 +185,94 @@ const saveExams = (exams) => {
 };
 
 /**
+ * Load custom subjects from localStorage
+ */
+const loadCustomSubjects = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_SUBJECTS);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading custom subjects:', error);
+  }
+  return [];
+};
+
+/**
+ * Load preferred grade system from localStorage
+ */
+const loadPreferredGradeSystem = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_GRADE_SYSTEM);
+    if (stored) {
+      return stored;
+    }
+  } catch (error) {
+    console.error('Error loading grade system:', error);
+  }
+  return GRADE_SYSTEMS.PUNKTE;
+};
+
+/**
  * ExamsProvider component
  */
 export const ExamsProvider = ({ children }) => {
   const [exams, setExams] = useState(loadExams);
+  const [customSubjects, setCustomSubjects] = useState(loadCustomSubjects);
+  const [preferredGradeSystem, setPreferredGradeSystem] = useState(loadPreferredGradeSystem);
+
+  // All available subjects (default + custom)
+  const allSubjects = useMemo(() => {
+    return [...DEFAULT_SUBJECTS, ...customSubjects];
+  }, [customSubjects]);
 
   // Persist state changes to localStorage
   useEffect(() => {
     saveExams(exams);
   }, [exams]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_SUBJECTS, JSON.stringify(customSubjects));
+    } catch (error) {
+      console.error('Error saving custom subjects:', error);
+    }
+  }, [customSubjects]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_GRADE_SYSTEM, preferredGradeSystem);
+    } catch (error) {
+      console.error('Error saving grade system:', error);
+    }
+  }, [preferredGradeSystem]);
+
+  /**
+   * Add a custom subject
+   */
+  const addCustomSubject = useCallback((subjectName) => {
+    const trimmed = subjectName.trim();
+    if (trimmed && !allSubjects.includes(trimmed)) {
+      setCustomSubjects(prev => [...prev, trimmed]);
+      return true;
+    }
+    return false;
+  }, [allSubjects]);
+
+  /**
+   * Remove a custom subject
+   */
+  const removeCustomSubject = useCallback((subjectName) => {
+    if (DEFAULT_SUBJECTS.includes(subjectName)) return false;
+    setCustomSubjects(prev => prev.filter(s => s !== subjectName));
+    return true;
+  }, []);
+
   /**
    * Add a new exam
    */
-  const addExam = (examData) => {
+  const addExam = useCallback((examData) => {
     const newExam = {
       ...examData,
       id: `exam-${Date.now()}`,
@@ -119,48 +280,79 @@ export const ExamsProvider = ({ children }) => {
     };
     setExams(prev => [...prev, newExam]);
     return newExam;
-  };
+  }, []);
 
   /**
    * Update an existing exam
    */
-  const updateExam = (updatedExam) => {
+  const updateExam = useCallback((updatedExam) => {
     setExams(prev => prev.map(exam =>
       exam.id === updatedExam.id
         ? { ...updatedExam, updatedAt: new Date().toISOString() }
         : exam
     ));
-  };
+  }, []);
 
   /**
    * Delete an exam
    */
-  const deleteExam = (examId) => {
+  const deleteExam = useCallback((examId) => {
     setExams(prev => prev.filter(exam => exam.id !== examId));
-  };
+  }, []);
 
   /**
    * Get exam by ID
    */
-  const getExamById = (examId) => {
+  const getExamById = useCallback((examId) => {
     return exams.find(exam => exam.id === examId) || null;
-  };
+  }, [exams]);
+
+  /**
+   * Get normalized grade value in preferred system for calculations
+   */
+  const getNormalizedGrade = useCallback((exam) => {
+    if (exam.gradeValue === null || exam.gradeValue === undefined) return null;
+    // For legacy exams that use 'grade' instead of 'gradeValue'
+    const value = exam.gradeValue ?? exam.grade;
+    const system = exam.gradeSystem || GRADE_SYSTEMS.PUNKTE;
+    // Always convert to Punkte for consistent calculations
+    return convertGrade(value, system, GRADE_SYSTEMS.PUNKTE);
+  }, []);
 
   /**
    * Calculate exam statistics
    */
   const stats = useMemo(() => {
-    const gradedExams = exams.filter(e => e.grade !== null);
+    const gradedExams = exams.filter(e => {
+      const grade = e.gradeValue ?? e.grade;
+      return grade !== null && grade !== undefined;
+    });
+
     const bySubject = {};
+    const bySemester = {};
 
     gradedExams.forEach(exam => {
+      const grade = getNormalizedGrade(exam);
+      if (grade === null) return;
+
+      // By subject
       if (!bySubject[exam.subject]) {
         bySubject[exam.subject] = { count: 0, totalGrade: 0, totalEcts: 0, grades: [] };
       }
       bySubject[exam.subject].count++;
-      bySubject[exam.subject].totalGrade += exam.grade * exam.ects;
-      bySubject[exam.subject].totalEcts += exam.ects;
-      bySubject[exam.subject].grades.push({ grade: exam.grade, date: exam.date });
+      bySubject[exam.subject].totalGrade += grade * (exam.ects || 1);
+      bySubject[exam.subject].totalEcts += exam.ects || 1;
+      bySubject[exam.subject].grades.push({ grade, date: exam.date });
+
+      // By semester
+      const semester = exam.semester || 'Unbekannt';
+      if (!bySemester[semester]) {
+        bySemester[semester] = { count: 0, totalGrade: 0, totalEcts: 0, grades: [] };
+      }
+      bySemester[semester].count++;
+      bySemester[semester].totalGrade += grade * (exam.ects || 1);
+      bySemester[semester].totalEcts += exam.ects || 1;
+      bySemester[semester].grades.push({ grade, date: exam.date });
     });
 
     const subjectStats = Object.entries(bySubject).map(([subject, data]) => ({
@@ -170,8 +362,18 @@ export const ExamsProvider = ({ children }) => {
       grades: data.grades.sort((a, b) => new Date(a.date) - new Date(b.date))
     }));
 
-    const totalEcts = gradedExams.reduce((sum, e) => sum + e.ects, 0);
-    const weightedSum = gradedExams.reduce((sum, e) => sum + (e.grade * e.ects), 0);
+    const semesterStats = Object.entries(bySemester).map(([semester, data]) => ({
+      semester,
+      count: data.count,
+      average: data.totalEcts > 0 ? (data.totalGrade / data.totalEcts) : 0,
+      grades: data.grades.sort((a, b) => new Date(a.date) - new Date(b.date))
+    }));
+
+    const totalEcts = gradedExams.reduce((sum, e) => sum + (e.ects || 1), 0);
+    const weightedSum = gradedExams.reduce((sum, e) => {
+      const grade = getNormalizedGrade(e);
+      return sum + (grade * (e.ects || 1));
+    }, 0);
     const totalAverage = totalEcts > 0 ? (weightedSum / totalEcts) : 0;
 
     // Grade trend (comparing last 3 exams to previous 3)
@@ -180,16 +382,16 @@ export const ExamsProvider = ({ children }) => {
     const previous = sortedByDate.slice(3, 6);
 
     const recentAvg = recent.length > 0
-      ? recent.reduce((s, e) => s + e.grade, 0) / recent.length
+      ? recent.reduce((s, e) => s + getNormalizedGrade(e), 0) / recent.length
       : 0;
     const previousAvg = previous.length > 0
-      ? previous.reduce((s, e) => s + e.grade, 0) / previous.length
+      ? previous.reduce((s, e) => s + getNormalizedGrade(e), 0) / previous.length
       : 0;
 
     const gradeTrend = previous.length > 0 ? recentAvg - previousAvg : 0;
 
-    // Best and worst grades
-    const allGrades = gradedExams.map(e => e.grade);
+    // Best and worst grades (in Punkte - higher is better)
+    const allGrades = gradedExams.map(e => getNormalizedGrade(e)).filter(g => g !== null);
     const bestGrade = allGrades.length > 0 ? Math.max(...allGrades) : null;
     const worstGrade = allGrades.length > 0 ? Math.min(...allGrades) : null;
 
@@ -198,14 +400,18 @@ export const ExamsProvider = ({ children }) => {
       totalEcts,
       totalAverage,
       subjectStats,
+      semesterStats,
       gradeTrend,
       bestGrade,
       worstGrade,
-      upcomingExams: exams.filter(e => e.grade === null && new Date(e.date) > new Date()),
+      upcomingExams: exams.filter(e => {
+        const grade = e.gradeValue ?? e.grade;
+        return grade === null && new Date(e.date) > new Date();
+      }),
       passedExams: exams.filter(e => e.status === 'bestanden'),
       failedExams: exams.filter(e => e.status === 'nicht bestanden')
     };
-  }, [exams]);
+  }, [exams, getNormalizedGrade]);
 
   const value = {
     exams,
@@ -213,7 +419,16 @@ export const ExamsProvider = ({ children }) => {
     addExam,
     updateExam,
     deleteExam,
-    getExamById
+    getExamById,
+    // Subjects
+    allSubjects,
+    customSubjects,
+    addCustomSubject,
+    removeCustomSubject,
+    // Grade system
+    preferredGradeSystem,
+    setPreferredGradeSystem,
+    getNormalizedGrade,
   };
 
   return (

@@ -46,7 +46,7 @@ const AnalyseDialog = ({ open, onOpenChange, onApply }) => {
         <DialogClose onClose={() => onOpenChange(false)} />
 
         <DialogHeader>
-          <DialogTitle>Ansicht der Leistungsanalyse bearbeiten</DialogTitle>
+          <DialogTitle>Auswertung anpassen</DialogTitle>
           <DialogDescription>
             Passe die Darstellung deiner Leistungsanalyse an.
           </DialogDescription>
@@ -55,7 +55,7 @@ const AnalyseDialog = ({ open, onOpenChange, onApply }) => {
         <DialogBody className="space-y-6">
           {/* Group By Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-900">Analyse nach</label>
+            <label className="text-sm font-medium text-gray-900">Gruppierung</label>
 
             {/* Subject Option */}
             <label className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
@@ -68,8 +68,8 @@ const AnalyseDialog = ({ open, onOpenChange, onApply }) => {
                 className="mt-0.5 w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">Fach</span>
-                <p className="text-xs text-gray-500 mt-0.5">Leistungen je Fach.</p>
+                <span className="text-sm font-medium text-gray-900">Nach Fach</span>
+                <p className="text-xs text-gray-500 mt-0.5">Zeigt Durchschnitt und Anzahl je Fach.</p>
               </div>
             </label>
 
@@ -84,18 +84,18 @@ const AnalyseDialog = ({ open, onOpenChange, onApply }) => {
                 className="mt-0.5 w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">Semester</span>
-                <p className="text-xs text-gray-500 mt-0.5">Leistungen je Semester.</p>
+                <span className="text-sm font-medium text-gray-900">Nach Semester</span>
+                <p className="text-xs text-gray-500 mt-0.5">Zeigt Durchschnitt und Anzahl je Semester.</p>
               </div>
             </label>
           </div>
 
           {/* Date Range */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-900">Zeitrahmen festlegen</label>
+            <label className="text-sm font-medium text-gray-900">Zeitraum</label>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs text-gray-500">Beginn</label>
+                <label className="text-xs text-gray-500">Von</label>
                 <input
                   type="date"
                   value={settings.startDate}
@@ -104,7 +104,7 @@ const AnalyseDialog = ({ open, onOpenChange, onApply }) => {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-gray-500">Ende</label>
+                <label className="text-xs text-gray-500">Bis</label>
                 <input
                   type="date"
                   value={settings.endDate}
@@ -117,7 +117,10 @@ const AnalyseDialog = ({ open, onOpenChange, onApply }) => {
 
           {/* ECTS Weighting Toggle */}
           <div className="flex items-center justify-between py-2">
-            <span className="text-sm text-gray-700">Noten nach ECTS gewichten</span>
+            <div>
+              <span className="text-sm font-medium text-gray-900">ECTS-Gewichtung</span>
+              <p className="text-xs text-gray-500 mt-0.5">Durchschnitt nach ECTS-Punkten gewichten</p>
+            </div>
             <button
               type="button"
               onClick={() => setSettings(prev => ({ ...prev, weightByEcts: !prev.weightByEcts }))}

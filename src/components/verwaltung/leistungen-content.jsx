@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import Button from '../ui/button';
 import { PlusIcon, ChevronDownIcon } from '../ui/icon';
-import { useExams } from '../../contexts/exams-context';
+import { useExams, GRADE_SYSTEMS, formatGrade } from '../../contexts/exams-context';
 
 // Dialog imports
 import NeueKlausurDialog from './dialogs/neue-klausur-dialog.jsx';
@@ -10,22 +10,14 @@ import AnalyseDialog from './dialogs/analyse-dialog.jsx';
 import FilterSortierenDialog from './dialogs/filter-sortieren-dialog.jsx';
 import LoeschenDialog from './dialogs/loeschen-dialog.jsx';
 
-// Status badge colors
-const STATUS_COLORS = {
-  angemeldet: 'bg-blue-100 text-blue-800',
-  bestanden: 'bg-green-100 text-green-800',
-  'nicht bestanden': 'bg-red-100 text-red-800',
-  ausstehend: 'bg-yellow-100 text-yellow-800'
-};
-
 // Subject colors for grades list
 const SUBJECT_COLORS = {
-  'Zivilrecht': 'bg-primary-100 border-primary-200',
-  'Strafrecht': 'bg-red-100 border-red-200',
-  'Öffentliches Recht': 'bg-blue-100 border-blue-200',
-  'Zivilrechtliche Nebengebiete': 'bg-purple-100 border-purple-200',
-  'Rechtsgeschichte': 'bg-amber-100 border-amber-200',
-  'Philosophie': 'bg-gray-100 border-gray-200'
+  'Zivilrecht': 'bg-primary-100 border-primary-200 text-primary-800',
+  'Strafrecht': 'bg-red-100 border-red-200 text-red-800',
+  'Öffentliches Recht': 'bg-green-100 border-green-200 text-green-800',
+  'Zivilrechtliche Nebengebiete': 'bg-purple-100 border-purple-200 text-purple-800',
+  'Rechtsgeschichte': 'bg-amber-100 border-amber-200 text-amber-800',
+  'Philosophie': 'bg-gray-100 border-gray-200 text-gray-800'
 };
 
 /**
@@ -35,7 +27,7 @@ const SUBJECT_COLORS = {
  */
 const LeistungenContent = ({ className = '' }) => {
   // Use ExamsContext for persistent storage
-  const { exams, stats: contextStats, addExam, updateExam, deleteExam } = useExams();
+  const { exams, stats: contextStats, addExam, updateExam, deleteExam, preferredGradeSystem } = useExams();
 
   const [selectedExam, setSelectedExam] = useState(null);
 
@@ -146,7 +138,7 @@ const LeistungenContent = ({ className = '' }) => {
       <div className="flex-1 min-w-0 bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
         {/* Container Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 flex-shrink-0">
-          <h3 className="text-sm font-medium text-gray-900">Klausurenverwaltung</h3>
+          <h3 className="text-sm font-medium text-gray-900">Leistungsübersicht</h3>
           <div className="flex items-center gap-2">
             {/* Search */}
             <div className="relative">
@@ -175,7 +167,7 @@ const LeistungenContent = ({ className = '' }) => {
               className="flex items-center gap-1"
             >
               <PlusIcon size={14} />
-              Neue Klausur
+              Neue Leistung
             </Button>
           </div>
         </div>
@@ -185,62 +177,60 @@ const LeistungenContent = ({ className = '' }) => {
           <table className="w-full table-fixed">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="w-[15%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[18%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fach
                 </th>
-                <th className="w-[25%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Titel
+                <th className="w-[14%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Semester
                 </th>
-                <th className="w-[25%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Beschreibung
+                <th className="w-[30%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Thema
                 </th>
-                <th className="w-[18%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Datum
+                <th className="w-[22%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Datum (Zeit)
                 </th>
-                <th className="w-[7%] px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[16%] px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Note
-                </th>
-                <th className="w-[10%] px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredExams.map((exam) => (
-                <tr
-                  key={exam.id}
-                  onClick={() => handleExamClick(exam)}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
-                >
-                  <td className="px-3 py-2 truncate">
-                    <span className={`inline-block px-2 py-0.5 text-xs rounded border ${SUBJECT_COLORS[exam.subject] || 'bg-gray-100 border-gray-200'}`}>
-                      {exam.subject}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-900 font-medium truncate">
-                    {exam.title}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-500 truncate">
-                    {exam.description || '-'}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-600 truncate">
-                    {formatDate(exam.date)}
-                    {exam.time && <span className="text-gray-400 ml-1">{exam.time}</span>}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-center font-medium text-gray-900">
-                    {exam.grade !== null ? exam.grade : '-'}
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <span className={`inline-block px-2 py-0.5 text-xs rounded ${STATUS_COLORS[exam.status] || 'bg-gray-100 text-gray-800'}`}>
-                      {exam.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {filteredExams.map((exam) => {
+                const gradeValue = exam.gradeValue ?? exam.grade;
+                const gradeSystem = exam.gradeSystem || GRADE_SYSTEMS.PUNKTE;
+                return (
+                  <tr
+                    key={exam.id}
+                    onClick={() => handleExamClick(exam)}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-3 py-2 truncate">
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded border ${SUBJECT_COLORS[exam.subject] || 'bg-gray-100 border-gray-200 text-gray-800'}`}>
+                        {exam.subject}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-600 truncate">
+                      {exam.semester || '-'}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-900 font-medium truncate">
+                      {exam.title}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-600 truncate">
+                      {formatDate(exam.date)}
+                      {exam.time && <span className="text-gray-400 ml-1">({exam.time})</span>}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-center font-medium text-gray-900">
+                      {gradeValue !== null && gradeValue !== undefined
+                        ? formatGrade(gradeValue, gradeSystem)
+                        : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
 
               {filteredExams.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
                     Keine Klausuren gefunden
                   </td>
                 </tr>

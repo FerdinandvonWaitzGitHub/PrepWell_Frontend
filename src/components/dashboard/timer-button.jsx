@@ -4,25 +4,26 @@ import TimerDisplay from './timer/timer-display';
 import TimerSelectionDialog from './timer/timer-selection-dialog';
 import PomodoroSettingsDialog from './timer/pomodoro-settings-dialog';
 import CountdownSettingsDialog from './timer/countdown-settings-dialog';
-import TimerControlsDialog from './timer/timer-controls-dialog';
+import TimerMainDialog from './timer/timer-main-dialog';
 
 /**
  * TimerButton - Main timer component for dashboard
  * Shows either a start button or the active timer display
  *
- * Replaces the old refresh button with:
+ * Features:
  * - Pomodoro Timer
  * - Countdown Timer
  * - Count-up Timer (Stoppuhr)
+ * - Unified timer control dialog with settings and logbuch access
  */
 const TimerButton = ({ className = '' }) => {
-  const { isActive, startPomodoro, startCountdown, startCountup, pomodoroSettings } = useTimer();
+  const { isActive, startPomodoro, startCountdown, startCountup, stopTimer, pomodoroSettings } = useTimer();
 
   // Dialog states
   const [showSelectionDialog, setShowSelectionDialog] = useState(false);
   const [showPomodoroSettings, setShowPomodoroSettings] = useState(false);
   const [showCountdownSettings, setShowCountdownSettings] = useState(false);
-  const [showTimerControls, setShowTimerControls] = useState(false);
+  const [showTimerMain, setShowTimerMain] = useState(false);
 
   // Handle timer type selection
   const handleSelectType = (type) => {
@@ -49,15 +50,45 @@ const TimerButton = ({ className = '' }) => {
     startCountdown(durationMinutes);
   };
 
+  // Handle settings click from main dialog - stop current timer and show selection
+  const handleSettingsClick = () => {
+    stopTimer();
+    setShowTimerMain(false);
+    setShowSelectionDialog(true);
+  };
+
   // If timer is active, show the display
   if (isActive) {
     return (
       <div className={className}>
-        <TimerDisplay onClick={() => setShowTimerControls(true)} />
+        <TimerDisplay onClick={() => setShowTimerMain(true)} />
 
-        <TimerControlsDialog
-          open={showTimerControls}
-          onOpenChange={setShowTimerControls}
+        <TimerMainDialog
+          open={showTimerMain}
+          onOpenChange={setShowTimerMain}
+          onSettingsClick={handleSettingsClick}
+        />
+
+        {/* Timer Type Selection Dialog (accessible via settings) */}
+        <TimerSelectionDialog
+          open={showSelectionDialog}
+          onOpenChange={setShowSelectionDialog}
+          onSelectType={handleSelectType}
+        />
+
+        {/* Pomodoro Settings Dialog */}
+        <PomodoroSettingsDialog
+          open={showPomodoroSettings}
+          onOpenChange={setShowPomodoroSettings}
+          onStart={handleStartPomodoro}
+          initialSettings={pomodoroSettings}
+        />
+
+        {/* Countdown Settings Dialog */}
+        <CountdownSettingsDialog
+          open={showCountdownSettings}
+          onOpenChange={setShowCountdownSettings}
+          onStart={handleStartCountdown}
         />
       </div>
     );

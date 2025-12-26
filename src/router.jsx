@@ -4,9 +4,11 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 // Context Providers
 import { UnterrechtsgebieteProvider } from './contexts';
 import { CalendarProvider } from './contexts/calendar-context';
+import { AppModeProvider } from './contexts/appmode-context';
 import { TimerProvider } from './contexts/timer-context';
 import { MentorProvider } from './contexts/mentor-context';
 import { ExamsProvider } from './contexts/exams-context';
+import { UebungsklausurenProvider } from './contexts/uebungsklausuren-context';
 import { CheckInProvider } from './contexts/checkin-context';
 
 // Pages
@@ -77,15 +79,19 @@ export default function AppRouter() {
   return (
     <UnterrechtsgebieteProvider>
       <CalendarProvider>
-        <TimerProvider>
-          <ExamsProvider>
-            <MentorProvider>
-              <CheckInProvider>
-                <RouterProvider router={router} />
-              </CheckInProvider>
-            </MentorProvider>
-          </ExamsProvider>
-        </TimerProvider>
+        <AppModeProvider>
+          <TimerProvider>
+            <ExamsProvider>
+              <UebungsklausurenProvider>
+                <MentorProvider>
+                  <CheckInProvider>
+                    <RouterProvider router={router} />
+                  </CheckInProvider>
+                </MentorProvider>
+              </UebungsklausurenProvider>
+            </ExamsProvider>
+          </TimerProvider>
+        </AppModeProvider>
       </CalendarProvider>
     </UnterrechtsgebieteProvider>
   );

@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import { useAppMode } from '../../contexts/appmode-context';
 
 /**
  * Navigation component
  * Main navigation menu for the application based on Figma pages
+ *
+ * Adapts to app mode:
+ * - Exam Mode: All navigation items active
+ * - Normal Mode: "Lernplan" items disabled/grayed out
  */
 const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
   const location = useLocation();
   const [openDropdown, setOpenDropdown] = useState(null);
+  const { isNavItemDisabled, isExamMode } = useAppMode();
 
   const navItems = [
     {
@@ -78,6 +84,18 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
       {navItems.map((item, index) => {
         const active = isActive(item);
         const hasSubmenu = !!item.submenu;
+        const disabled = isNavItemDisabled(item.key);
+
+        // Disabled item styling
+        const disabledClass = 'text-gray-300 cursor-not-allowed';
+        const activeClass = 'text-gray-900 border-b border-gray-900 pb-1';
+        const normalClass = 'text-gray-600 hover:text-gray-900';
+
+        const getItemClass = () => {
+          if (disabled) return disabledClass;
+          if (active) return activeClass;
+          return normalClass;
+        };
 
         return (
           <div
@@ -87,31 +105,31 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
             {/* Main Nav Item */}
             {hasSubmenu ? (
               <button
-                onClick={() => toggleDropdown(item.key)}
-                className={`text-sm font-normal transition-colors ${
-                  active
-                    ? 'text-gray-900 border-b border-gray-900 pb-1'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                onClick={() => !disabled && toggleDropdown(item.key)}
+                className={`text-sm font-normal transition-colors ${getItemClass()}`}
                 aria-expanded={openDropdown === item.key}
+                disabled={disabled}
               >
                 {item.label}
               </button>
+            ) : disabled ? (
+              <span
+                className={`text-sm font-normal ${disabledClass}`}
+                title="Nur im Examen-Modus verfügbar"
+              >
+                {item.label}
+              </span>
             ) : (
               <NavLink
                 to={item.to}
-                className={`text-sm font-normal transition-colors ${
-                  active
-                    ? 'text-gray-900 border-b border-gray-900 pb-1'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`text-sm font-normal transition-colors ${getItemClass()}`}
               >
                 {item.label}
               </NavLink>
             )}
 
             {/* Dropdown Menu */}
-            {hasSubmenu && openDropdown === item.key && (
+            {hasSubmenu && openDropdown === item.key && !disabled && (
               <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded shadow-lg py-2 min-w-[180px] z-50">
                 {item.submenu.map((subItem, subIndex) => (
                   <Link

@@ -11,25 +11,7 @@ import {
 } from '../../ui/dialog';
 import Button from '../../ui/button';
 import { ChevronDownIcon } from '../../ui/icon';
-
-// Available subjects for filtering
-const SUBJECTS = [
-  'Zivilrecht',
-  'Strafrecht',
-  'Öffentliches Recht',
-  'Zivilrechtliche Nebengebiete',
-  'Rechtsgeschichte',
-  'Philosophie'
-];
-
-// Sample semesters
-const SEMESTERS = [
-  'WS 2024/25',
-  'SS 2024',
-  'WS 2023/24',
-  'SS 2023',
-  'WS 2022/23'
-];
+import { useExams, SEMESTER_OPTIONS } from '../../../contexts/exams-context';
 
 // Sort options
 const SORT_OPTIONS = [
@@ -75,6 +57,8 @@ const PRESETS = [
  * FilterSortierenDialog - Dialog for filtering and sorting exams
  */
 const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
+  const { allSubjects } = useExams();
+
   // Local filter state
   const [localFilters, setLocalFilters] = useState({
     subjects: [],
@@ -143,9 +127,9 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
         <DialogClose onClose={() => onOpenChange(false)} />
 
         <DialogHeader>
-          <DialogTitle>Klausuren Filtern & Sortieren</DialogTitle>
+          <DialogTitle>Leistungen Filtern & Sortieren</DialogTitle>
           <DialogDescription>
-            Passe die Anzeige deiner Klausuren an.
+            Passe die Anzeige deiner Leistungen an.
           </DialogDescription>
         </DialogHeader>
 
@@ -178,7 +162,7 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-900">Fächer filtern</label>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {SUBJECTS.map(subject => (
+                  {allSubjects.map(subject => (
                     <label
                       key={subject}
                       className="flex items-center gap-3 py-1.5 cursor-pointer"
@@ -199,7 +183,7 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-900">Semester filtern</label>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {SEMESTERS.map(semester => (
+                  {SEMESTER_OPTIONS.map(semester => (
                     <label
                       key={semester}
                       className="flex items-center gap-3 py-1.5 cursor-pointer"

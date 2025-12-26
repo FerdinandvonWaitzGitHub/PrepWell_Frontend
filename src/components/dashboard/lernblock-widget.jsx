@@ -65,6 +65,13 @@ const ChecklistIcon = () => (
   </svg>
 );
 
+const BookIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </svg>
+);
+
 // Drag handle icon
 const DragHandleIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -952,7 +959,120 @@ const MultipleTopicsView = ({
 };
 
 /**
+ * ExamModeView - View for exam mode with Lernplan/Todos toggle
+ * Shows toggle between Lernplan (topics) and To-Dos
+ */
+const ExamModeView = ({
+  topics,
+  tasks,
+  expandedTopicId,
+  onToggleExpand,
+  onToggleTask,
+  onTogglePriority,
+  onAddTask,
+  onEditTask,
+  onRemoveTask,
+}) => {
+  const [viewMode, setViewMode] = useState('lernplan'); // 'lernplan' or 'todos'
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header with Toggle Switch */}
+      <div className="border-b border-gray-200 pb-4">
+        <div className="flex items-center justify-center mb-3">
+          <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('lernplan')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'lernplan'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <BookIcon />
+              <span>Lernplan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('todos')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'todos'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <ChecklistIcon />
+              <span>To-Dos</span>
+            </button>
+          </div>
+        </div>
+
+        <p className="text-sm text-gray-500 text-center">
+          {viewMode === 'lernplan'
+            ? `${topics.length} Lernblöcke für heute geplant`
+            : 'Deine To-Dos'
+          }
+        </p>
+      </div>
+
+      {/* Content */}
+      {viewMode === 'lernplan' ? (
+        <div className="flex flex-col gap-3">
+          {topics.length === 0 ? (
+            <p className="text-sm text-gray-500 py-4 text-center">
+              Keine Lernblöcke für heute geplant.
+            </p>
+          ) : topics.length === 1 ? (
+            <SingleTopicView
+              topic={topics[0]}
+              tasks={tasks}
+              onToggleTask={onToggleTask}
+              onTogglePriority={onTogglePriority}
+              onAddTask={onAddTask}
+              onEditTask={onEditTask}
+              onRemoveTask={onRemoveTask}
+            />
+          ) : (
+            topics.map((topic, index) => (
+              <TopicBlock
+                key={topic.id}
+                topic={topic}
+                index={index}
+                totalTopics={topics.length}
+                isExpanded={expandedTopicId === topic.id}
+                onToggleExpand={() => onToggleExpand(topic.id)}
+                tasks={tasks}
+                onToggleTask={onToggleTask}
+                onTogglePriority={onTogglePriority}
+                onAddTask={onAddTask}
+                onEditTask={onEditTask}
+                onRemoveTask={onRemoveTask}
+              />
+            ))
+          )}
+        </div>
+      ) : (
+        <TaskList
+          tasks={tasks}
+          title="Deine To-Dos"
+          onToggleTask={onToggleTask}
+          onTogglePriority={onTogglePriority}
+          onAddTask={onAddTask}
+          onEditTask={onEditTask}
+          onRemoveTask={onRemoveTask}
+        />
+      )}
+    </div>
+  );
+};
+
+/**
  * Main LernblockWidget Component
+ *
+ * Behavior based on mode:
+ * - Exam Mode: Shows Lernplan/To-Dos toggle (with topics from Lernplan)
+ * - Normal Mode: Shows Themenliste/To-Dos toggle (without topics)
  */
 const LernblockWidget = ({
   className = '',
@@ -968,6 +1088,8 @@ const LernblockWidget = ({
   selectedThemeListId,
   onSelectThemeList,
   onToggleThemeListAufgabe,
+  // Mode prop
+  isExamMode = false,
 }) => {
   // Accordion state - nur ein Topic auf einmal expanded
   const [expandedTopicId, setExpandedTopicId] = useState(() => {
@@ -980,13 +1102,24 @@ const LernblockWidget = ({
     setExpandedTopicId((prev) => (prev === topicId ? null : topicId));
   }, []);
 
-  // Determine which view to show
-  const topicCount = topics.length;
-
   return (
     <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
       <div className="p-5 overflow-y-auto max-h-[730px]">
-        {topicCount === 0 && (
+        {isExamMode ? (
+          // Exam Mode: Lernplan/To-Dos toggle
+          <ExamModeView
+            topics={topics}
+            tasks={tasks}
+            expandedTopicId={expandedTopicId}
+            onToggleExpand={handleToggleExpand}
+            onToggleTask={onToggleTask}
+            onTogglePriority={onTogglePriority}
+            onAddTask={onAddTask}
+            onEditTask={onEditTask}
+            onRemoveTask={onRemoveTask}
+          />
+        ) : (
+          // Normal Mode: Themenliste/To-Dos toggle
           <NoTopicsView
             tasks={tasks}
             onToggleTask={onToggleTask}
@@ -998,32 +1131,6 @@ const LernblockWidget = ({
             selectedThemeListId={selectedThemeListId}
             onSelectThemeList={onSelectThemeList}
             onToggleThemeListAufgabe={onToggleThemeListAufgabe}
-          />
-        )}
-
-        {topicCount === 1 && (
-          <SingleTopicView
-            topic={topics[0]}
-            tasks={tasks}
-            onToggleTask={onToggleTask}
-            onTogglePriority={onTogglePriority}
-            onAddTask={onAddTask}
-            onEditTask={onEditTask}
-            onRemoveTask={onRemoveTask}
-          />
-        )}
-
-        {topicCount > 1 && (
-          <MultipleTopicsView
-            topics={topics}
-            tasks={tasks}
-            expandedTopicId={expandedTopicId}
-            onToggleExpand={handleToggleExpand}
-            onToggleTask={onToggleTask}
-            onTogglePriority={onTogglePriority}
-            onAddTask={onAddTask}
-            onEditTask={onEditTask}
-            onRemoveTask={onRemoveTask}
           />
         )}
       </div>

@@ -1,8 +1,8 @@
 # Product Requirements Document (PRD)
 # PrepWell WebApp
 
-**Version:** 1.1
-**Datum:** 21. Dezember 2025
+**Version:** 1.2
+**Datum:** 26. Dezember 2025
 **Status:** MVP Development
 
 ---
@@ -38,6 +38,7 @@ PrepWell bietet:
 | Routing | React Router | 6.22.0 |
 | Styling | Tailwind CSS | 3.4.15 |
 | Icons | Lucide React | 0.561.0 |
+| Charts | Recharts | 3.6.0 |
 | Validierung | Zod | 4.2.1 |
 | Backend (Dev) | Express | 5.2.1 |
 | KI-Integration | OpenAI API | - |
@@ -102,11 +103,13 @@ PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
 
 **React Context Provider:**
 1. `CalendarProvider` - SSOT für Kalender, Slots, Aufgaben, ContentPlans, Themenlisten
-2. `TimerProvider` - Timer-Zustand, Einstellungen, Session-Historie
-3. `UnterrechtsgebieteProvider` - Verwaltung der Rechtsgebiete-Auswahl
-4. `MentorProvider` - Aktivierungsstatus des Mentors
-5. `CheckInProvider` - Tägliches Check-In System
-6. `ExamsProvider` - Klausuren und Leistungen
+2. `AppModeProvider` - Examen-Modus vs Normal-Modus Erkennung
+3. `TimerProvider` - Timer-Zustand, Einstellungen, Session-Historie
+4. `UnterrechtsgebieteProvider` - Verwaltung der Rechtsgebiete-Auswahl
+5. `MentorProvider` - Aktivierungsstatus des Mentors
+6. `CheckInProvider` - Tägliches Check-In System
+7. `ExamsProvider` - Klausuren und Leistungen (Normal-Modus)
+8. `UebungsklausurenProvider` - Übungsklausuren (Examen-Modus)
 
 **Persistenz:** LocalStorage für alle Daten (offline-fähig)
 
@@ -122,7 +125,10 @@ PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
 | `prepwell_timer_history` | Timer-Session-Historie |
 | `prepwell_mentor_activated` | Mentor-Aktivierungsstatus |
 | `prepwell_checkin_responses` | Check-In Antworten |
-| `prepwell_exams` | Klausuren |
+| `prepwell_exams` | Klausuren (Normal-Modus) |
+| `prepwell_uebungsklausuren` | Übungsklausuren (Examen-Modus) |
+| `prepwell_custom_subjects` | Benutzerdefinierte Fächer |
+| `prepwell_grade_system` | Bevorzugtes Notensystem |
 
 ### 3.3 Projektstruktur
 
@@ -356,6 +362,93 @@ Der Mentor bietet Statistiken und Auswertungen zum Lernfortschritt.
 - `prepwell_checkin_responses` - Check-In Historie
 - `prepwell_timer_history` - Timer-Session-Historie
 
+### 4.9 App-Modus (Examen vs Normal)
+
+Die WebApp unterscheidet zwei grundlegende Betriebsmodi, die das Nutzererlebnis beeinflussen:
+
+**Modi:**
+| Modus | Aktivierung | Beschreibung |
+|-------|-------------|--------------|
+| Examen-Modus | Automatisch wenn Lernplan existiert | Voller Funktionsumfang, Lernplan steuert alles |
+| Normal-Modus | Standard (kein aktiver Lernplan) | Reduzierter Funktionsumfang, Themenlisten-basiert |
+
+**Modus-Erkennung:**
+- Automatisch basierend auf `contentPlans` mit `type: 'lernplan'`
+- Ein aktiver (nicht archivierter) Lernplan → Examen-Modus
+- Kein aktiver Lernplan → Normal-Modus
+
+**Unterschiede:**
+
+| Feature | Examen-Modus | Normal-Modus |
+|---------|--------------|--------------|
+| Navigation "Lernpläne" | Aktiv | Deaktiviert (ausgegraut) |
+| Standard-Kalenderansicht | Monatsansicht | Wochenansicht |
+| Lernplan-Features | Vollständig | Nicht verfügbar |
+| Themenlisten | Via Lernplan | Direkt nutzbar |
+
+**UI-Anpassungen im Normal-Modus:**
+- Deaktivierte Navigation-Items werden grau dargestellt (`text-gray-300`)
+- Cursor zeigt `not-allowed` bei Hover
+- Tooltip: "Nur im Examen-Modus verfügbar"
+
+**Context:**
+```javascript
+const {
+  appMode,           // 'exam' | 'normal'
+  isExamMode,        // boolean
+  isNormalMode,      // boolean
+  activeLernplan,    // aktueller Lernplan oder null
+  isNavItemDisabled, // (key) => boolean
+  defaultCalendarView // 'monat' | 'woche'
+} = useAppMode();
+```
+
+### 4.10 Leistungen & Übungsklausuren
+
+Die Seite `/verwaltung/leistungen` zeigt unterschiedliche Inhalte je nach App-Modus:
+
+**Normal-Modus: Leistungsübersicht**
+
+Verwaltung von Semester-Klausuren und Leistungsnachweisen.
+
+| Feature | Beschreibung |
+|---------|--------------|
+| Notensystem | Dual: Punkte (0-18) ODER Noten (1.0-5.0) |
+| Tabellen-Spalten | Fach, Semester, Thema, Datum (Zeit), Note |
+| Fächer | Vordefiniert + benutzerdefinierte Fächer |
+| Gewichtung | ECTS-basiert für Durchschnittsberechnung |
+| Semester | Auswählbar (WS/SS 2021-2025) |
+
+**Examen-Modus: Übungsklausuren**
+
+Verwaltung von Übungsklausuren zur Staatsexamensvorbereitung.
+
+| Feature | Beschreibung |
+|---------|--------------|
+| Notensystem | Nur Punkte (0-18) |
+| Tabellen-Spalten | Fach, Thema, Datum, Note |
+| Rechtsgebiete | Zivilrecht, Strafrecht, Öffentliches Recht |
+| Auswertung | Popup-Dialog mit Recharts-Diagrammen |
+
+**Auswertungs-Dialog (Examen-Modus):**
+
+| Tab | Visualisierung |
+|-----|----------------|
+| Entwicklung | Liniendiagramm mit Notentrend + laufender Durchschnitt |
+| Gewichtung | Balkendiagramm zur Verteilung nach Rechtsgebiet |
+
+**Statistiken:**
+- Durchschnittsnoten pro Rechtsgebiet
+- Trend-Indikatoren (Verbesserung/Verschlechterung)
+- Beste/niedrigste Note
+- Empfehlungen basierend auf Verteilung
+
+**Dialoge:**
+- Neue Klausur erstellen
+- Klausur bearbeiten/löschen
+- Filtern & Sortieren
+- Auswertung (nur Examen-Modus)
+
 ---
 
 ## 5. Nicht-funktionale Anforderungen
@@ -537,6 +630,16 @@ Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
 - [x] Statistik-Dashboard mit Heatmaps
 - [x] Jahresansicht für Produktivität
 - [x] Timer-Historie für Statistiken
+- [x] App-Modus System (Examen vs Normal)
+- [x] Modus-basierte Navigation
+- [x] Leistungsübersicht (Normal-Modus)
+- [x] Duales Notensystem (Punkte/Noten)
+- [x] ECTS-gewichtete Durchschnitte
+- [x] Benutzerdefinierte Fächer
+- [x] Übungsklausuren (Examen-Modus)
+- [x] Auswertungs-Dialog mit Recharts
+- [x] Notenentwicklungs-Diagramm
+- [x] Rechtsgebiete-Verteilungs-Diagramm
 
 ### 9.2 In Entwicklung (🔄)
 - [ ] Backend-API-Integration
@@ -605,6 +708,12 @@ Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
 | Mentor | KI-gestütztes Statistik- und Auswertungs-Dashboard |
 | Community | Lokal gespeicherte, vom Nutzer geteilte Themenlisten |
 | Heatmap | Farbcodierte Visualisierung von Aktivität/Produktivität |
+| Examen-Modus | App-Modus bei aktivem Lernplan - voller Funktionsumfang |
+| Normal-Modus | App-Modus ohne Lernplan - reduzierte Navigation |
+| Übungsklausuren | Probeklausuren zur Examensvorbereitung (nur Examen-Modus) |
+| Leistungsübersicht | Semester-Klausuren und Noten (nur Normal-Modus) |
+| Punkte | Jura-Notensystem 0-18 (Staatsexamen) |
+| ECTS | European Credit Transfer System - Gewichtung für Durchschnitt |
 
 ---
 

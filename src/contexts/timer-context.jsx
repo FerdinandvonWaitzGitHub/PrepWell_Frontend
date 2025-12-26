@@ -3,6 +3,33 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 // LocalStorage keys
 const STORAGE_KEY = 'prepwell_timer_state';
 const HISTORY_STORAGE_KEY = 'prepwell_timer_history';
+const CONFIG_STORAGE_KEY = 'prepwell_timer_config';
+
+/**
+ * Load timer configuration from localStorage
+ */
+const loadConfigFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading timer config from localStorage:', error);
+  }
+  return null;
+};
+
+/**
+ * Save timer configuration to localStorage
+ */
+const saveConfigToStorage = (config) => {
+  try {
+    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch (error) {
+    console.error('Error saving timer config to localStorage:', error);
+  }
+};
 
 // Timer types
 export const TIMER_TYPES = {
@@ -207,6 +234,7 @@ const getTimeRange = (startTime, endTime) => {
 export const TimerProvider = ({ children }) => {
   // Load initial state from localStorage
   const savedState = loadFromStorage();
+  const savedConfig = loadConfigFromStorage();
 
   const [timerType, setTimerType] = useState(savedState?.timerType || null);
   const [timerState, setTimerState] = useState(savedState?.state || TIMER_STATES.IDLE);
@@ -215,17 +243,20 @@ export const TimerProvider = ({ children }) => {
   const [startTime, setStartTime] = useState(savedState?.startTime ? new Date(savedState.startTime) : null);
   const [endTime, setEndTime] = useState(savedState?.endTime ? new Date(savedState.endTime) : null);
 
+  // Timer configuration (persistent across app restarts)
+  const [timerConfig, setTimerConfig] = useState(savedConfig);
+
   // Pomodoro specific state
   const [pomodoroSettings, setPomodoroSettings] = useState(
-    savedState?.pomodoroSettings || DEFAULT_POMODORO_SETTINGS
+    savedConfig?.pomodoroSettings || savedState?.pomodoroSettings || DEFAULT_POMODORO_SETTINGS
   );
   const [currentSession, setCurrentSession] = useState(savedState?.currentSession || 1);
-  const [totalSessions, setTotalSessions] = useState(savedState?.totalSessions || 4);
+  const [totalSessions, setTotalSessions] = useState(savedConfig?.totalSessions || savedState?.totalSessions || 4);
   const [isBreak, setIsBreak] = useState(savedState?.isBreak || false);
 
   // Countdown specific state
   const [countdownSettings, setCountdownSettings] = useState(
-    savedState?.countdownSettings || DEFAULT_COUNTDOWN_SETTINGS
+    savedConfig?.countdownSettings || savedState?.countdownSettings || DEFAULT_COUNTDOWN_SETTINGS
   );
 
   // Interval ref
@@ -530,6 +561,45 @@ export const TimerProvider = ({ children }) => {
   }, [timerType, timerState, remainingSeconds, elapsedSeconds, startTime, endTime,
       isBreak, pomodoroSettings, countdownSettings]);
 
+  // Save timer configuration (persists across app restarts)
+  const saveTimerConfig = useCallback((config) => {
+    const newConfig = {
+      timerType: config.timerType,
+      pomodoroSettings: config.timerType === TIMER_TYPES.POMODORO ? config.settings : pomodoroSettings,
+      countdownSettings: config.timerType === TIMER_TYPES.COUNTDOWN ? config.settings : countdownSettings,
+      totalSessions: config.totalSessions || totalSessions,
+    };
+    setTimerConfig(newConfig);
+    saveConfigToStorage(newConfig);
+
+    // Update the specific settings
+    if (config.timerType === TIMER_TYPES.POMODORO) {
+      setPomodoroSettings(config.settings);
+    } else if (config.timerType === TIMER_TYPES.COUNTDOWN) {
+      setCountdownSettings(config.settings);
+    }
+    if (config.totalSessions) {
+      setTotalSessions(config.totalSessions);
+    }
+  }, [pomodoroSettings, countdownSettings, totalSessions]);
+
+  // Start timer using saved configuration
+  const startFromConfig = useCallback(() => {
+    if (!timerConfig) return;
+
+    switch (timerConfig.timerType) {
+      case TIMER_TYPES.POMODORO:
+        startPomodoro(timerConfig.pomodoroSettings, timerConfig.totalSessions);
+        break;
+      case TIMER_TYPES.COUNTDOWN:
+        startCountdown(timerConfig.countdownSettings?.duration || 60);
+        break;
+      case TIMER_TYPES.COUNTUP:
+        startCountup();
+        break;
+    }
+  }, [timerConfig, startPomodoro, startCountdown, startCountup]);
+
   const value = {
     // State
     timerType,
@@ -545,6 +615,10 @@ export const TimerProvider = ({ children }) => {
     countdownSettings,
     showNotification,
 
+    // Configuration (persistent)
+    timerConfig,
+    isConfigured: timerConfig !== null,
+
     // Computed
     isActive: timerState !== TIMER_STATES.IDLE,
     isPaused: timerState === TIMER_STATES.PAUSED,
@@ -559,6 +633,8 @@ export const TimerProvider = ({ children }) => {
     togglePause,
     resetSession,
     stopTimer,
+    saveTimerConfig,
+    startFromConfig,
 
     // Display
     getDisplayInfo,
