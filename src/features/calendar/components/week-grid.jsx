@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 /**
  * WeekGrid component
@@ -87,6 +88,22 @@ const WeekGrid = ({
   // Format date key for comparison (YYYY-MM-DD)
   const formatDateKey = (date) => {
     return date.toISOString().split('T')[0];
+  };
+
+  // Count blocks per day to detect full days (4 slots max)
+  const blocksPerDay = useMemo(() => {
+    const counts = {};
+    regularBlocks.forEach(block => {
+      const dateKey = block.date || formatDateKey(new Date());
+      counts[dateKey] = (counts[dateKey] || 0) + 1;
+    });
+    return counts;
+  }, [regularBlocks]);
+
+  // Check if a day has all slots full (4 or more blocks)
+  const isDayFull = (date) => {
+    const dateKey = formatDateKey(date);
+    return (blocksPerDay[dateKey] || 0) >= 4;
   };
 
   // Format date for display (e.g., "13. Dez")
@@ -200,6 +217,7 @@ const WeekGrid = ({
     });
 
     return rows;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multiDayBlocks, weekDates, hasMultiDayBlocks]);
 
   // Limit to 2 visible rows
@@ -221,18 +239,29 @@ const WeekGrid = ({
               {weekDays.map((day, index) => {
                 const date = weekDates[index];
                 const today = isToday(date);
+                const isFull = isDayFull(date);
 
                 return (
                   <th
                     key={day}
                     className={`h-14 border-b border-r border-gray-200 last:border-r-0 font-normal ${
-                      today ? 'bg-primary-50' : 'bg-white'
+                      today ? 'bg-primary-50' : isFull ? 'bg-amber-50' : 'bg-white'
                     }`}
                   >
-                    <div className="flex flex-col items-center justify-center">
-                      <span className={`text-sm font-medium ${today ? 'text-primary-700' : 'text-gray-900'}`}>
-                        {day}
-                      </span>
+                    <div className="flex flex-col items-center justify-center relative">
+                      <div className="flex items-center gap-1">
+                        <span className={`text-sm font-medium ${today ? 'text-primary-700' : 'text-gray-900'}`}>
+                          {day}
+                        </span>
+                        {isFull && (
+                          <span className="group relative">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              Alle Slots belegt
+                            </span>
+                          </span>
+                        )}
+                      </div>
                       <span className={`text-sm ${today ? 'text-primary-600' : 'text-gray-500'}`}>
                         {formatDateDisplay(date)}
                       </span>

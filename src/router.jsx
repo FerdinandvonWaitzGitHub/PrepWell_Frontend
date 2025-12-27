@@ -1,7 +1,7 @@
-import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 // Context Providers
+import { AuthProvider } from './contexts/auth-context';
 import { UnterrechtsgebieteProvider } from './contexts';
 import { CalendarProvider } from './contexts/calendar-context';
 import { AppModeProvider } from './contexts/appmode-context';
@@ -21,6 +21,7 @@ import VerwaltungAufgabenPage from './pages/verwaltung-aufgaben';
 import EinstellungenPage from './pages/einstellungen';
 import MentorPage from './pages/mentor';
 import CheckInPage from './pages/checkin';
+import AuthPage from './pages/Auth';
 
 // Lernplan Wizard
 import { LernplanWizardPage } from './features/lernplan-wizard';
@@ -70,6 +71,10 @@ const router = createBrowserRouter([
     path: '/checkin',
     element: <CheckInPage />,
   },
+  {
+    path: '/auth',
+    element: <AuthPage />,
+  },
 ]);
 
 /**
@@ -77,22 +82,24 @@ const router = createBrowserRouter([
  */
 export default function AppRouter() {
   return (
-    <UnterrechtsgebieteProvider>
-      <CalendarProvider>
-        <AppModeProvider>
-          <TimerProvider>
-            <ExamsProvider>
-              <UebungsklausurenProvider>
-                <MentorProvider>
-                  <CheckInProvider>
-                    <RouterProvider router={router} />
-                  </CheckInProvider>
-                </MentorProvider>
-              </UebungsklausurenProvider>
-            </ExamsProvider>
-          </TimerProvider>
-        </AppModeProvider>
-      </CalendarProvider>
-    </UnterrechtsgebieteProvider>
+    <AuthProvider>
+      <UnterrechtsgebieteProvider>
+        <CalendarProvider>
+          <AppModeProvider>
+            <TimerProvider>
+              <ExamsProvider>
+                <UebungsklausurenProvider>
+                  <MentorProvider>
+                    <CheckInProvider>
+                      <RouterProvider router={router} />
+                    </CheckInProvider>
+                  </MentorProvider>
+                </UebungsklausurenProvider>
+              </ExamsProvider>
+            </TimerProvider>
+          </AppModeProvider>
+        </CalendarProvider>
+      </UnterrechtsgebieteProvider>
+    </AuthProvider>
   );
 }

@@ -1,8 +1,8 @@
 # Product Requirements Document (PRD)
 # PrepWell WebApp
 
-**Version:** 1.5
-**Datum:** 26. Dezember 2025
+**Version:** 1.6
+**Datum:** 27. Dezember 2025
 **Status:** MVP Development
 
 ---
@@ -41,7 +41,9 @@ PrepWell bietet:
 | Charts | Recharts | 3.6.0 |
 | Validierung | Zod | 4.2.1 |
 | Backend | Vercel Serverless Functions | @vercel/node |
-| Datenbank | Vercel KV (Redis) | @vercel/kv |
+| Datenbank (Legacy) | Vercel KV (Redis) | @vercel/kv |
+| **Datenbank (Neu)** | **Supabase (PostgreSQL)** | **@supabase/supabase-js 2.x** |
+| **Auth** | **Supabase Auth** | **eingebaut** |
 | KI-Integration | OpenAI API | gpt-4o-mini |
 | Deployment | Vercel | - |
 | Pre-Commit Hooks | Husky + lint-staged | 9.x / 16.x |
@@ -65,6 +67,44 @@ Automatische Code-Qualitätsprüfung vor jedem Commit.
 2. lint-staged führt ESLint nur auf geänderten Dateien aus
 3. Bei Fehlern wird der Commit abgebrochen
 4. `--fix` behebt automatisch behebbare Probleme
+
+### 2.2 Supabase Integration
+
+**Datenbank-Migration von Vercel KV zu Supabase:**
+
+| Aspekt | Vercel KV (Alt) | Supabase (Neu) |
+|--------|-----------------|----------------|
+| Datenbank | Redis (Key-Value) | PostgreSQL (relational) |
+| Auth | Keine | Email, OAuth, Magic Link |
+| Realtime | Nein | WebSocket-Subscriptions |
+| Row Level Security | Nein | Ja (Policies) |
+
+**Konfiguration (.env.local):**
+```bash
+VITE_SUPABASE_URL=https://[project-ref].supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+```
+
+**Services:**
+```javascript
+import {
+  lernplaeneService,
+  slotsService,
+  aufgabenService,
+  leistungenService,
+  wizardService,
+  // ... weitere Services
+} from './services/supabaseService';
+```
+
+**Auth-Nutzung:**
+```javascript
+import { useAuth } from './contexts/auth-context';
+
+const { user, signIn, signOut, isAuthenticated } = useAuth();
+```
+
+**Schema:** Siehe `supabase/schema.sql` für die komplette Datenbankstruktur.
 
 ---
 

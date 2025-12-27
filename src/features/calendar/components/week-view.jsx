@@ -334,15 +334,44 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
   };
 
-  // Add a new learning block - uses CalendarContext
-  // Creates slots compatible with both contentId and topicId patterns
-  const handleAddBlock = (_date, blockData) => {
-    const dateKey = selectedDate ? formatDateKey(selectedDate) : new Date().toISOString().split('T')[0];
+  // Generate repeat dates based on repeat settings
+  const generateRepeatDates = (startDate, repeatType, repeatCount, customDays) => {
+    const dates = [startDate];
+    const currentDate = new Date(startDate);
 
-    // Get or create day slots
+    for (let i = 1; i < repeatCount; i++) {
+      if (repeatType === 'daily') {
+        currentDate.setDate(currentDate.getDate() + 1);
+        dates.push(new Date(currentDate));
+      } else if (repeatType === 'weekly') {
+        currentDate.setDate(currentDate.getDate() + 7);
+        dates.push(new Date(currentDate));
+      } else if (repeatType === 'monthly') {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        dates.push(new Date(currentDate));
+      } else if (repeatType === 'custom' && customDays && customDays.length > 0) {
+        // Find next matching day
+        let found = false;
+        let attempts = 0;
+        while (!found && attempts < 365) {
+          currentDate.setDate(currentDate.getDate() + 1);
+          attempts++;
+          if (customDays.includes(currentDate.getDay())) {
+            dates.push(new Date(currentDate));
+            found = true;
+          }
+        }
+      }
+    }
+    return dates;
+  };
+
+  // Add a slot for a single date (helper function)
+  const addSlotForDate = (date, blockData, blockId) => {
+    const dateKey = formatDateKey(date);
     const daySlots = slotsByDate[dateKey] || [];
 
-    // Find next available position - check for slots with content (both patterns)
+    // Find next available position
     const usedPositions = daySlots
       .filter(s => s.status === 'topic' || s.contentId || s.topicId)
       .map(s => s.position);
@@ -352,47 +381,34 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
 
     if (nextPosition > 4) {
-      console.warn('No available slots for this day');
-      return;
+      console.warn('No available slots for date:', dateKey);
+      return null;
     }
 
-    // Generate a unified ID for both patterns
-    const blockId = blockData.id || `content-${Date.now()}`;
-
-    // Create new slot with BOTH contentId and topicId for cross-view compatibility
     const newSlot = {
-      id: `slot-${dateKey}-${nextPosition}`,
+      id: `slot-${dateKey}-${nextPosition}-${Date.now()}`,
       date: dateKey,
       position: nextPosition,
       status: 'topic',
-      // Both ID patterns for compatibility
       contentId: blockId,
       topicId: blockId,
-      // Both title patterns for compatibility
       title: blockData.title,
       topicTitle: blockData.title,
       blockType: blockData.blockType || 'lernblock',
       description: blockData.description || '',
       rechtsgebiet: blockData.rechtsgebiet,
       unterrechtsgebiet: blockData.unterrechtsgebiet,
-      // Time settings
       hasTime: blockData.hasTime || false,
       startTime: blockData.startTime,
       endTime: blockData.endTime,
       startHour: blockData.startHour,
       duration: blockData.duration,
-      // Repeat settings
-      repeatEnabled: blockData.repeatEnabled || false,
-      repeatType: blockData.repeatType,
-      repeatCount: blockData.repeatCount,
-      customDays: blockData.customDays,
-      // Tasks
+      repeatEnabled: false, // Individual slots don't need repeat flag
       tasks: blockData.tasks || [],
-      isFromLernplan: false, // Manual creation, not from wizard
+      isFromLernplan: false,
       createdAt: new Date().toISOString(),
     };
 
-    // Update slots
     const existingSlotIndex = daySlots.findIndex(s => s.position === nextPosition);
     let updatedSlots;
     if (existingSlotIndex >= 0) {
@@ -402,7 +418,53 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       updatedSlots = [...daySlots, newSlot];
     }
 
-    updateDaySlots(dateKey, updatedSlots);
+    return { dateKey, updatedSlots };
+  };
+
+  // Add a new learning block - uses CalendarContext
+  // Creates slots compatible with both contentId and topicId patterns
+  // Supports creating multiple slots when repeat is enabled
+  const handleAddBlock = (_date, blockData) => {
+    const startDate = selectedDate || new Date();
+    const blockId = blockData.id || `content-${Date.now()}`;
+
+    // Check if repeat is enabled
+    if (blockData.repeatEnabled && blockData.repeatCount > 1) {
+      // Generate all dates for the repeat
+      const repeatDates = generateRepeatDates(
+        startDate,
+        blockData.repeatType,
+        blockData.repeatCount,
+        blockData.customDays
+      );
+
+      // Create slots for each date
+      const updates = {};
+      repeatDates.forEach((date, index) => {
+        const result = addSlotForDate(date, blockData, `${blockId}-${index}`);
+        if (result) {
+          // Merge with any existing updates for this date
+          if (updates[result.dateKey]) {
+            updates[result.dateKey] = [...updates[result.dateKey], ...result.updatedSlots.filter(s =>
+              !updates[result.dateKey].some(existing => existing.id === s.id)
+            )];
+          } else {
+            updates[result.dateKey] = result.updatedSlots;
+          }
+        }
+      });
+
+      // Apply all updates
+      Object.entries(updates).forEach(([dateKey, slots]) => {
+        updateDaySlots(dateKey, slots);
+      });
+    } else {
+      // Single slot creation (original behavior)
+      const result = addSlotForDate(startDate, blockData, blockId);
+      if (result) {
+        updateDaySlots(result.dateKey, result.updatedSlots);
+      }
+    }
   };
 
   // Calculate end time based on start time and block size (1 slot = 2 hours)

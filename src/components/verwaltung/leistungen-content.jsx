@@ -27,7 +27,7 @@ const SUBJECT_COLORS = {
  */
 const LeistungenContent = ({ className = '' }) => {
   // Use ExamsContext for persistent storage
-  const { exams, stats: contextStats, addExam, updateExam, deleteExam, preferredGradeSystem } = useExams();
+  const { exams, addExam, updateExam, deleteExam } = useExams();
 
   const [selectedExam, setSelectedExam] = useState(null);
 
@@ -50,20 +50,115 @@ const LeistungenContent = ({ className = '' }) => {
     sortDirection: 'desc'
   });
 
-  // Calculate statistics for display (formatted)
+  // Analyse settings state
+  const [analyseSettings, setAnalyseSettings] = useState({
+    groupBy: 'subject',
+    startDate: '',
+    endDate: '',
+    weightByEcts: true
+  });
+
+  // Calculate statistics for display with analyse settings applied
   const stats = useMemo(() => {
-    const subjectStats = (contextStats.subjectStats || []).map(s => ({
-      subject: s.subject,
-      count: s.count,
-      average: s.average > 0 ? s.average.toFixed(1) : '-'
-    }));
+    // Filter exams by date range if set
+    let filteredForAnalysis = [...exams];
+
+    if (analyseSettings.startDate) {
+      const startDate = new Date(analyseSettings.startDate);
+      filteredForAnalysis = filteredForAnalysis.filter(e => new Date(e.date) >= startDate);
+    }
+
+    if (analyseSettings.endDate) {
+      const endDate = new Date(analyseSettings.endDate);
+      filteredForAnalysis = filteredForAnalysis.filter(e => new Date(e.date) <= endDate);
+    }
+
+    // Group by subject or semester
+    const grouped = {};
+    filteredForAnalysis.forEach(exam => {
+      const key = analyseSettings.groupBy === 'semester'
+        ? (exam.semester || 'Kein Semester')
+        : exam.subject;
+
+      if (!grouped[key]) {
+        grouped[key] = { items: [], totalGrade: 0, totalEcts: 0, count: 0 };
+      }
+
+      const gradeValue = exam.gradeValue ?? exam.grade;
+      if (gradeValue !== null && gradeValue !== undefined) {
+        const ects = exam.ects || 1;
+        if (analyseSettings.weightByEcts) {
+          grouped[key].totalGrade += gradeValue * ects;
+          grouped[key].totalEcts += ects;
+        } else {
+          grouped[key].totalGrade += gradeValue;
+        }
+        grouped[key].count++;
+      }
+      grouped[key].items.push(exam);
+    });
+
+    // Calculate averages
+    const groupedStats = Object.keys(grouped).map(key => {
+      const group = grouped[key];
+      let average = 0;
+      if (analyseSettings.weightByEcts && group.totalEcts > 0) {
+        average = group.totalGrade / group.totalEcts;
+      } else if (group.count > 0) {
+        average = group.totalGrade / group.count;
+      }
+
+      return {
+        label: key,
+        count: group.items.length,
+        average: average > 0 ? average.toFixed(1) : '-'
+      };
+    });
+
+    // Sort by label
+    groupedStats.sort((a, b) => {
+      if (analyseSettings.groupBy === 'semester') {
+        // Sort semesters numerically
+        const numA = parseInt(a.label) || 999;
+        const numB = parseInt(b.label) || 999;
+        return numA - numB;
+      }
+      return a.label.localeCompare(b.label);
+    });
+
+    // Calculate total
+    let totalAverage = 0;
+    let totalGrade = 0;
+    let totalEcts = 0;
+    let totalCount = 0;
+
+    filteredForAnalysis.forEach(exam => {
+      const gradeValue = exam.gradeValue ?? exam.grade;
+      if (gradeValue !== null && gradeValue !== undefined) {
+        const ects = exam.ects || 1;
+        if (analyseSettings.weightByEcts) {
+          totalGrade += gradeValue * ects;
+          totalEcts += ects;
+        } else {
+          totalGrade += gradeValue;
+        }
+        totalCount++;
+      }
+    });
+
+    if (analyseSettings.weightByEcts && totalEcts > 0) {
+      totalAverage = totalGrade / totalEcts;
+    } else if (totalCount > 0) {
+      totalAverage = totalGrade / totalCount;
+    }
 
     return {
-      subjectStats,
-      totalCount: contextStats.totalCount || 0,
-      totalAverage: contextStats.totalAverage > 0 ? contextStats.totalAverage.toFixed(1) : '-'
+      groupedStats,
+      totalCount: filteredForAnalysis.length,
+      totalAverage: totalAverage > 0 ? totalAverage.toFixed(1) : '-',
+      groupBy: analyseSettings.groupBy
     };
-  }, [contextStats]);
+  }, [exams, analyseSettings]);
 
   // Filtered exams
   const filteredExams = useMemo(() => {
@@ -248,7 +343,21 @@ const LeistungenContent = ({ className = '' }) => {
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 flex-shrink-0">
             <div className="flex flex-col">
               <h3 className="text-sm font-medium text-gray-900">Leistungsanalyse</h3>
-              <span className="text-sm text-gray-500">12.11.15 → heute</span>
+              <span className="text-sm text-gray-500">
+                {analyseSettings.startDate || analyseSettings.endDate ? (
+                  <>
+                    {analyseSettings.startDate
+                      ? new Date(analyseSettings.startDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                      : 'Anfang'
+                    }
+                    {' → '}
+                    {analyseSettings.endDate
+                      ? new Date(analyseSettings.endDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                      : 'heute'
+                    }
+                  </>
+                ) : 'Alle Zeiträume'}
+              </span>
             </div>
             <button
               onClick={() => setIsAnalyseOpen(true)}
@@ -263,22 +372,30 @@ const LeistungenContent = ({ className = '' }) => {
           <div className="divide-y divide-gray-100 flex-1 overflow-auto">
             {/* Table Header */}
             <div className="grid grid-cols-3 gap-2 px-3 py-1.5 bg-gray-50 text-xs font-medium text-gray-500 uppercase">
-              <div>Fach</div>
+              <div>{stats.groupBy === 'semester' ? 'Semester' : 'Fach'}</div>
               <div className="text-center">Anzahl</div>
               <div className="text-center">Durchschnitt</div>
             </div>
 
             {/* Table Rows */}
-            {stats.subjectStats.map((stat) => (
+            {stats.groupedStats.map((stat) => (
               <div
-                key={stat.subject}
+                key={stat.label}
                 className="grid grid-cols-3 gap-2 px-3 py-1.5 text-sm hover:bg-gray-50"
               >
-                <div className="text-gray-900 truncate">{stat.subject}</div>
+                <div className="text-gray-900 truncate">
+                  {stats.groupBy === 'semester' ? `${stat.label}. Semester` : stat.label}
+                </div>
                 <div className="text-center text-gray-600">{stat.count}</div>
                 <div className="text-center text-gray-900 font-medium">{stat.average}</div>
               </div>
             ))}
+
+            {stats.groupedStats.length === 0 && (
+              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                Keine Daten für den gewählten Zeitraum
+              </div>
+            )}
 
             {/* Total Row */}
             <div className="grid grid-cols-3 gap-2 px-3 py-1.5 text-sm bg-gray-50 font-medium">
@@ -315,7 +432,7 @@ const LeistungenContent = ({ className = '' }) => {
       <AnalyseDialog
         open={isAnalyseOpen}
         onOpenChange={setIsAnalyseOpen}
-        onApply={(settings) => console.log('Analyse settings:', settings)}
+        onApply={setAnalyseSettings}
       />
 
       <FilterSortierenDialog
