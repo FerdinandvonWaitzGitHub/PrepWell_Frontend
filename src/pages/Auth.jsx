@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/auth-context';
@@ -14,8 +14,24 @@ export default function Auth() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { signIn, signUp, resetPassword, isSupabaseEnabled } = useAuth();
+  const { signIn, signUp, resetPassword, isSupabaseEnabled, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  // Clear form when switching modes
+  const handleModeSwitch = (newMode) => {
+    setMode(newMode);
+    setError('');
+    setSuccess('');
+    setPassword('');
+    setConfirmPassword('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,6 +70,15 @@ export default function Auth() {
     }
   };
 
+  // Show loading spinner while checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!isSupabaseEnabled) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -88,7 +113,7 @@ export default function Auth() {
         {/* Mode Tabs */}
         <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
           <button
-            onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+            onClick={() => handleModeSwitch('login')}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
               mode === 'login' ? 'bg-white shadow text-blue-600' : 'text-gray-600'
             }`}
@@ -96,7 +121,7 @@ export default function Auth() {
             Anmelden
           </button>
           <button
-            onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
+            onClick={() => handleModeSwitch('register')}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
               mode === 'register' ? 'bg-white shadow text-blue-600' : 'text-gray-600'
             }`}
@@ -222,7 +247,7 @@ export default function Auth() {
             <div className="text-right">
               <button
                 type="button"
-                onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }}
+                onClick={() => handleModeSwitch('forgot')}
                 className="text-sm text-blue-600 hover:underline"
               >
                 Passwort vergessen?
@@ -252,7 +277,7 @@ export default function Auth() {
         {/* Back to Login (Forgot mode) */}
         {mode === 'forgot' && (
           <button
-            onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+            onClick={() => handleModeSwitch('login')}
             className="w-full mt-4 text-sm text-gray-600 hover:text-gray-800"
           >
             ← Zurück zur Anmeldung
