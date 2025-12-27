@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 /**
  * LernblockWidget component
@@ -656,7 +656,31 @@ const ThemeListView = ({
 };
 
 /**
+ * Helper function to get Rechtsgebiet color based on ID or name
+ */
+const getRechtsgebietColor = (rechtsgebiet) => {
+  const name = typeof rechtsgebiet === 'object' ? rechtsgebiet?.id || rechtsgebiet?.name : rechtsgebiet;
+  const lowerName = (name || '').toLowerCase();
+
+  if (lowerName.includes('öffentlich') || lowerName.includes('oeffentlich') || lowerName === 'oeffentliches-recht') {
+    return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200' };
+  }
+  if (lowerName.includes('zivil') || lowerName === 'zivilrecht') {
+    return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' };
+  }
+  if (lowerName.includes('straf') || lowerName === 'strafrecht') {
+    return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
+  }
+  if (lowerName.includes('querschnitt') || lowerName === 'querschnitt') {
+    return { bg: 'bg-violet-100', text: 'text-violet-800', border: 'border-violet-200' };
+  }
+  // Default
+  return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
+};
+
+/**
  * TopicBlock component - einzelner Topic Block (für Accordion)
+ * Design based on Figma: Rechtsgebiet-Tag, Titel, Beschreibung, Aufgaben
  */
 const TopicBlock = ({
   topic,
@@ -671,37 +695,47 @@ const TopicBlock = ({
   onEditTask,
   onRemoveTask,
 }) => {
+  const rechtsgebietColors = getRechtsgebietColor(topic.rechtsgebiet);
+  const rechtsgebietName = typeof topic.rechtsgebiet === 'object' ? topic.rechtsgebiet?.name : topic.rechtsgebiet || 'Rechtsgebiet';
+
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div className={`rounded-xl overflow-hidden bg-white border-2 ${rechtsgebietColors.border} shadow-sm hover:shadow-md transition-shadow`}>
       {/* Header - always visible */}
       <div
-        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="p-5 cursor-pointer hover:bg-gray-50/50 transition-colors"
         onClick={onToggleExpand}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            {/* Badges */}
-            <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-black text-white text-xs font-medium">
-                {typeof topic.rechtsgebiet === 'object' ? topic.rechtsgebiet?.name : topic.rechtsgebiet || 'Rechtsgebiet'}
+            {/* Rechtsgebiet Badge - prominent styling like Figma */}
+            <div className="flex items-center gap-3 mb-3">
+              <span className={`inline-flex items-center px-3 py-1.5 rounded-lg ${rechtsgebietColors.bg} ${rechtsgebietColors.text} text-sm font-semibold`}>
+                {rechtsgebietName}
               </span>
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-gray-200 text-xs text-gray-600">
-                {index + 1} von {totalTopics} Blöcken
+              <span className="text-xs text-gray-400 font-medium">
+                Block {index + 1}/{totalTopics}
               </span>
             </div>
 
-            {/* Title */}
-            <h3 className={`text-base font-medium text-gray-900 leading-snug ${isExpanded ? '' : 'line-clamp-2'}`}>
+            {/* Title - larger and more prominent */}
+            <h3 className={`text-lg font-semibold text-gray-900 leading-snug ${isExpanded ? '' : 'line-clamp-2'}`}>
               {topic.title || 'Lernblock'}
             </h3>
+
+            {/* Description preview when collapsed */}
+            {!isExpanded && topic.description && (
+              <p className="text-sm text-gray-500 mt-2 line-clamp-1">
+                {topic.description}
+              </p>
+            )}
           </div>
 
-          {/* Expand/Collapse Button */}
+          {/* Expand/Collapse Button - cleaner design */}
           <button
             type="button"
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors flex-shrink-0"
           >
-            <span>{isExpanded ? 'Einklappen' : 'Ausklappen'}</span>
+            <span className="hidden sm:inline">{isExpanded ? 'Einklappen' : 'Details'}</span>
             {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
           </button>
         </div>
@@ -709,10 +743,10 @@ const TopicBlock = ({
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="px-4 pb-4 border-t border-gray-100">
+        <div className="px-5 pb-5 border-t border-gray-100 bg-gray-50/30">
           {/* Description */}
           {topic.description && (
-            <p className="text-sm text-gray-600 mt-3 mb-4">
+            <p className="text-sm text-gray-600 mt-4 mb-5 leading-relaxed">
               {topic.description}
             </p>
           )}
@@ -737,6 +771,7 @@ const TopicBlock = ({
 
 /**
  * SingleTopicView - Ansicht für einen einzelnen Topic
+ * Design based on Figma: Single prominent Lernplan card
  */
 const SingleTopicView = ({
   topic,
@@ -747,40 +782,47 @@ const SingleTopicView = ({
   onEditTask,
   onRemoveTask,
 }) => {
+  const rechtsgebietColors = getRechtsgebietColor(topic.rechtsgebiet);
+  const rechtsgebietName = typeof topic.rechtsgebiet === 'object' ? topic.rechtsgebiet?.name : topic.rechtsgebiet || 'Rechtsgebiet';
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Topic Info */}
-      <div className="border-b border-gray-200 pb-4">
-        {/* Badge */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-black text-white text-xs font-medium">
-            {typeof topic.rechtsgebiet === 'object' ? topic.rechtsgebiet?.name : topic.rechtsgebiet || 'Rechtsgebiet'}
-          </span>
+    <div className="flex flex-col gap-5">
+      {/* Topic Card - styled like Figma Lernplan panel */}
+      <div className={`rounded-xl border-2 ${rechtsgebietColors.border} bg-white overflow-hidden`}>
+        <div className="p-5">
+          {/* Rechtsgebiet Badge */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg ${rechtsgebietColors.bg} ${rechtsgebietColors.text} text-sm font-semibold`}>
+              {rechtsgebietName}
+            </span>
+          </div>
+
+          {/* Title */}
+          <h3 className="text-xl font-semibold text-gray-900 leading-snug mb-3">
+            {topic.title || 'Lernblock'}
+          </h3>
+
+          {/* Description */}
+          {topic.description && (
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {topic.description}
+            </p>
+          )}
         </div>
 
-        {/* Title */}
-        <h3 className="text-lg font-medium text-gray-900 leading-snug mb-2 line-clamp-3">
-          {topic.title || 'Lernblock'}
-        </h3>
-
-        {/* Description */}
-        {topic.description && (
-          <p className="text-sm text-gray-600">
-            {topic.description}
-          </p>
-        )}
+        {/* Tasks section */}
+        <div className="px-5 pb-5 pt-2 border-t border-gray-100 bg-gray-50/50">
+          <TaskList
+            tasks={tasks}
+            title="Aufgaben"
+            onToggleTask={onToggleTask}
+            onTogglePriority={onTogglePriority}
+            onAddTask={onAddTask}
+            onEditTask={onEditTask}
+            onRemoveTask={onRemoveTask}
+          />
+        </div>
       </div>
-
-      {/* Tasks */}
-      <TaskList
-        tasks={tasks}
-        title="Aufgaben zum Tagesthema"
-        onToggleTask={onToggleTask}
-        onTogglePriority={onTogglePriority}
-        onAddTask={onAddTask}
-        onEditTask={onEditTask}
-        onRemoveTask={onRemoveTask}
-      />
     </div>
   );
 };
@@ -911,49 +953,6 @@ const NoTopicsView = ({
           onToggleAufgabe={onToggleThemeListAufgabe}
         />
       )}
-    </div>
-  );
-};
-
-/**
- * MultipleTopicsView - Accordion-Ansicht für mehrere Topics
- */
-const MultipleTopicsView = ({
-  topics,
-  tasks,
-  expandedTopicId,
-  onToggleExpand,
-  onToggleTask,
-  onTogglePriority,
-  onAddTask,
-  onEditTask,
-  onRemoveTask,
-}) => {
-  return (
-    <div className="flex flex-col gap-3">
-      {/* Header */}
-      <div className="border-b border-gray-200 pb-4">
-        <h2 className="text-xl font-semibold text-gray-900">Lernblöcke</h2>
-        <p className="text-sm text-gray-500 mt-1">{topics.length} Blöcke für heute geplant</p>
-      </div>
-
-      {/* Topic Blocks */}
-      {topics.map((topic, index) => (
-        <TopicBlock
-          key={topic.id}
-          topic={topic}
-          index={index}
-          totalTopics={topics.length}
-          isExpanded={expandedTopicId === topic.id}
-          onToggleExpand={() => onToggleExpand(topic.id)}
-          tasks={tasks}
-          onToggleTask={onToggleTask}
-          onTogglePriority={onTogglePriority}
-          onAddTask={onAddTask}
-          onEditTask={onEditTask}
-          onRemoveTask={onRemoveTask}
-        />
-      ))}
     </div>
   );
 };

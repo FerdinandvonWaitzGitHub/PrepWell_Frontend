@@ -1,9 +1,39 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
+
+/**
+ * Helper function to get Rechtsgebiet color based on ID or name
+ */
+const getRechtsgebietColor = (rechtsgebiet, blockType) => {
+  // For private blocks, always gray
+  if (blockType === 'private') {
+    return { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-700' };
+  }
+
+  const name = typeof rechtsgebiet === 'object' ? rechtsgebiet?.id || rechtsgebiet?.name : rechtsgebiet;
+  const lowerName = (name || '').toLowerCase();
+
+  if (lowerName.includes('öffentlich') || lowerName.includes('oeffentlich') || lowerName === 'oeffentliches-recht') {
+    return { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-900' };
+  }
+  if (lowerName.includes('zivil') || lowerName === 'zivilrecht') {
+    return { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-900' };
+  }
+  if (lowerName.includes('straf') || lowerName === 'strafrecht') {
+    return { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-900' };
+  }
+  if (lowerName.includes('querschnitt') || lowerName === 'querschnitt') {
+    return { bg: 'bg-violet-50', border: 'border-violet-300', text: 'text-violet-900' };
+  }
+
+  // Default - blue tint
+  return { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-900' };
+};
 
 /**
  * ZeitplanWidget component
  * Displays today's schedule with timeline (6-22 hours)
  * Now with Backend integration via callbacks
+ * Design based on Figma: Timeline with colored blocks and "Lernzeitraum blockiert"
  *
  * Status: Backend-connected
  */
@@ -90,33 +120,33 @@ const ZeitplanWidget = ({
 
   return (
     <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      {/* Header - Figma style */}
+      <div className="px-5 py-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-base font-semibold text-gray-900">Zeitplan für heute</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-lg font-semibold text-gray-900">Zeitplan für heute</h2>
             {plannedLabel ? (
-              <span className="inline-flex items-center px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
                 {plannedLabel}
               </span>
             ) : null}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={handlePreviousDay}
-              className="h-8 w-8 flex items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+              className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
               aria-label="Vorheriger Tag"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
             <button
               onClick={handleNextDay}
-              className="h-8 w-8 flex items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+              className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
               aria-label="Nächster Tag"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 6l6 6-6 6" />
               </svg>
             </button>
@@ -173,6 +203,7 @@ const ZeitplanWidget = ({
             {scheduledBlocks.map((block, index) => {
               const isBlocked = block.isBlocked;
               const isDragOver = dragOverBlockId === block.id;
+              const blockColors = getRechtsgebietColor(block.rechtsgebiet, block.blockType);
 
               const handleDragOver = (e) => {
                 e.preventDefault();
@@ -202,15 +233,40 @@ const ZeitplanWidget = ({
                 }
               };
 
+              // Blocked state: "Lernzeitraum blockiert" - gray with striped pattern
+              if (isBlocked) {
+                return (
+                  <div
+                    key={block.id || index}
+                    className="absolute left-2 right-2 cursor-pointer rounded-xl border-2 border-gray-300 p-3 flex flex-col overflow-hidden transition-all hover:shadow-md bg-gray-100"
+                    style={{
+                      ...getBlockStyle(block.startHour, block.duration),
+                      backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(156, 163, 175, 0.1) 10px, rgba(156, 163, 175, 0.1) 20px)',
+                    }}
+                    onClick={() => onBlockClick && onBlockClick(block)}
+                  >
+                    <div className="flex-1 flex flex-col justify-center items-center">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-500">Lernzeitraum blockiert</span>
+                      </div>
+                      {block.title && (
+                        <p className="text-xs text-gray-400 mt-1">{block.title}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={block.id || index}
-                  className={`absolute left-2 right-2 cursor-pointer rounded-lg border-2 p-3 flex flex-col overflow-hidden transition-all hover:shadow-lg ${
+                  className={`absolute left-2 right-2 cursor-pointer rounded-xl border-2 p-3 flex flex-col overflow-hidden transition-all hover:shadow-lg ${
                     isDragOver
                       ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300'
-                      : isBlocked
-                        ? 'bg-gray-100 border-gray-300 text-gray-500'
-                        : 'bg-blue-50 border-blue-200 hover:border-blue-400'
+                      : `${blockColors.bg} ${blockColors.border} hover:shadow-md`
                   }`}
                   style={getBlockStyle(block.startHour, block.duration)}
                   onClick={() => onBlockClick && onBlockClick(block)}
@@ -221,49 +277,54 @@ const ZeitplanWidget = ({
                 >
                   {/* Drop indicator overlay */}
                   {isDragOver && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-blue-100/90 rounded-lg z-10 pointer-events-none">
+                    <div className="absolute inset-0 flex items-center justify-center bg-blue-100/90 rounded-xl z-10 pointer-events-none">
                       <span className="text-sm font-medium text-blue-600">Aufgabe hier ablegen</span>
                     </div>
                   )}
 
                   {/* Content - pointer-events-none to not interfere with drag */}
                   <div className="pointer-events-none flex-1 flex flex-col justify-center">
-                    {/* Title and Tasks Row */}
-                    <div className="flex items-center">
-                      {/* Title */}
-                      <p className={`font-semibold leading-tight shrink-0 ${
-                        isBlocked ? 'text-gray-500' : 'text-gray-900'
-                      }`}>
+                    {/* Title Row */}
+                    <div className="flex items-center gap-3">
+                      {/* Title with colored indicator */}
+                      <p className={`font-semibold leading-tight ${blockColors.text}`}>
                         {block.title || 'Lernblock'}
                       </p>
 
-                      {/* Tasks - horizontal layout */}
-                      {block.tasks && block.tasks.length > 0 && (
-                        <div className="flex-1 flex items-center gap-4 min-w-0 pl-6">
-                          {block.tasks.slice(0, 2).map((task, taskIndex) => (
-                            <div key={task.id || taskIndex} className="flex items-center gap-2 min-w-0">
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${
-                                task.completed ? 'bg-green-500' : 'bg-blue-500'
-                              }`} />
-                              <span className={`text-sm truncate ${
-                                task.completed ? 'text-gray-400 line-through' : 'text-gray-700'
-                              }`}>
-                                {task.text}
-                              </span>
-                            </div>
-                          ))}
-                          {block.tasks.length > 2 && (
-                            <span className="text-sm text-gray-500">
-                              +{block.tasks.length - 2}
-                            </span>
-                          )}
-                        </div>
+                      {/* Time display */}
+                      {block.startTime && block.endTime && (
+                        <span className="text-xs text-gray-500 font-medium">
+                          {block.startTime} - {block.endTime}
+                        </span>
                       )}
                     </div>
 
+                    {/* Tasks - horizontal layout */}
+                    {block.tasks && block.tasks.length > 0 && (
+                      <div className="flex items-center gap-4 min-w-0 mt-2">
+                        {block.tasks.slice(0, 2).map((task, taskIndex) => (
+                          <div key={task.id || taskIndex} className="flex items-center gap-2 min-w-0">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${
+                              task.completed ? 'bg-green-500' : 'bg-gray-400'
+                            }`} />
+                            <span className={`text-sm truncate ${
+                              task.completed ? 'text-gray-400 line-through' : 'text-gray-600'
+                            }`}>
+                              {task.text}
+                            </span>
+                          </div>
+                        ))}
+                        {block.tasks.length > 2 && (
+                          <span className="text-xs text-gray-500 font-medium">
+                            +{block.tasks.length - 2} weitere
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Description (if space allows) */}
                     {block.description && block.duration >= 2 && (
-                      <p className="text-xs text-gray-600 mt-2 line-clamp-2">
+                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">
                         {block.description}
                       </p>
                     )}
