@@ -4,10 +4,10 @@
  */
 const SubHeader = ({ title = 'Dashboard', actions, className = '' }) => {
   return (
-    <div className={`flex items-center justify-between bg-white px-4 py-2 border-b border-gray-200 ${className}`}>
+    <div className={`flex items-center justify-between bg-white px-4 py-2 border-b border-neutral-200 ${className}`}>
       {/* Title */}
       <div className="flex items-center">
-        <h1 className="text-lg font-light text-gray-900">{title}</h1>
+        <h1 className="text-lg font-light text-neutral-900">{title}</h1>
       </div>
 
       {/* Actions (Timer, Zeiterfassung, etc.) */}

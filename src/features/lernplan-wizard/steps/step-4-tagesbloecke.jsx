@@ -102,9 +102,9 @@ const Step4Tagesbloecke = () => {
 
       <div className="flex flex-col items-center gap-7 py-7">
         {/* Blocks per Day Selector Card */}
-        <div className="p-5 bg-white rounded-[10px] border border-gray-200">
+        <div className="p-5 bg-white rounded-[10px] border border-neutral-200">
           <div className="flex items-center gap-5">
-            <span className="text-lg font-light text-gray-900">
+            <span className="text-lg font-light text-neutral-900">
               Blöcke pro Tag
             </span>
 
@@ -115,26 +115,26 @@ const Step4Tagesbloecke = () => {
                 className="flex items-center"
               >
                 {/* Number Display */}
-                <div className="h-9 pl-5 pr-4 py-2 bg-gray-50 rounded-l-lg border border-gray-200 flex items-center justify-center">
-                  <span className="text-sm font-light text-gray-900">
+                <div className="h-9 pl-5 pr-4 py-2 bg-neutral-50 rounded-l-lg border border-neutral-200 flex items-center justify-center">
+                  <span className="text-sm font-light text-neutral-900">
                     {blocksPerDay}
                   </span>
                 </div>
                 {/* Chevron Button */}
-                <div className="w-9 h-9 bg-gray-50 rounded-r-lg border-t border-r border-b border-gray-200 flex items-center justify-center text-gray-900">
+                <div className="w-9 h-9 bg-neutral-50 rounded-r-lg border-t border-r border-b border-neutral-200 flex items-center justify-center text-neutral-900">
                   <ChevronDownIcon />
                 </div>
               </button>
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-10 min-w-[80px]">
+                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border border-neutral-200 shadow-lg z-10 min-w-[80px]">
                   {blockOptions.map((option) => (
                     <button
                       key={option}
                       onClick={() => handleSelect(option)}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                        option === blocksPerDay ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-900'
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                        option === blocksPerDay ? 'bg-blue-50 text-blue-600 font-medium' : 'text-neutral-900'
                       }`}
                     >
                       {option}
@@ -149,18 +149,18 @@ const Step4Tagesbloecke = () => {
         {/* Stats Info */}
         <div className="w-full max-w-[520px] p-4 bg-blue-50/50 rounded-lg flex flex-col gap-4">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-neutral-900">
               Blöcke pro Woche
             </span>
-            <span className="text-lg font-light text-gray-900">
+            <span className="text-lg font-light text-neutral-900">
               {blocksPerWeek}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-neutral-900">
               Blöcke gesamt
             </span>
-            <span className="text-lg font-light text-gray-900">
+            <span className="text-lg font-light text-neutral-900">
               {totalBlocks}
             </span>
           </div>

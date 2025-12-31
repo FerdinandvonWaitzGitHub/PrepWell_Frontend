@@ -54,34 +54,34 @@ const DiagrammDialog = ({ open, onOpenChange, onApply }) => {
           {/* View Mode Selection */}
           <div className="space-y-3">
             {/* Custom Option */}
-            <label className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-white border border-neutral-200 rounded-lg cursor-pointer hover:bg-neutral-50 transition-colors">
               <input
                 type="radio"
                 name="viewMode"
                 value="custom"
                 checked={settings.viewMode === 'custom'}
                 onChange={(e) => setSettings(prev => ({ ...prev, viewMode: e.target.value }))}
-                className="mt-0.5 w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
+                className="mt-0.5 w-4 h-4 text-neutral-900 border-neutral-300 focus:ring-neutral-900"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">Benutzerdefiniert</span>
-                <p className="text-xs text-gray-500 mt-0.5">Zeitrahmen selbst festlegen.</p>
+                <span className="text-sm font-medium text-neutral-900">Benutzerdefiniert</span>
+                <p className="text-xs text-neutral-500 mt-0.5">Zeitrahmen selbst festlegen.</p>
               </div>
             </label>
 
             {/* Total Study Option */}
-            <label className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-white border border-neutral-200 rounded-lg cursor-pointer hover:bg-neutral-50 transition-colors">
               <input
                 type="radio"
                 name="viewMode"
                 value="total"
                 checked={settings.viewMode === 'total'}
                 onChange={(e) => setSettings(prev => ({ ...prev, viewMode: e.target.value }))}
-                className="mt-0.5 w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
+                className="mt-0.5 w-4 h-4 text-neutral-900 border-neutral-300 focus:ring-neutral-900"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">Gesamtes Studium</span>
-                <p className="text-xs text-gray-500 mt-0.5">Semesterdurchschnitte über die Gesamtdauer anzeigen.</p>
+                <span className="text-sm font-medium text-neutral-900">Gesamtes Studium</span>
+                <p className="text-xs text-neutral-500 mt-0.5">Semesterdurchschnitte über die Gesamtdauer anzeigen.</p>
               </div>
             </label>
           </div>
@@ -89,24 +89,24 @@ const DiagrammDialog = ({ open, onOpenChange, onApply }) => {
           {/* Date Range - Only shown when custom is selected */}
           {settings.viewMode === 'custom' && (
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-900">Zeitrahmen festlegen</label>
+              <label className="text-sm font-medium text-neutral-900">Zeitrahmen festlegen</label>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-500">Beginn auswählen</label>
+                  <label className="text-xs text-neutral-500">Beginn auswählen</label>
                   <input
                     type="date"
                     value={settings.startDate}
                     onChange={(e) => setSettings(prev => ({ ...prev, startDate: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                    className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-gray-500">Ende auswählen</label>
+                  <label className="text-xs text-neutral-500">Ende auswählen</label>
                   <input
                     type="date"
                     value={settings.endDate}
                     onChange={(e) => setSettings(prev => ({ ...prev, endDate: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                    className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
                   />
                 </div>
               </div>

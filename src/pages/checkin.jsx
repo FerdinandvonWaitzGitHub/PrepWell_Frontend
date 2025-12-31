@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import CheckInQuestionnaire from '../components/mentor/checkin-questionnaire';
 import GoodNightScreen from '../components/mentor/good-night-screen';
 import { useCheckIn } from '../contexts/checkin-context';
+import { useAuth } from '../contexts/auth-context';
 
 /**
  * CheckIn Page - Full-page questionnaire for Well Score
@@ -11,6 +12,7 @@ import { useCheckIn } from '../contexts/checkin-context';
 const CheckInPage = () => {
   const navigate = useNavigate();
   const { getCurrentPeriod } = useCheckIn();
+  const { getFirstName, signOut, isAuthenticated } = useAuth();
   const [showGoodNight, setShowGoodNight] = useState(false);
 
   const handleComplete = () => {
@@ -26,9 +28,10 @@ const CheckInPage = () => {
     navigate('/');
   };
 
-  const handleLogout = () => {
-    // Clear any auth data here if needed
-    // For now, just navigate to home
+  const handleLogout = async () => {
+    if (isAuthenticated) {
+      await signOut();
+    }
     navigate('/');
   };
 
@@ -36,7 +39,7 @@ const CheckInPage = () => {
   if (showGoodNight) {
     return (
       <GoodNightScreen
-        userName="User" // TODO: Replace with actual user name
+        userName={getFirstName() || 'User'}
         onLogout={handleLogout}
       />
     );

@@ -35,7 +35,7 @@ const MethodCard = ({ method, isSelected, onSelect }) => {
       className={`flex-1 p-6 bg-white rounded-[10px] flex flex-col justify-between items-end min-h-[280px] cursor-pointer transition-all ${
         isSelected
           ? 'outline outline-2 outline-offset-[-2px] outline-slate-600'
-          : 'outline outline-1 outline-offset-[-1px] outline-gray-200 hover:outline-gray-300'
+          : 'outline outline-1 outline-offset-[-1px] outline-neutral-200 hover:outline-neutral-300'
       }`}
       onClick={onSelect}
     >
@@ -53,12 +53,12 @@ const MethodCard = ({ method, isSelected, onSelect }) => {
           )}
 
           {/* Title */}
-          <div className="self-stretch text-gray-900 text-lg font-light leading-5">
+          <div className="self-stretch text-neutral-900 text-lg font-light leading-5">
             {method.title}
           </div>
 
           {/* Description */}
-          <div className="self-stretch text-gray-500 text-sm font-light leading-5">
+          <div className="self-stretch text-neutral-500 text-sm font-light leading-5">
             {method.description}
           </div>
         </div>
@@ -71,7 +71,7 @@ const MethodCard = ({ method, isSelected, onSelect }) => {
           className={`px-5 py-2.5 rounded-3xl flex justify-center items-center gap-2 transition-all ${
             isSelected
               ? 'bg-slate-600 text-white'
-              : 'outline outline-1 outline-offset-[-1px] outline-gray-300 text-gray-700 hover:bg-gray-50'
+              : 'outline outline-1 outline-offset-[-1px] outline-neutral-300 text-neutral-700 hover:bg-neutral-50'
           }`}
         >
           <span className="text-sm font-light">

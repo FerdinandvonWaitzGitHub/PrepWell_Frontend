@@ -26,13 +26,6 @@ const ChevronUpIcon = () => (
   </svg>
 );
 
-const EditIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-  </svg>
-);
-
 const TrashIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="3 6 5 6 21 6" />
@@ -72,62 +65,48 @@ const BookIcon = () => (
   </svg>
 );
 
-// Drag handle icon
 const DragHandleIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-    <circle cx="9" cy="6" r="2" />
-    <circle cx="15" cy="6" r="2" />
-    <circle cx="9" cy="12" r="2" />
-    <circle cx="15" cy="12" r="2" />
-    <circle cx="9" cy="18" r="2" />
-    <circle cx="15" cy="18" r="2" />
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="5" r="1" />
+    <circle cx="9" cy="12" r="1" />
+    <circle cx="9" cy="19" r="1" />
+    <circle cx="15" cy="5" r="1" />
+    <circle cx="15" cy="12" r="1" />
+    <circle cx="15" cy="19" r="1" />
   </svg>
 );
 
+
 /**
- * TaskItem component - einzelne Aufgabe (draggable)
+ * TaskItem component - einzelne Aufgabe
+ * Figma Design:
+ * - Expanded (with description): bg-neutral-100, NO border, rounded-lg, p-2.5
+ * - Collapsed (no description): border border-neutral-200, bg-white, rounded-lg
+ * - Dual "!" priority indicators
+ * - Only trash icon on hover (no edit, no drag handle)
  */
 const TaskItem = ({
   task,
   onToggle,
   onTogglePriority,
-  onEdit,
   onDelete,
   isEditing,
   editText,
   onEditChange,
   onEditSubmit,
   onEditCancel,
-  draggable = true,
-  dragSource = 'todos',
 }) => {
-  const handleDragStart = (e) => {
-    e.dataTransfer.setData('application/json', JSON.stringify({
-      type: 'task',
-      source: dragSource,
-      task: {
-        id: task.id,
-        text: task.text,
-        completed: task.completed,
-        priority: task.priority,
-      }
-    }));
-    e.dataTransfer.effectAllowed = 'copy';
-    e.currentTarget.classList.add('opacity-50');
-  };
-
-  const handleDragEnd = (e) => {
-    e.currentTarget.classList.remove('opacity-50');
-  };
+  // Determine if expanded (has description) or collapsed
+  const hasDescription = task.description && task.description.trim().length > 0;
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 bg-white">
+      <div className="flex items-center gap-3 p-2.5 rounded-lg bg-neutral-100">
         <input
           type="checkbox"
           checked={task.completed}
           onChange={() => onToggle(task.id)}
-          className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500 flex-shrink-0"
+          className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 flex-shrink-0"
         />
         <input
           type="text"
@@ -143,7 +122,7 @@ const TaskItem = ({
         <button
           type="button"
           onClick={onEditSubmit}
-          className="text-xs text-gray-600 hover:text-gray-900"
+          className="text-xs text-neutral-600 hover:text-neutral-900"
         >
           OK
         </button>
@@ -151,63 +130,73 @@ const TaskItem = ({
     );
   }
 
+  // Determine priority level (0, 1, or 2 exclamation marks active)
+  const priorityLevel = task.priority === 'high' ? 2 : task.priority === 'medium' ? 1 : 0;
+
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 bg-white group cursor-grab active:cursor-grabbing"
-      draggable={draggable}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      className={`flex items-center gap-3 p-2.5 rounded-lg group transition-all ${
+        hasDescription
+          ? 'bg-neutral-100'
+          : 'border border-neutral-200 bg-white'
+      }`}
     >
-      {/* Drag Handle */}
-      <span className="text-gray-300 group-hover:text-gray-400 flex-shrink-0">
-        <DragHandleIcon />
-      </span>
       <input
         type="checkbox"
         checked={task.completed}
         onChange={() => onToggle(task.id)}
         onClick={(e) => e.stopPropagation()}
-        className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500 flex-shrink-0"
+        className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 flex-shrink-0"
       />
-      <span className={`flex-1 text-sm ${task.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-        {task.text}
-      </span>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
+          {task.text}
+        </span>
+        {hasDescription && (
+          <p className="text-xs text-neutral-400 mt-0.5 line-clamp-1">
+            {task.description}
+          </p>
+        )}
+      </div>
+      <div className="flex items-center gap-0.5">
+        {/* Dual "!" priority indicators - Figma style */}
         <button
           type="button"
-          onClick={() => onTogglePriority(task.id)}
-          className={`w-6 h-6 flex items-center justify-center rounded text-sm font-bold transition-colors ${
-            task.priority === 'high'
-              ? 'text-yellow-600 bg-yellow-50'
-              : 'text-gray-400 hover:text-yellow-600 hover:bg-yellow-50'
+          onClick={() => onTogglePriority(task.id, 1)}
+          className={`text-xl font-semibold transition-colors ${
+            priorityLevel >= 1 ? 'text-neutral-900' : 'text-neutral-200 hover:text-neutral-400'
           }`}
-          title="Als wichtig markieren"
+          title="Priorität 1"
         >
           !
         </button>
         <button
           type="button"
-          onClick={() => onEdit(task.id)}
-          className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          title="Bearbeiten"
+          onClick={() => onTogglePriority(task.id, 2)}
+          className={`text-xl font-semibold transition-colors ${
+            priorityLevel >= 2 ? 'text-neutral-900' : 'text-neutral-200 hover:text-neutral-400'
+          }`}
+          title="Priorität 2"
         >
-          <EditIcon />
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(task.id)}
-          className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-          title="Löschen"
-        >
-          <TrashIcon />
+          !
         </button>
       </div>
+      {/* Trash icon - only on hover */}
+      <button
+        type="button"
+        onClick={() => onDelete(task.id)}
+        className="w-6 h-6 flex items-center justify-center rounded text-neutral-300 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 transition-all"
+        title="Löschen"
+      >
+        <TrashIcon />
+      </button>
     </div>
   );
 };
 
 /**
  * TaskList component - Liste von Aufgaben
+ * Figma Design: Simple "Neue Aufgabe" button without border box
  */
 const TaskList = ({
   tasks,
@@ -215,11 +204,8 @@ const TaskList = ({
   onToggleTask,
   onTogglePriority,
   onAddTask,
-  onEditTask,
   onRemoveTask,
 }) => {
-  const [editingTaskId, setEditingTaskId] = useState(null);
-  const [editText, setEditText] = useState('');
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
 
@@ -228,27 +214,6 @@ const TaskList = ({
     const completed = tasks.filter((t) => t.completed).length;
     return { total, completed };
   }, [tasks]);
-
-  const handleStartEdit = (taskId) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (task) {
-      setEditingTaskId(taskId);
-      setEditText(task.text);
-    }
-  };
-
-  const handleEditSubmit = () => {
-    if (editingTaskId && editText.trim() && onEditTask) {
-      onEditTask(editingTaskId, editText.trim());
-    }
-    setEditingTaskId(null);
-    setEditText('');
-  };
-
-  const handleEditCancel = () => {
-    setEditingTaskId(null);
-    setEditText('');
-  };
 
   const handleAddNew = () => {
     setIsAddingNew(true);
@@ -272,8 +237,8 @@ const TaskList = ({
     <div className="flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-gray-900">{title}</h4>
-        <span className="text-xs text-gray-500">
+        <h4 className="text-sm font-medium text-neutral-900">{title}</h4>
+        <span className="text-xs text-neutral-500">
           {stats.completed}/{stats.total} erledigt
         </span>
       </div>
@@ -286,27 +251,21 @@ const TaskList = ({
             task={task}
             onToggle={onToggleTask}
             onTogglePriority={onTogglePriority}
-            onEdit={handleStartEdit}
             onDelete={onRemoveTask}
-            isEditing={editingTaskId === task.id}
-            editText={editText}
-            onEditChange={setEditText}
-            onEditSubmit={handleEditSubmit}
-            onEditCancel={handleEditCancel}
           />
         ))}
 
         {tasks.length === 0 && !isAddingNew && (
-          <p className="text-sm text-gray-500 py-2">Noch keine Aufgaben hinzugefügt.</p>
+          <p className="text-sm text-neutral-400 py-2">Noch keine Aufgaben hinzugefügt.</p>
         )}
 
         {/* New Task Input */}
         {isAddingNew && (
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 bg-white">
+          <div className="flex items-center gap-3 p-2.5 rounded-lg border border-neutral-200 bg-white">
             <input
               type="checkbox"
               disabled
-              className="h-4 w-4 rounded border-gray-300 text-gray-900 flex-shrink-0 opacity-50"
+              className="h-4 w-4 rounded border-neutral-300 text-neutral-900 flex-shrink-0 opacity-50"
             />
             <input
               type="text"
@@ -323,7 +282,7 @@ const TaskList = ({
             <button
               type="button"
               onClick={handleNewTaskSubmit}
-              className="text-xs text-gray-600 hover:text-gray-900"
+              className="text-xs text-neutral-600 hover:text-neutral-900"
             >
               OK
             </button>
@@ -331,16 +290,14 @@ const TaskList = ({
         )}
       </div>
 
-      {/* Add Task Button */}
+      {/* Add Task Button - Figma: Simple text with Plus icon, NO border box */}
       <button
         type="button"
         onClick={handleAddNew}
         disabled={isAddingNew}
-        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50"
+        className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 transition-colors disabled:opacity-50"
       >
-        <span className="w-6 h-6 flex items-center justify-center rounded border border-gray-300 bg-white">
-          <PlusIcon />
-        </span>
+        <PlusIcon />
         <span>Neue Aufgabe</span>
       </button>
     </div>
@@ -373,27 +330,27 @@ const ThemeListUnterrechtsgebietRow = ({
   });
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div className="border border-neutral-200 rounded-lg overflow-hidden bg-white">
       {/* Unterrechtsgebiet Header */}
       <button
         onClick={onToggleExpand}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-neutral-50 transition-colors"
       >
         <div className="flex items-center gap-3">
           <ChevronDownIcon className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-          <span className="text-sm font-medium text-gray-900">{unterrechtsgebiet.name}</span>
+          <span className="text-sm font-medium text-neutral-900">{unterrechtsgebiet.name}</span>
           {unterrechtsgebiet.rechtsgebiet && (
-            <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+            <span className="text-xs px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded">
               {unterrechtsgebiet.rechtsgebiet}
             </span>
           )}
         </div>
-        <span className="text-xs text-gray-500">{completedCount}/{totalCount}</span>
+        <span className="text-xs text-neutral-500">{completedCount}/{totalCount}</span>
       </button>
 
       {/* Expanded: Kapitel */}
       {isExpanded && unterrechtsgebiet.kapitel && (
-        <div className="border-t border-gray-100 bg-gray-50">
+        <div className="border-t border-neutral-100 bg-neutral-50">
           {unterrechtsgebiet.kapitel.map((kapitel) => (
             <ThemeListKapitelRow
               key={kapitel.id}
@@ -433,22 +390,22 @@ const ThemeListKapitelRow = ({
   });
 
   return (
-    <div className="border-b border-gray-100 last:border-b-0">
+    <div className="border-b border-neutral-100 last:border-b-0">
       {/* Kapitel Header */}
       <button
         onClick={onToggleExpand}
-        className="w-full flex items-center justify-between px-6 py-2.5 hover:bg-gray-100 transition-colors"
+        className="w-full flex items-center justify-between px-6 py-2.5 hover:bg-neutral-100 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <ChevronDownIcon className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-          <span className="text-sm font-medium text-gray-700">{kapitel.title}</span>
+          <ChevronDownIcon className={`text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          <span className="text-sm font-medium text-neutral-700">{kapitel.title}</span>
         </div>
-        <span className="text-xs text-gray-500">{completedCount}/{totalCount}</span>
+        <span className="text-xs text-neutral-500">{completedCount}/{totalCount}</span>
       </button>
 
       {/* Expanded: Themen */}
       {isExpanded && kapitel.themen && (
-        <div className="bg-white border-t border-gray-100">
+        <div className="bg-white border-t border-neutral-100">
           {kapitel.themen.map((thema) => (
             <ThemeListThemaRow
               key={thema.id}
@@ -508,15 +465,15 @@ const ThemeListThemaRow = ({
   };
 
   return (
-    <div className="border-b border-gray-50 last:border-b-0">
+    <div className="border-b border-neutral-50 last:border-b-0">
       {/* Thema Header */}
       <button
         onClick={onToggleExpand}
-        className="w-full flex items-center justify-between px-8 py-2 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-8 py-2 hover:bg-neutral-50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <ChevronDownIcon className={`text-gray-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-          <span className="text-sm text-gray-600">{thema.title}</span>
+          <ChevronDownIcon className={`text-neutral-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          <span className="text-sm text-neutral-600">{thema.title}</span>
         </div>
         <div className="flex items-center gap-2">
           {scheduledCount > 0 && (
@@ -524,13 +481,13 @@ const ThemeListThemaRow = ({
               {scheduledCount} eingeplant
             </span>
           )}
-          <span className="text-xs text-gray-400">{completedCount}/{totalCount}</span>
+          <span className="text-xs text-neutral-400">{completedCount}/{totalCount}</span>
         </div>
       </button>
 
       {/* Expanded: Aufgaben */}
       {isExpanded && thema.aufgaben && thema.aufgaben.length > 0 && (
-        <div className="px-8 pb-2 bg-gray-50">
+        <div className="px-8 pb-2 bg-neutral-50">
           {thema.aufgaben.map((aufgabe) => {
             const isScheduled = !!aufgabe.scheduledInBlock;
 
@@ -540,7 +497,7 @@ const ThemeListThemaRow = ({
                 className={`flex items-center gap-3 py-1.5 pl-4 rounded transition-colors group ${
                   isScheduled
                     ? 'opacity-50 cursor-default'
-                    : 'cursor-grab active:cursor-grabbing hover:bg-gray-100'
+                    : 'cursor-grab active:cursor-grabbing hover:bg-neutral-100'
                 }`}
                 draggable={!isScheduled}
                 onDragStart={(e) => handleAufgabeDragStart(e, aufgabe)}
@@ -548,7 +505,7 @@ const ThemeListThemaRow = ({
                 title={isScheduled ? `Eingeplant: ${aufgabe.scheduledInBlock.blockTitle} (${aufgabe.scheduledInBlock.date})` : undefined}
               >
                 {/* Drag Handle - hidden for scheduled */}
-                <span className={`flex-shrink-0 ${isScheduled ? 'text-gray-200' : 'text-gray-300 group-hover:text-gray-400'}`}>
+                <span className={`flex-shrink-0 ${isScheduled ? 'text-neutral-200' : 'text-neutral-300 group-hover:text-neutral-400'}`}>
                   {isScheduled ? (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -563,16 +520,16 @@ const ThemeListThemaRow = ({
                   onChange={() => onToggleAufgabe(aufgabe.id)}
                   onClick={(e) => e.stopPropagation()}
                   disabled={isScheduled}
-                  className={`h-4 w-4 rounded border-gray-300 focus:ring-gray-500 ${
-                    isScheduled ? 'text-gray-400' : 'text-gray-900'
+                  className={`h-4 w-4 rounded border-neutral-300 focus:ring-neutral-500 ${
+                    isScheduled ? 'text-neutral-400' : 'text-neutral-900'
                   }`}
                 />
                 <span className={`text-sm ${
                   isScheduled
-                    ? 'text-gray-400 italic'
+                    ? 'text-neutral-400 italic'
                     : aufgabe.completed
-                      ? 'text-gray-400 line-through'
-                      : 'text-gray-700'
+                      ? 'text-neutral-400 line-through'
+                      : 'text-neutral-700'
                 }`}>
                   {aufgabe.title}
                 </span>
@@ -606,7 +563,7 @@ const ThemeListView = ({
 }) => {
   if (!themeList) {
     return (
-      <div className="text-sm text-gray-500 py-4">
+      <div className="text-sm text-neutral-500 py-4">
         Keine Themenliste ausgewählt.
       </div>
     );
@@ -619,15 +576,15 @@ const ThemeListView = ({
     <div className="flex flex-col gap-3">
       {/* Stats */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-600 font-medium">{themeList.name}</span>
-        <span className="text-gray-500">{progress.completed}/{progress.total} Aufgaben</span>
+        <span className="text-neutral-600 font-medium">{themeList.name}</span>
+        <span className="text-neutral-500">{progress.completed}/{progress.total} Aufgaben</span>
       </div>
 
       {/* Progress Bar */}
       {progress.total > 0 && (
-        <div className="w-full bg-gray-200 rounded-full h-1.5">
+        <div className="w-full bg-neutral-200 rounded-full h-1.5">
           <div
-            className="bg-gray-900 h-1.5 rounded-full transition-all"
+            className="bg-neutral-900 h-1.5 rounded-full transition-all"
             style={{ width: `${Math.round((progress.completed / progress.total) * 100)}%` }}
           />
         </div>
@@ -635,7 +592,7 @@ const ThemeListView = ({
 
       {/* Unterrechtsgebiet Blocks */}
       {unterrechtsgebiete.length === 0 ? (
-        <p className="text-sm text-gray-500 py-2">Diese Themenliste hat keine Inhalte.</p>
+        <p className="text-sm text-neutral-500 py-2">Diese Themenliste hat keine Inhalte.</p>
       ) : (
         unterrechtsgebiete.map((urg) => (
           <ThemeListUnterrechtsgebietRow
@@ -675,7 +632,7 @@ const getRechtsgebietColor = (rechtsgebiet) => {
     return { bg: 'bg-violet-100', text: 'text-violet-800', border: 'border-violet-200' };
   }
   // Default
-  return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
+  return { bg: 'bg-neutral-100', text: 'text-neutral-800', border: 'border-neutral-200' };
 };
 
 /**
@@ -692,7 +649,6 @@ const TopicBlock = ({
   onToggleTask,
   onTogglePriority,
   onAddTask,
-  onEditTask,
   onRemoveTask,
 }) => {
   const rechtsgebietColors = getRechtsgebietColor(topic.rechtsgebiet);
@@ -702,7 +658,7 @@ const TopicBlock = ({
     <div className={`rounded-xl overflow-hidden bg-white border-2 ${rechtsgebietColors.border} shadow-sm hover:shadow-md transition-shadow`}>
       {/* Header - always visible */}
       <div
-        className="p-5 cursor-pointer hover:bg-gray-50/50 transition-colors"
+        className="p-5 cursor-pointer hover:bg-neutral-50/50 transition-colors"
         onClick={onToggleExpand}
       >
         <div className="flex items-start justify-between gap-4">
@@ -712,19 +668,19 @@ const TopicBlock = ({
               <span className={`inline-flex items-center px-3 py-1.5 rounded-lg ${rechtsgebietColors.bg} ${rechtsgebietColors.text} text-sm font-semibold`}>
                 {rechtsgebietName}
               </span>
-              <span className="text-xs text-gray-400 font-medium">
+              <span className="text-xs text-neutral-400 font-medium">
                 Block {index + 1}/{totalTopics}
               </span>
             </div>
 
-            {/* Title - larger and more prominent */}
-            <h3 className={`text-lg font-semibold text-gray-900 leading-snug ${isExpanded ? '' : 'line-clamp-2'}`}>
+            {/* Title - Figma: text-2xl font-extralight */}
+            <h3 className={`text-2xl font-extralight text-neutral-900 leading-snug ${isExpanded ? '' : 'line-clamp-2'}`}>
               {topic.title || 'Lernblock'}
             </h3>
 
-            {/* Description preview when collapsed */}
+            {/* Description preview when collapsed - Figma: text-neutral-400 */}
             {!isExpanded && topic.description && (
-              <p className="text-sm text-gray-500 mt-2 line-clamp-1">
+              <p className="text-sm text-neutral-400 mt-2 line-clamp-1">
                 {topic.description}
               </p>
             )}
@@ -733,7 +689,7 @@ const TopicBlock = ({
           {/* Expand/Collapse Button - cleaner design */}
           <button
             type="button"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors flex-shrink-0"
           >
             <span className="hidden sm:inline">{isExpanded ? 'Einklappen' : 'Details'}</span>
             {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
@@ -743,10 +699,10 @@ const TopicBlock = ({
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="px-5 pb-5 border-t border-gray-100 bg-gray-50/30">
-          {/* Description */}
+        <div className="px-5 pb-5 border-t border-neutral-100 bg-neutral-50/30">
+          {/* Description - Figma: text-neutral-400 */}
           {topic.description && (
-            <p className="text-sm text-gray-600 mt-4 mb-5 leading-relaxed">
+            <p className="text-sm text-neutral-400 mt-4 mb-5 leading-relaxed">
               {topic.description}
             </p>
           )}
@@ -759,7 +715,6 @@ const TopicBlock = ({
               onToggleTask={onToggleTask}
               onTogglePriority={onTogglePriority}
               onAddTask={onAddTask}
-              onEditTask={onEditTask}
               onRemoveTask={onRemoveTask}
             />
           </div>
@@ -779,7 +734,6 @@ const SingleTopicView = ({
   onToggleTask,
   onTogglePriority,
   onAddTask,
-  onEditTask,
   onRemoveTask,
 }) => {
   const rechtsgebietColors = getRechtsgebietColor(topic.rechtsgebiet);
@@ -797,28 +751,27 @@ const SingleTopicView = ({
             </span>
           </div>
 
-          {/* Title */}
-          <h3 className="text-xl font-semibold text-gray-900 leading-snug mb-3">
+          {/* Title - Figma: text-2xl font-extralight */}
+          <h3 className="text-2xl font-extralight text-neutral-900 leading-snug mb-3">
             {topic.title || 'Lernblock'}
           </h3>
 
-          {/* Description */}
+          {/* Description - Figma: text-neutral-400 */}
           {topic.description && (
-            <p className="text-sm text-gray-600 leading-relaxed">
+            <p className="text-sm text-neutral-400 leading-relaxed">
               {topic.description}
             </p>
           )}
         </div>
 
         {/* Tasks section */}
-        <div className="px-5 pb-5 pt-2 border-t border-gray-100 bg-gray-50/50">
+        <div className="px-5 pb-5 pt-2 border-t border-neutral-100 bg-neutral-50/50">
           <TaskList
             tasks={tasks}
             title="Aufgaben"
             onToggleTask={onToggleTask}
             onTogglePriority={onTogglePriority}
             onAddTask={onAddTask}
-            onEditTask={onEditTask}
             onRemoveTask={onRemoveTask}
           />
         </div>
@@ -835,7 +788,6 @@ const NoTopicsView = ({
   onToggleTask,
   onTogglePriority,
   onAddTask,
-  onEditTask,
   onRemoveTask,
   // Themenliste props
   themeLists = [],
@@ -872,18 +824,18 @@ const NoTopicsView = ({
   return (
     <div className="flex flex-col gap-4">
       {/* Header with Toggle Switch */}
-      <div className="border-b border-gray-200 pb-4">
+      <div className="border-b border-neutral-200 pb-4">
         {/* Toggle Switch - only show if there are theme lists */}
         {hasThemeLists ? (
           <div className="flex items-center justify-center mb-3">
-            <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+            <div className="inline-flex items-center bg-neutral-100 rounded-lg p-1">
               <button
                 type="button"
                 onClick={() => setViewMode('todos')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                   viewMode === 'todos'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-neutral-900 shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-700'
                 }`}
               >
                 <ChecklistIcon />
@@ -894,8 +846,8 @@ const NoTopicsView = ({
                 onClick={() => setViewMode('themelist')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                   viewMode === 'themelist'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-neutral-900 shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-700'
                 }`}
               >
                 <ListIcon />
@@ -904,10 +856,10 @@ const NoTopicsView = ({
             </div>
           </div>
         ) : (
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Aufgaben</h2>
+          <h2 className="text-xl font-semibold text-neutral-900 mb-2">Aufgaben</h2>
         )}
 
-        <p className="text-sm text-gray-500 text-center">
+        <p className="text-sm text-neutral-500 text-center">
           {viewMode === 'todos' ? 'Deine To-Dos' : 'Unterrechtsgebiete, Kapitel, Themen und Aufgaben'}
         </p>
 
@@ -917,7 +869,7 @@ const NoTopicsView = ({
             <select
               value={selectedThemeListId || ''}
               onChange={(e) => onSelectThemeList(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-700 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-500"
             >
               <option value="">Themenliste auswählen...</option>
               {themeLists.map(list => (
@@ -938,7 +890,6 @@ const NoTopicsView = ({
           onToggleTask={onToggleTask}
           onTogglePriority={onTogglePriority}
           onAddTask={onAddTask}
-          onEditTask={onEditTask}
           onRemoveTask={onRemoveTask}
         />
       ) : (
@@ -969,7 +920,6 @@ const ExamModeView = ({
   onToggleTask,
   onTogglePriority,
   onAddTask,
-  onEditTask,
   onRemoveTask,
 }) => {
   const [viewMode, setViewMode] = useState('lernplan'); // 'lernplan' or 'todos'
@@ -977,16 +927,16 @@ const ExamModeView = ({
   return (
     <div className="flex flex-col gap-4">
       {/* Header with Toggle Switch */}
-      <div className="border-b border-gray-200 pb-4">
+      <div className="border-b border-neutral-200 pb-4">
         <div className="flex items-center justify-center mb-3">
-          <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+          <div className="inline-flex items-center bg-neutral-100 rounded-lg p-1">
             <button
               type="button"
               onClick={() => setViewMode('lernplan')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'lernplan'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700'
               }`}
             >
               <BookIcon />
@@ -997,8 +947,8 @@ const ExamModeView = ({
               onClick={() => setViewMode('todos')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'todos'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700'
               }`}
             >
               <ChecklistIcon />
@@ -1007,7 +957,7 @@ const ExamModeView = ({
           </div>
         </div>
 
-        <p className="text-sm text-gray-500 text-center">
+        <p className="text-sm text-neutral-500 text-center">
           {viewMode === 'lernplan'
             ? `${topics.length} Lernblöcke für heute geplant`
             : 'Deine To-Dos'
@@ -1019,7 +969,7 @@ const ExamModeView = ({
       {viewMode === 'lernplan' ? (
         <div className="flex flex-col gap-3">
           {topics.length === 0 ? (
-            <p className="text-sm text-gray-500 py-4 text-center">
+            <p className="text-sm text-neutral-500 py-4 text-center">
               Keine Lernblöcke für heute geplant.
             </p>
           ) : topics.length === 1 ? (
@@ -1029,7 +979,6 @@ const ExamModeView = ({
               onToggleTask={onToggleTask}
               onTogglePriority={onTogglePriority}
               onAddTask={onAddTask}
-              onEditTask={onEditTask}
               onRemoveTask={onRemoveTask}
             />
           ) : (
@@ -1045,7 +994,6 @@ const ExamModeView = ({
                 onToggleTask={onToggleTask}
                 onTogglePriority={onTogglePriority}
                 onAddTask={onAddTask}
-                onEditTask={onEditTask}
                 onRemoveTask={onRemoveTask}
               />
             ))
@@ -1058,7 +1006,6 @@ const ExamModeView = ({
           onToggleTask={onToggleTask}
           onTogglePriority={onTogglePriority}
           onAddTask={onAddTask}
-          onEditTask={onEditTask}
           onRemoveTask={onRemoveTask}
         />
       )}
@@ -1080,7 +1027,6 @@ const LernblockWidget = ({
   onToggleTask,
   onTogglePriority,
   onAddTask,
-  onEditTask,
   onRemoveTask,
   // Themenliste props
   themeLists = [],
@@ -1102,7 +1048,7 @@ const LernblockWidget = ({
   }, []);
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden ${className}`}>
       <div className="p-5 overflow-y-auto max-h-[730px]">
         {isExamMode ? (
           // Exam Mode: Lernplan/To-Dos toggle
@@ -1114,7 +1060,6 @@ const LernblockWidget = ({
             onToggleTask={onToggleTask}
             onTogglePriority={onTogglePriority}
             onAddTask={onAddTask}
-            onEditTask={onEditTask}
             onRemoveTask={onRemoveTask}
           />
         ) : (
@@ -1124,7 +1069,6 @@ const LernblockWidget = ({
             onToggleTask={onToggleTask}
             onTogglePriority={onTogglePriority}
             onAddTask={onAddTask}
-            onEditTask={onEditTask}
             onRemoveTask={onRemoveTask}
             themeLists={themeLists}
             selectedThemeListId={selectedThemeListId}

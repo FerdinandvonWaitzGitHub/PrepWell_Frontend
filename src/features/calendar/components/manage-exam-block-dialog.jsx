@@ -245,26 +245,26 @@ const ManageExamBlockDialog = ({
         <DialogBody className="space-y-6">
           {/* Uhrzeit */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">
+            <label className="text-sm font-medium text-neutral-900">
               Uhrzeit <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">Von</label>
+                <label className="text-sm text-neutral-600">Von</label>
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">Bis</label>
+                <label className="text-sm text-neutral-600">Bis</label>
                 <input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
             </div>
@@ -277,33 +277,33 @@ const ManageExamBlockDialog = ({
                 type="checkbox"
                 checked={repeatEnabled}
                 onChange={(e) => setRepeatEnabled(e.target.checked)}
-                className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                className="w-5 h-5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
               />
-              <span className="text-sm font-medium text-gray-900">Termin wiederholen</span>
+              <span className="text-sm font-medium text-neutral-900">Termin wiederholen</span>
             </label>
 
             {repeatEnabled && (
               <div className="space-y-4 pl-8">
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-600">Wiederholung</label>
+                  <label className="text-sm text-neutral-600">Wiederholung</label>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setIsRepeatTypeOpen(!isRepeatTypeOpen)}
-                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 text-left"
                     >
-                      <span className="text-sm text-gray-900">{getRepeatTypeName()}</span>
-                      <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
+                      <span className="text-sm text-neutral-900">{getRepeatTypeName()}</span>
+                      <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {isRepeatTypeOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                         {repeatTypeOptions.map(opt => (
                           <button
                             key={opt.id}
                             type="button"
                             onClick={() => { setRepeatType(opt.id); setIsRepeatTypeOpen(false); }}
-                            className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                              repeatType === opt.id ? 'bg-gray-100 font-medium' : ''
+                            className={`w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                              repeatType === opt.id ? 'bg-neutral-100 font-medium' : ''
                             }`}
                           >
                             {opt.name}
@@ -316,7 +316,7 @@ const ManageExamBlockDialog = ({
 
                 {repeatType === 'custom' && (
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-600">An diesen Tagen</label>
+                    <label className="text-sm text-neutral-600">An diesen Tagen</label>
                     <div className="flex flex-wrap gap-2">
                       {weekdayOptions.map(day => (
                         <button
@@ -324,7 +324,7 @@ const ManageExamBlockDialog = ({
                           type="button"
                           onClick={() => toggleCustomDay(day.id)}
                           className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
-                            customDays.includes(day.id) ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            customDays.includes(day.id) ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                           }`}
                         >
                           {day.short}
@@ -335,7 +335,7 @@ const ManageExamBlockDialog = ({
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-600">Anzahl Wiederholungen</label>
+                  <label className="text-sm text-neutral-600">Anzahl Wiederholungen</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="number"
@@ -343,9 +343,9 @@ const ManageExamBlockDialog = ({
                       max="100"
                       value={repeatCount}
                       onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                      className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm text-center"
+                      className="w-24 px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm text-center"
                     />
-                    <span className="text-sm text-gray-600">mal</span>
+                    <span className="text-sm text-neutral-600">mal</span>
                   </div>
                 </div>
               </div>
@@ -355,28 +355,28 @@ const ManageExamBlockDialog = ({
           {/* Blockgröße Field - Only shown when details toggle is ON */}
           {showDetails && (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-900">
-                Blockgröße <span className="text-xs text-gray-500">({totalAvailableSlots} Slot{totalAvailableSlots !== 1 ? 's' : ''} verfügbar)</span>
+              <label className="text-sm font-medium text-neutral-900">
+                Blockgröße <span className="text-xs text-neutral-500">({totalAvailableSlots} Slot{totalAvailableSlots !== 1 ? 's' : ''} verfügbar)</span>
               </label>
               <div className="inline-flex">
                 <button
                   type="button"
                   onClick={() => setBlockSize(Math.max(1, blockSize - 1))}
                   disabled={blockSize <= 1}
-                  className="w-9 h-9 bg-white rounded-l-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
+                  className="w-9 h-9 bg-white rounded-l-lg shadow-sm border border-neutral-200 flex items-center justify-center disabled:opacity-50"
                 >
-                  <MinusIcon size={16} className="text-gray-900" />
+                  <MinusIcon size={16} className="text-neutral-900" />
                 </button>
-                <div className="h-9 px-4 py-2 bg-white shadow-sm border-t border-b border-gray-200 flex items-center justify-center">
-                  <span className="text-sm font-medium text-gray-900">{blockSize}</span>
+                <div className="h-9 px-4 py-2 bg-white shadow-sm border-t border-b border-neutral-200 flex items-center justify-center">
+                  <span className="text-sm font-medium text-neutral-900">{blockSize}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setBlockSize(Math.min(totalAvailableSlots, blockSize + 1))}
                   disabled={blockSize >= totalAvailableSlots}
-                  className="w-9 h-9 bg-white rounded-r-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
+                  className="w-9 h-9 bg-white rounded-r-lg shadow-sm border border-neutral-200 flex items-center justify-center disabled:opacity-50"
                 >
-                  <PlusIcon size={16} className="text-gray-900" />
+                  <PlusIcon size={16} className="text-neutral-900" />
                 </button>
               </div>
             </div>
@@ -389,7 +389,7 @@ const ManageExamBlockDialog = ({
               type="button"
               onClick={() => setShowDetails(!showDetails)}
               className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 ${
-                showDetails ? 'bg-gray-900' : 'bg-gray-300'
+                showDetails ? 'bg-neutral-900' : 'bg-neutral-300'
               }`}
             >
               <span
@@ -401,8 +401,8 @@ const ManageExamBlockDialog = ({
 
             {/* Toggle Label and Description */}
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">Details eintragen</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm font-medium text-neutral-900">Details eintragen</p>
+              <p className="text-sm text-neutral-500 mt-1">
                 Aktiviere den Klausurenblock, um Details einzutragen. Die Klausur wird automatisch in deine Leistungen aufgenommen.
               </p>
             </div>
@@ -410,10 +410,10 @@ const ManageExamBlockDialog = ({
 
           {/* Detail Fields - Only shown when toggle is ON */}
           {showDetails && (
-            <div className="space-y-6 pt-4 border-t border-gray-100">
+            <div className="space-y-6 pt-4 border-t border-neutral-100">
               {/* Rechtsgebiet Dropdown */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-900">
+                <label className="text-sm font-medium text-neutral-900">
                   Rechtsgebiet <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -423,16 +423,16 @@ const ManageExamBlockDialog = ({
                       setIsRechtsgebietOpen(!isRechtsgebietOpen);
                       setIsUnterrechtsgebietOpen(false);
                     }}
-                    className="w-full flex items-center justify-between px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center justify-between px-4 py-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
                   >
-                    <span className={`text-sm ${selectedRechtsgebiet ? 'text-gray-900' : 'text-gray-500'}`}>
+                    <span className={`text-sm ${selectedRechtsgebiet ? 'text-neutral-900' : 'text-neutral-500'}`}>
                       {selectedRechtsgebiet?.name || 'Rechtsgebiet auswählen'}
                     </span>
-                    <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isRechtsgebietOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isRechtsgebietOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isRechtsgebietOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                       {RECHTSGEBIETE.map(rg => (
                         <button
                           key={rg.id}
@@ -442,8 +442,8 @@ const ManageExamBlockDialog = ({
                             setSelectedUnterrechtsgebiet(null);
                             setIsRechtsgebietOpen(false);
                           }}
-                          className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                            selectedRechtsgebiet?.id === rg.id ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                            selectedRechtsgebiet?.id === rg.id ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                           }`}
                         >
                           {rg.name}
@@ -456,7 +456,7 @@ const ManageExamBlockDialog = ({
 
               {/* Unterrechtsgebiet Dropdown */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-900">
+                <label className="text-sm font-medium text-neutral-900">
                   Unterrechtsgebiet <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -469,20 +469,20 @@ const ManageExamBlockDialog = ({
                       }
                     }}
                     disabled={!selectedRechtsgebiet}
-                    className={`w-full flex items-center justify-between px-4 py-2 bg-white border border-gray-200 rounded-lg transition-colors text-left ${
-                      selectedRechtsgebiet ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                    className={`w-full flex items-center justify-between px-4 py-2 bg-white border border-neutral-200 rounded-lg transition-colors text-left ${
+                      selectedRechtsgebiet ? 'hover:bg-neutral-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'
                     }`}
                   >
-                    <span className={`text-sm ${selectedUnterrechtsgebiet ? 'text-gray-900' : 'text-gray-500'}`}>
+                    <span className={`text-sm ${selectedUnterrechtsgebiet ? 'text-neutral-900' : 'text-neutral-500'}`}>
                       {selectedUnterrechtsgebiet?.name || (selectedRechtsgebiet ? 'Unterrechtsgebiet auswählen' : 'Erst Rechtsgebiet wählen')}
                     </span>
-                    <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isUnterrechtsgebietOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isUnterrechtsgebietOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isUnterrechtsgebietOpen && selectedRechtsgebiet && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {getCurrentUnterrechtsgebiete().length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                        <div className="px-4 py-3 text-sm text-neutral-500 text-center">
                           Noch keine Unterrechtsgebiete vorhanden
                         </div>
                       ) : (
@@ -494,8 +494,8 @@ const ManageExamBlockDialog = ({
                               setSelectedUnterrechtsgebiet(urg);
                               setIsUnterrechtsgebietOpen(false);
                             }}
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                              selectedUnterrechtsgebiet?.id === urg.id ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                            className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                              selectedUnterrechtsgebiet?.id === urg.id ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                             }`}
                           >
                             {urg.name}
@@ -517,7 +517,7 @@ const ManageExamBlockDialog = ({
                         onKeyDown={(e) => e.key === 'Enter' && handleAddUnterrechtsgebiet()}
                         placeholder="Name eingeben..."
                         autoFocus
-                        className="flex-1 px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                        className="flex-1 px-4 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
                       />
                       <Button variant="primary" size="sm" onClick={handleAddUnterrechtsgebiet}>
                         Speichern
@@ -535,8 +535,8 @@ const ManageExamBlockDialog = ({
                       onClick={() => setIsCreatingUnterrechtsgebiet(true)}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mt-2 bg-primary-100 border-2 border-primary-300 rounded-lg hover:bg-primary-200 transition-colors"
                     >
-                      <PlusIcon size={16} className="text-gray-900" />
-                      <span className="text-sm font-medium text-gray-900">+ Neues Unterrechtsgebiet erstellen</span>
+                      <PlusIcon size={16} className="text-neutral-900" />
+                      <span className="text-sm font-medium text-neutral-900">+ Neues Unterrechtsgebiet erstellen</span>
                     </button>
                   )
                 )}

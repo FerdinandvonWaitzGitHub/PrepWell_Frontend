@@ -13,10 +13,10 @@ const WeekViewHeader = ({
   className = ''
 }) => {
   return (
-    <div className={`flex items-center justify-between bg-white px-4 py-4 border-b border-gray-200 ${className}`}>
+    <div className={`flex items-center justify-between bg-white px-4 py-4 border-b border-neutral-200 ${className}`}>
       {/* Week Title */}
       <div className="flex items-center">
-        <h2 className="text-sm font-medium text-gray-900">{weekTitle}</h2>
+        <h2 className="text-sm font-medium text-neutral-900">{weekTitle}</h2>
       </div>
 
       {/* Controls - Right aligned */}

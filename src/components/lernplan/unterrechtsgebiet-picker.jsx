@@ -136,7 +136,7 @@ const UnterrechtsgebietPicker = ({
       'strafrecht': 'border-red-500 text-red-700 bg-red-50',
       'querschnitt': 'border-purple-500 text-purple-700 bg-purple-50',
     };
-    return colors[rgId] || 'border-gray-500 text-gray-700 bg-gray-50';
+    return colors[rgId] || 'border-neutral-500 text-neutral-700 bg-neutral-50';
   };
 
   if (!isOpen) return null;
@@ -152,25 +152,25 @@ const UnterrechtsgebietPicker = ({
       {/* Modal */}
       <div className="relative z-10 bg-white rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="px-6 py-4 border-b border-neutral-200">
+          <h2 className="text-lg font-semibold text-neutral-900">
             Unterrechtsgebiet auswählen
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-neutral-500 mt-1">
             Wähle ein oder mehrere Unterrechtsgebiete aus der Datenbank
           </p>
         </div>
 
         {/* Search */}
-        <div className="px-6 py-3 border-b border-gray-100">
+        <div className="px-6 py-3 border-b border-neutral-100">
           <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Suche nach Namen oder Kategorie..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
               autoFocus
             />
           </div>
@@ -178,7 +178,7 @@ const UnterrechtsgebietPicker = ({
 
         {/* Tabs */}
         {rechtsgebieteTabs.length > 1 && (
-          <div className="px-6 py-2 border-b border-gray-100 flex gap-2 overflow-x-auto">
+          <div className="px-6 py-2 border-b border-neutral-100 flex gap-2 overflow-x-auto">
             {rechtsgebieteTabs.map(tab => (
               <button
                 key={tab.id}
@@ -186,7 +186,7 @@ const UnterrechtsgebietPicker = ({
                 className={`px-3 py-1.5 text-sm font-medium rounded-lg border-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? getTabColor(tab.id)
-                    : 'border-transparent text-gray-600 hover:bg-gray-100'
+                    : 'border-transparent text-neutral-600 hover:bg-neutral-100'
                 }`}
               >
                 {tab.label}
@@ -198,14 +198,14 @@ const UnterrechtsgebietPicker = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {Object.keys(groupedItems).length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-neutral-500">
               {searchQuery ? 'Keine Ergebnisse gefunden' : 'Keine Unterrechtsgebiete verfügbar'}
             </div>
           ) : (
             <div className="space-y-4">
               {Object.entries(groupedItems).map(([kategorie, items]) => (
                 <div key={kategorie}>
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
                     {kategorie}
                   </h3>
                   <div className="space-y-1">
@@ -217,16 +217,16 @@ const UnterrechtsgebietPicker = ({
                           className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                             isSelected
                               ? 'bg-primary-50 border border-primary-200'
-                              : 'hover:bg-gray-50 border border-transparent'
+                              : 'hover:bg-neutral-50 border border-transparent'
                           }`}
                         >
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => handleItemToggle(item)}
-                            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-400"
+                            className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
                           />
-                          <span className={`text-sm ${isSelected ? 'text-primary-700 font-medium' : 'text-gray-700'}`}>
+                          <span className={`text-sm ${isSelected ? 'text-primary-700 font-medium' : 'text-neutral-700'}`}>
                             {item.name}
                           </span>
                           {item.isCustom && (
@@ -244,7 +244,7 @@ const UnterrechtsgebietPicker = ({
           )}
 
           {/* Create New Section */}
-          <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="mt-6 pt-4 border-t border-neutral-200">
             {!showCreateNew ? (
               <button
                 onClick={() => setShowCreateNew(true)}
@@ -254,20 +254,20 @@ const UnterrechtsgebietPicker = ({
                 Neues Unterrechtsgebiet erstellen
               </button>
             ) : (
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <h4 className="text-sm font-medium text-gray-900">Neues Unterrechtsgebiet</h4>
+              <div className="bg-neutral-50 rounded-lg p-4 space-y-3">
+                <h4 className="text-sm font-medium text-neutral-900">Neues Unterrechtsgebiet</h4>
                 <input
                   type="text"
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
                   placeholder="Name eingeben..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
                   autoFocus
                 />
                 <select
                   value={newItemKategorie}
                   onChange={(e) => setNewItemKategorie(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
                 >
                   <option value="">Kategorie wählen (optional)</option>
                   {categories.map(cat => (
@@ -282,7 +282,7 @@ const UnterrechtsgebietPicker = ({
                       setNewItemName('');
                       setNewItemKategorie('');
                     }}
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                    className="px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg"
                   >
                     Abbrechen
                   </button>
@@ -300,8 +300,8 @@ const UnterrechtsgebietPicker = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-500">
+        <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+          <div className="text-sm text-neutral-500">
             {selectedItems.length > 0 && (
               <span>{selectedItems.length} ausgewählt</span>
             )}
@@ -309,7 +309,7 @@ const UnterrechtsgebietPicker = ({
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
             >
               Abbrechen
             </button>

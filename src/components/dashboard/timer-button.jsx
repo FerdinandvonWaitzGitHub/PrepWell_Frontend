@@ -99,7 +99,7 @@ const TimerButton = ({ className = '' }) => {
     <div className={className}>
       <button
         onClick={() => setShowSelectionDialog(true)}
-        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+        className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
         title="Timer starten"
       >
         <svg
@@ -109,7 +109,7 @@ const TimerButton = ({ className = '' }) => {
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className="text-gray-600"
+          className="text-neutral-600"
         >
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />

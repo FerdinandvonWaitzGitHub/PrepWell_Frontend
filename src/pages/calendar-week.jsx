@@ -10,7 +10,7 @@ import { WeekView } from '../features/calendar/components';
  */
 const CalendarWeekPage = () => {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-50">
       {/* Header */}
       <Header userInitials="CN" currentPage="kalender-woche" />
 

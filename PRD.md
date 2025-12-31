@@ -1,9 +1,9 @@
 # Product Requirements Document (PRD)
 # PrepWell WebApp
 
-**Version:** 1.6
-**Datum:** 27. Dezember 2025
-**Status:** MVP Development
+**Version:** 1.7
+**Datum:** 31. Dezember 2025
+**Status:** MVP Development - Supabase Integration
 
 ---
 
@@ -97,6 +97,49 @@ import {
 } from './services/supabaseService';
 ```
 
+### 2.3 Supabase-Integrationsstatus
+
+**Aktueller Stand (Dezember 2025):**
+
+| Context | Supabase-Tabelle | Status | Beschreibung |
+|---------|------------------|--------|--------------|
+| ExamsContext | `leistungen` | ✅ Integriert | Klausuren & Noten sync |
+| UebungsklausurenContext | `uebungsklausuren` | ✅ Integriert | Übungsklausuren sync |
+| CheckInContext | `checkin_responses` | ✅ Integriert | Check-in Daten (morgens/abends) |
+| MentorContext | `user_settings` | ✅ Integriert | Mentor-Aktivierung |
+| TimerContext | `timer_sessions` | ✅ Integriert | Timer-History (Config lokal) |
+| WizardContext | `wizard_drafts` | ✅ Integriert | Lernplan-Wizard Draft |
+| CalendarContext (contentPlans) | `content_plans` | ✅ Integriert | Lernpläne & Themenlisten |
+| CalendarContext (customUnterrechtsgebiete) | `user_settings` | ✅ Integriert | Eigene Rechtsgebiete |
+| CalendarContext (slotsByDate) | `calendar_slots` | ✅ Integriert | Kalender-Slots |
+| CalendarContext (tasksByDate) | `calendar_tasks` | ✅ Integriert | Tagesaufgaben |
+| CalendarContext (privateBlocksByDate) | `private_blocks` | ✅ Integriert | Private Termine |
+| CalendarContext (archivedLernplaene) | `archived_lernplaene` | ✅ Integriert | Archivierte Pläne |
+| CalendarContext (lernplanMetadata) | `user_settings` | ✅ Integriert | Aktiver Lernplan Metadaten |
+| CalendarContext (publishedThemenlisten) | `published_themenlisten` | ✅ Integriert | Community Themenlisten |
+| CalendarContext (themeLists) | - | 📦 LocalStorage | LEGACY - durch contentPlans ersetzt |
+| CalendarContext (contentsById) | - | 📦 LocalStorage | Content-Objekte (lokal) |
+
+**Synchronisations-Logik:**
+- Bei Authentifizierung: LocalStorage-Daten werden automatisch zu Supabase migriert
+- Danach: Supabase ist die primäre Datenquelle (Source of Truth)
+- Offline: LocalStorage-Fallback mit automatischem Sync beim Reconnect
+- Debouncing: Wizard Draft wird mit 500ms Debounce gespeichert
+- Date-keyed Transformationen: `slotsByDate`, `tasksByDate`, `privateBlocksByDate` werden zwischen Object-Format (lokal) und flachen Arrays (Supabase) transformiert
+
+**Data Layer:** `src/hooks/use-supabase-sync.js` bietet wiederverwendbare Hooks:
+- `useSupabaseSync` - Generischer Sync-Hook
+- `useExamsSync`, `useUebungsklausurenSync` - Leistungs-Hooks
+- `useContentPlansSync`, `useWizardDraftSync` - Content-Hooks
+- `useUserSettingsSync` - Settings-Hook
+- `useCalendarSlotsSync`, `useCalendarTasksSync` - Kalender-Hooks
+- `usePrivateBlocksSync`, `useArchivedLernplaeneSync` - Block/Archiv-Hooks
+- `useLernplanMetadataSync`, `usePublishedThemenlistenSync` - Metadata/Community-Hooks
+
+**Migration SQL:** Siehe `supabase/migrations/002_add_calendar_tables.sql` für die neuen Tabellen.
+
+**Hinweis:** Die Supabase-Integration dient als Zwischenlösung. Geplant ist die Migration auf ein eigenes TypeScript-Backend.
+
 **Auth-Nutzung:**
 ```javascript
 import { useAuth } from './contexts/auth-context';
@@ -173,24 +216,28 @@ PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
 7. `ExamsProvider` - Klausuren und Leistungen (Normal-Modus)
 8. `UebungsklausurenProvider` - Übungsklausuren (Examen-Modus)
 
-**Persistenz:** LocalStorage für alle Daten (offline-fähig)
+**Persistenz:** Supabase (primär) mit LocalStorage-Fallback (offline-fähig)
 
-**LocalStorage-Keys:**
-| Key | Inhalt |
-|-----|--------|
-| `prepwell_calendar_slots` | Kalender-Slots |
-| `prepwell_contents` | Content-Objekte |
-| `prepwell_tasks` | Aufgaben |
-| `prepwell_content_plans` | Lernpläne/Themenlisten |
-| `prepwell_published_themenlisten` | Veröffentlichte Community-Themenlisten |
-| `prepwell_timer_settings` | Timer-Einstellungen |
-| `prepwell_timer_history` | Timer-Session-Historie |
-| `prepwell_mentor_activated` | Mentor-Aktivierungsstatus |
-| `prepwell_checkin_responses` | Check-In Antworten |
-| `prepwell_exams` | Klausuren (Normal-Modus) |
-| `prepwell_uebungsklausuren` | Übungsklausuren (Examen-Modus) |
-| `prepwell_custom_subjects` | Benutzerdefinierte Fächer |
-| `prepwell_grade_system` | Bevorzugtes Notensystem |
+**LocalStorage-Keys (dienen als Fallback/Cache für Supabase-Daten):**
+| Key | Supabase-Tabelle | Inhalt |
+|-----|------------------|--------|
+| `prepwell_calendar_slots` | `calendar_slots` | Kalender-Slots |
+| `prepwell_contents` | - | Content-Objekte (nur lokal) |
+| `prepwell_tasks` | `calendar_tasks` | Tagesaufgaben |
+| `prepwell_private_blocks` | `private_blocks` | Private Termine |
+| `prepwell_content_plans` | `content_plans` | Lernpläne/Themenlisten |
+| `prepwell_published_themenlisten` | `published_themenlisten` | Community-Themenlisten |
+| `prepwell_lernplan_metadata` | `user_settings` | Aktiver Lernplan Metadaten |
+| `prepwell_archived_lernplaene` | `archived_lernplaene` | Archivierte Pläne |
+| `prepwell_timer_settings` | - | Timer-Einstellungen (nur lokal) |
+| `prepwell_timer_history` | `timer_sessions` | Timer-Session-Historie |
+| `prepwell_mentor_activated` | `user_settings` | Mentor-Aktivierungsstatus |
+| `prepwell_checkin_responses` | `checkin_responses` | Check-In Antworten |
+| `prepwell_exams` | `leistungen` | Klausuren (Normal-Modus) |
+| `prepwell_uebungsklausuren` | `uebungsklausuren` | Übungsklausuren (Examen-Modus) |
+| `prepwell_custom_subjects` | `user_settings` | Benutzerdefinierte Fächer |
+| `prepwell_grade_system` | `user_settings` | Bevorzugtes Notensystem |
+| `prepwell_lernplan_wizard_draft` | `wizard_drafts` | Wizard-Zwischenspeicher |
 
 ### 3.3 Projektstruktur
 
@@ -954,17 +1001,19 @@ Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
 - [x] Persistente JSON-Datenspeicherung (lokal)
 
 ### 9.2 In Entwicklung (🔄)
-- [ ] Frontend-Backend-Synchronisation
-- [ ] Benutzerauthentifizierung
+- [x] **Supabase-Integration (Backend)** - Schema, Services, Contexts umgestellt
+- [x] **Benutzerauthentifizierung** - Supabase Auth integriert
+- [x] **CalendarContext Supabase-Sync** - Vollständig integriert (slots, tasks, private blocks, archived plans, metadata, published themenlisten)
 - [ ] Mobile Optimierung
 
 ### 9.3 Geplant (📋)
-- [ ] Echtzeit-Synchronisation
+- [ ] Echtzeit-Synchronisation (Supabase Realtime)
 - [ ] Offline-Modus mit Sync
 - [ ] Erweiterte Analytik
 - [ ] Lerngruppen-Feature
 - [ ] Integration mit Rechtsdatenbanken
 - [ ] Mobile App (React Native)
+- [ ] Migration auf TypeScript-Backend (ersetzt Supabase)
 
 ---
 

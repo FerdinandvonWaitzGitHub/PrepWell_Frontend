@@ -113,8 +113,8 @@ const Step2Puffertage = () => {
 
       <div className="flex flex-col items-center gap-7 py-7">
         {/* Puffertage Counter Card */}
-        <div className="w-full max-w-[512px] p-6 bg-white rounded-[10px] border border-gray-200 flex justify-between items-center">
-          <div className="text-lg font-light text-gray-900">
+        <div className="w-full max-w-[512px] p-6 bg-white rounded-[10px] border border-neutral-200 flex justify-between items-center">
+          <div className="text-lg font-light text-neutral-900">
             Puffertage
           </div>
           <div className="flex items-center gap-7">
@@ -122,14 +122,14 @@ const Step2Puffertage = () => {
             <button
               onClick={handleDecrement}
               disabled={displayBufferDays <= 0}
-              className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center text-gray-900 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-9 h-9 rounded-lg bg-neutral-50 border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-900 hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="Verringern"
             >
               <MinusIcon />
             </button>
 
             {/* Number Display */}
-            <span className="text-5xl font-normal text-gray-900 min-w-[80px] text-center">
+            <span className="text-5xl font-normal text-neutral-900 min-w-[80px] text-center">
               {displayBufferDays}
             </span>
 
@@ -137,7 +137,7 @@ const Step2Puffertage = () => {
             <button
               onClick={handleIncrement}
               disabled={displayBufferDays >= 99}
-              className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center text-gray-900 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-9 h-9 rounded-lg bg-neutral-50 border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-900 hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="Erhöhen"
             >
               <PlusIcon />
@@ -148,10 +148,10 @@ const Step2Puffertage = () => {
         {/* Anzahl der Lerntage Info */}
         <div className="w-full max-w-[520px] p-4 bg-blue-50/50 rounded-lg">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-neutral-900">
               Anzahl der Lerntage
             </span>
-            <span className="text-lg font-light text-gray-900">
+            <span className="text-lg font-light text-neutral-900">
               {netLearningDays} Tage
             </span>
           </div>

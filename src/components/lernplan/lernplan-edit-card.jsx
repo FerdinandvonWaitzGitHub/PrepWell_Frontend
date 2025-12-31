@@ -15,7 +15,7 @@ const TAG_COLORS = {
   'Strafrecht': 'bg-red-100 text-red-700',
   'Öffentliches Recht': 'bg-blue-100 text-blue-700',
   'Examen': 'bg-purple-100 text-purple-700',
-  'Standard': 'bg-gray-100 text-gray-700'
+  'Standard': 'bg-neutral-100 text-neutral-700'
 };
 
 // Generate unique ID
@@ -242,10 +242,10 @@ const LernplanEditCard = ({
   const progressPercent = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
   return (
-    <div className={`bg-white rounded-lg border ${isNew ? 'border-primary-300 ring-2 ring-primary-100' : 'border-gray-200'} overflow-hidden`}>
+    <div className={`bg-white rounded-lg border ${isNew ? 'border-primary-300 ring-2 ring-primary-100' : 'border-neutral-200'} overflow-hidden`}>
       {/* Header Bar - Always Visible */}
       <div
-        className="flex items-center h-[70px] px-4 cursor-pointer hover:bg-gray-50"
+        className="flex items-center h-[70px] px-4 cursor-pointer hover:bg-neutral-50"
         onClick={() => onToggleExpand?.(localData.id)}
       >
         {/* Expand/Collapse Icon */}
@@ -254,7 +254,7 @@ const LernplanEditCard = ({
             e.stopPropagation();
             onToggleExpand?.(localData.id);
           }}
-          className="p-1.5 mr-3 text-gray-500 hover:bg-gray-100 rounded transition-colors"
+          className="p-1.5 mr-3 text-neutral-500 hover:bg-neutral-100 rounded transition-colors"
         >
           <ChevronDownIcon
             size={18}
@@ -286,18 +286,18 @@ const LernplanEditCard = ({
           onChange={(e) => updateData({ title: e.target.value })}
           onClick={(e) => e.stopPropagation()}
           placeholder="Lernplan Titel..."
-          className="flex-1 min-w-0 px-2 py-1 text-base font-medium text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-400 focus:outline-none"
+          className="flex-1 min-w-0 px-2 py-1 text-base font-medium text-neutral-900 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
         />
 
         {/* Progress Bar */}
         <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-          <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div className="w-32 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gray-900 rounded-full transition-all"
+              className="h-full bg-neutral-900 rounded-full transition-all"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <span className="text-sm text-gray-500 whitespace-nowrap">
+          <span className="text-sm text-neutral-500 whitespace-nowrap">
             {completedTopics}/{totalTopics}
           </span>
         </div>
@@ -309,7 +309,7 @@ const LernplanEditCard = ({
               e.stopPropagation();
               onArchive?.(localData);
             }}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
             title="Archivieren"
           >
             <ArchiveIcon size={16} />
@@ -321,7 +321,7 @@ const LernplanEditCard = ({
                 onDelete?.(localData);
               }
             }}
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
             title="Löschen"
           >
             <TrashIcon size={16} />
@@ -331,38 +331,38 @@ const LernplanEditCard = ({
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="border-t border-gray-100 bg-gray-50 p-4">
+        <div className="border-t border-neutral-100 bg-neutral-50 p-4">
           {/* Basic Info Grid */}
           <div className="grid grid-cols-4 gap-4 mb-4">
             {/* Description */}
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Beschreibung</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Beschreibung</label>
               <textarea
                 value={localData.description || ''}
                 onChange={(e) => updateData({ description: e.target.value })}
                 placeholder="Beschreibung..."
                 rows={2}
-                className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
+                className="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
               />
             </div>
 
             {/* Rechtsgebiet */}
             <div className="relative">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Rechtsgebiet</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Rechtsgebiet</label>
               <button
                 onClick={() => setShowRechtsgebietDropdown(!showRechtsgebietDropdown)}
-                className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50"
+                className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50"
               >
-                <span className={localData.rechtsgebiet ? 'text-gray-900' : 'text-gray-400'}>
+                <span className={localData.rechtsgebiet ? 'text-neutral-900' : 'text-neutral-400'}>
                   {localData.rechtsgebiet
                     ? RECHTSGEBIETE.find(r => r.id === localData.rechtsgebiet)?.label
                     : 'Auswählen'
                   }
                 </span>
-                <ChevronDownIcon size={14} className="text-gray-400" />
+                <ChevronDownIcon size={14} className="text-neutral-400" />
               </button>
               {showRechtsgebietDropdown && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div className="absolute z-20 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                   {RECHTSGEBIETE.map(rg => (
                     <button
                       key={rg.id}
@@ -374,8 +374,8 @@ const LernplanEditCard = ({
                         });
                         setShowRechtsgebietDropdown(false);
                       }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                        localData.rechtsgebiet === rg.id ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${
+                        localData.rechtsgebiet === rg.id ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'
                       }`}
                     >
                       {rg.label}
@@ -387,28 +387,28 @@ const LernplanEditCard = ({
 
             {/* Modus */}
             <div className="relative">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Modus</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Modus</label>
               <button
                 onClick={() => setShowModeDropdown(!showModeDropdown)}
-                className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50"
+                className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50"
               >
                 <span>{localData.mode === 'examen' ? 'Examen' : 'Standard'}</span>
-                <ChevronDownIcon size={14} className="text-gray-400" />
+                <ChevronDownIcon size={14} className="text-neutral-400" />
               </button>
               {showModeDropdown && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div className="absolute z-20 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                   <button
                     onClick={() => { updateData({ mode: 'standard' }); setShowModeDropdown(false); }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                      localData.mode === 'standard' ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${
+                      localData.mode === 'standard' ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'
                     }`}
                   >
                     Standard
                   </button>
                   <button
                     onClick={() => { updateData({ mode: 'examen' }); setShowModeDropdown(false); }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                      localData.mode === 'examen' ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${
+                      localData.mode === 'examen' ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'
                     }`}
                   >
                     Examen
@@ -422,21 +422,21 @@ const LernplanEditCard = ({
           {localData.rechtsgebiet && (
             <div className="grid grid-cols-4 gap-4 mb-4">
               <div className="relative col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Unterrechtsgebiet (Fach)</label>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">Unterrechtsgebiet (Fach)</label>
                 <button
                   onClick={() => setShowUnterrechtsgebietDropdown(!showUnterrechtsgebietDropdown)}
-                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50"
+                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50"
                 >
-                  <span className={localData.unterrechtsgebiet ? 'text-gray-900' : 'text-gray-400'}>
+                  <span className={localData.unterrechtsgebiet ? 'text-neutral-900' : 'text-neutral-400'}>
                     {localData.unterrechtsgebiet
                       ? availableUnterrechtsgebiete.find(u => u.id === localData.unterrechtsgebiet)?.name
                       : 'Fach auswählen'
                     }
                   </span>
-                  <ChevronDownIcon size={14} className="text-gray-400" />
+                  <ChevronDownIcon size={14} className="text-neutral-400" />
                 </button>
                 {showUnterrechtsgebietDropdown && (
-                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {availableUnterrechtsgebiete.map(urg => (
                       <button
                         key={urg.id}
@@ -444,17 +444,17 @@ const LernplanEditCard = ({
                           updateData({ unterrechtsgebiet: urg.id });
                           setShowUnterrechtsgebietDropdown(false);
                         }}
-                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                          localData.unterrechtsgebiet === urg.id ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${
+                          localData.unterrechtsgebiet === urg.id ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'
                         }`}
                       >
                         {urg.name}
                       </button>
                     ))}
                     {availableUnterrechtsgebiete.length === 0 && (
-                      <div className="px-3 py-2 text-sm text-gray-400">Keine Fächer</div>
+                      <div className="px-3 py-2 text-sm text-neutral-400">Keine Fächer</div>
                     )}
-                    <div className="border-t border-gray-100">
+                    <div className="border-t border-neutral-100">
                       <button
                         onClick={() => {
                           setShowUnterrechtsgebietDropdown(false);
@@ -473,12 +473,12 @@ const LernplanEditCard = ({
               {/* Exam Date (if examen mode) */}
               {localData.mode === 'examen' && (
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Examenstermin</label>
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">Examenstermin</label>
                   <input
                     type="date"
                     value={localData.examDate || ''}
                     onChange={(e) => updateData({ examDate: e.target.value })}
-                    className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                    className="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
                   />
                 </div>
               )}
@@ -486,9 +486,9 @@ const LernplanEditCard = ({
           )}
 
           {/* Chapters Section */}
-          <div className="border-t border-gray-200 pt-4 mt-2">
+          <div className="border-t border-neutral-200 pt-4 mt-2">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-gray-700">Kapitel & Themen</h4>
+              <h4 className="text-sm font-medium text-neutral-700">Kapitel & Themen</h4>
               <button
                 onClick={addChapter}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded transition-colors"
@@ -499,8 +499,8 @@ const LernplanEditCard = ({
             </div>
 
             {(!localData.chapters || localData.chapters.length === 0) ? (
-              <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
-                <p className="text-sm text-gray-400 mb-2">Noch keine Kapitel</p>
+              <div className="text-center py-6 bg-white rounded-lg border border-dashed border-neutral-300">
+                <p className="text-sm text-neutral-400 mb-2">Noch keine Kapitel</p>
                 <button
                   onClick={addChapter}
                   className="text-sm text-primary-600 hover:text-primary-700"
@@ -539,14 +539,14 @@ const LernplanEditCard = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/30" onClick={() => setShowNewUnterrechtsgebietPopup(false)} />
           <div className="relative z-10 bg-white rounded-lg shadow-xl p-4 w-80">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Neues Unterrechtsgebiet</h4>
+            <h4 className="text-sm font-medium text-neutral-900 mb-3">Neues Unterrechtsgebiet</h4>
             <input
               type="text"
               value={newUnterrechtsgebietName}
               onChange={(e) => setNewUnterrechtsgebietName(e.target.value)}
               placeholder="Name eingeben..."
               autoFocus
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 mb-3"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 mb-3"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSaveNewUnterrechtsgebiet();
                 if (e.key === 'Escape') setShowNewUnterrechtsgebietPopup(false);
@@ -555,7 +555,7 @@ const LernplanEditCard = ({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowNewUnterrechtsgebietPopup(false)}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg"
               >
                 Abbrechen
               </button>
@@ -593,25 +593,25 @@ const ChapterSection = ({
   onDeleteTask
 }) => {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
       {/* Chapter Header */}
-      <div className="flex items-center px-3 py-2 bg-gray-50">
-        <button onClick={onToggle} className="p-1 mr-2 hover:bg-gray-200 rounded">
+      <div className="flex items-center px-3 py-2 bg-neutral-50">
+        <button onClick={onToggle} className="p-1 mr-2 hover:bg-neutral-200 rounded">
           <ChevronDownIcon
             size={14}
-            className={`text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            className={`text-neutral-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           />
         </button>
         <input
           type="text"
           value={chapter.title}
           onChange={(e) => onUpdate({ title: e.target.value })}
-          className="flex-1 px-2 py-0.5 text-sm font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-400 focus:outline-none"
+          className="flex-1 px-2 py-0.5 text-sm font-medium bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
         />
         <div className="flex items-center gap-1 ml-2">
           <button
             onClick={onDelete}
-            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+            className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
             title="Löschen"
           >
             <TrashIcon size={14} />
@@ -621,7 +621,7 @@ const ChapterSection = ({
 
       {/* Chapter Content */}
       {isExpanded && (
-        <div className="px-3 py-2 border-t border-gray-100">
+        <div className="px-3 py-2 border-t border-neutral-100">
           {chapter.themes && chapter.themes.length > 0 ? (
             <div className="space-y-2 mb-2">
               {chapter.themes.map((theme) => (
@@ -639,7 +639,7 @@ const ChapterSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-400 py-2 pl-4">Keine Themen</p>
+            <p className="text-xs text-neutral-400 py-2 pl-4">Keine Themen</p>
           )}
           <button
             onClick={onAddTheme}
@@ -668,24 +668,24 @@ const ThemeSection = ({
   onDeleteTask
 }) => {
   return (
-    <div className="ml-4 border-l-2 border-gray-200 pl-3">
+    <div className="ml-4 border-l-2 border-neutral-200 pl-3">
       {/* Theme Header */}
       <div className="flex items-center py-1">
-        <button onClick={onToggle} className="p-0.5 mr-1.5 hover:bg-gray-100 rounded">
+        <button onClick={onToggle} className="p-0.5 mr-1.5 hover:bg-neutral-100 rounded">
           <ChevronDownIcon
             size={12}
-            className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            className={`text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           />
         </button>
         <input
           type="text"
           value={theme.title}
           onChange={(e) => onUpdate({ title: e.target.value })}
-          className="flex-1 px-1.5 py-0.5 text-sm bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-400 focus:outline-none"
+          className="flex-1 px-1.5 py-0.5 text-sm bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
         />
         <button
           onClick={onDelete}
-          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded ml-1"
+          className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded ml-1"
           title="Löschen"
         >
           <TrashIcon size={12} />
@@ -707,7 +707,7 @@ const ThemeSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-400 py-1">Keine Aufgaben</p>
+            <p className="text-xs text-neutral-400 py-1">Keine Aufgaben</p>
           )}
           <button
             onClick={onAddTask}
@@ -732,20 +732,20 @@ const TaskItem = ({ task, onUpdate, onDelete }) => {
         type="checkbox"
         checked={task.completed}
         onChange={(e) => onUpdate({ completed: e.target.checked })}
-        className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-400"
+        className="w-3.5 h-3.5 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
       />
       <input
         type="text"
         value={task.title}
         onChange={(e) => onUpdate({ title: e.target.value })}
         placeholder="Aufgabe eingeben..."
-        className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-400 focus:outline-none ${
-          task.completed ? 'text-gray-400 line-through' : 'text-gray-700'
+        className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
+          task.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'
         }`}
       />
       <button
         onClick={onDelete}
-        className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
         title="Löschen"
       >
         <TrashIcon size={10} />

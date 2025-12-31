@@ -84,17 +84,17 @@ const AddThemeDialog = ({ open, onOpenChange, date, onSelectType }) => {
                 <button
                   key={blockType.type}
                   onClick={() => handleSelectType(blockType.type)}
-                  className="w-full flex items-start gap-4 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-start gap-4 p-4 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left"
                 >
                   {/* Icon */}
                   <div className="flex-shrink-0 mt-1">
-                    <Icon size={20} className="text-gray-600" />
+                    <Icon size={20} className="text-neutral-600" />
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 space-y-1">
-                    <h3 className="text-sm font-medium text-gray-900">{blockType.title}</h3>
-                    <p className="text-sm text-gray-600">{blockType.description}</p>
+                    <h3 className="text-sm font-medium text-neutral-900">{blockType.title}</h3>
+                    <p className="text-sm text-neutral-600">{blockType.description}</p>
                   </div>
                 </button>
               );

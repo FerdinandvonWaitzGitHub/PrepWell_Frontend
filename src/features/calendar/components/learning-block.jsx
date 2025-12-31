@@ -30,9 +30,9 @@ const LearningBlock = ({
             onAddClick();
           }
         }}
-        className={`flex items-center justify-center h-5 bg-gray-50 border border-gray-200 rounded px-4.5 py-1 hover:bg-gray-100 transition-colors ${className}`}
+        className={`flex items-center justify-center h-5 bg-neutral-50 border border-neutral-200 rounded px-4.5 py-1 hover:bg-neutral-100 transition-colors ${className}`}
       >
-        <PlusIcon size={16} className="text-gray-600" />
+        <PlusIcon size={16} className="text-neutral-600" />
       </button>
     );
   }
@@ -41,7 +41,7 @@ const LearningBlock = ({
   if (isOutOfRange) {
     return (
       <div className={`bg-primary-100 border border-primary-200 rounded px-4.5 py-5 pointer-events-none ${className}`}>
-        <p className="text-xs text-gray-600">nicht im Lernzeitraum</p>
+        <p className="text-xs text-neutral-600">nicht im Lernzeitraum</p>
       </div>
     );
   }
@@ -53,7 +53,7 @@ const LearningBlock = ({
         return 'bg-blue-50 border-blue-100';
       case 'free':
       case 'private':
-        return 'bg-gray-50 border-gray-200';
+        return 'bg-neutral-50 border-neutral-200';
       case 'repetition':
         return 'bg-primary-50 border-primary-100';
       default:
@@ -73,14 +73,14 @@ const LearningBlock = ({
   return (
     <div className={`${getBackgroundColor()} border rounded px-4.5 py-2.5 space-y-1 pointer-events-none ${className}`}>
       {/* Main display: Unterrechtsgebiet for theme, title for others */}
-      <div className="bg-gray-50 rounded px-2 py-0.5">
-        <p className="text-xs font-light text-gray-900">{getDisplayName()}</p>
+      <div className="bg-neutral-50 rounded px-2 py-0.5">
+        <p className="text-xs font-light text-neutral-900">{getDisplayName()}</p>
       </div>
 
       {/* Optional title (only for theme blocks with unterrechtsgebiet AND custom title) */}
       {blockType === 'lernblock' && unterrechtsgebiet?.name && title && title !== unterrechtsgebiet.name && (
-        <div className="bg-gray-50 rounded px-2 py-0.5">
-          <p className="text-xs font-light text-gray-500">{title}</p>
+        <div className="bg-neutral-50 rounded px-2 py-0.5">
+          <p className="text-xs font-light text-neutral-500">{title}</p>
         </div>
       )}
     </div>

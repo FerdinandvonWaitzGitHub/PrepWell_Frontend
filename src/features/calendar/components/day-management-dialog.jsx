@@ -152,10 +152,10 @@ const DayManagementDialog = ({
         <DialogBody className="space-y-6">
           {/* Day Type Section */}
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between bg-white border border-neutral-200 rounded-lg p-4">
               <div className="flex items-center gap-20">
-                <span className="text-sm font-medium text-gray-900">Tagestyp</span>
-                <span className="text-lg font-light text-gray-900">{dayType}</span>
+                <span className="text-sm font-medium text-neutral-900">Tagestyp</span>
+                <span className="text-lg font-light text-neutral-900">{dayType}</span>
               </div>
               <Button
                 variant="default"
@@ -171,11 +171,11 @@ const DayManagementDialog = ({
 
           {/* Learning Blocks Section */}
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-gray-900">Tagesblöcke</h3>
+            <h3 className="text-sm font-medium text-neutral-900">Tagesblöcke</h3>
 
             <div className="space-y-3">
               {learningBlocks.map((block) => (
-                <div key={block.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div key={block.id} className="border border-neutral-200 rounded-lg overflow-hidden">
                   {/* Block Content - Clickable for all block types */}
                   <button
                     type="button"
@@ -201,8 +201,8 @@ const DayManagementDialog = ({
 
                       {/* Title */}
                       {block.title && (
-                        <div className="bg-gray-50 px-3 py-1.5 rounded">
-                          <span className="text-sm font-light text-gray-900">{block.title}</span>
+                        <div className="bg-neutral-50 px-3 py-1.5 rounded">
+                          <span className="text-sm font-light text-neutral-900">{block.title}</span>
                         </div>
                       )}
                     </div>
@@ -214,10 +214,10 @@ const DayManagementDialog = ({
                       e.stopPropagation();
                       handleArchiveBlock(block.id);
                     }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 border-t border-gray-200 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-neutral-50 border-t border-neutral-200 transition-colors"
                   >
                     <ArchiveIcon size={14} />
-                    <span className="text-xs font-medium text-gray-900">Für später archivieren</span>
+                    <span className="text-xs font-medium text-neutral-900">Für später archivieren</span>
                   </button>
                 </div>
               ))}
@@ -225,12 +225,12 @@ const DayManagementDialog = ({
           </div>
 
           {/* Learning Plan Manager Section */}
-          <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+          <div className="border border-neutral-200 rounded-lg p-4 space-y-4">
             <div className="flex items-start gap-3">
-              <ReplaceAllIcon size={20} className="text-gray-600 mt-0.5" />
+              <ReplaceAllIcon size={20} className="text-neutral-600 mt-0.5" />
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Lernplan-Manager</h3>
-                <p className="text-sm text-gray-600">Erstelle einen neuen Block für ein Tagesthema</p>
+                <h3 className="text-sm font-medium text-neutral-900">Lernplan-Manager</h3>
+                <p className="text-sm text-neutral-600">Erstelle einen neuen Block für ein Tagesthema</p>
               </div>
             </div>
 

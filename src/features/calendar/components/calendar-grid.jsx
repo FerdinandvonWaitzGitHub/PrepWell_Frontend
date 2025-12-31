@@ -16,13 +16,13 @@ const CalendarGrid = ({ days = [], currentDay = null, onDayClick, onAddClick, cl
   return (
     <div className={`flex flex-col bg-white ${className}`}>
       {/* Week Days Header */}
-      <div className="grid grid-cols-7 bg-white border-b border-gray-200">
+      <div className="grid grid-cols-7 bg-white border-b border-neutral-200">
         {weekDays.map((dayName, index) => (
           <div
             key={index}
-            className="flex items-center px-4 py-2.5 border-r border-gray-200 last:border-r-0"
+            className="flex items-center px-4 py-2.5 border-r border-neutral-200 last:border-r-0"
           >
-            <span className="text-sm font-medium text-gray-900">{dayName}</span>
+            <span className="text-sm font-medium text-neutral-900">{dayName}</span>
           </div>
         ))}
       </div>
@@ -32,7 +32,7 @@ const CalendarGrid = ({ days = [], currentDay = null, onDayClick, onAddClick, cl
         {days.map((day, index) => (
           <div
             key={index}
-            className="border-r border-b border-gray-200 last:border-r-0 min-h-[143px]"
+            className="border-r border-b border-neutral-200 last:border-r-0 min-h-[143px]"
           >
             <DayTile
               day={day.day}

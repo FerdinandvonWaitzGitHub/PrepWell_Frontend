@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { useUebungsklausurenSync } from '../hooks/use-supabase-sync';
 
 const STORAGE_KEY = 'prepwell_uebungsklausuren';
 
@@ -9,6 +10,9 @@ const STORAGE_KEY = 'prepwell_uebungsklausuren';
  * - Only Punkte (0-18) grade system
  * - No semester field
  * - Focused on the 3 main Rechtsgebiete
+ *
+ * Now uses Supabase for persistence when authenticated,
+ * with LocalStorage fallback for offline/unauthenticated use.
  */
 const UebungsklausurenContext = createContext(null);
 
@@ -165,56 +169,62 @@ const saveUebungsklausuren = (data) => {
  * UebungsklausurenProvider component
  */
 export const UebungsklausurenProvider = ({ children }) => {
-  const [klausuren, setKlausuren] = useState(loadUebungsklausuren);
-
-  // Persist to localStorage
-  useEffect(() => {
-    saveUebungsklausuren(klausuren);
-  }, [klausuren]);
+  // Use Supabase sync hook for klausuren
+  const {
+    data: klausuren,
+    loading,
+    saveItem,
+    removeItem,
+    isAuthenticated,
+  } = useUebungsklausurenSync();
 
   /**
    * Add a new Übungsklausur
+   * Now syncs to Supabase when authenticated
    */
-  const addKlausur = useCallback((data) => {
+  const addKlausur = useCallback(async (data) => {
     const newKlausur = {
       ...data,
       id: `uk-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
-    setKlausuren(prev => [...prev, newKlausur]);
+    await saveItem(newKlausur);
     return newKlausur;
-  }, []);
+  }, [saveItem]);
 
   /**
    * Update an existing Übungsklausur
+   * Now syncs to Supabase when authenticated
    */
-  const updateKlausur = useCallback((updated) => {
-    setKlausuren(prev => prev.map(k =>
-      k.id === updated.id
-        ? { ...updated, updatedAt: new Date().toISOString() }
-        : k
-    ));
-  }, []);
+  const updateKlausur = useCallback(async (updated) => {
+    const klausurWithTimestamp = {
+      ...updated,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveItem(klausurWithTimestamp);
+  }, [saveItem]);
 
   /**
    * Delete an Übungsklausur
+   * Now syncs to Supabase when authenticated
    */
-  const deleteKlausur = useCallback((id) => {
-    setKlausuren(prev => prev.filter(k => k.id !== id));
-  }, []);
+  const deleteKlausur = useCallback(async (id) => {
+    await removeItem(id);
+  }, [removeItem]);
 
   /**
    * Get by ID
    */
   const getKlausurById = useCallback((id) => {
-    return klausuren.find(k => k.id === id) || null;
+    return (klausuren || []).find(k => k.id === id) || null;
   }, [klausuren]);
 
   /**
    * Calculate statistics
    */
   const stats = useMemo(() => {
-    const gradedKlausuren = klausuren.filter(k => k.punkte !== null && k.punkte !== undefined);
+    const safeKlausuren = klausuren || [];
+    const gradedKlausuren = safeKlausuren.filter(k => k.punkte !== null && k.punkte !== undefined);
 
     // By Rechtsgebiet
     const bySubject = {};
@@ -315,12 +325,15 @@ export const UebungsklausurenProvider = ({ children }) => {
   }, [klausuren]);
 
   const value = {
-    klausuren,
+    klausuren: klausuren || [],
     stats,
     addKlausur,
     updateKlausur,
     deleteKlausur,
     getKlausurById,
+    // Loading states
+    loading,
+    isAuthenticated,
   };
 
   return (

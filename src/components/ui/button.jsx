@@ -17,10 +17,11 @@ const Button = ({
   const baseStyles = 'inline-flex items-center justify-center gap-2 rounded font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variants = {
-    default: 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50',
-    primary: 'bg-primary-300 text-gray-900 hover:bg-primary-400',
-    ghost: 'text-gray-900 hover:bg-gray-100',
-    icon: 'text-gray-900 hover:bg-gray-100 p-2',
+    default: 'bg-white text-neutral-900 border border-neutral-200 hover:bg-neutral-50',
+    primary: 'bg-neutral-900 text-white hover:bg-neutral-800',
+    secondary: 'bg-primary-300 text-neutral-900 hover:bg-primary-400',
+    ghost: 'text-neutral-900 hover:bg-neutral-100',
+    icon: 'text-neutral-900 hover:bg-neutral-100 p-2',
   };
 
   const sizes = {

@@ -36,7 +36,7 @@ const MentorActivationDialog = ({ open, onOpenChange }) => {
         </DialogHeader>
 
         <DialogBody className="py-4">
-          <ul className="space-y-2 text-sm text-gray-600">
+          <ul className="space-y-2 text-sm text-neutral-600">
             <li className="flex items-start gap-2">
               <span className="text-green-500 mt-0.5">✓</span>
               <span>Lernzeit-Analyse (täglich, wöchentlich, monatlich)</span>

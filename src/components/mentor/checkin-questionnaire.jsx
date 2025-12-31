@@ -73,10 +73,10 @@ const CheckInQuestionnaire = ({ onComplete, onSkip }) => {
         {/* Title Section */}
         <div className="shrink-0 bg-neutral-200 py-4 lg:py-6 px-4">
           <div className="max-w-[1389px] mx-auto flex flex-col items-center gap-2 lg:gap-4">
-            <h1 className="text-center text-gray-900 text-2xl lg:text-4xl xl:text-5xl font-extralight leading-tight">
+            <h1 className="text-center text-neutral-900 text-2xl lg:text-4xl xl:text-5xl font-extralight leading-tight">
               {title}
             </h1>
-            <p className="max-w-[900px] text-center text-gray-500 text-xs lg:text-sm font-light leading-5">
+            <p className="max-w-[900px] text-center text-neutral-500 text-xs lg:text-sm font-light leading-5">
               {subtitle}
             </p>
           </div>
@@ -115,12 +115,12 @@ const CheckInQuestionnaire = ({ onComplete, onSkip }) => {
         <div className="shrink-0 pt-3 lg:pt-4">
           <button
             onClick={handleSkip}
-            className="px-4 lg:px-5 py-2 lg:py-2.5 rounded-3xl border border-gray-200 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+            className="px-4 lg:px-5 py-2 lg:py-2.5 rounded-3xl border border-neutral-200 flex items-center gap-2 hover:bg-neutral-50 transition-colors"
           >
-            <span className="text-gray-700 text-xs lg:text-sm font-light">
+            <span className="text-neutral-700 text-xs lg:text-sm font-light">
               Mentor Quiz überspringen
             </span>
-            <svg className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-gray-900" viewBox="0 0 16 16" fill="none">
+            <svg className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-neutral-900" viewBox="0 0 16 16" fill="none">
               <path d="M3.33 8h9.33M9.33 4.67L12.67 8l-3.34 3.33" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
@@ -139,7 +139,7 @@ const QuestionRow = ({ question, selectedValue, onSelect }) => {
     <div className="bg-white rounded-[5px] border border-neutral-200 flex flex-col lg:flex-row lg:items-stretch overflow-hidden">
       {/* Question Text */}
       <div className="shrink-0 lg:w-72 xl:w-96 p-3 lg:p-4 xl:p-6 flex items-center">
-        <h2 className="text-gray-900 text-base lg:text-lg xl:text-2xl font-extralight leading-snug">
+        <h2 className="text-neutral-900 text-base lg:text-lg xl:text-2xl font-extralight leading-snug">
           {question.question}
         </h2>
       </div>
@@ -156,7 +156,7 @@ const QuestionRow = ({ question, selectedValue, onSelect }) => {
                 className={`flex-1 min-w-0 px-2 lg:px-3 xl:px-4 py-2 lg:py-3 xl:py-4 rounded-full lg:rounded-[30px] flex justify-center items-center transition-all ${
                   isSelected
                     ? 'bg-slate-600 text-white'
-                    : 'border border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                    : 'border border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
               >
                 <span className="text-xs lg:text-sm font-normal leading-tight text-center whitespace-nowrap overflow-hidden text-ellipsis">

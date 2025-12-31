@@ -25,7 +25,7 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
   const barColors = useMemo(() => {
     return data.map(day => {
       if (!day.achieved || day.achieved === 0) {
-        return 'bg-gray-200'; // No activity
+        return 'bg-neutral-200'; // No activity
       }
 
       const percentage = day.planned > 0
@@ -44,7 +44,7 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
   const bars = useMemo(() => {
     const result = [...barColors];
     while (result.length < 30) {
-      result.push('bg-gray-200');
+      result.push('bg-neutral-200');
     }
     return result.slice(0, 30);
   }, [barColors]);
@@ -52,14 +52,14 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
   const isPositiveChange = avgDurationChange > 0;
 
   return (
-    <div className="flex-1 h-full p-5 bg-white rounded-[10px] border border-gray-200 flex flex-col justify-between">
+    <div className="flex-1 h-full p-5 bg-white rounded-[10px] border border-neutral-200 flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center gap-1.5">
-        <span className="text-gray-900 text-lg font-light leading-4">
+        <span className="text-neutral-900 text-lg font-light leading-4">
           Performance letzte 30 Tage
         </span>
         <div className="p-px rounded-full flex justify-center items-center">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-gray-400">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-neutral-400">
             <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.33" />
           </svg>
         </div>
@@ -80,10 +80,10 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
       {/* Stats Row */}
       <div className="flex flex-col justify-center">
         <div className="flex items-center gap-2.5 overflow-hidden">
-          <span className="text-gray-900 text-2xl font-light leading-8">
+          <span className="text-neutral-900 text-2xl font-light leading-8">
             {avgDuration}
           </span>
-          <span className="text-gray-500 text-sm font-normal leading-5">
+          <span className="text-neutral-500 text-sm font-normal leading-5">
             ⌀ pro Tag
           </span>
         </div>
@@ -101,7 +101,7 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
               <path d="M8 4L12 9H4L8 4Z" fill="currentColor" />
             </svg>
           </div>
-          <span className="text-gray-500 text-sm font-normal leading-5">
+          <span className="text-neutral-500 text-sm font-normal leading-5">
             {isPositiveChange ? '+' : ''}{avgDurationChange} min zum letzten Zeitraum
           </span>
         </div>
@@ -111,12 +111,12 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
       <div className="flex justify-center items-center gap-2">
         <button
           onClick={() => setIsYearViewOpen(true)}
-          className="px-5 py-2.5 rounded-full border border-gray-300 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+          className="px-5 py-2.5 rounded-full border border-neutral-300 flex items-center gap-2 hover:bg-neutral-50 transition-colors"
         >
-          <span className="text-gray-900 text-sm font-light leading-5">
+          <span className="text-neutral-900 text-sm font-light leading-5">
             Jahresansicht
           </span>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-gray-900">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-neutral-900">
             <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>

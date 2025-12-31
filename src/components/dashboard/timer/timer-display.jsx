@@ -19,7 +19,7 @@ const CircularProgress = ({ progress, size = 24, strokeWidth = 2, isBreak = fals
         fill="none"
         stroke="currentColor"
         strokeWidth={strokeWidth}
-        className="text-gray-200"
+        className="text-neutral-200"
       />
       {/* Progress circle */}
       <circle
@@ -59,7 +59,7 @@ const TimerDisplay = ({ onClick }) => {
 
   // Determine background color based on timer type and state
   const getBgColor = () => {
-    if (isPaused) return 'bg-gray-100';
+    if (isPaused) return 'bg-neutral-100';
     if (isBreak) return 'bg-green-50';
     switch (timerType) {
       case TIMER_TYPES.POMODORO:
@@ -69,7 +69,7 @@ const TimerDisplay = ({ onClick }) => {
       case TIMER_TYPES.COUNTUP:
         return 'bg-green-50';
       default:
-        return 'bg-gray-50';
+        return 'bg-neutral-50';
     }
   };
 
@@ -86,17 +86,17 @@ const TimerDisplay = ({ onClick }) => {
       <div className="py-1 rounded-md flex flex-col items-end gap-0.5">
         <div className={`
           text-sm font-medium leading-5 text-right
-          ${isPaused ? 'text-gray-600' : isBreak ? 'text-green-700' : 'text-gray-900'}
+          ${isPaused ? 'text-neutral-600' : isBreak ? 'text-green-700' : 'text-neutral-900'}
         `}>
           {isPaused && '⏸ '}{primaryText}
         </div>
-        <div className="text-sm font-normal leading-5 text-gray-500 text-right">
+        <div className="text-sm font-normal leading-5 text-neutral-500 text-right">
           {secondaryText}
         </div>
       </div>
 
       {/* Progress Circle */}
-      <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100 flex justify-center items-center">
+      <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100 flex justify-center items-center">
         <CircularProgress
           progress={progress}
           size={24}

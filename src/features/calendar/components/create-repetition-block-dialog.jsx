@@ -161,14 +161,14 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
       <button
         type="button"
         onClick={() => onChange(value >= 1 ? 0 : 1)}
-        className={`text-lg font-bold transition-colors ${value >= 1 ? 'text-orange-500' : 'text-gray-300'}`}
+        className={`text-lg font-bold transition-colors ${value >= 1 ? 'text-orange-500' : 'text-neutral-300'}`}
       >
         !
       </button>
       <button
         type="button"
         onClick={() => onChange(value >= 2 ? 1 : 2)}
-        className={`text-lg font-bold transition-colors ${value >= 2 ? 'text-red-500' : 'text-gray-300'}`}
+        className={`text-lg font-bold transition-colors ${value >= 2 ? 'text-red-500' : 'text-neutral-300'}`}
       >
         !
       </button>
@@ -218,76 +218,76 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
         <DialogBody className="space-y-6">
           {/* Blockgröße Field - Limited by available slots */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">
-              Blockgröße <span className="text-xs text-gray-500">({availableSlots} Slot{availableSlots !== 1 ? 's' : ''} verfügbar)</span>
+            <label className="text-sm font-medium text-neutral-900">
+              Blockgröße <span className="text-xs text-neutral-500">({availableSlots} Slot{availableSlots !== 1 ? 's' : ''} verfügbar)</span>
             </label>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setBlockSize(Math.max(1, blockSize - 1))}
                 disabled={blockSize <= 1}
-                className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <MinusIcon size={16} className="text-gray-600" />
+                <MinusIcon size={16} className="text-neutral-600" />
               </button>
-              <span className="flex-1 text-center text-lg font-medium text-gray-900">{blockSize}</span>
+              <span className="flex-1 text-center text-lg font-medium text-neutral-900">{blockSize}</span>
               <button
                 type="button"
                 onClick={() => setBlockSize(Math.min(availableSlots, blockSize + 1))}
                 disabled={blockSize >= availableSlots}
-                className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <PlusIcon size={16} className="text-gray-600" />
+                <PlusIcon size={16} className="text-neutral-600" />
               </button>
             </div>
           </div>
 
           {/* Titel Field */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">Titel</label>
+            <label className="text-sm font-medium text-neutral-900">Titel</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Titel eintragen..."
-              className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+              className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
             />
           </div>
 
           {/* Beschreibung Field */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">Beschreibung</label>
+            <label className="text-sm font-medium text-neutral-900">Beschreibung</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Beschreibung eintragen..."
               rows={3}
-              className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm resize-none"
+              className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm resize-none"
             />
           </div>
 
           {/* Uhrzeit */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">
+            <label className="text-sm font-medium text-neutral-900">
               Uhrzeit <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">Von</label>
+                <label className="text-sm text-neutral-600">Von</label>
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">Bis</label>
+                <label className="text-sm text-neutral-600">Bis</label>
                 <input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
             </div>
@@ -300,33 +300,33 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
                 type="checkbox"
                 checked={repeatEnabled}
                 onChange={(e) => setRepeatEnabled(e.target.checked)}
-                className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                className="w-5 h-5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
               />
-              <span className="text-sm font-medium text-gray-900">Termin wiederholen</span>
+              <span className="text-sm font-medium text-neutral-900">Termin wiederholen</span>
             </label>
 
             {repeatEnabled && (
               <div className="space-y-4 pl-8">
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-600">Wiederholung</label>
+                  <label className="text-sm text-neutral-600">Wiederholung</label>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setIsRepeatTypeOpen(!isRepeatTypeOpen)}
-                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 text-left"
                     >
-                      <span className="text-sm text-gray-900">{getRepeatTypeName()}</span>
-                      <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
+                      <span className="text-sm text-neutral-900">{getRepeatTypeName()}</span>
+                      <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {isRepeatTypeOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                         {repeatTypeOptions.map(opt => (
                           <button
                             key={opt.id}
                             type="button"
                             onClick={() => { setRepeatType(opt.id); setIsRepeatTypeOpen(false); }}
-                            className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                              repeatType === opt.id ? 'bg-gray-100 font-medium' : ''
+                            className={`w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                              repeatType === opt.id ? 'bg-neutral-100 font-medium' : ''
                             }`}
                           >
                             {opt.name}
@@ -339,7 +339,7 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
 
                 {repeatType === 'custom' && (
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-600">An diesen Tagen</label>
+                    <label className="text-sm text-neutral-600">An diesen Tagen</label>
                     <div className="flex flex-wrap gap-2">
                       {weekdayOptions.map(day => (
                         <button
@@ -347,7 +347,7 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
                           type="button"
                           onClick={() => toggleCustomDay(day.id)}
                           className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
-                            customDays.includes(day.id) ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            customDays.includes(day.id) ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                           }`}
                         >
                           {day.short}
@@ -358,7 +358,7 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-600">Anzahl Wiederholungen</label>
+                  <label className="text-sm text-neutral-600">Anzahl Wiederholungen</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="number"
@@ -366,9 +366,9 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
                       max="100"
                       value={repeatCount}
                       onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                      className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm text-center"
+                      className="w-24 px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm text-center"
                     />
-                    <span className="text-sm text-gray-600">mal</span>
+                    <span className="text-sm text-neutral-600">mal</span>
                   </div>
                 </div>
               </div>
@@ -377,20 +377,20 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
 
           {/* Aufgaben Section */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-900">Aufgaben</label>
+            <label className="text-sm font-medium text-neutral-900">Aufgaben</label>
 
             {/* Existing Tasks */}
             {tasks.length > 0 && (
               <div className="space-y-2">
                 {tasks.map(task => (
-                  <div key={task.id} className="group flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div key={task.id} className="group flex items-center gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
                     <input
                       type="checkbox"
                       checked={task.completed}
                       onChange={() => handleToggleTask(task.id)}
-                      className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-400"
+                      className="w-4 h-4 rounded border-neutral-300 text-primary-500 focus:ring-primary-400"
                     />
-                    <span className={`flex-1 text-sm ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                    <span className={`flex-1 text-sm ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
                       {task.text}
                     </span>
                     <DifficultySelector
@@ -400,7 +400,7 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
                     <button
                       type="button"
                       onClick={() => handleDeleteTask(task.id)}
-                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
                     >
                       <TrashIcon size={14} />
                     </button>
@@ -410,11 +410,11 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
             )}
 
             {/* Add New Task */}
-            <div className="group flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg">
+            <div className="group flex items-center gap-3 p-3 bg-white border border-neutral-200 rounded-lg">
               <input
                 type="checkbox"
                 disabled
-                className="w-4 h-4 rounded border-gray-300 opacity-50"
+                className="w-4 h-4 rounded border-neutral-300 opacity-50"
               />
               <input
                 type="text"
@@ -432,7 +432,7 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
                     setNewTaskText('');
                     setNewTaskDifficulty(0);
                   }}
-                  className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                 >
                   <TrashIcon size={14} />
                 </button>
@@ -441,7 +441,7 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
                 type="button"
                 onClick={handleAddTask}
                 disabled={!newTaskText.trim()}
-                className="p-1 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1 text-neutral-400 hover:text-green-500 hover:bg-green-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <PlusIcon size={16} />
               </button>

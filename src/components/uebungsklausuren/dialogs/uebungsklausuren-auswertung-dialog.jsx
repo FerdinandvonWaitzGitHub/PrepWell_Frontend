@@ -85,14 +85,14 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-          <p className="font-medium text-gray-900">{data.title}</p>
-          <p className="text-sm text-gray-600">{data.subject}</p>
-          <p className="text-sm text-gray-500">{data.date}</p>
-          <p className="text-lg font-bold text-gray-900 mt-1">
+        <div className="bg-white border border-neutral-200 rounded-lg shadow-lg p-3">
+          <p className="font-medium text-neutral-900">{data.title}</p>
+          <p className="text-sm text-neutral-600">{data.subject}</p>
+          <p className="text-sm text-neutral-500">{data.date}</p>
+          <p className="text-lg font-bold text-neutral-900 mt-1">
             {formatPunkte(data.punkte)}
           </p>
-          <p className="text-xs text-gray-500">{getGradeLabel(data.punkte)}</p>
+          <p className="text-xs text-neutral-500">{getGradeLabel(data.punkte)}</p>
         </div>
       );
     }
@@ -104,10 +104,10 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-          <p className="font-medium text-gray-900">{data.subject}</p>
-          <p className="text-sm text-gray-600">{data.count} Klausuren</p>
-          <p className="text-sm text-gray-500">{data.percentage.toFixed(1)}%</p>
+        <div className="bg-white border border-neutral-200 rounded-lg shadow-lg p-3">
+          <p className="font-medium text-neutral-900">{data.subject}</p>
+          <p className="text-sm text-neutral-600">{data.count} Klausuren</p>
+          <p className="text-sm text-neutral-500">{data.percentage.toFixed(1)}%</p>
         </div>
       );
     }
@@ -129,11 +129,11 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
         <DialogBody className="space-y-6 overflow-y-auto">
           {/* Stats Overview */}
           <div className="grid grid-cols-4 gap-3">
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-gray-900">
+            <div className="bg-neutral-50 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-neutral-900">
                 {stats.totalCount}
               </div>
-              <div className="text-xs text-gray-600">Klausuren</div>
+              <div className="text-xs text-neutral-600">Klausuren</div>
             </div>
             <div className="bg-primary-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-primary-700">
@@ -157,7 +157,7 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
                   )
                 )}
                 <span className={`text-2xl font-bold ${
-                  stats.overallTrend > 0 ? 'text-green-700' : stats.overallTrend < 0 ? 'text-red-700' : 'text-gray-700'
+                  stats.overallTrend > 0 ? 'text-green-700' : stats.overallTrend < 0 ? 'text-red-700' : 'text-neutral-700'
                 }`}>
                   {stats.overallTrend !== 0 ? `${stats.overallTrend > 0 ? '+' : ''}${stats.overallTrend.toFixed(1)}` : '-'}
                 </span>
@@ -167,13 +167,13 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex border-b border-gray-200">
+          <div className="flex border-b border-neutral-200">
             <button
               onClick={() => setActiveTab('entwicklung')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'entwicklung'
                   ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-700'
               }`}
             >
               Entwicklung
@@ -183,7 +183,7 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'verteilung'
                   ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-700'
               }`}
             >
               Gewichtung der Rechtsgebiete
@@ -193,7 +193,7 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
           {/* Charts */}
           {activeTab === 'entwicklung' && (
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">
+              <h4 className="text-sm font-medium text-neutral-900">
                 Notenentwicklung über Zeit
               </h4>
 
@@ -236,37 +236,37 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">
+                <div className="h-64 flex items-center justify-center bg-neutral-50 rounded-lg">
+                  <p className="text-sm text-neutral-500">
                     Noch keine Daten vorhanden
                   </p>
                 </div>
               )}
 
-              <div className="flex items-center justify-center gap-6 text-xs text-gray-500">
+              <div className="flex items-center justify-center gap-6 text-xs text-neutral-500">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-0.5 bg-blue-500"></div>
                   <span>Einzelnote</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-gray-400 border-dashed"></div>
+                  <div className="w-4 h-0.5 bg-neutral-400 border-dashed"></div>
                   <span>Laufender Durchschnitt</span>
                 </div>
               </div>
 
               {/* Subject-specific line charts */}
-              <div className="space-y-4 pt-4 border-t border-gray-200">
-                <h4 className="text-sm font-medium text-gray-900">
+              <div className="space-y-4 pt-4 border-t border-neutral-200">
+                <h4 className="text-sm font-medium text-neutral-900">
                   Entwicklung nach Rechtsgebiet
                 </h4>
                 <div className="grid grid-cols-3 gap-4">
                   {stats.subjectStats.map(subjectStat => (
-                    <div key={subjectStat.subject} className="bg-gray-50 rounded-lg p-3">
+                    <div key={subjectStat.subject} className="bg-neutral-50 rounded-lg p-3">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-gray-700">
+                        <span className="text-xs font-medium text-neutral-700">
                           {subjectStat.subject}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-neutral-500">
                           {subjectStat.count} Klausuren
                         </span>
                       </div>
@@ -294,7 +294,7 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
 
           {activeTab === 'verteilung' && (
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">
+              <h4 className="text-sm font-medium text-neutral-900">
                 Verteilung der Übungsklausuren
               </h4>
 
@@ -324,8 +324,8 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">
+                <div className="h-64 flex items-center justify-center bg-neutral-50 rounded-lg">
+                  <p className="text-sm text-neutral-500">
                     Noch keine Daten vorhanden
                   </p>
                 </div>
@@ -339,8 +339,8 @@ const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: d.color }}
                     ></div>
-                    <span className="text-sm text-gray-700 flex-1">{d.subject}</span>
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm text-neutral-700 flex-1">{d.subject}</span>
+                    <span className="text-sm font-medium text-neutral-900">
                       {d.count} ({d.percentage.toFixed(0)}%)
                     </span>
                   </div>

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { useExamsSync, useUserSettingsSync } from '../hooks/use-supabase-sync';
 
 const STORAGE_KEY = 'prepwell_exams';
 const STORAGE_KEY_SUBJECTS = 'prepwell_custom_subjects';
@@ -216,37 +217,45 @@ const loadPreferredGradeSystem = () => {
 
 /**
  * ExamsProvider component
+ *
+ * Now uses Supabase for persistence when authenticated,
+ * with LocalStorage fallback for offline/unauthenticated use.
  */
 export const ExamsProvider = ({ children }) => {
-  const [exams, setExams] = useState(loadExams);
-  const [customSubjects, setCustomSubjects] = useState(loadCustomSubjects);
-  const [preferredGradeSystem, setPreferredGradeSystem] = useState(loadPreferredGradeSystem);
+  // Use Supabase sync hook for exams
+  const {
+    data: exams,
+    loading: examsLoading,
+    saveItem: saveExam,
+    removeItem: removeExam,
+    isAuthenticated,
+  } = useExamsSync();
+
+  // Use Supabase sync hook for user settings (includes customSubjects & gradeSystem)
+  const {
+    settings,
+    updateSettings,
+    loading: settingsLoading,
+  } = useUserSettingsSync();
+
+  // Extract settings with fallbacks
+  const customSubjects = settings.customSubjects || loadCustomSubjects();
+  const preferredGradeSystem = settings.gradeSystem || loadPreferredGradeSystem();
 
   // All available subjects (default + custom)
   const allSubjects = useMemo(() => {
     return [...DEFAULT_SUBJECTS, ...customSubjects];
   }, [customSubjects]);
 
-  // Persist state changes to localStorage
-  useEffect(() => {
-    saveExams(exams);
-  }, [exams]);
+  // Update preferred grade system
+  const setPreferredGradeSystem = useCallback((system) => {
+    updateSettings({ gradeSystem: system });
+  }, [updateSettings]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_SUBJECTS, JSON.stringify(customSubjects));
-    } catch (error) {
-      console.error('Error saving custom subjects:', error);
-    }
-  }, [customSubjects]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_GRADE_SYSTEM, preferredGradeSystem);
-    } catch (error) {
-      console.error('Error saving grade system:', error);
-    }
-  }, [preferredGradeSystem]);
+  // Update custom subjects
+  const setCustomSubjects = useCallback((subjects) => {
+    updateSettings({ customSubjects: subjects });
+  }, [updateSettings]);
 
   /**
    * Add a custom subject
@@ -254,51 +263,56 @@ export const ExamsProvider = ({ children }) => {
   const addCustomSubject = useCallback((subjectName) => {
     const trimmed = subjectName.trim();
     if (trimmed && !allSubjects.includes(trimmed)) {
-      setCustomSubjects(prev => [...prev, trimmed]);
+      const newSubjects = [...customSubjects, trimmed];
+      setCustomSubjects(newSubjects);
       return true;
     }
     return false;
-  }, [allSubjects]);
+  }, [allSubjects, customSubjects, setCustomSubjects]);
 
   /**
    * Remove a custom subject
    */
   const removeCustomSubject = useCallback((subjectName) => {
     if (DEFAULT_SUBJECTS.includes(subjectName)) return false;
-    setCustomSubjects(prev => prev.filter(s => s !== subjectName));
+    const newSubjects = customSubjects.filter(s => s !== subjectName);
+    setCustomSubjects(newSubjects);
     return true;
-  }, []);
+  }, [customSubjects, setCustomSubjects]);
 
   /**
    * Add a new exam
+   * Now syncs to Supabase when authenticated
    */
-  const addExam = useCallback((examData) => {
+  const addExam = useCallback(async (examData) => {
     const newExam = {
       ...examData,
       id: `exam-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
-    setExams(prev => [...prev, newExam]);
+    await saveExam(newExam);
     return newExam;
-  }, []);
+  }, [saveExam]);
 
   /**
    * Update an existing exam
+   * Now syncs to Supabase when authenticated
    */
-  const updateExam = useCallback((updatedExam) => {
-    setExams(prev => prev.map(exam =>
-      exam.id === updatedExam.id
-        ? { ...updatedExam, updatedAt: new Date().toISOString() }
-        : exam
-    ));
-  }, []);
+  const updateExam = useCallback(async (updatedExam) => {
+    const examWithTimestamp = {
+      ...updatedExam,
+      updatedAt: new Date().toISOString()
+    };
+    await saveExam(examWithTimestamp);
+  }, [saveExam]);
 
   /**
    * Delete an exam
+   * Now syncs to Supabase when authenticated
    */
-  const deleteExam = useCallback((examId) => {
-    setExams(prev => prev.filter(exam => exam.id !== examId));
-  }, []);
+  const deleteExam = useCallback(async (examId) => {
+    await removeExam(examId);
+  }, [removeExam]);
 
   /**
    * Get exam by ID
@@ -414,7 +428,7 @@ export const ExamsProvider = ({ children }) => {
   }, [exams, getNormalizedGrade]);
 
   const value = {
-    exams,
+    exams: exams || [],
     stats,
     addExam,
     updateExam,
@@ -429,6 +443,9 @@ export const ExamsProvider = ({ children }) => {
     preferredGradeSystem,
     setPreferredGradeSystem,
     getNormalizedGrade,
+    // Loading states
+    loading: examsLoading || settingsLoading,
+    isAuthenticated,
   };
 
   return (

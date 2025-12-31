@@ -81,12 +81,12 @@ export default function Auth() {
 
   if (!isSupabaseEnabled) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Supabase nicht konfiguriert</h2>
-            <p className="text-gray-600 mb-4">
+            <p className="text-neutral-600 mb-4">
               Die App läuft im Offline-Modus. Alle Daten werden lokal gespeichert.
             </p>
             <button
@@ -107,15 +107,15 @@ export default function Auth() {
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-blue-600">PrepWell</h1>
-          <p className="text-gray-500 mt-2">Dein Lernbegleiter fürs Staatsexamen</p>
+          <p className="text-neutral-500 mt-2">Dein Lernbegleiter fürs Staatsexamen</p>
         </div>
 
         {/* Mode Tabs */}
-        <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
+        <div className="flex mb-6 bg-neutral-100 rounded-lg p-1">
           <button
             onClick={() => handleModeSwitch('login')}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-              mode === 'login' ? 'bg-white shadow text-blue-600' : 'text-gray-600'
+              mode === 'login' ? 'bg-white shadow text-blue-600' : 'text-neutral-600'
             }`}
           >
             Anmelden
@@ -123,7 +123,7 @@ export default function Auth() {
           <button
             onClick={() => handleModeSwitch('register')}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-              mode === 'register' ? 'bg-white shadow text-blue-600' : 'text-gray-600'
+              mode === 'register' ? 'bg-white shadow text-blue-600' : 'text-neutral-600'
             }`}
           >
             Registrieren
@@ -150,32 +150,32 @@ export default function Auth() {
           {mode === 'register' && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Vorname
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Max"
                     required
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Nachname
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Mustermann"
                     required
                   />
@@ -186,16 +186,16 @@ export default function Auth() {
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               E-Mail
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="deine@email.de"
                 required
               />
@@ -205,16 +205,16 @@ export default function Auth() {
           {/* Password */}
           {mode !== 'forgot' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
                 Passwort
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="••••••••"
                   required
                 />
@@ -225,16 +225,16 @@ export default function Auth() {
           {/* Confirm Password (Register only) */}
           {mode === 'register' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
                 Passwort bestätigen
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="••••••••"
                   required
                 />
@@ -278,17 +278,17 @@ export default function Auth() {
         {mode === 'forgot' && (
           <button
             onClick={() => handleModeSwitch('login')}
-            className="w-full mt-4 text-sm text-gray-600 hover:text-gray-800"
+            className="w-full mt-4 text-sm text-neutral-600 hover:text-neutral-800"
           >
             ← Zurück zur Anmeldung
           </button>
         )}
 
         {/* Offline Mode Link */}
-        <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+        <div className="mt-6 pt-6 border-t border-neutral-200 text-center">
           <button
             onClick={() => navigate('/')}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-neutral-500 hover:text-neutral-700"
           >
             Ohne Anmeldung fortfahren (Offline-Modus)
           </button>

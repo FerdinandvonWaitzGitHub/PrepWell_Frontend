@@ -1,4 +1,15 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import {
+  useContentPlansSync,
+  useUserSettingsSync,
+  useCalendarSlotsSync,
+  useCalendarTasksSync,
+  usePrivateBlocksSync,
+  useArchivedLernplaeneSync,
+  useLernplanMetadataSync,
+  usePublishedThemenlistenSync,
+} from '../hooks/use-supabase-sync';
+import { useAuth } from './auth-context';
 
 /**
  * Context for centrally managing Calendar data
@@ -6,8 +17,21 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
  * - Lernplan slots (from wizard)
  * - Private blocks (personal appointments)
  * - Tasks (daily tasks)
+ * - Content Plans (Lernpläne & Themenlisten)
  *
  * Data flows: Wizard → CalendarContext → Monatsansicht → Wochenansicht → Startseite
+ *
+ * Supabase Integration (ALL DATA NOW SYNCED):
+ * - contentPlans: Synced via useContentPlansSync → content_plans table
+ * - slots: Synced via useCalendarSlotsSync → calendar_slots table
+ * - tasks: Synced via useCalendarTasksSync → calendar_tasks table
+ * - privateBlocks: Synced via usePrivateBlocksSync → private_blocks table
+ * - archivedLernplaene: Synced via useArchivedLernplaeneSync → archived_lernplaene table
+ * - lernplanMetadata: Synced via useLernplanMetadataSync → user_settings.timer_settings
+ * - publishedThemenlisten: Synced via usePublishedThemenlistenSync → published_themenlisten table
+ * - customUnterrechtsgebiete: Synced via useUserSettingsSync → user_settings.custom_subjects
+ *
+ * LocalStorage serves as fallback/cache for offline use.
  */
 
 // Create the context
@@ -51,52 +75,150 @@ const saveToStorage = (key, data) => {
 
 /**
  * Provider component for Calendar data
+ * Now uses Supabase for all data with LocalStorage fallback
  */
 export const CalendarProvider = ({ children }) => {
-  // Current calendar slots (what's displayed in the main calendar)
-  const [slotsByDate, setSlotsByDate] = useState(() =>
-    loadFromStorage(STORAGE_KEY_SLOTS, {})
+  // Auth context for checking authentication state
+  const { isAuthenticated, isSupabaseEnabled } = useAuth();
+
+  // ============================================
+  // SUPABASE-SYNCED STATE (ALL DATA NOW SYNCED)
+  // ============================================
+
+  // Content Plans - synced with Supabase
+  const {
+    data: contentPlans,
+    setData: setContentPlansLocal,
+    saveItem: saveContentPlanToSupabase,
+    removeItem: removeContentPlanFromSupabase,
+    loading: contentPlansLoading,
+  } = useContentPlansSync();
+
+  // User settings (for customUnterrechtsgebiete)
+  const { settings: userSettings, updateSettings: updateUserSettings } = useUserSettingsSync();
+
+  // Calendar Slots - synced with Supabase
+  const {
+    slotsByDate,
+    setSlotsByDate: setSlotsByDateSync,
+    saveDaySlots,
+    clearAllSlots,
+    loading: slotsLoading,
+  } = useCalendarSlotsSync();
+
+  // Calendar Tasks - synced with Supabase
+  const {
+    tasksByDate,
+    saveDayTasks,
+    updateTask: updateTaskSync,
+    loading: tasksLoading,
+  } = useCalendarTasksSync();
+
+  // Private Blocks - synced with Supabase
+  const {
+    privateBlocksByDate,
+    saveDayBlocks,
+    loading: privateBlocksLoading,
+  } = usePrivateBlocksSync();
+
+  // Archived Lernpläne - synced with Supabase
+  const {
+    archivedLernplaene,
+    archivePlan,
+    deleteArchivedPlan: deleteArchivedPlanSync,
+    loading: archivedLoading,
+  } = useArchivedLernplaeneSync();
+
+  // Lernplan Metadata - synced with Supabase
+  const {
+    lernplanMetadata,
+    updateMetadata: updateLernplanMetadataSync,
+    clearMetadata: clearLernplanMetadataSync,
+    loading: metadataLoading,
+  } = useLernplanMetadataSync();
+
+  // Custom Unterrechtsgebiete - synced via user_settings.custom_subjects
+  const [customUnterrechtsgebiete, setCustomUnterrechtsgebieteLocal] = useState(() =>
+    loadFromStorage(STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE, {})
   );
 
-  // Archived Lernpläne (previous plans that were replaced)
-  const [archivedLernplaene, setArchivedLernplaene] = useState(() =>
-    loadFromStorage(STORAGE_KEY_ARCHIVED, [])
-  );
+  // Sync customUnterrechtsgebiete from user settings
+  const syncedCustomSubjects = useRef(false);
+  useEffect(() => {
+    if (userSettings.customSubjects && !syncedCustomSubjects.current && isAuthenticated) {
+      // Convert array to object format if needed
+      if (Array.isArray(userSettings.customSubjects) && userSettings.customSubjects.length > 0) {
+        // customSubjects is stored as array in Supabase, convert to object
+        try {
+          const parsed = typeof userSettings.customSubjects === 'string'
+            ? JSON.parse(userSettings.customSubjects)
+            : userSettings.customSubjects;
+          if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+            setCustomUnterrechtsgebieteLocal(parsed);
+            saveToStorage(STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE, parsed);
+          }
+        } catch (e) {
+          console.error('Error parsing custom subjects:', e);
+        }
+      }
+      syncedCustomSubjects.current = true;
+    }
+  }, [userSettings.customSubjects, isAuthenticated]);
 
-  // Current Lernplan metadata (name, dates, etc.)
-  const [lernplanMetadata, setLernplanMetadata] = useState(() =>
-    loadFromStorage(STORAGE_KEY_METADATA, null)
-  );
+  // Helper to update customUnterrechtsgebiete (syncs to Supabase)
+  const setCustomUnterrechtsgebiete = useCallback((newData) => {
+    setCustomUnterrechtsgebieteLocal(newData);
+    saveToStorage(STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE, newData);
+    // Sync to Supabase via user_settings
+    if (isSupabaseEnabled && isAuthenticated) {
+      updateUserSettings({ customSubjects: newData });
+    }
+  }, [isSupabaseEnabled, isAuthenticated, updateUserSettings]);
 
-  // Private blocks by date (personal appointments, not part of Lernplan)
-  const [privateBlocksByDate, setPrivateBlocksByDate] = useState(() =>
-    loadFromStorage(STORAGE_KEY_PRIVATE_BLOCKS, {})
-  );
+  // Helper to update contentPlans locally and to Supabase
+  const setContentPlans = useCallback((newData) => {
+    setContentPlansLocal(newData);
+  }, [setContentPlansLocal]);
 
-  // Tasks by date (daily tasks/aufgaben)
-  const [tasksByDate, setTasksByDate] = useState(() =>
-    loadFromStorage(STORAGE_KEY_TASKS, {})
-  );
+  // Wrapper to set slotsByDate (for compatibility)
+  const setSlotsByDate = useCallback((newData) => {
+    setSlotsByDateSync(newData);
+  }, [setSlotsByDateSync]);
+
+  // Wrapper to set archivedLernplaene (for compatibility)
+  const setArchivedLernplaene = useCallback((newData) => {
+    // This is handled by the sync hook
+    console.warn('setArchivedLernplaene called directly - use archivePlan or deleteArchivedPlan instead');
+  }, []);
+
+  // Wrapper to set lernplanMetadata (for compatibility)
+  const setLernplanMetadata = useCallback((newData) => {
+    updateLernplanMetadataSync(newData);
+  }, [updateLernplanMetadataSync]);
+
+  // Wrapper to set privateBlocksByDate (for compatibility)
+  const setPrivateBlocksByDate = useCallback((dateKey, blocks) => {
+    saveDayBlocks(dateKey, blocks);
+  }, [saveDayBlocks]);
+
+  // Wrapper to set tasksByDate (for compatibility)
+  const setTasksByDate = useCallback((dateKey, tasks) => {
+    saveDayTasks(dateKey, tasks);
+  }, [saveDayTasks]);
 
   // Theme lists (dateless topic lists from Lernpläne) - LEGACY, use contentPlans instead
   const [themeLists, setThemeLists] = useState(() =>
     loadFromStorage(STORAGE_KEY_THEME_LISTS, [])
   );
 
-  // Content Plans (Lernpläne and Themenlisten with new hierarchical structure)
-  const [contentPlans, setContentPlans] = useState(() =>
-    loadFromStorage(STORAGE_KEY_CONTENT_PLANS, [])
-  );
-
-  // Custom Unterrechtsgebiete (user-created, global)
-  const [customUnterrechtsgebiete, setCustomUnterrechtsgebiete] = useState(() =>
-    loadFromStorage(STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE, {})
-  );
-
-  // Published Themenlisten (user-shared, for community database)
-  const [publishedThemenlisten, setPublishedThemenlisten] = useState(() =>
-    loadFromStorage(STORAGE_KEY_PUBLISHED_THEMENLISTEN, [])
-  );
+  // Published Themenlisten (user-shared, for community database) - NOW SYNCED WITH SUPABASE
+  const {
+    data: publishedThemenlisten,
+    setData: setPublishedThemenlistenLocal,
+    saveItem: savePublishedThemenliste,
+    removeItem: removePublishedThemenliste,
+    loading: publishedThemenlistenLoading,
+  } = usePublishedThemenlistenSync();
 
   // ============================================
   // NEW DATA MODEL: Content (separate from Slots)
@@ -113,13 +235,14 @@ export const CalendarProvider = ({ children }) => {
   /**
    * Archive the current Lernplan
    * Moves current slots to archived list
+   * Now synced to Supabase
    */
-  const archiveCurrentPlan = useCallback(() => {
+  const archiveCurrentPlan = useCallback(async () => {
     if (Object.keys(slotsByDate).length === 0) {
       return; // Nothing to archive
     }
 
-    const archivedPlan = {
+    const archivedPlanData = {
       id: `archive_${Date.now()}`,
       slots: { ...slotsByDate },
       metadata: {
@@ -128,38 +251,36 @@ export const CalendarProvider = ({ children }) => {
       }
     };
 
-    const updatedArchive = [archivedPlan, ...archivedLernplaene];
-    setArchivedLernplaene(updatedArchive);
-    saveToStorage(STORAGE_KEY_ARCHIVED, updatedArchive);
-  }, [slotsByDate, lernplanMetadata, archivedLernplaene]);
+    // Use the sync hook to archive
+    await archivePlan(archivedPlanData);
+  }, [slotsByDate, lernplanMetadata, archivePlan]);
 
   /**
    * Set calendar data from wizard Step 8
    * Archives the current plan if one exists
+   * Now synced to Supabase
    * @param {Object} newSlots - The slotsByDate object from the wizard
    * @param {Object} metadata - Lernplan metadata (name, startDate, endDate, etc.)
    */
-  const setCalendarData = useCallback((newSlots, metadata = {}) => {
+  const setCalendarData = useCallback(async (newSlots, metadata = {}) => {
     // If there's existing data, archive it first
     if (Object.keys(slotsByDate).length > 0 && lernplanMetadata) {
-      archiveCurrentPlan();
+      await archiveCurrentPlan();
     }
 
-    // Set new data
-    setSlotsByDate(newSlots);
-    saveToStorage(STORAGE_KEY_SLOTS, newSlots);
+    // Set new data using sync hook
+    await setSlotsByDateSync(newSlots);
 
-    // Set metadata with creation timestamp
+    // Set metadata with creation timestamp using sync hook
     const newMetadata = {
       ...metadata,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    setLernplanMetadata(newMetadata);
-    saveToStorage(STORAGE_KEY_METADATA, newMetadata);
+    await updateLernplanMetadataSync(newMetadata);
 
     console.log('CalendarContext: Saved new calendar data', { slots: Object.keys(newSlots).length, metadata: newMetadata });
-  }, [slotsByDate, lernplanMetadata, archiveCurrentPlan]);
+  }, [slotsByDate, lernplanMetadata, archiveCurrentPlan, setSlotsByDateSync, updateLernplanMetadataSync]);
 
   /**
    * Get all archived Lernpläne
@@ -172,9 +293,10 @@ export const CalendarProvider = ({ children }) => {
   /**
    * Restore an archived Lernplan
    * Archives current plan first, then restores selected one
+   * Now synced to Supabase
    * @param {string} archiveId - ID of the archived plan to restore
    */
-  const restoreArchivedPlan = useCallback((archiveId) => {
+  const restoreArchivedPlan = useCallback(async (archiveId) => {
     const planToRestore = archivedLernplaene.find(p => p.id === archiveId);
     if (!planToRestore) {
       console.error('Archived plan not found:', archiveId);
@@ -183,50 +305,42 @@ export const CalendarProvider = ({ children }) => {
 
     // Archive current plan first
     if (Object.keys(slotsByDate).length > 0) {
-      archiveCurrentPlan();
+      await archiveCurrentPlan();
     }
 
-    // Remove from archive
-    const updatedArchive = archivedLernplaene.filter(p => p.id !== archiveId);
-    setArchivedLernplaene(updatedArchive);
-    saveToStorage(STORAGE_KEY_ARCHIVED, updatedArchive);
+    // Remove from archive using sync hook
+    await deleteArchivedPlanSync(archiveId);
 
-    // Restore slots
-    setSlotsByDate(planToRestore.slots);
-    saveToStorage(STORAGE_KEY_SLOTS, planToRestore.slots);
+    // Restore slots using sync hook
+    await setSlotsByDateSync(planToRestore.slots);
 
-    // Restore metadata
+    // Restore metadata using sync hook
     const restoredMetadata = {
       ...planToRestore.metadata,
       restoredAt: new Date().toISOString()
     };
     delete restoredMetadata.archivedAt;
-    setLernplanMetadata(restoredMetadata);
-    saveToStorage(STORAGE_KEY_METADATA, restoredMetadata);
-  }, [archivedLernplaene, slotsByDate, archiveCurrentPlan]);
+    await updateLernplanMetadataSync(restoredMetadata);
+  }, [archivedLernplaene, slotsByDate, archiveCurrentPlan, deleteArchivedPlanSync, setSlotsByDateSync, updateLernplanMetadataSync]);
 
   /**
    * Delete an archived Lernplan permanently
+   * Now synced to Supabase
    * @param {string} archiveId - ID of the archived plan to delete
    */
-  const deleteArchivedPlan = useCallback((archiveId) => {
-    const updatedArchive = archivedLernplaene.filter(p => p.id !== archiveId);
-    setArchivedLernplaene(updatedArchive);
-    saveToStorage(STORAGE_KEY_ARCHIVED, updatedArchive);
-  }, [archivedLernplaene]);
+  const deleteArchivedPlan = useCallback(async (archiveId) => {
+    await deleteArchivedPlanSync(archiveId);
+  }, [deleteArchivedPlanSync]);
 
   /**
    * Update a single day's slots
+   * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {Array} slots - The new slots array for that day
    */
-  const updateDaySlots = useCallback((dateKey, slots) => {
-    const updated = {
-      ...slotsByDate,
-      [dateKey]: slots
-    };
-    setSlotsByDate(updated);
-    saveToStorage(STORAGE_KEY_SLOTS, updated);
+  const updateDaySlots = useCallback(async (dateKey, slots) => {
+    // Use the sync hook to save day slots
+    await saveDaySlots(dateKey, slots);
 
     // Update metadata timestamp
     if (lernplanMetadata) {
@@ -234,10 +348,9 @@ export const CalendarProvider = ({ children }) => {
         ...lernplanMetadata,
         updatedAt: new Date().toISOString()
       };
-      setLernplanMetadata(updatedMetadata);
-      saveToStorage(STORAGE_KEY_METADATA, updatedMetadata);
+      await updateLernplanMetadataSync(updatedMetadata);
     }
-  }, [slotsByDate, lernplanMetadata]);
+  }, [lernplanMetadata, saveDaySlots, updateLernplanMetadataSync]);
 
   /**
    * Get slots for a specific date
@@ -250,9 +363,10 @@ export const CalendarProvider = ({ children }) => {
 
   /**
    * Update Lernplan metadata (name, etc.) without changing slots
+   * Now synced to Supabase
    * @param {Object} updates - Partial metadata updates
    */
-  const updateLernplanMetadata = useCallback((updates) => {
+  const updateLernplanMetadata = useCallback(async (updates) => {
     if (!lernplanMetadata) {
       console.warn('No active Lernplan to update');
       return;
@@ -263,29 +377,26 @@ export const CalendarProvider = ({ children }) => {
       ...updates,
       updatedAt: new Date().toISOString()
     };
-    setLernplanMetadata(updatedMetadata);
-    saveToStorage(STORAGE_KEY_METADATA, updatedMetadata);
-  }, [lernplanMetadata]);
+    await updateLernplanMetadataSync(updatedMetadata);
+  }, [lernplanMetadata, updateLernplanMetadataSync]);
 
   /**
    * Delete the current Lernplan (without archiving)
+   * Now synced to Supabase
    */
-  const deleteCurrentPlan = useCallback(() => {
-    setSlotsByDate({});
-    setLernplanMetadata(null);
-    saveToStorage(STORAGE_KEY_SLOTS, {});
-    saveToStorage(STORAGE_KEY_METADATA, null);
-  }, []);
+  const deleteCurrentPlan = useCallback(async () => {
+    await clearAllSlots();
+    await clearLernplanMetadataSync();
+  }, [clearAllSlots, clearLernplanMetadataSync]);
 
   /**
    * Clear all calendar data (for testing/reset)
+   * Now synced to Supabase
    */
-  const clearAllData = useCallback(() => {
-    setSlotsByDate({});
-    setLernplanMetadata(null);
-    saveToStorage(STORAGE_KEY_SLOTS, {});
-    saveToStorage(STORAGE_KEY_METADATA, null);
-  }, []);
+  const clearAllData = useCallback(async () => {
+    await clearAllSlots();
+    await clearLernplanMetadataSync();
+  }, [clearAllSlots, clearLernplanMetadataSync]);
 
   /**
    * Check if there's an active Lernplan
@@ -467,10 +578,11 @@ export const CalendarProvider = ({ children }) => {
 
   /**
    * Add a private block to a specific date
+   * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {Object} block - The private block data
    */
-  const addPrivateBlock = useCallback((dateKey, block) => {
+  const addPrivateBlock = useCallback(async (dateKey, block) => {
     const blockWithId = {
       ...block,
       id: block.id || `private-${Date.now()}`,
@@ -479,23 +591,20 @@ export const CalendarProvider = ({ children }) => {
     };
 
     const currentBlocks = privateBlocksByDate[dateKey] || [];
-    const updated = {
-      ...privateBlocksByDate,
-      [dateKey]: [...currentBlocks, blockWithId],
-    };
+    const newBlocks = [...currentBlocks, blockWithId];
 
-    setPrivateBlocksByDate(updated);
-    saveToStorage(STORAGE_KEY_PRIVATE_BLOCKS, updated);
+    await saveDayBlocks(dateKey, newBlocks);
     return blockWithId;
-  }, [privateBlocksByDate]);
+  }, [privateBlocksByDate, saveDayBlocks]);
 
   /**
    * Update a private block
+   * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {string} blockId - The block ID to update
    * @param {Object} updates - Partial updates to apply
    */
-  const updatePrivateBlock = useCallback((dateKey, blockId, updates) => {
+  const updatePrivateBlock = useCallback(async (dateKey, blockId, updates) => {
     const currentBlocks = privateBlocksByDate[dateKey] || [];
     const updatedBlocks = currentBlocks.map(block =>
       block.id === blockId
@@ -503,37 +612,21 @@ export const CalendarProvider = ({ children }) => {
         : block
     );
 
-    const updated = {
-      ...privateBlocksByDate,
-      [dateKey]: updatedBlocks,
-    };
-
-    setPrivateBlocksByDate(updated);
-    saveToStorage(STORAGE_KEY_PRIVATE_BLOCKS, updated);
-  }, [privateBlocksByDate]);
+    await saveDayBlocks(dateKey, updatedBlocks);
+  }, [privateBlocksByDate, saveDayBlocks]);
 
   /**
    * Delete a private block
+   * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {string} blockId - The block ID to delete
    */
-  const deletePrivateBlock = useCallback((dateKey, blockId) => {
+  const deletePrivateBlock = useCallback(async (dateKey, blockId) => {
     const currentBlocks = privateBlocksByDate[dateKey] || [];
     const filteredBlocks = currentBlocks.filter(block => block.id !== blockId);
 
-    const updated = {
-      ...privateBlocksByDate,
-      [dateKey]: filteredBlocks,
-    };
-
-    // Remove empty date entries
-    if (filteredBlocks.length === 0) {
-      delete updated[dateKey];
-    }
-
-    setPrivateBlocksByDate(updated);
-    saveToStorage(STORAGE_KEY_PRIVATE_BLOCKS, updated);
-  }, [privateBlocksByDate]);
+    await saveDayBlocks(dateKey, filteredBlocks);
+  }, [privateBlocksByDate, saveDayBlocks]);
 
   /**
    * Get private blocks for a specific date
@@ -550,10 +643,11 @@ export const CalendarProvider = ({ children }) => {
 
   /**
    * Add a task to a specific date
+   * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {Object} task - The task data
    */
-  const addTask = useCallback((dateKey, task) => {
+  const addTask = useCallback(async (dateKey, task) => {
     const taskWithId = {
       ...task,
       id: task.id || `task-${Date.now()}`,
@@ -562,23 +656,20 @@ export const CalendarProvider = ({ children }) => {
     };
 
     const currentTasks = tasksByDate[dateKey] || [];
-    const updated = {
-      ...tasksByDate,
-      [dateKey]: [...currentTasks, taskWithId],
-    };
+    const newTasks = [...currentTasks, taskWithId];
 
-    setTasksByDate(updated);
-    saveToStorage(STORAGE_KEY_TASKS, updated);
+    await saveDayTasks(dateKey, newTasks);
     return taskWithId;
-  }, [tasksByDate]);
+  }, [tasksByDate, saveDayTasks]);
 
   /**
    * Update a task
+   * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {string} taskId - The task ID to update
    * @param {Object} updates - Partial updates to apply
    */
-  const updateTask = useCallback((dateKey, taskId, updates) => {
+  const updateTask = useCallback(async (dateKey, taskId, updates) => {
     const currentTasks = tasksByDate[dateKey] || [];
     const updatedTasks = currentTasks.map(task =>
       task.id === taskId
@@ -586,21 +677,16 @@ export const CalendarProvider = ({ children }) => {
         : task
     );
 
-    const updated = {
-      ...tasksByDate,
-      [dateKey]: updatedTasks,
-    };
-
-    setTasksByDate(updated);
-    saveToStorage(STORAGE_KEY_TASKS, updated);
-  }, [tasksByDate]);
+    await saveDayTasks(dateKey, updatedTasks);
+  }, [tasksByDate, saveDayTasks]);
 
   /**
    * Toggle task completion status
+   * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {string} taskId - The task ID to toggle
    */
-  const toggleTaskComplete = useCallback((dateKey, taskId) => {
+  const toggleTaskComplete = useCallback(async (dateKey, taskId) => {
     const currentTasks = tasksByDate[dateKey] || [];
     const updatedTasks = currentTasks.map(task =>
       task.id === taskId
@@ -608,37 +694,21 @@ export const CalendarProvider = ({ children }) => {
         : task
     );
 
-    const updated = {
-      ...tasksByDate,
-      [dateKey]: updatedTasks,
-    };
-
-    setTasksByDate(updated);
-    saveToStorage(STORAGE_KEY_TASKS, updated);
-  }, [tasksByDate]);
+    await saveDayTasks(dateKey, updatedTasks);
+  }, [tasksByDate, saveDayTasks]);
 
   /**
    * Delete a task
+   * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {string} taskId - The task ID to delete
    */
-  const deleteTask = useCallback((dateKey, taskId) => {
+  const deleteTask = useCallback(async (dateKey, taskId) => {
     const currentTasks = tasksByDate[dateKey] || [];
     const filteredTasks = currentTasks.filter(task => task.id !== taskId);
 
-    const updated = {
-      ...tasksByDate,
-      [dateKey]: filteredTasks,
-    };
-
-    // Remove empty date entries
-    if (filteredTasks.length === 0) {
-      delete updated[dateKey];
-    }
-
-    setTasksByDate(updated);
-    saveToStorage(STORAGE_KEY_TASKS, updated);
-  }, [tasksByDate]);
+    await saveDayTasks(dateKey, filteredTasks);
+  }, [tasksByDate, saveDayTasks]);
 
   /**
    * Get tasks for a specific date
@@ -799,7 +869,7 @@ export const CalendarProvider = ({ children }) => {
    * @param {Object} planData - { name, type: 'lernplan'|'themenliste', description?, mode?, examDate? }
    * @returns {Object} The created plan
    */
-  const createContentPlan = useCallback((planData) => {
+  const createContentPlan = useCallback(async (planData) => {
     const newPlan = {
       id: generateId(),
       name: planData.name || '',
@@ -813,50 +883,53 @@ export const CalendarProvider = ({ children }) => {
       updatedAt: new Date().toISOString(),
     };
 
-    const updated = [newPlan, ...contentPlans];
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+    // Save to Supabase (also updates local state)
+    await saveContentPlanToSupabase(newPlan);
     return newPlan;
-  }, [contentPlans]);
+  }, [saveContentPlanToSupabase]);
 
   /**
    * Update a content plan
+   * Now syncs to Supabase when authenticated
    * @param {string} planId - The plan ID
    * @param {Object} updates - Partial updates
    */
-  const updateContentPlan = useCallback((planId, updates) => {
-    const updated = contentPlans.map(plan =>
-      plan.id === planId
-        ? { ...plan, ...updates, updatedAt: new Date().toISOString() }
-        : plan
-    );
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+  const updateContentPlan = useCallback(async (planId, updates) => {
+    const plan = contentPlans.find(p => p.id === planId);
+    if (!plan) return;
+
+    const updatedPlan = {
+      ...plan,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Save to Supabase (also updates local state)
+    await saveContentPlanToSupabase(updatedPlan);
+  }, [contentPlans, saveContentPlanToSupabase]);
 
   /**
    * Delete a content plan
+   * Now syncs to Supabase when authenticated
    * @param {string} planId - The plan ID
    */
-  const deleteContentPlan = useCallback((planId) => {
-    const updated = contentPlans.filter(plan => plan.id !== planId);
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+  const deleteContentPlan = useCallback(async (planId) => {
+    // Remove from Supabase (also updates local state)
+    await removeContentPlanFromSupabase(planId);
+  }, [removeContentPlanFromSupabase]);
 
   /**
-   * Archive/Unarchive a content plan
+   * Archive/Unarchive a content plan (toggle)
+   * Now syncs to Supabase when authenticated
    * @param {string} planId - The plan ID
    */
-  const archiveContentPlan = useCallback((planId) => {
-    const updated = contentPlans.map(plan =>
-      plan.id === planId
-        ? { ...plan, archived: !plan.archived, updatedAt: new Date().toISOString() }
-        : plan
-    );
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+  const archiveContentPlan = useCallback(async (planId) => {
+    const plan = contentPlans.find(p => p.id === planId);
+    if (!plan) return;
+
+    // Toggle archived state
+    await updateContentPlan(planId, { archived: !plan.archived });
+  }, [contentPlans, updateContentPlan]);
 
   /**
    * Get content plans by type
@@ -1030,10 +1103,11 @@ export const CalendarProvider = ({ children }) => {
   }, [importThemenlisteTemplate]);
 
   /**
-   * Publish a Themenliste to the local community database
+   * Publish a Themenliste to the community database
+   * Now synced to Supabase
    * @param {string} planId - The plan ID to publish
    */
-  const publishThemenliste = useCallback((planId) => {
+  const publishThemenliste = useCallback(async (planId) => {
     const plan = contentPlans.find(p => p.id === planId);
     if (!plan) {
       console.error('Plan not found:', planId);
@@ -1091,37 +1165,35 @@ export const CalendarProvider = ({ children }) => {
       tags: ['Benutzer'],
     };
 
-    const updated = [publishedPlan, ...publishedThemenlisten];
-    setPublishedThemenlisten(updated);
-    saveToStorage(STORAGE_KEY_PUBLISHED_THEMENLISTEN, updated);
+    // Save to Supabase (also updates local state)
+    await savePublishedThemenliste(publishedPlan);
 
     // Mark the original plan as published
-    updateContentPlan(planId, { isPublished: true, publishedId: publishedPlan.id });
+    await updateContentPlan(planId, { isPublished: true, publishedId: publishedPlan.id });
 
     return publishedPlan;
-  }, [contentPlans, publishedThemenlisten, updateContentPlan]);
+  }, [contentPlans, publishedThemenlisten, savePublishedThemenliste, updateContentPlan]);
 
   /**
-   * Unpublish a Themenliste from the local community database
+   * Unpublish a Themenliste from the community database
+   * Now synced to Supabase
    * @param {string} publishedId - The published plan ID to remove
    */
-  const unpublishThemenliste = useCallback((publishedId) => {
+  const unpublishThemenliste = useCallback(async (publishedId) => {
     const publishedPlan = publishedThemenlisten.find(p => p.id === publishedId);
     if (!publishedPlan) {
       console.error('Published plan not found:', publishedId);
       return;
     }
 
-    // Remove from published list
-    const updated = publishedThemenlisten.filter(p => p.id !== publishedId);
-    setPublishedThemenlisten(updated);
-    saveToStorage(STORAGE_KEY_PUBLISHED_THEMENLISTEN, updated);
+    // Remove from Supabase (also updates local state)
+    await removePublishedThemenliste(publishedId);
 
     // Update original plan
     if (publishedPlan.sourceId) {
-      updateContentPlan(publishedPlan.sourceId, { isPublished: false, publishedId: null });
+      await updateContentPlan(publishedPlan.sourceId, { isPublished: false, publishedId: null });
     }
-  }, [publishedThemenlisten, updateContentPlan]);
+  }, [publishedThemenlisten, removePublishedThemenliste, updateContentPlan]);
 
   /**
    * Get all published Themenlisten
@@ -1707,6 +1779,7 @@ export const CalendarProvider = ({ children }) => {
 
   /**
    * Add a custom Unterrechtsgebiet globally
+   * Now syncs to Supabase via user_settings when authenticated
    * @param {string} rechtsgebietId - The Rechtsgebiet ID (zivilrecht, etc.)
    * @param {Object} item - { name, kategorie? }
    */
@@ -1722,10 +1795,10 @@ export const CalendarProvider = ({ children }) => {
       ...customUnterrechtsgebiete,
       [rechtsgebietId]: [...(customUnterrechtsgebiete[rechtsgebietId] || []), newItem],
     };
+    // setCustomUnterrechtsgebiete also saves to localStorage and syncs to Supabase
     setCustomUnterrechtsgebiete(updated);
-    saveToStorage(STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE, updated);
     return newItem;
-  }, [customUnterrechtsgebiete]);
+  }, [customUnterrechtsgebiete, setCustomUnterrechtsgebiete]);
 
   /**
    * Get all custom Unterrechtsgebiete
@@ -1782,6 +1855,16 @@ export const CalendarProvider = ({ children }) => {
     contentPlans,
     customUnterrechtsgebiete,
     contentsById, // NEW: Content storage
+
+    // Loading states (for Supabase sync)
+    contentPlansLoading,
+    slotsLoading,
+    tasksLoading,
+    privateBlocksLoading,
+    archivedLoading,
+    metadataLoading,
+    publishedThemenlistenLoading,
+    isAuthenticated,
 
     // Lernplan Slot Actions
     setCalendarData,

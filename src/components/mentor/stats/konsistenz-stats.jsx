@@ -63,8 +63,8 @@ const KonsistenzStats = ({ stats }) => {
       </div>
 
       {/* Week Activity Visualization */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-4">Diese Woche</h4>
+      <div className="bg-white rounded-lg border border-neutral-200 p-4">
+        <h4 className="text-sm font-medium text-neutral-700 mb-4">Diese Woche</h4>
         <div className="flex justify-between items-center">
           {streakData.map((day, index) => (
             <div key={index} className="flex flex-col items-center">
@@ -72,27 +72,27 @@ const KonsistenzStats = ({ stats }) => {
                 className={`w-10 h-10 rounded-lg flex items-center justify-center mb-1 ${
                   day.active
                     ? 'bg-green-500 text-white'
-                    : 'bg-gray-100 text-gray-400'
+                    : 'bg-neutral-100 text-neutral-400'
                 }`}
               >
                 {day.active ? '🔥' : '-'}
               </div>
-              <span className="text-xs text-gray-500">{day.day}</span>
+              <span className="text-xs text-neutral-500">{day.day}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Summary */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="bg-white rounded-lg border border-neutral-200 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">Gesamt-Lerntage</p>
-            <p className="text-2xl font-semibold text-gray-900">{totalLearningDays}</p>
+            <p className="text-sm text-neutral-500">Gesamt-Lerntage</p>
+            <p className="text-2xl font-semibold text-neutral-900">{totalLearningDays}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-500">Ausfallquote</p>
-            <p className="text-2xl font-semibold text-gray-900">
+            <p className="text-sm text-neutral-500">Ausfallquote</p>
+            <p className="text-2xl font-semibold text-neutral-900">
               {thisWeekDays > 0 ? Math.round(((7 - thisWeekDays) / 7) * 100) : 100}%
             </p>
           </div>

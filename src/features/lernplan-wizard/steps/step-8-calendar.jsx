@@ -67,9 +67,9 @@ const getBlockTypeStyle = (type) => {
       return 'bg-orange-100 text-orange-700';
     case 'private':
     case 'free':
-      return 'bg-gray-100 text-gray-600';
+      return 'bg-neutral-100 text-neutral-600';
     default:
-      return 'bg-gray-100 text-gray-400';
+      return 'bg-neutral-100 text-neutral-400';
   }
 };
 
@@ -110,13 +110,13 @@ const CalendarBlock = ({ block, blocksCount, totalBlocks, onClick }) => {
           {rechtsgebiet || getBlockTypeLabel(blockType)}
         </span>
         {block.progress && (
-          <span className="text-gray-300 text-xs font-semibold">
+          <span className="text-neutral-300 text-xs font-semibold">
             {block.progress}
           </span>
         )}
       </div>
       {title && (
-        <div className="self-stretch text-gray-900 text-sm font-light truncate">
+        <div className="self-stretch text-neutral-900 text-sm font-light truncate">
           {title}
         </div>
       )}
@@ -143,12 +143,12 @@ const CalendarDayCell = ({
       }`}
     >
       {/* Day number */}
-      <div className="text-gray-900 text-sm font-light">{dayOfMonth}</div>
+      <div className="text-neutral-900 text-sm font-light">{dayOfMonth}</div>
 
       {/* Content */}
       {!isInLearningPeriod ? (
-        <div className="px-2.5 bg-gray-100 rounded-[5px] py-1">
-          <span className="text-gray-400 text-xs font-semibold">nicht im Lernzeitraum</span>
+        <div className="px-2.5 bg-neutral-100 rounded-[5px] py-1">
+          <span className="text-neutral-400 text-xs font-semibold">nicht im Lernzeitraum</span>
         </div>
       ) : (
         <>
@@ -663,7 +663,7 @@ const Step8Calendar = () => {
           {/* Calendar header */}
           <div className="px-5 pb-3.5 flex justify-between items-center">
             <div className="py-4">
-              <span className="text-gray-900 text-lg font-light">
+              <span className="text-neutral-900 text-lg font-light">
                 {getMonthName(currentDate.month)} {currentDate.year}
               </span>
             </div>
@@ -673,9 +673,9 @@ const Step8Calendar = () => {
               <button
                 type="button"
                 onClick={goToToday}
-                className="h-8 px-3 py-2 bg-white rounded-lg shadow-sm outline outline-1 outline-offset-[-1px] outline-gray-200 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                className="h-8 px-3 py-2 bg-white rounded-lg shadow-sm outline outline-1 outline-offset-[-1px] outline-neutral-200 flex items-center gap-2 hover:bg-neutral-50 transition-colors"
               >
-                <span className="text-gray-900 text-xs font-medium">Heute</span>
+                <span className="text-neutral-900 text-xs font-medium">Heute</span>
                 <CalendarIcon />
               </button>
 
@@ -683,7 +683,7 @@ const Step8Calendar = () => {
               <button
                 type="button"
                 onClick={goToPrevMonth}
-                className="w-8 h-8 bg-white rounded-lg shadow-sm outline outline-1 outline-offset-[-1px] outline-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                className="w-8 h-8 bg-white rounded-lg shadow-sm outline outline-1 outline-offset-[-1px] outline-neutral-200 flex items-center justify-center hover:bg-neutral-50 transition-colors"
               >
                 <ChevronLeft />
               </button>
@@ -692,7 +692,7 @@ const Step8Calendar = () => {
               <button
                 type="button"
                 onClick={goToNextMonth}
-                className="w-8 h-8 bg-white rounded-lg shadow-sm outline outline-1 outline-offset-[-1px] outline-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                className="w-8 h-8 bg-white rounded-lg shadow-sm outline outline-1 outline-offset-[-1px] outline-neutral-200 flex items-center justify-center hover:bg-neutral-50 transition-colors"
               >
                 <ChevronRight />
               </button>
@@ -706,7 +706,7 @@ const Step8Calendar = () => {
                 key={day}
                 className={`flex-1 pl-5 py-2 ${index < 6 ? 'border-r border-neutral-200' : ''}`}
               >
-                <span className="text-gray-900 text-sm font-medium">{day}</span>
+                <span className="text-neutral-900 text-sm font-medium">{day}</span>
               </div>
             ))}
           </div>

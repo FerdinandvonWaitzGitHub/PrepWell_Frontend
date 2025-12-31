@@ -14,7 +14,7 @@ const BLOCK_COLORS = {
   theme: 'bg-primary-100 border-primary-200 hover:bg-primary-150',
   repetition: 'bg-primary-100 border-primary-200 hover:bg-primary-150',
   exam: 'bg-blue-100 border-blue-200 hover:bg-blue-150',
-  free: 'bg-gray-100 border-gray-200 hover:bg-gray-150',
+  free: 'bg-neutral-100 border-neutral-200 hover:bg-neutral-150',
   private: 'bg-violet-100 border-violet-200 hover:bg-violet-150'
 };
 
@@ -233,7 +233,7 @@ const WeekGrid = ({
           <thead className="sticky top-0 z-20 bg-white">
             <tr>
               {/* Time column header */}
-              <th className="w-10 border-b border-r border-gray-200 bg-white" />
+              <th className="w-10 border-b border-r border-neutral-200 bg-white" />
 
               {/* Weekday headers */}
               {weekDays.map((day, index) => {
@@ -244,25 +244,25 @@ const WeekGrid = ({
                 return (
                   <th
                     key={day}
-                    className={`h-14 border-b border-r border-gray-200 last:border-r-0 font-normal ${
+                    className={`h-14 border-b border-r border-neutral-200 last:border-r-0 font-normal ${
                       today ? 'bg-primary-50' : isFull ? 'bg-amber-50' : 'bg-white'
                     }`}
                   >
                     <div className="flex flex-col items-center justify-center relative">
                       <div className="flex items-center gap-1">
-                        <span className={`text-sm font-medium ${today ? 'text-primary-700' : 'text-gray-900'}`}>
+                        <span className={`text-sm font-medium ${today ? 'text-primary-700' : 'text-neutral-900'}`}>
                           {day}
                         </span>
                         {isFull && (
                           <span className="group relative">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-neutral-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
                               Alle Slots belegt
                             </span>
                           </span>
                         )}
                       </div>
-                      <span className={`text-sm ${today ? 'text-primary-600' : 'text-gray-500'}`}>
+                      <span className={`text-sm ${today ? 'text-primary-600' : 'text-neutral-500'}`}>
                         {formatDateDisplay(date)}
                       </span>
                     </div>
@@ -276,9 +276,9 @@ const WeekGrid = ({
               visibleMultiDayRows.map((row, rowIndex) => {
                 const isLastRow = rowIndex === visibleMultiDayRows.length - 1;
                 return (
-                  <tr key={`multiday-${rowIndex}`} className={`h-8 bg-white ${isLastRow ? 'border-b border-gray-200' : ''}`}>
+                  <tr key={`multiday-${rowIndex}`} className={`h-8 bg-white ${isLastRow ? 'border-b border-neutral-200' : ''}`}>
                     {/* Empty label cell */}
-                    <th className={`align-middle border-r border-gray-100 bg-white ${rowIndex === 0 ? 'border-t border-gray-200' : ''}`} />
+                    <th className={`align-middle border-r border-neutral-100 bg-white ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`} />
 
                     {/* Multi-day block cells */}
                     {weekDates.map((date, dayIndex) => {
@@ -306,13 +306,13 @@ const WeekGrid = ({
                           <th
                             key={`${rowIndex}-${dayIndex}`}
                             colSpan={info.span}
-                            className={`border-r border-gray-100 last:border-r-0 p-0.5 font-normal bg-white ${rowIndex === 0 ? 'border-t border-gray-200' : ''}`}
+                            className={`border-r border-neutral-100 last:border-r-0 p-0.5 font-normal bg-white ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`}
                           >
                             <button
                               onClick={() => onBlockClick && onBlockClick(blockStartingHere, date)}
                               className={`w-full h-6 rounded border px-2 text-left overflow-hidden cursor-pointer transition-colors ${colorClass}`}
                             >
-                              <div className="text-xs font-medium text-gray-900 truncate">
+                              <div className="text-xs font-medium text-neutral-900 truncate">
                                 {blockStartingHere.title}
                               </div>
                             </button>
@@ -323,7 +323,7 @@ const WeekGrid = ({
                       return (
                         <th
                           key={`${rowIndex}-${dayIndex}`}
-                          className={`border-r border-gray-100 last:border-r-0 font-normal bg-white ${rowIndex === 0 ? 'border-t border-gray-200' : ''}`}
+                          className={`border-r border-neutral-100 last:border-r-0 font-normal bg-white ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`}
                         />
                       );
                     })}
@@ -332,12 +332,12 @@ const WeekGrid = ({
               })
             ) : (
               /* Empty reserved row for multi-day events */
-              <tr className="h-8 bg-white border-b border-gray-200">
-                <th className="align-middle border-r border-t border-gray-200 bg-white" />
+              <tr className="h-8 bg-white border-b border-neutral-200">
+                <th className="align-middle border-r border-t border-neutral-200 bg-white" />
                 {weekDates.map((_, dayIndex) => (
                   <th
                     key={`empty-${dayIndex}`}
-                    className="border-r border-t border-gray-200 last:border-r-0 font-normal bg-white"
+                    className="border-r border-t border-neutral-200 last:border-r-0 font-normal bg-white"
                   />
                 ))}
               </tr>
@@ -348,8 +348,8 @@ const WeekGrid = ({
           <tbody>
             {/* "+X more" row if needed (scrolls with content) */}
             {hiddenRowsCount > 0 && (
-              <tr className="h-6 border-b border-gray-200">
-                <td className="border-r border-gray-100 bg-white" />
+              <tr className="h-6 border-b border-neutral-200">
+                <td className="border-r border-neutral-100 bg-white" />
                 {weekDates.map((date, dayIndex) => {
                   const hiddenBlocks = multiDayRows.slice(2).flat().filter(block => {
                     const dateKey = formatDateKey(date);
@@ -359,10 +359,10 @@ const WeekGrid = ({
                   return (
                     <td
                       key={`more-${dayIndex}`}
-                      className="border-r border-gray-100 last:border-r-0 text-center"
+                      className="border-r border-neutral-100 last:border-r-0 text-center"
                     >
                       {hiddenBlocks.length > 0 && (
-                        <button className="text-xs text-gray-600 hover:text-gray-900">
+                        <button className="text-xs text-neutral-600 hover:text-neutral-900">
                           +{hiddenBlocks.length} mehr
                         </button>
                       )}
@@ -376,7 +376,7 @@ const WeekGrid = ({
             {timeSlots.map((hour) => (
               <tr key={hour} style={{ height: `${getRowHeight(hour)}px` }}>
                 {/* Time Label */}
-                <td className="align-top text-right pr-2 pt-1 text-xs text-gray-400 border-r border-b border-gray-100 bg-white">
+                <td className="align-top text-right pr-2 pt-1 text-xs text-neutral-400 border-r border-b border-neutral-100 bg-white">
                   {hour}
                 </td>
 
@@ -388,8 +388,8 @@ const WeekGrid = ({
                     <td
                       key={`${hour}-${dayIndex}`}
                       onClick={() => dayBlocks.length === 0 && handleSlotClick(date, hour)}
-                      className={`relative border-r border-b border-gray-100 last:border-r-0 p-1 align-top overflow-visible ${
-                        dayBlocks.length === 0 ? 'hover:bg-gray-50 cursor-pointer' : ''
+                      className={`relative border-r border-b border-neutral-100 last:border-r-0 p-1 align-top overflow-visible ${
+                        dayBlocks.length === 0 ? 'hover:bg-neutral-50 cursor-pointer' : ''
                       }`}
                     >
                       {dayBlocks.map((block) => {
@@ -419,11 +419,11 @@ const WeekGrid = ({
                             style={{ height: `${blockHeight}px` }}
                             className={`w-full rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-colors absolute top-1 left-1 right-1 z-10 ${colorClass}`}
                           >
-                            <div className="text-xs font-medium text-gray-900 truncate">
+                            <div className="text-xs font-medium text-neutral-900 truncate">
                               {block.title}
                             </div>
                             {blockHeight > 40 && (
-                              <div className="text-xs text-gray-600 truncate">
+                              <div className="text-xs text-neutral-600 truncate">
                                 {block.startTime && block.endTime
                                   ? `${block.startTime} - ${block.endTime}`
                                   : BLOCK_TYPE_NAMES[block.blockType]

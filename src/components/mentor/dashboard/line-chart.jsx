@@ -99,18 +99,18 @@ const LineChart = ({
     <div className={`flex flex-col h-full ${className}`}>
       {/* Header */}
       <div className="flex justify-between items-center">
-        <span className="text-gray-900 text-lg font-light leading-4">
+        <span className="text-neutral-900 text-lg font-light leading-4">
           {title}
         </span>
         {onSelectClick && (
           <button
             onClick={onSelectClick}
-            className="px-5 py-2.5 rounded-full border border-gray-300 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+            className="px-5 py-2.5 rounded-full border border-neutral-300 flex items-center gap-2 hover:bg-neutral-50 transition-colors"
           >
-            <span className="text-gray-900 text-sm font-light leading-5">
+            <span className="text-neutral-900 text-sm font-light leading-5">
               Anpassen
             </span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-gray-900">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-neutral-900">
               <path d="M2.67 10.67V13.33H5.33M13.33 5.33V2.67H10.67M2.67 5.33V2.67H5.33M13.33 10.67V13.33H10.67" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
@@ -122,11 +122,11 @@ const LineChart = ({
         {!hasData ? (
           // Empty state
           <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300 mb-3">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-neutral-300 mb-3">
               <path d="M3 3v18h18" />
               <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
             </svg>
-            <p className="text-gray-500 text-sm">Keine Daten verfügbar</p>
+            <p className="text-neutral-500 text-sm">Keine Daten verfügbar</p>
             {onSelectClick && (
               <button
                 onClick={onSelectClick}
@@ -142,7 +142,7 @@ const LineChart = ({
               {/* Y-Axis Labels Left */}
               <div className="w-8 flex flex-col justify-between items-end pr-2 -mt-1.5 -mb-1.5" style={{ height: chartHeight + 12 }}>
                 {yLabels.map((label, index) => (
-                  <span key={`left-${index}`} className="text-gray-400 text-xs font-normal leading-3">
+                  <span key={`left-${index}`} className="text-neutral-400 text-xs font-normal leading-3">
                     {label}
                   </span>
                 ))}
@@ -153,7 +153,7 @@ const LineChart = ({
                 {/* Grid Lines */}
                 <div className="absolute inset-0 flex flex-col justify-between pointer-events-none" style={{ height: chartHeight }}>
                   {yLabels.map((_, index) => (
-                    <div key={index} className="w-full h-px bg-gray-200 opacity-80" />
+                    <div key={index} className="w-full h-px bg-neutral-200 opacity-80" />
                   ))}
                 </div>
 
@@ -180,7 +180,7 @@ const LineChart = ({
                 {/* X-Axis Labels */}
                 <div className="flex justify-between items-center mt-3 px-0">
                   {displayXLabels.map((label, index) => (
-                    <span key={index} className="text-gray-400 text-xs font-normal leading-3">
+                    <span key={index} className="text-neutral-400 text-xs font-normal leading-3">
                       {label}
                     </span>
                   ))}
@@ -190,7 +190,7 @@ const LineChart = ({
               {/* Y-Axis Labels Right */}
               <div className="w-8 flex flex-col justify-between items-start pl-2 -mt-1.5 -mb-1.5" style={{ height: chartHeight + 12 }}>
                 {yLabels.map((label, index) => (
-                  <span key={`right-${index}`} className="text-gray-400 text-xs font-normal leading-3">
+                  <span key={`right-${index}`} className="text-neutral-400 text-xs font-normal leading-3">
                     {label}
                   </span>
                 ))}
@@ -205,7 +205,7 @@ const LineChart = ({
                     className="w-2 h-2 rounded-sm"
                     style={{ backgroundColor: s.color || defaultColors[index % defaultColors.length] }}
                   />
-                  <span className="text-gray-900 text-xs font-normal leading-4">
+                  <span className="text-neutral-900 text-xs font-normal leading-4">
                     {s.name}
                   </span>
                 </div>

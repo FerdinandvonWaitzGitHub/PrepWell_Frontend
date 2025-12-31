@@ -123,7 +123,7 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
         <DialogBody className="space-y-4">
           {/* Subject Dropdown with Add Custom */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">
+            <label className="text-sm font-medium text-neutral-900">
               Fach <span className="text-red-500">*</span>
             </label>
             <div className="relative">
@@ -134,16 +134,16 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
                   setIsSemesterOpen(false);
                   setIsStatusOpen(false);
                 }}
-                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
               >
-                <span className={`text-sm ${formData.subject ? 'text-gray-900' : 'text-gray-500'}`}>
+                <span className={`text-sm ${formData.subject ? 'text-neutral-900' : 'text-neutral-500'}`}>
                   {formData.subject || 'Fach auswählen'}
                 </span>
-                <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isSubjectOpen ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isSubjectOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {isSubjectOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                   {allSubjects.map(subject => (
                     <button
                       key={subject}
@@ -152,8 +152,8 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
                         handleInputChange('subject', subject);
                         setIsSubjectOpen(false);
                       }}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${
-                        formData.subject === subject ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 ${
+                        formData.subject === subject ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                       }`}
                     >
                       {subject}
@@ -164,20 +164,20 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
                     <button
                       type="button"
                       onClick={() => setShowAddSubject(true)}
-                      className="w-full px-4 py-2 text-left text-sm text-primary-600 hover:bg-primary-50 border-t border-gray-100 flex items-center gap-2"
+                      className="w-full px-4 py-2 text-left text-sm text-primary-600 hover:bg-primary-50 border-t border-neutral-100 flex items-center gap-2"
                     >
                       <PlusIcon size={14} />
                       Neues Fach hinzufügen
                     </button>
                   ) : (
-                    <div className="p-2 border-t border-gray-100">
+                    <div className="p-2 border-t border-neutral-100">
                       <div className="flex gap-2">
                         <input
                           type="text"
                           value={newSubjectName}
                           onChange={(e) => setNewSubjectName(e.target.value)}
                           placeholder="Fachname eingeben"
-                          className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-400"
+                          className="flex-1 px-3 py-1.5 text-sm border border-neutral-200 rounded focus:outline-none focus:ring-2 focus:ring-primary-400"
                           onKeyDown={(e) => e.key === 'Enter' && handleAddNewSubject()}
                         />
                         <Button size="sm" variant="primary" onClick={handleAddNewSubject}>
@@ -193,7 +193,7 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
 
           {/* Semester Dropdown */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">Semester</label>
+            <label className="text-sm font-medium text-neutral-900">Semester</label>
             <div className="relative">
               <button
                 type="button"
@@ -202,16 +202,16 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
                   setIsSubjectOpen(false);
                   setIsStatusOpen(false);
                 }}
-                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
               >
-                <span className={`text-sm ${formData.semester ? 'text-gray-900' : 'text-gray-500'}`}>
+                <span className={`text-sm ${formData.semester ? 'text-neutral-900' : 'text-neutral-500'}`}>
                   {formData.semester || 'Semester auswählen'}
                 </span>
-                <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isSemesterOpen ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isSemesterOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {isSemesterOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                   {SEMESTER_OPTIONS.map(semester => (
                     <button
                       key={semester}
@@ -220,8 +220,8 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
                         handleInputChange('semester', semester);
                         setIsSemesterOpen(false);
                       }}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                        formData.semester === semester ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                        formData.semester === semester ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                       }`}
                     >
                       {semester}
@@ -234,7 +234,7 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
 
           {/* Title Input (Thema) */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">
+            <label className="text-sm font-medium text-neutral-900">
               Thema <span className="text-red-500">*</span>
             </label>
             <input
@@ -242,43 +242,43 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
               value={formData.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
               placeholder="Thema eintragen"
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
             />
           </div>
 
           {/* Description Input */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">Beschreibung</label>
+            <label className="text-sm font-medium text-neutral-900">Beschreibung</label>
             <input
               type="text"
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Referenz, Raum, etc. hinzufügen"
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
             />
           </div>
 
           {/* Date & Time Row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-900">Datum</label>
+              <label className="text-sm font-medium text-neutral-900">Datum</label>
               <div className="relative">
                 <input
                   type="date"
                   value={formData.date}
                   onChange={(e) => handleInputChange('date', e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                  className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-900">Uhrzeit</label>
+              <label className="text-sm font-medium text-neutral-900">Uhrzeit</label>
               <input
                 type="text"
                 value={formData.time}
                 onChange={(e) => handleInputChange('time', e.target.value)}
                 placeholder="z.B. 09:00 - 12:00"
-                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
               />
             </div>
           </div>
@@ -289,7 +289,7 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
               type="button"
               onClick={() => handleInputChange('addToCalendar', !formData.addToCalendar)}
               className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 ${
-                formData.addToCalendar ? 'bg-gray-900' : 'bg-gray-300'
+                formData.addToCalendar ? 'bg-neutral-900' : 'bg-neutral-300'
               }`}
             >
               <span
@@ -299,14 +299,14 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
               />
             </button>
             <div className="flex items-center gap-2">
-              <CalendarIcon size={16} className="text-gray-500" />
-              <span className="text-sm text-gray-700">Leistung im Kalender eintragen</span>
+              <CalendarIcon size={16} className="text-neutral-500" />
+              <span className="text-sm text-neutral-700">Leistung im Kalender eintragen</span>
             </div>
           </div>
 
           {/* ECTS Field */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">ECTS / Gewichtung</label>
+            <label className="text-sm font-medium text-neutral-900">ECTS / Gewichtung</label>
             <input
               type="number"
               min="1"
@@ -314,21 +314,21 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
               value={formData.ects}
               onChange={(e) => handleInputChange('ects', e.target.value)}
               placeholder="ECTS-Punkte eintragen"
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
             />
           </div>
 
           {/* Grade System Toggle */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">Notensystem</label>
-            <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+            <label className="text-sm font-medium text-neutral-900">Notensystem</label>
+            <div className="flex border border-neutral-200 rounded-lg overflow-hidden">
               <button
                 type="button"
                 onClick={() => handleInputChange('gradeSystem', GRADE_SYSTEMS.PUNKTE)}
                 className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
                   formData.gradeSystem === GRADE_SYSTEMS.PUNKTE
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    ? 'bg-neutral-900 text-white'
+                    : 'bg-white text-neutral-700 hover:bg-neutral-50'
                 }`}
               >
                 Punkte (0-18)
@@ -338,8 +338,8 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
                 onClick={() => handleInputChange('gradeSystem', GRADE_SYSTEMS.NOTEN)}
                 className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
                   formData.gradeSystem === GRADE_SYSTEMS.NOTEN
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    ? 'bg-neutral-900 text-white'
+                    : 'bg-white text-neutral-700 hover:bg-neutral-50'
                 }`}
               >
                 Noten (1.0-5.0)
@@ -349,7 +349,7 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
 
           {/* Grade Value */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">Note</label>
+            <label className="text-sm font-medium text-neutral-900">Note</label>
             <input
               type="number"
               min={formData.gradeSystem === GRADE_SYSTEMS.PUNKTE ? '0' : '1.0'}
@@ -358,13 +358,13 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
               value={formData.gradeValue}
               onChange={(e) => handleInputChange('gradeValue', e.target.value)}
               placeholder={formData.gradeSystem === GRADE_SYSTEMS.PUNKTE ? '0-18 Punkte' : '1.0-5.0'}
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
             />
           </div>
 
           {/* Status Dropdown */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">Status</label>
+            <label className="text-sm font-medium text-neutral-900">Status</label>
             <div className="relative">
               <button
                 type="button"
@@ -373,16 +373,16 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
                   setIsSubjectOpen(false);
                   setIsSemesterOpen(false);
                 }}
-                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
               >
-                <span className="text-sm text-gray-900">
+                <span className="text-sm text-neutral-900">
                   {STATUS_OPTIONS.find(s => s.value === formData.status)?.label || 'Status wählen'}
                 </span>
-                <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isStatusOpen ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isStatusOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {isStatusOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                   {STATUS_OPTIONS.map(option => (
                     <button
                       key={option.value}
@@ -391,8 +391,8 @@ const NeueKlausurDialog = ({ open, onOpenChange, onSave }) => {
                         handleInputChange('status', option.value);
                         setIsStatusOpen(false);
                       }}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                        formData.status === option.value ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                        formData.status === option.value ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                       }`}
                     >
                       {option.label}

@@ -1,32 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 
 /**
- * Helper function to get Rechtsgebiet color based on ID or name
+ * Get block colors - Figma: neutral colors only (no Rechtsgebiet color coding)
  */
-const getRechtsgebietColor = (rechtsgebiet, blockType) => {
-  // For private blocks, always gray
+const getBlockColors = (blockType) => {
+  // For private blocks, gray
   if (blockType === 'private') {
-    return { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-700' };
+    return { bg: 'bg-neutral-100', border: 'border-neutral-300', text: 'text-neutral-700' };
   }
-
-  const name = typeof rechtsgebiet === 'object' ? rechtsgebiet?.id || rechtsgebiet?.name : rechtsgebiet;
-  const lowerName = (name || '').toLowerCase();
-
-  if (lowerName.includes('öffentlich') || lowerName.includes('oeffentlich') || lowerName === 'oeffentliches-recht') {
-    return { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-900' };
-  }
-  if (lowerName.includes('zivil') || lowerName === 'zivilrecht') {
-    return { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-900' };
-  }
-  if (lowerName.includes('straf') || lowerName === 'strafrecht') {
-    return { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-900' };
-  }
-  if (lowerName.includes('querschnitt') || lowerName === 'querschnitt') {
-    return { bg: 'bg-violet-50', border: 'border-violet-300', text: 'text-violet-900' };
-  }
-
-  // Default - blue tint
-  return { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-900' };
+  // Default - neutral white with subtle border (Figma design)
+  return { bg: 'bg-white', border: 'border-neutral-200', text: 'text-neutral-900' };
 };
 
 /**
@@ -119,14 +102,14 @@ const ZeitplanWidget = ({
     : null;
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden ${className}`}>
       {/* Header - Figma style */}
-      <div className="px-5 py-4 border-b border-gray-100">
+      <div className="px-5 py-4 border-b border-neutral-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-gray-900">Zeitplan für heute</h2>
+            <h2 className="text-2xl font-extralight text-neutral-900">Zeitplan für heute</h2>
             {plannedLabel ? (
-              <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-gray-100 text-xs font-semibold text-gray-600">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-neutral-100 text-xs font-semibold text-neutral-900">
                 {plannedLabel}
               </span>
             ) : null}
@@ -134,7 +117,7 @@ const ZeitplanWidget = ({
           <div className="flex items-center gap-1">
             <button
               onClick={handlePreviousDay}
-              className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+              className="h-9 w-9 flex items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors"
               aria-label="Vorheriger Tag"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -143,7 +126,7 @@ const ZeitplanWidget = ({
             </button>
             <button
               onClick={handleNextDay}
-              className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+              className="h-9 w-9 flex items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors"
               aria-label="Nächster Tag"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -166,8 +149,8 @@ const ZeitplanWidget = ({
                 style={{ top: `${index * hourHeight}px` }}
               >
                 <div className="flex items-start">
-                  <span className="text-xs font-medium text-gray-400 w-8 -mt-2">{hour}</span>
-                  <div className="flex-1 border-t border-gray-200"></div>
+                  <span className="text-xs font-medium text-neutral-400 w-8 -mt-2">{hour}</span>
+                  <div className="flex-1 border-t border-neutral-200"></div>
                 </div>
               </div>
             ))}
@@ -203,7 +186,7 @@ const ZeitplanWidget = ({
             {scheduledBlocks.map((block, index) => {
               const isBlocked = block.isBlocked;
               const isDragOver = dragOverBlockId === block.id;
-              const blockColors = getRechtsgebietColor(block.rechtsgebiet, block.blockType);
+              const blockColors = getBlockColors(block.blockType);
 
               const handleDragOver = (e) => {
                 e.preventDefault();
@@ -233,27 +216,27 @@ const ZeitplanWidget = ({
                 }
               };
 
-              // Blocked state: "Lernzeitraum blockiert" - gray with striped pattern
+              // Blocked state: "Lernzeitraum blockiert" - neutral with striped pattern
               if (isBlocked) {
                 return (
                   <div
                     key={block.id || index}
-                    className="absolute left-2 right-2 cursor-pointer rounded-xl border-2 border-gray-300 p-3 flex flex-col overflow-hidden transition-all hover:shadow-md bg-gray-100"
+                    className="absolute left-2 right-2 cursor-pointer rounded-xl border-2 border-neutral-300 p-3 flex flex-col overflow-hidden transition-all hover:shadow-md bg-neutral-100"
                     style={{
                       ...getBlockStyle(block.startHour, block.duration),
-                      backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(156, 163, 175, 0.1) 10px, rgba(156, 163, 175, 0.1) 20px)',
+                      backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(163, 163, 163, 0.1) 10px, rgba(163, 163, 163, 0.1) 20px)',
                     }}
                     onClick={() => onBlockClick && onBlockClick(block)}
                   >
                     <div className="flex-1 flex flex-col justify-center items-center">
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <svg className="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
-                        <span className="text-sm font-medium text-gray-500">Lernzeitraum blockiert</span>
+                        <span className="text-sm font-medium text-neutral-500">Lernzeitraum blockiert</span>
                       </div>
                       {block.title && (
-                        <p className="text-xs text-gray-400 mt-1">{block.title}</p>
+                        <p className="text-xs text-neutral-400 mt-1">{block.title}</p>
                       )}
                     </div>
                   </div>
@@ -293,7 +276,7 @@ const ZeitplanWidget = ({
 
                       {/* Time display */}
                       {block.startTime && block.endTime && (
-                        <span className="text-xs text-gray-500 font-medium">
+                        <span className="text-xs text-neutral-500 font-medium">
                           {block.startTime} - {block.endTime}
                         </span>
                       )}
@@ -305,17 +288,17 @@ const ZeitplanWidget = ({
                         {block.tasks.slice(0, 2).map((task, taskIndex) => (
                           <div key={task.id || taskIndex} className="flex items-center gap-2 min-w-0">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${
-                              task.completed ? 'bg-green-500' : 'bg-gray-400'
+                              task.completed ? 'bg-green-500' : 'bg-neutral-400'
                             }`} />
                             <span className={`text-sm truncate ${
-                              task.completed ? 'text-gray-400 line-through' : 'text-gray-600'
+                              task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'
                             }`}>
                               {task.text}
                             </span>
                           </div>
                         ))}
                         {block.tasks.length > 2 && (
-                          <span className="text-xs text-gray-500 font-medium">
+                          <span className="text-xs text-neutral-500 font-medium">
                             +{block.tasks.length - 2} weitere
                           </span>
                         )}
@@ -324,7 +307,7 @@ const ZeitplanWidget = ({
 
                     {/* Description (if space allows) */}
                     {block.description && block.duration >= 2 && (
-                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+                      <p className="text-xs text-neutral-400 mt-2 line-clamp-2">
                         {block.description}
                       </p>
                     )}

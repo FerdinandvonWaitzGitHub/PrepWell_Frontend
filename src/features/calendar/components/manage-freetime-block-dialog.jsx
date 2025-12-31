@@ -91,39 +91,39 @@ const ManageFreetimeBlockDialog = ({
           <div className="space-y-4">
             {/* Blockgröße */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-900">Blockgröße</label>
+              <label className="text-sm font-medium text-neutral-900">Blockgröße</label>
               <div className="inline-flex">
                 <button
                   type="button"
                   onClick={() => setBlockSize(Math.max(1, blockSize - 1))}
                   disabled={blockSize <= 1}
-                  className="w-9 h-9 bg-white rounded-l-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
+                  className="w-9 h-9 bg-white rounded-l-lg shadow-sm border border-neutral-200 flex items-center justify-center disabled:opacity-50"
                 >
-                  <MinusIcon size={16} className="text-gray-900" />
+                  <MinusIcon size={16} className="text-neutral-900" />
                 </button>
-                <div className="h-9 px-4 py-2 bg-white shadow-sm border-t border-b border-gray-200 flex items-center justify-center">
-                  <span className="text-sm font-medium text-gray-900">{blockSize}</span>
+                <div className="h-9 px-4 py-2 bg-white shadow-sm border-t border-b border-neutral-200 flex items-center justify-center">
+                  <span className="text-sm font-medium text-neutral-900">{blockSize}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setBlockSize(Math.min(totalAvailableSlots, blockSize + 1))}
                   disabled={blockSize >= totalAvailableSlots}
-                  className="w-9 h-9 bg-white rounded-r-lg shadow-sm border border-gray-200 flex items-center justify-center disabled:opacity-50"
+                  className="w-9 h-9 bg-white rounded-r-lg shadow-sm border border-neutral-200 flex items-center justify-center disabled:opacity-50"
                 >
-                  <PlusIcon size={16} className="text-gray-900" />
+                  <PlusIcon size={16} className="text-neutral-900" />
                 </button>
               </div>
             </div>
 
             {/* Titel */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-900">Titel</label>
+              <label className="text-sm font-medium text-neutral-900">Titel</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Titel eintragen..."
-                className="w-full h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-gray-200 text-sm"
+                className="w-full h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
               />
             </div>
           </div>

@@ -122,7 +122,7 @@ const MentorContent = ({ className = '' }) => {
         </div>
 
         {/* Bottom: Line Chart Section */}
-        <div className="flex-1 p-5 bg-white rounded-[10px] border border-gray-200 flex flex-col overflow-hidden">
+        <div className="flex-1 p-5 bg-white rounded-[10px] border border-neutral-200 flex flex-col overflow-hidden">
           <LineChart
             title="Diagramm"
             series={chartSeries}

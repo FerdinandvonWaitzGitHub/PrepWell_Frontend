@@ -13,9 +13,9 @@ const Badge = ({
   const baseStyles = 'inline-flex items-center gap-1 rounded font-medium transition-colors';
 
   const variants = {
-    default: 'bg-gray-100 text-gray-900',
-    primary: 'bg-primary-200 text-gray-900',
-    outline: 'border border-gray-200 bg-white text-gray-900',
+    default: 'bg-neutral-100 text-neutral-900',
+    primary: 'bg-primary-200 text-neutral-900',
+    outline: 'border border-neutral-200 bg-white text-neutral-900',
   };
 
   const sizes = {

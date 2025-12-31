@@ -12,7 +12,7 @@ import ProfileIcon from './profile-icon';
  */
 const Header = ({ userInitials = 'CN', currentPage = 'kalender-monat', className = '' }) => {
   return (
-    <header className={`flex items-center justify-between bg-white px-12.5 py-2 border-b border-gray-200 ${className}`}>
+    <header className={`flex items-center justify-between bg-white px-12.5 py-2 border-b border-neutral-200 ${className}`}>
       {/* Logo */}
       <Logo />
 

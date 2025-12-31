@@ -63,9 +63,9 @@ const PlanungStats = ({ stats, formatPercentage }) => {
       </div>
 
       {/* On-Track Score */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-lg border border-neutral-200 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-sm font-medium text-gray-700">On-Track Score</h4>
+          <h4 className="text-sm font-medium text-neutral-700">On-Track Score</h4>
           <span className={`text-sm font-medium ${onTrackStatus.color}`}>
             {onTrackStatus.text}
           </span>
@@ -75,10 +75,10 @@ const PlanungStats = ({ stats, formatPercentage }) => {
         <div className="space-y-4">
           <div>
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600">Zeitfortschritt</span>
+              <span className="text-neutral-600">Zeitfortschritt</span>
               <span className="font-medium">{formatPercentage(timeProgress)}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full bg-neutral-200 rounded-full h-3">
               <div
                 className="h-3 bg-blue-500 rounded-full transition-all"
                 style={{ width: `${Math.min(100, timeProgress)}%` }}
@@ -88,10 +88,10 @@ const PlanungStats = ({ stats, formatPercentage }) => {
 
           <div>
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600">Stofffortschritt</span>
+              <span className="text-neutral-600">Stofffortschritt</span>
               <span className="font-medium">{formatPercentage(stoffProgress)}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full bg-neutral-200 rounded-full h-3">
               <div
                 className="h-3 bg-green-500 rounded-full transition-all"
                 style={{ width: `${Math.min(100, stoffProgress)}%` }}
@@ -101,13 +101,13 @@ const PlanungStats = ({ stats, formatPercentage }) => {
         </div>
 
         {/* On-Track indicator */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="mt-4 pt-4 border-t border-neutral-100">
           <div className="flex items-center justify-center">
             <div className="text-center">
               <p className={`text-4xl font-bold ${onTrackStatus.color}`}>
                 {Math.round(onTrackScore)}%
               </p>
-              <p className="text-sm text-gray-500 mt-1">On-Track Score</p>
+              <p className="text-sm text-neutral-500 mt-1">On-Track Score</p>
             </div>
           </div>
         </div>

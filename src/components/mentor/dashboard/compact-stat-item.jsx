@@ -35,13 +35,13 @@ const CompactStatItem = ({
 
       {/* Right: Value + Trend */}
       <div className="flex items-center gap-2">
-        <span className="text-gray-900 text-lg font-light leading-6">
+        <span className="text-neutral-900 text-lg font-light leading-6">
           {displayValue}
         </span>
         {(trend !== undefined && trend !== null && trend !== 0) && (
           <div
             className={`w-4 h-4 rounded-full flex justify-center items-center ${
-              isPositive ? 'bg-green-400' : isNegative ? 'bg-red-400' : 'bg-gray-300'
+              isPositive ? 'bg-green-400' : isNegative ? 'bg-red-400' : 'bg-neutral-300'
             }`}
             style={{
               transform: isPositive ? 'rotate(-40deg)' : isNegative ? 'rotate(40deg)' : 'none'

@@ -41,12 +41,12 @@ const ExitDialog = ({ open }) => {
           </div>
 
           {/* Title */}
-          <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+          <h3 className="text-lg font-semibold text-neutral-900 text-center mb-2">
             Lernplan-Erstellung beenden?
           </h3>
 
           {/* Description */}
-          <p className="text-sm text-gray-500 text-center mb-6">
+          <p className="text-sm text-neutral-500 text-center mb-6">
             Möchtest du deinen Fortschritt speichern, um später weiterzumachen,
             oder die Eingaben verwerfen?
           </p>

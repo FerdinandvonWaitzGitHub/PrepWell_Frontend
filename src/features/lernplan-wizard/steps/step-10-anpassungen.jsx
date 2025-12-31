@@ -122,10 +122,10 @@ const Step10Anpassungen = () => {
         {sections.map((section) => (
           <div
             key={section.title}
-            className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+            className="bg-white rounded-xl border border-neutral-200 overflow-hidden"
           >
-            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <h4 className="font-semibold text-gray-900">{section.title}</h4>
+            <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-200">
+              <h4 className="font-semibold text-neutral-900">{section.title}</h4>
               <button
                 onClick={() => goToStep(section.step)}
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"
@@ -137,8 +137,8 @@ const Step10Anpassungen = () => {
               <dl className="grid grid-cols-2 gap-3">
                 {section.items.map((item) => (
                   <div key={item.label}>
-                    <dt className="text-xs text-gray-500">{item.label}</dt>
-                    <dd className="text-sm font-medium text-gray-900">{item.value}</dd>
+                    <dt className="text-xs text-neutral-500">{item.label}</dt>
+                    <dd className="text-sm font-medium text-neutral-900">{item.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -148,9 +148,9 @@ const Step10Anpassungen = () => {
 
         {/* Unterrechtsgebiete summary - only for automatic path */}
         {getUnterrechtsgebieteStep() && unterrechtsgebieteOrder.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <h4 className="font-semibold text-gray-900">Unterrechtsgebiete</h4>
+          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-200">
+              <h4 className="font-semibold text-neutral-900">Unterrechtsgebiete</h4>
               <button
                 onClick={() => goToStep(getUnterrechtsgebieteStep())}
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"
@@ -163,14 +163,14 @@ const Step10Anpassungen = () => {
                 {unterrechtsgebieteOrder.slice(0, 5).map((item, index) => (
                   <span
                     key={item.id}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded text-sm"
+                    className="inline-flex items-center gap-1.5 px-2 py-1 bg-neutral-100 rounded text-sm"
                   >
-                    <span className="text-xs text-gray-500">{index + 1}.</span>
+                    <span className="text-xs text-neutral-500">{index + 1}.</span>
                     {item.name}
                   </span>
                 ))}
                 {unterrechtsgebieteOrder.length > 5 && (
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-neutral-500">
                     +{unterrechtsgebieteOrder.length - 5} weitere
                   </span>
                 )}
@@ -181,9 +181,9 @@ const Step10Anpassungen = () => {
 
         {/* Lerntage summary - for template and automatic paths */}
         {getLerntagStep() && learningDaysOrder.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <h4 className="font-semibold text-gray-900">Lerntage</h4>
+          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-200">
+              <h4 className="font-semibold text-neutral-900">Lerntage</h4>
               <button
                 onClick={() => goToStep(getLerntagStep())}
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"
@@ -192,7 +192,7 @@ const Step10Anpassungen = () => {
               </button>
             </div>
             <div className="p-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-neutral-600">
                 {learningDaysOrder.length} Lerntage in benutzerdefinierter Reihenfolge
               </p>
             </div>

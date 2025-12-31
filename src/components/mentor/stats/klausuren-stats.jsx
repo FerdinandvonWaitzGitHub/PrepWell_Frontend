@@ -80,24 +80,24 @@ const KlausurenStats = ({ stats }) => {
 
       {/* Status Overview */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center">
           <p className="text-3xl font-semibold text-green-600">{passedCount}</p>
-          <p className="text-sm text-gray-500">Bestanden</p>
+          <p className="text-sm text-neutral-500">Bestanden</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center">
           <p className="text-3xl font-semibold text-red-600">{failedCount}</p>
-          <p className="text-sm text-gray-500">Nicht bestanden</p>
+          <p className="text-sm text-neutral-500">Nicht bestanden</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center">
           <p className="text-3xl font-semibold text-blue-600">{upcomingCount}</p>
-          <p className="text-sm text-gray-500">Anstehend</p>
+          <p className="text-sm text-neutral-500">Anstehend</p>
         </div>
       </div>
 
       {/* Subject Breakdown Chart */}
       {subjectData.length > 0 && subjectData.some(d => d.anzahl > 0) && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-4">Durchschnittsnote pro Fach</h4>
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <h4 className="text-sm font-medium text-neutral-700 mb-4">Durchschnittsnote pro Fach</h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={subjectData} layout="vertical">
@@ -128,9 +128,9 @@ const KlausurenStats = ({ stats }) => {
       )}
 
       {totalExams === 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">Noch keine Klausuren eingetragen</p>
-          <p className="text-sm text-gray-400 mt-1">
+        <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center">
+          <p className="text-neutral-500">Noch keine Klausuren eingetragen</p>
+          <p className="text-sm text-neutral-400 mt-1">
             Füge Klausuren unter Verwaltung → Leistungen hinzu
           </p>
         </div>

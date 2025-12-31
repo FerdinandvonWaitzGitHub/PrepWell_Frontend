@@ -38,7 +38,7 @@ const Step8Unterrechtsgebiete = () => {
           name,
           rechtsgebiet,
           lerntageCount: unterData.lerntage?.length || 0,
-          color: MANUAL_RECHTSGEBIET_COLORS[rechtsgebiet] || 'bg-gray-500',
+          color: MANUAL_RECHTSGEBIET_COLORS[rechtsgebiet] || 'bg-neutral-500',
         });
       });
     });
@@ -175,19 +175,19 @@ const Step8Unterrechtsgebiete = () => {
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-sm text-gray-600">Öffentliches Recht</span>
+              <span className="text-sm text-neutral-600">Öffentliches Recht</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-sm text-gray-600">Zivilrecht</span>
+              <span className="text-sm text-neutral-600">Zivilrecht</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500" />
-              <span className="text-sm text-gray-600">Strafrecht</span>
+              <span className="text-sm text-neutral-600">Strafrecht</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-purple-500" />
-              <span className="text-sm text-gray-600">Querschnitt</span>
+              <span className="text-sm text-neutral-600">Querschnitt</span>
             </div>
           </div>
 
@@ -206,7 +206,7 @@ const Step8Unterrechtsgebiete = () => {
         </div>
 
         {/* Selected count */}
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-neutral-600">
           {items.length} Unterrechtsgebiete ausgewählt
         </div>
 
@@ -225,11 +225,11 @@ const Step8Unterrechtsgebiete = () => {
                     ? 'opacity-50 border-primary-300'
                     : dragOverIndex === index
                     ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-neutral-200 hover:border-neutral-300'
                 }`}
               >
                 {/* Drag handle */}
-                <div className="text-gray-400 group-hover:text-gray-600">
+                <div className="text-neutral-400 group-hover:text-neutral-600">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <circle cx="9" cy="6" r="1.5" />
                     <circle cx="15" cy="6" r="1.5" />
@@ -241,7 +241,7 @@ const Step8Unterrechtsgebiete = () => {
                 </div>
 
                 {/* Position number */}
-                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-600">
+                <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-sm font-semibold text-neutral-600">
                   {index + 1}
                 </div>
 
@@ -250,8 +250,8 @@ const Step8Unterrechtsgebiete = () => {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{item.name}</p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="font-medium text-neutral-900 truncate">{item.name}</p>
+                  <p className="text-xs text-neutral-500 truncate">
                     {getRechtsgebietLabel(item.rechtsgebiet)}
                     {item.kategorie && ` • ${item.kategorie}`}
                   </p>
@@ -262,7 +262,7 @@ const Step8Unterrechtsgebiete = () => {
                   <button
                     onClick={() => moveItem(index, -1)}
                     disabled={index === 0}
-                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Nach oben"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -272,7 +272,7 @@ const Step8Unterrechtsgebiete = () => {
                   <button
                     onClick={() => moveItem(index, 1)}
                     disabled={index === items.length - 1}
-                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Nach unten"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -281,7 +281,7 @@ const Step8Unterrechtsgebiete = () => {
                   </button>
                   <button
                     onClick={() => removeItem(item)}
-                    className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600"
+                    className="p-1 rounded hover:bg-red-100 text-neutral-400 hover:text-red-600"
                     title="Entfernen"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -294,8 +294,8 @@ const Step8Unterrechtsgebiete = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-            <p className="text-gray-500 mb-4">
+          <div className="text-center py-12 bg-neutral-50 rounded-xl border-2 border-dashed border-neutral-300">
+            <p className="text-neutral-500 mb-4">
               {isAutomaticMode
                 ? 'Keine Unterrechtsgebiete erstellt. Bitte gehe zurück zu Schritt 7.'
                 : 'Keine Unterrechtsgebiete ausgewählt'}
@@ -342,7 +342,7 @@ const Step8Unterrechtsgebiete = () => {
               <h3 className="text-lg font-semibold">Unterrechtsgebiete auswählen</h3>
               <button
                 onClick={() => setShowAddDialog(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-neutral-100 rounded-lg"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -358,7 +358,7 @@ const Step8Unterrechtsgebiete = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Suchen..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+                className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
               />
             </div>
 
@@ -371,7 +371,7 @@ const Step8Unterrechtsgebiete = () => {
                   className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                     activeRechtsgebiet === id
                       ? 'border-primary-500 text-primary-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                      : 'border-transparent text-neutral-600 hover:text-neutral-900'
                   }`}
                 >
                   {label}
@@ -387,7 +387,7 @@ const Step8Unterrechtsgebiete = () => {
 
                 if (Object.keys(grouped).length === 0) {
                   return (
-                    <p className="text-center text-gray-500 py-8">
+                    <p className="text-center text-neutral-500 py-8">
                       Keine Ergebnisse gefunden
                     </p>
                   );
@@ -395,7 +395,7 @@ const Step8Unterrechtsgebiete = () => {
 
                 return Object.entries(grouped).map(([kategorie, kategorieItems]) => (
                   <div key={kategorie} className="mb-6">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">{kategorie}</h4>
+                    <h4 className="text-sm font-semibold text-neutral-700 mb-2">{kategorie}</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {kategorieItems.map((item) => {
                         const selected = unterrechtsgebieteContext?.isSelected?.(activeRechtsgebiet, item.id);
@@ -419,13 +419,13 @@ const Step8Unterrechtsgebiete = () => {
                             className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
                               selected
                                 ? 'border-primary-500 bg-primary-50'
-                                : 'border-gray-200 hover:border-gray-300'
+                                : 'border-neutral-200 hover:border-neutral-300'
                             }`}
                           >
                             <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
                               selected
                                 ? 'border-primary-500 bg-primary-500'
-                                : 'border-gray-300'
+                                : 'border-neutral-300'
                             }`}>
                               {selected && (
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
@@ -444,8 +444,8 @@ const Step8Unterrechtsgebiete = () => {
             </div>
 
             {/* Dialog Footer */}
-            <div className="flex items-center justify-between p-4 border-t bg-gray-50">
-              <span className="text-sm text-gray-600">
+            <div className="flex items-center justify-between p-4 border-t bg-neutral-50">
+              <span className="text-sm text-neutral-600">
                 {unterrechtsgebieteContext?.getSelectedCount?.() || 0} Gebiete ausgewählt
               </span>
               <button

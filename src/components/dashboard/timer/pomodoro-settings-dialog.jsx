@@ -27,10 +27,10 @@ const OutlineButton = ({ children, onClick, disabled, className = '' }) => (
     onClick={onClick}
     disabled={disabled}
     className={`
-      px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-gray-200
+      px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-neutral-200
       inline-flex justify-center items-center gap-2
-      text-gray-900 text-sm font-light font-['DM_Sans'] leading-5
-      hover:bg-gray-50 transition-colors
+      text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5
+      hover:bg-neutral-50 transition-colors
       disabled:opacity-50 disabled:cursor-not-allowed
       ${className}
     `}
@@ -68,8 +68,8 @@ const PresetButton = ({ selected, onClick, children }) => (
     className={`
       flex-1 py-2.5 px-4 rounded-lg text-sm font-light font-['DM_Sans'] transition-colors
       ${selected
-        ? 'bg-gray-900 text-white'
-        : 'bg-white text-gray-900 outline outline-1 outline-offset-[-1px] outline-gray-200 hover:bg-gray-50'
+        ? 'bg-neutral-900 text-white'
+        : 'bg-white text-neutral-900 outline outline-1 outline-offset-[-1px] outline-neutral-200 hover:bg-neutral-50'
       }
     `}
   >
@@ -86,8 +86,8 @@ const SessionButton = ({ selected, onClick, children }) => (
     className={`
       w-10 h-10 rounded-lg text-sm font-light font-['DM_Sans'] transition-colors
       ${selected
-        ? 'bg-gray-900 text-white'
-        : 'bg-white text-gray-900 outline outline-1 outline-offset-[-1px] outline-gray-200 hover:bg-gray-50'
+        ? 'bg-neutral-900 text-white'
+        : 'bg-white text-neutral-900 outline outline-1 outline-offset-[-1px] outline-neutral-200 hover:bg-neutral-50'
       }
     `}
   >
@@ -103,7 +103,7 @@ const ToggleSwitch = ({ checked, onChange }) => (
     onClick={() => onChange(!checked)}
     className={`
       relative w-11 h-6 rounded-full transition-colors
-      ${checked ? 'bg-gray-900' : 'bg-gray-200'}
+      ${checked ? 'bg-neutral-900' : 'bg-neutral-200'}
     `}
   >
     <span
@@ -174,16 +174,16 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
         <div
-          className="w-[806px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-gray-200
+          className="w-[806px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-neutral-200
                      inline-flex flex-col justify-start items-start gap-8 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="self-stretch flex flex-col justify-start items-start gap-1.5">
-            <h2 className="self-stretch text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+            <h2 className="self-stretch text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
               Pomodoro Timer Einstellungen
             </h2>
-            <p className="text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5">
+            <p className="text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5">
               Konfiguriere deine Pomodoro-Session
             </p>
           </div>
@@ -192,7 +192,7 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
           <div className="self-stretch flex flex-col gap-6">
             {/* Presets */}
             <div className="flex flex-col gap-3">
-              <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+              <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                 Schnellauswahl
               </span>
               <div className="flex gap-3">
@@ -217,10 +217,10 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
             {/* Session Duration Slider */}
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                   Session-Dauer
                 </span>
-                <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                   {sessionDuration} min
                 </span>
               </div>
@@ -231,17 +231,17 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
                 step="5"
                 value={sessionDuration}
                 onChange={(e) => setSessionDuration(Number(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
               />
             </div>
 
             {/* Break Duration Slider */}
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                   Pause-Dauer
                 </span>
-                <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                   {breakDuration} min
                 </span>
               </div>
@@ -252,17 +252,17 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
                 step="1"
                 value={breakDuration}
                 onChange={(e) => setBreakDuration(Number(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
               />
             </div>
 
             {/* Long Break Duration Slider */}
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                   Lange Pause (nach 4 Sessions)
                 </span>
-                <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                   {longBreakDuration} min
                 </span>
               </div>
@@ -273,13 +273,13 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
                 step="5"
                 value={longBreakDuration}
                 onChange={(e) => setLongBreakDuration(Number(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
               />
             </div>
 
             {/* Number of Sessions */}
             <div className="flex flex-col gap-3">
-              <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+              <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                 Anzahl Sessions
               </span>
               <div className="flex gap-2">
@@ -298,10 +298,10 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
             {/* Auto-start break toggle */}
             <div className="flex items-center justify-between py-2">
               <div>
-                <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                   Pause automatisch starten
                 </span>
-                <p className="text-gray-500 text-xs font-light font-['DM_Sans'] mt-0.5">
+                <p className="text-neutral-500 text-xs font-light font-['DM_Sans'] mt-0.5">
                   Startet die Pause automatisch nach einer Session
                 </p>
               </div>
@@ -309,11 +309,11 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
             </div>
 
             {/* Summary */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-gray-900 text-sm font-light font-['DM_Sans']">
+            <div className="bg-neutral-50 rounded-lg p-4">
+              <p className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                 <span className="font-medium">Gesamtzeit:</span> {totalMinutes} Minuten
               </p>
-              <p className="text-gray-500 text-xs font-light font-['DM_Sans'] mt-1">
+              <p className="text-neutral-500 text-xs font-light font-['DM_Sans'] mt-1">
                 {totalSessions} Sessions × {sessionDuration}min + Pausen
               </p>
             </div>
@@ -335,7 +335,7 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
           {/* Close Button */}
           <button
             onClick={() => onOpenChange(false)}
-            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-gray-100 flex items-center justify-center"
+            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-neutral-100 flex items-center justify-center"
           >
             <CloseIcon />
           </button>

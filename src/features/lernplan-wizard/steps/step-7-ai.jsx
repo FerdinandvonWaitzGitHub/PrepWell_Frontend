@@ -77,20 +77,20 @@ const SelectionCard = ({ item, isSelected, onSelect, showDescription = true }) =
     className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
       isSelected
         ? 'border-purple-500 bg-purple-50'
-        : 'border-gray-200 bg-white hover:border-gray-300'
+        : 'border-neutral-200 bg-white hover:border-neutral-300'
     }`}
   >
     <div className="flex items-start justify-between gap-3">
       <div className="flex-1">
-        <h4 className="font-medium text-gray-900">{item.label}</h4>
+        <h4 className="font-medium text-neutral-900">{item.label}</h4>
         {showDescription && item.description && (
-          <p className="text-sm text-gray-500 mt-1">{item.description}</p>
+          <p className="text-sm text-neutral-500 mt-1">{item.description}</p>
         )}
       </div>
       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
         isSelected
           ? 'border-purple-500 bg-purple-500'
-          : 'border-gray-300'
+          : 'border-neutral-300'
       }`}>
         {isSelected && (
           <CheckIcon />
@@ -110,7 +110,7 @@ const ToggleChip = ({ item, isSelected, onToggle }) => (
     className={`px-4 py-2 rounded-full border transition-all ${
       isSelected
         ? item.color + ' border-current'
-        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
+        : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-300'
     }`}
   >
     <span className="text-sm font-medium">{item.label}</span>
@@ -150,8 +150,8 @@ const Step7AI = () => {
               <SparkleIcon className="text-purple-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">KI-gestützte Planung</h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <h3 className="font-semibold text-neutral-900">KI-gestützte Planung</h3>
+              <p className="text-sm text-neutral-600 mt-1">
                 Unsere KI analysiert deine Vorgaben und erstellt einen personalisierten Lernplan mit
                 optimaler Themenverteilung, intelligenten Wiederholungszyklen und angepasstem Schwierigkeitsgrad.
               </p>
@@ -161,7 +161,7 @@ const Step7AI = () => {
 
         {/* Exam Type Selection */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
+          <h3 className="text-lg font-medium text-neutral-900 mb-4">
             Welche Prüfung bereitest du vor?
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -178,10 +178,10 @@ const Step7AI = () => {
 
         {/* Focus Areas */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-neutral-900 mb-2">
             Auf welche Rechtsgebiete möchtest du dich konzentrieren?
           </h3>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-neutral-500 mb-4">
             Wähle die Gebiete aus, die in deinem Lernplan priorisiert werden sollen.
           </p>
           <div className="flex flex-wrap gap-3">
@@ -198,7 +198,7 @@ const Step7AI = () => {
 
         {/* Difficulty Level */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
+          <h3 className="text-lg font-medium text-neutral-900 mb-4">
             Wie intensiv soll dein Lernplan sein?
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -214,11 +214,11 @@ const Step7AI = () => {
         </div>
 
         {/* Repetition Toggle */}
-        <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+        <div className="bg-neutral-50 rounded-xl p-5 border border-neutral-200">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h4 className="font-medium text-gray-900">Wiederholungen einplanen</h4>
-              <p className="text-sm text-gray-500 mt-1">
+              <h4 className="font-medium text-neutral-900">Wiederholungen einplanen</h4>
+              <p className="text-sm text-neutral-500 mt-1">
                 Die KI plant automatisch Wiederholungstage ein, um das Gelernte zu festigen.
               </p>
             </div>
@@ -226,7 +226,7 @@ const Step7AI = () => {
               type="button"
               onClick={() => updateAISettings({ includeRepetition: !aiSettings.includeRepetition })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                aiSettings.includeRepetition ? 'bg-purple-600' : 'bg-gray-300'
+                aiSettings.includeRepetition ? 'bg-purple-600' : 'bg-neutral-300'
               }`}
             >
               <span

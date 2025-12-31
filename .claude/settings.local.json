@@ -32,7 +32,12 @@
       "Bash(cat:*)",
       "Bash(tasklist:*)",
       "Bash(ls:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" status --porcelain)",
+      "Bash(npx husky init)",
+      "Bash(claude mcp remove:*)",
+      "Bash(claude mcp list:*)",
+      "Bash(rm:*)"
     ]
   }
 }

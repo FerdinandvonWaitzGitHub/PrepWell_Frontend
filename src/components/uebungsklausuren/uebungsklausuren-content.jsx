@@ -114,17 +114,17 @@ const UebungsklausurenContent = ({ className = '' }) => {
   // Get color classes for subject
   const getSubjectColors = (subject) => {
     const colors = RECHTSGEBIET_COLORS[subject];
-    if (!colors) return 'bg-gray-100 border-gray-200 text-gray-800';
+    if (!colors) return 'bg-neutral-100 border-neutral-200 text-neutral-800';
     return `${colors.bg} ${colors.border} ${colors.text}`;
   };
 
   return (
     <div className={`flex gap-3 w-full h-full ${className}`}>
       {/* Left Column: Übungsklausuren Table */}
-      <div className="flex-1 min-w-0 bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+      <div className="flex-1 min-w-0 bg-white rounded-lg border border-neutral-200 overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 flex-shrink-0">
-          <h3 className="text-sm font-medium text-gray-900">Übungsklausuren</h3>
+        <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200 flex-shrink-0">
+          <h3 className="text-sm font-medium text-neutral-900">Übungsklausuren</h3>
           <div className="flex items-center gap-2">
             {/* Search */}
             <div className="relative">
@@ -133,14 +133,14 @@ const UebungsklausurenContent = ({ className = '' }) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Suchen..."
-                className="w-48 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                className="w-48 px-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
               />
             </div>
 
             {/* Filter Button */}
             <button
               onClick={() => setIsFilterOpen(true)}
-              className="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm text-neutral-600 border border-neutral-200 rounded-lg hover:bg-neutral-50"
             >
               Filter
             </button>
@@ -161,28 +161,28 @@ const UebungsklausurenContent = ({ className = '' }) => {
         {/* Table Content */}
         <div className="w-full flex-1 overflow-auto">
           <table className="w-full table-fixed">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-neutral-50 border-b border-neutral-200">
               <tr>
-                <th className="w-[20%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[20%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                   Fach
                 </th>
-                <th className="w-[40%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[40%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                   Thema
                 </th>
-                <th className="w-[20%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[20%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                   Datum
                 </th>
-                <th className="w-[20%] px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[20%] px-3 py-2 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider">
                   Note
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-neutral-100">
               {filteredKlausuren.map((klausur) => (
                 <tr
                   key={klausur.id}
                   onClick={() => handleKlausurClick(klausur)}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="hover:bg-neutral-50 cursor-pointer transition-colors"
                 >
                   <td className="px-3 py-2 truncate">
                     <span className={`inline-block px-2 py-0.5 text-xs rounded border ${getSubjectColors(klausur.subject)}`}>
@@ -190,15 +190,15 @@ const UebungsklausurenContent = ({ className = '' }) => {
                     </span>
                   </td>
                   <td className="px-3 py-2">
-                    <div className="text-sm text-gray-900 font-medium truncate">{klausur.title}</div>
+                    <div className="text-sm text-neutral-900 font-medium truncate">{klausur.title}</div>
                     {klausur.description && (
-                      <div className="text-xs text-gray-500 truncate">{klausur.description}</div>
+                      <div className="text-xs text-neutral-500 truncate">{klausur.description}</div>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-sm text-gray-600">
+                  <td className="px-3 py-2 text-sm text-neutral-600">
                     {formatDate(klausur.date)}
                   </td>
-                  <td className="px-3 py-2 text-sm text-center font-medium text-gray-900">
+                  <td className="px-3 py-2 text-sm text-center font-medium text-neutral-900">
                     {formatPunkte(klausur.punkte)}
                   </td>
                 </tr>
@@ -206,7 +206,7 @@ const UebungsklausurenContent = ({ className = '' }) => {
 
               {filteredKlausuren.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-neutral-500">
                     Keine Übungsklausuren gefunden
                   </td>
                 </tr>
@@ -219,16 +219,16 @@ const UebungsklausurenContent = ({ className = '' }) => {
       {/* Right Column: Auswertung (400px) */}
       <div className="w-[400px] flex-shrink-0 flex flex-col gap-3">
         {/* Subject Stats Card */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
+        <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden flex flex-col">
           {/* Card Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200">
             <div className="flex flex-col">
-              <h3 className="text-sm font-medium text-gray-900">Durchschnittsnoten</h3>
-              <span className="text-xs text-gray-500">der Rechtsgebiete</span>
+              <h3 className="text-sm font-medium text-neutral-900">Durchschnittsnoten</h3>
+              <span className="text-xs text-neutral-500">der Rechtsgebiete</span>
             </div>
             <button
               onClick={() => setIsAuswertungOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm text-neutral-600 border border-neutral-200 rounded-lg hover:bg-neutral-50"
             >
               Auswertung
               <ChevronDownIcon size={12} />
@@ -236,9 +236,9 @@ const UebungsklausurenContent = ({ className = '' }) => {
           </div>
 
           {/* Stats Table */}
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-neutral-100">
             {/* Table Header */}
-            <div className="grid grid-cols-4 gap-2 px-3 py-1.5 bg-gray-50 text-xs font-medium text-gray-500 uppercase">
+            <div className="grid grid-cols-4 gap-2 px-3 py-1.5 bg-neutral-50 text-xs font-medium text-neutral-500 uppercase">
               <div>Fach</div>
               <div className="text-center">Anzahl</div>
               <div className="text-center">Schnitt</div>
@@ -249,11 +249,11 @@ const UebungsklausurenContent = ({ className = '' }) => {
             {stats.subjectStats.map((stat) => (
               <div
                 key={stat.subject}
-                className="grid grid-cols-4 gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+                className="grid grid-cols-4 gap-2 px-3 py-2 text-sm hover:bg-neutral-50"
               >
-                <div className="text-gray-900 truncate text-xs">{stat.subject}</div>
-                <div className="text-center text-gray-600">{stat.count}</div>
-                <div className="text-center text-gray-900 font-medium">
+                <div className="text-neutral-900 truncate text-xs">{stat.subject}</div>
+                <div className="text-center text-neutral-600">{stat.count}</div>
+                <div className="text-center text-neutral-900 font-medium">
                   {stat.count > 0 ? stat.average.toFixed(1) : '-'}
                 </div>
                 <div className="flex justify-center">
@@ -268,17 +268,17 @@ const UebungsklausurenContent = ({ className = '' }) => {
                     </span>
                   )}
                   {(stat.count <= 2 || stat.trend === 0) && (
-                    <span className="text-xs text-gray-400">-</span>
+                    <span className="text-xs text-neutral-400">-</span>
                   )}
                 </div>
               </div>
             ))}
 
             {/* Total Row */}
-            <div className="grid grid-cols-4 gap-2 px-3 py-2 text-sm bg-gray-50 font-medium">
-              <div className="text-gray-900">Gesamt</div>
-              <div className="text-center text-gray-600">{stats.totalCount}</div>
-              <div className="text-center text-gray-900">
+            <div className="grid grid-cols-4 gap-2 px-3 py-2 text-sm bg-neutral-50 font-medium">
+              <div className="text-neutral-900">Gesamt</div>
+              <div className="text-center text-neutral-600">{stats.totalCount}</div>
+              <div className="text-center text-neutral-900">
                 {stats.totalCount > 0 ? stats.totalAverage.toFixed(1) : '-'}
               </div>
               <div className="flex justify-center">
@@ -298,7 +298,7 @@ const UebungsklausurenContent = ({ className = '' }) => {
         </div>
 
         {/* Quick Stats Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
+        <div className="bg-white rounded-lg border border-neutral-200 p-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-green-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-green-700">

@@ -49,11 +49,11 @@ const MentorPage = () => {
       <Header userInitials="CN" currentPage="mentor" />
 
       {/* Sub-Header - Custom for Mentor page */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-white">
         {/* Left: Title + Date */}
         <div className="flex flex-col">
-          <h1 className="text-lg font-medium text-gray-900">Mentor</h1>
-          <span className="text-xs text-gray-500">{weekday}, {dateStr}</span>
+          <h1 className="text-lg font-medium text-neutral-900">Mentor</h1>
+          <span className="text-xs text-neutral-500">{weekday}, {dateStr}</span>
         </div>
 
         {/* Right: Actions */}
@@ -61,7 +61,7 @@ const MentorPage = () => {
           <div className="flex items-center gap-3">
             {checkInDone ? (
               /* Check-in completed state */
-              <div className="flex items-center gap-2 text-gray-700">
+              <div className="flex items-center gap-2 text-neutral-700">
                 <span className="text-sm">Check-Ins erledigt</span>
                 {/* Double checkmark icon */}
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -80,10 +80,10 @@ const MentorPage = () => {
                 {/* Check-in Button */}
                 <button
                   onClick={handleCheckInClick}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-neutral-900 bg-white border border-neutral-300 rounded-full hover:bg-neutral-50 transition-colors"
                 >
                   Check-In am {periodLabel}
-                  <span className="text-gray-400">→</span>
+                  <span className="text-neutral-400">→</span>
                 </button>
               </>
             )}
@@ -92,7 +92,7 @@ const MentorPage = () => {
           /* Not activated state - show activate hint */
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end">
-              <span className="text-sm font-medium text-gray-500">
+              <span className="text-sm font-medium text-neutral-500">
                 Mentor nicht aktiv
               </span>
             </div>

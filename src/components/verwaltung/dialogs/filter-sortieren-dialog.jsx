@@ -136,11 +136,11 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
         <DialogBody className="space-y-6">
           {/* Presets */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-900">Filtern & Sortieren</label>
+            <label className="text-sm font-medium text-neutral-900">Filtern & Sortieren</label>
             {PRESETS.map(preset => (
               <label
                 key={preset.id}
-                className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                className="flex items-start gap-3 p-3 bg-white border border-neutral-200 rounded-lg cursor-pointer hover:bg-neutral-50 transition-colors"
               >
                 <input
                   type="radio"
@@ -148,9 +148,9 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
                   value={preset.id}
                   checked={selectedPreset === preset.id}
                   onChange={() => handlePresetChange(preset.id)}
-                  className="mt-0.5 w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
+                  className="mt-0.5 w-4 h-4 text-neutral-900 border-neutral-300 focus:ring-neutral-900"
                 />
-                <span className="text-sm text-gray-700">{preset.name}</span>
+                <span className="text-sm text-neutral-700">{preset.name}</span>
               </label>
             ))}
           </div>
@@ -160,7 +160,7 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
             <>
               {/* Subject Filter */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Fächer filtern</label>
+                <label className="text-sm font-medium text-neutral-900">Fächer filtern</label>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {allSubjects.map(subject => (
                     <label
@@ -171,9 +171,9 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
                         type="checkbox"
                         checked={localFilters.subjects.includes(subject)}
                         onChange={() => handleSubjectToggle(subject)}
-                        className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                        className="w-4 h-4 text-neutral-900 border-neutral-300 rounded focus:ring-neutral-900"
                       />
-                      <span className="text-sm text-gray-700">{subject}</span>
+                      <span className="text-sm text-neutral-700">{subject}</span>
                     </label>
                   ))}
                 </div>
@@ -181,7 +181,7 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
 
               {/* Semester Filter */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Semester filtern</label>
+                <label className="text-sm font-medium text-neutral-900">Semester filtern</label>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {SEMESTER_OPTIONS.map(semester => (
                     <label
@@ -192,9 +192,9 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
                         type="checkbox"
                         checked={localFilters.semesters.includes(semester)}
                         onChange={() => handleSemesterToggle(semester)}
-                        className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                        className="w-4 h-4 text-neutral-900 border-neutral-300 rounded focus:ring-neutral-900"
                       />
-                      <span className="text-sm text-gray-700">{semester}</span>
+                      <span className="text-sm text-neutral-700">{semester}</span>
                     </label>
                   ))}
                 </div>
@@ -204,7 +204,7 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
               <div className="grid grid-cols-2 gap-4">
                 {/* Primary Sort */}
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-900">Sortierung primär</label>
+                  <label className="text-sm font-medium text-neutral-900">Sortierung primär</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -212,16 +212,16 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
                         setIsPrimarySortOpen(!isPrimarySortOpen);
                         setIsSecondarySortOpen(false);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                      className="w-full flex items-center justify-between px-3 py-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
                     >
-                      <span className="text-sm text-gray-900">
+                      <span className="text-sm text-neutral-900">
                         {SORT_OPTIONS.find(s => s.value === localFilters.primarySort)?.label || 'Auswählen'}
                       </span>
-                      <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isPrimarySortOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isPrimarySortOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     {isPrimarySortOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                         {SORT_OPTIONS.map(option => (
                           <button
                             key={option.value}
@@ -230,8 +230,8 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
                               setLocalFilters(prev => ({ ...prev, primarySort: option.value }));
                               setIsPrimarySortOpen(false);
                             }}
-                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                              localFilters.primarySort === option.value ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                              localFilters.primarySort === option.value ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                             }`}
                           >
                             {option.label}
@@ -244,7 +244,7 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
 
                 {/* Secondary Sort */}
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-900">Sortierung sekundär</label>
+                  <label className="text-sm font-medium text-neutral-900">Sortierung sekundär</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -252,16 +252,16 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
                         setIsSecondarySortOpen(!isSecondarySortOpen);
                         setIsPrimarySortOpen(false);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                      className="w-full flex items-center justify-between px-3 py-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
                     >
-                      <span className="text-sm text-gray-900">
+                      <span className="text-sm text-neutral-900">
                         {SORT_OPTIONS.find(s => s.value === localFilters.secondarySort)?.label || 'Auswählen'}
                       </span>
-                      <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isSecondarySortOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isSecondarySortOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     {isSecondarySortOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                         {SORT_OPTIONS.map(option => (
                           <button
                             key={option.value}
@@ -270,8 +270,8 @@ const FilterSortierenDialog = ({ open, onOpenChange, filters, onApply }) => {
                               setLocalFilters(prev => ({ ...prev, secondarySort: option.value }));
                               setIsSecondarySortOpen(false);
                             }}
-                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                              localFilters.secondarySort === option.value ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                              localFilters.secondarySort === option.value ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                             }`}
                           >
                             {option.label}

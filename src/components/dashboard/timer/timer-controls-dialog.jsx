@@ -19,7 +19,7 @@ const CircularProgress = ({ progress, size = 120, strokeWidth = 8, isBreak = fal
   const strokeDashoffset = circumference - (progress * circumference);
 
   const getColor = () => {
-    if (isPaused) return 'text-gray-400';
+    if (isPaused) return 'text-neutral-400';
     if (isBreak) return 'text-green-500';
     return 'text-primary-500';
   };
@@ -34,7 +34,7 @@ const CircularProgress = ({ progress, size = 120, strokeWidth = 8, isBreak = fal
         fill="none"
         stroke="currentColor"
         strokeWidth={strokeWidth}
-        className="text-gray-100"
+        className="text-neutral-100"
       />
       {/* Progress circle */}
       <circle
@@ -117,7 +117,7 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
       <DialogContent className="max-w-sm mx-4">
         <DialogHeader className="text-center">
           <DialogTitle>{getTimerTypeLabel()}</DialogTitle>
-          <p className={`text-sm ${isPaused ? 'text-gray-500' : isBreak ? 'text-green-600' : 'text-primary-600'}`}>
+          <p className={`text-sm ${isPaused ? 'text-neutral-500' : isBreak ? 'text-green-600' : 'text-primary-600'}`}>
             {getStatusLabel()}
           </p>
         </DialogHeader>
@@ -133,14 +133,14 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
               isPaused={isPaused}
             />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-4xl font-light ${isPaused ? 'text-gray-500' : 'text-gray-900'}`}>
+              <span className={`text-4xl font-light ${isPaused ? 'text-neutral-500' : 'text-neutral-900'}`}>
                 {timerType === TIMER_TYPES.COUNTUP
                   ? formatTimeDisplay(elapsedSeconds)
                   : formatTimeDisplay(remainingSeconds)
                 }
               </span>
               {timerType === TIMER_TYPES.POMODORO && (
-                <span className="text-xs text-gray-500 mt-1">
+                <span className="text-xs text-neutral-500 mt-1">
                   {isBreak ? 'Pause' : 'Session'}
                 </span>
               )}
@@ -159,7 +159,7 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
                       ? 'bg-primary-500'
                       : i === currentSession - 1
                         ? isBreak ? 'bg-green-500' : 'bg-primary-300'
-                        : 'bg-gray-200'
+                        : 'bg-neutral-200'
                     }
                   `}
                 />
@@ -172,7 +172,7 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
             {/* Reset Button */}
             <button
               onClick={resetSession}
-              className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+              className="p-3 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-600 transition-colors"
               title="Session zurücksetzen"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -188,7 +188,7 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
                 p-4 rounded-full text-white transition-colors
                 ${isPaused
                   ? 'bg-primary-500 hover:bg-primary-600'
-                  : 'bg-gray-600 hover:bg-gray-700'
+                  : 'bg-neutral-600 hover:bg-neutral-700'
                 }
               `}
               title={isPaused ? 'Fortsetzen' : 'Pausieren'}

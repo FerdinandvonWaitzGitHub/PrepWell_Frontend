@@ -87,23 +87,23 @@ const UebungsklausurBearbeitenDialog = ({ open, onOpenChange, klausur, onSave, o
         <DialogBody className="space-y-4">
           {/* Subject Dropdown */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">
+            <label className="text-sm font-medium text-neutral-900">
               Rechtsgebiet <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsSubjectOpen(!isSubjectOpen)}
-                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
               >
-                <span className={`text-sm ${formData.subject ? 'text-gray-900' : 'text-gray-500'}`}>
+                <span className={`text-sm ${formData.subject ? 'text-neutral-900' : 'text-neutral-500'}`}>
                   {formData.subject || 'Rechtsgebiet auswählen'}
                 </span>
-                <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isSubjectOpen ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isSubjectOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {isSubjectOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                   {RECHTSGEBIETE.map(subject => (
                     <button
                       key={subject}
@@ -112,8 +112,8 @@ const UebungsklausurBearbeitenDialog = ({ open, onOpenChange, klausur, onSave, o
                         handleInputChange('subject', subject);
                         setIsSubjectOpen(false);
                       }}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                        formData.subject === subject ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                        formData.subject === subject ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                       }`}
                     >
                       {subject}
@@ -126,7 +126,7 @@ const UebungsklausurBearbeitenDialog = ({ open, onOpenChange, klausur, onSave, o
 
           {/* Title Input (Thema) */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">
+            <label className="text-sm font-medium text-neutral-900">
               Thema <span className="text-red-500">*</span>
             </label>
             <input
@@ -134,36 +134,36 @@ const UebungsklausurBearbeitenDialog = ({ open, onOpenChange, klausur, onSave, o
               value={formData.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
               placeholder="z.B. BGB AT Grundlagen"
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
             />
           </div>
 
           {/* Description Input */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">Beschreibung</label>
+            <label className="text-sm font-medium text-neutral-900">Beschreibung</label>
             <input
               type="text"
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Zusätzliche Infos, Schwerpunkte, etc."
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
             />
           </div>
 
           {/* Date */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">Datum</label>
+            <label className="text-sm font-medium text-neutral-900">Datum</label>
             <input
               type="date"
               value={formData.date}
               onChange={(e) => handleInputChange('date', e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
             />
           </div>
 
           {/* Punkte Input */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-900">Punkte</label>
+            <label className="text-sm font-medium text-neutral-900">Punkte</label>
             <div className="relative">
               <input
                 type="number"
@@ -173,14 +173,14 @@ const UebungsklausurBearbeitenDialog = ({ open, onOpenChange, klausur, onSave, o
                 value={formData.punkte}
                 onChange={(e) => handleInputChange('punkte', e.target.value)}
                 placeholder="0-18 Punkte"
-                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-400">
                 Pkt.
               </span>
             </div>
             {formData.punkte && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-neutral-500">
                 {getGradeLabel(parseInt(formData.punkte, 10))}
               </p>
             )}

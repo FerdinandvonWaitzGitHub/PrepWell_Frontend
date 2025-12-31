@@ -80,16 +80,16 @@ const TimerSelectionDialog = ({ open, onOpenChange, onSelectType }) => {
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
         <div
-          className="w-[500px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-gray-200
+          className="w-[500px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-neutral-200
                      inline-flex flex-col justify-start items-start gap-6 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="self-stretch flex flex-col justify-start items-start gap-1.5">
-            <h2 className="self-stretch text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+            <h2 className="self-stretch text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
               Timer auswählen
             </h2>
-            <p className="text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5">
+            <p className="text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5">
               Wähle einen Timer-Typ für deine Lernsession
             </p>
           </div>
@@ -101,21 +101,21 @@ const TimerSelectionDialog = ({ open, onOpenChange, onSelectType }) => {
                 key={option.type}
                 onClick={() => handleSelect(option.type)}
                 className="w-full flex items-center gap-4 p-4 rounded-lg
-                           outline outline-1 outline-offset-[-1px] outline-gray-200
-                           hover:bg-gray-50 transition-colors text-left"
+                           outline outline-1 outline-offset-[-1px] outline-neutral-200
+                           hover:bg-neutral-50 transition-colors text-left"
               >
-                <div className="flex-shrink-0 text-gray-600">
+                <div className="flex-shrink-0 text-neutral-600">
                   {option.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                  <h3 className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                     {option.title}
                   </h3>
-                  <p className="text-gray-500 text-xs font-light font-['DM_Sans'] mt-0.5">
+                  <p className="text-neutral-500 text-xs font-light font-['DM_Sans'] mt-0.5">
                     {option.description}
                   </p>
                 </div>
-                <div className="flex-shrink-0 text-gray-400">
+                <div className="flex-shrink-0 text-neutral-400">
                   <ChevronRightIcon />
                 </div>
               </button>
@@ -125,7 +125,7 @@ const TimerSelectionDialog = ({ open, onOpenChange, onSelectType }) => {
           {/* Close Button */}
           <button
             onClick={() => onOpenChange(false)}
-            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-gray-100 flex items-center justify-center"
+            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-neutral-100 flex items-center justify-center"
           >
             <CloseIcon />
           </button>

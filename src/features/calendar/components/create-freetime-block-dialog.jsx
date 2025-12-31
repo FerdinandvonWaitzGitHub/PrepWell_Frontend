@@ -69,33 +69,33 @@ const CreateFreeTimeBlockDialog = ({ open, onOpenChange, date, onSave }) => {
         <DialogBody className="space-y-6">
           {/* Blockgröße Field */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">Blockgröße</label>
+            <label className="text-sm font-medium text-neutral-900">Blockgröße</label>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setBlockSize(Math.max(1, blockSize - 1))}
-                className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                className="p-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
               >
-                <MinusIcon size={16} className="text-gray-600" />
+                <MinusIcon size={16} className="text-neutral-600" />
               </button>
-              <span className="flex-1 text-center text-lg font-medium text-gray-900">{blockSize}</span>
+              <span className="flex-1 text-center text-lg font-medium text-neutral-900">{blockSize}</span>
               <button
                 onClick={() => setBlockSize(Math.min(10, blockSize + 1))}
-                className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                className="p-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
               >
-                <PlusIcon size={16} className="text-gray-600" />
+                <PlusIcon size={16} className="text-neutral-600" />
               </button>
             </div>
           </div>
 
           {/* Titel Field */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">Titel</label>
+            <label className="text-sm font-medium text-neutral-900">Titel</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Titel eintragen..."
-              className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
         </DialogBody>

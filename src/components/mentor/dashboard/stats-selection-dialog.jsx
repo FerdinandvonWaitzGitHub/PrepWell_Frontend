@@ -86,7 +86,7 @@ const StatsSelectionDialog = ({
         <div className="flex-1 overflow-y-auto py-4 space-y-6">
           {Object.entries(groupedStats).map(([category, stats]) => (
             <div key={category}>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">{category}</h4>
+              <h4 className="text-sm font-medium text-neutral-700 mb-3">{category}</h4>
               <div className="space-y-2">
                 {stats.map(stat => {
                   const isSelected = localSelection.includes(stat.id);
@@ -100,8 +100,8 @@ const StatsSelectionDialog = ({
                         ${isSelected
                           ? 'border-blue-300 bg-blue-50 cursor-pointer'
                           : isDisabled
-                            ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-                            : 'border-gray-200 hover:bg-gray-50 cursor-pointer'
+                            ? 'border-neutral-100 bg-neutral-50 cursor-not-allowed opacity-50'
+                            : 'border-neutral-200 hover:bg-neutral-50 cursor-pointer'
                         }
                       `}
                     >
@@ -110,16 +110,16 @@ const StatsSelectionDialog = ({
                         checked={isSelected}
                         disabled={isDisabled}
                         onChange={() => handleToggle(stat.id)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
                       />
                       <div
                         className="w-3 h-3 rounded-sm flex-shrink-0"
                         style={{ backgroundColor: stat.color }}
                       />
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm text-gray-900">{stat.label}</span>
+                        <span className="text-sm text-neutral-900">{stat.label}</span>
                         {stat.description && (
-                          <p className="text-xs text-gray-500 mt-0.5 truncate">{stat.description}</p>
+                          <p className="text-xs text-neutral-500 mt-0.5 truncate">{stat.description}</p>
                         )}
                       </div>
                     </label>
@@ -131,20 +131,20 @@ const StatsSelectionDialog = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-          <span className={`text-sm ${isMaxReached ? 'text-amber-600' : 'text-gray-500'}`}>
+        <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
+          <span className={`text-sm ${isMaxReached ? 'text-amber-600' : 'text-neutral-500'}`}>
             {localSelection.length} / {MAX_SELECTIONS} ausgewählt
           </span>
           <div className="flex items-center gap-3">
             <button
               onClick={handleCancel}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+              className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-800"
             >
               Abbrechen
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+              className="px-4 py-2 text-sm font-medium text-white bg-neutral-900 rounded-lg hover:bg-neutral-800"
             >
               Speichern
             </button>

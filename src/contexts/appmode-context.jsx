@@ -29,6 +29,9 @@ export const SUBSCRIPTION_STATUS = {
 
 const STORAGE_KEY_SEMESTER = 'prepwell_current_semester';
 const STORAGE_KEY_SUBSCRIPTION = 'prepwell_subscription_status';
+const STORAGE_KEY_TRIAL_START = 'prepwell_trial_start_date';
+
+const TRIAL_DURATION_DAYS = 30; // Trial period length
 
 const AppModeContext = createContext(null);
 
@@ -52,6 +55,22 @@ export const AppModeProvider = ({ children }) => {
       return stored || SUBSCRIPTION_STATUS.TRIAL;
     } catch {
       return SUBSCRIPTION_STATUS.TRIAL;
+    }
+  });
+
+  // Trial start date (for calculating remaining trial days)
+  const [trialStartDate] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_TRIAL_START);
+      if (stored) {
+        return new Date(stored);
+      }
+      // If not set, initialize with today's date
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem(STORAGE_KEY_TRIAL_START, today);
+      return new Date(today);
+    } catch {
+      return new Date();
     }
   });
 
@@ -109,6 +128,17 @@ export const AppModeProvider = ({ children }) => {
   const isTrialMode = subscriptionStatus === SUBSCRIPTION_STATUS.TRIAL;
   const isSubscribed = subscriptionStatus === SUBSCRIPTION_STATUS.SUBSCRIBED;
 
+  // Calculate remaining trial days
+  const trialDaysRemaining = useMemo(() => {
+    if (!isTrialMode) return 0;
+    const today = new Date();
+    const trialEnd = new Date(trialStartDate);
+    trialEnd.setDate(trialEnd.getDate() + TRIAL_DURATION_DAYS);
+    const diffTime = trialEnd - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  }, [isTrialMode, trialStartDate]);
+
   // Get display text for current mode
   const modeDisplayText = isExamMode ? 'Examensmodus' : `${currentSemester}. Semester`;
 
@@ -129,6 +159,7 @@ export const AppModeProvider = ({ children }) => {
     setSubscriptionStatus,
     isTrialMode,
     isSubscribed,
+    trialDaysRemaining,
     // Display
     modeDisplayText,
   };

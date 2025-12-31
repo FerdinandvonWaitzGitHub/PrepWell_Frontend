@@ -18,7 +18,7 @@ const WarningIcon = () => (
       r="20"
       stroke="currentColor"
       strokeWidth="2"
-      className="text-gray-900"
+      className="text-neutral-900"
     />
     <line
       x1="24"
@@ -28,14 +28,14 @@ const WarningIcon = () => (
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
-      className="text-gray-900"
+      className="text-neutral-900"
     />
     <circle
       cx="24"
       cy="32"
       r="1.5"
       fill="currentColor"
-      className="text-gray-900"
+      className="text-neutral-900"
     />
   </svg>
 );
@@ -88,7 +88,7 @@ const CalendarCreationError = ({ problems = [], onRetry, onCancel }) => {
 
       {/* Title */}
       <div className="max-w-[1000px] py-2.5 flex flex-col items-center">
-        <h1 className="text-center text-gray-900 text-5xl font-extralight leading-[48px]">
+        <h1 className="text-center text-neutral-900 text-5xl font-extralight leading-[48px]">
           Achtung! Bei deinem Lernplan haben wir folgende Probleme festgestellt.
         </h1>
       </div>
@@ -121,7 +121,7 @@ const CalendarCreationError = ({ problems = [], onRetry, onCancel }) => {
         {onCancel && (
           <button
             onClick={onCancel}
-            className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="px-6 py-2.5 rounded-lg border border-neutral-200 text-neutral-700 text-sm font-medium hover:bg-neutral-50 transition-colors"
           >
             Abbrechen
           </button>

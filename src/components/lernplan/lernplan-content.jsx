@@ -154,7 +154,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
             className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
               !showArchived
                 ? 'bg-primary-100 text-primary-700'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-neutral-600 hover:bg-neutral-100'
             }`}
           >
             Aktiv
@@ -164,7 +164,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
             className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
               showArchived
                 ? 'bg-primary-100 text-primary-700'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-neutral-600 hover:bg-neutral-100'
             }`}
           >
             Archiv
@@ -178,7 +178,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
             <select
               value={viewMode}
               onChange={(e) => setViewMode(e.target.value)}
-              className="appearance-none px-3 py-1.5 pr-8 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white cursor-pointer"
+              className="appearance-none px-3 py-1.5 pr-8 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white cursor-pointer"
             >
               <option value="all">Alle Modi</option>
               <option value="standard">Standard</option>
@@ -186,18 +186,18 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
             </select>
             <ChevronDownIcon
               size={14}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500"
             />
           </div>
 
           {/* Edit Mode Toggle */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+          <div className="flex items-center bg-neutral-100 rounded-lg p-0.5">
             <button
               onClick={() => setIsEditMode(false)}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${
                 !isEditMode
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               Ansicht
@@ -206,8 +206,8 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
               onClick={() => setIsEditMode(true)}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${
                 isEditMode
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               Bearbeiten
@@ -221,16 +221,16 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
         {/* Archived Calendar Plans (only in archive view) */}
         {showArchived && archivedCalendarPlans && archivedCalendarPlans.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Kalender-Lernpläne</h3>
+            <h3 className="text-sm font-medium text-neutral-700 mb-3">Kalender-Lernpläne</h3>
             <div className="flex flex-col gap-3">
               {archivedCalendarPlans.map((plan) => (
-                <div key={plan.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                <div key={plan.id} className="bg-white rounded-lg border border-neutral-200 p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">
+                      <h4 className="font-medium text-neutral-900">
                         {plan.metadata?.name || 'Lernplan'}
                       </h4>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm text-neutral-500 mt-1">
                         {plan.metadata?.startDate && plan.metadata?.endDate ? (
                           <>
                             {new Date(plan.metadata.startDate).toLocaleDateString('de-DE')} -{' '}
@@ -239,7 +239,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                         ) : 'Keine Datumsangabe'}
                       </p>
                       {plan.metadata?.archivedAt && (
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-neutral-400 mt-1">
                           Archiviert am {new Date(plan.metadata.archivedAt).toLocaleDateString('de-DE')}
                         </p>
                       )}
@@ -263,12 +263,12 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                    <span className="px-2 py-0.5 bg-gray-100 rounded">
+                  <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+                    <span className="px-2 py-0.5 bg-neutral-100 rounded">
                       {Object.keys(plan.slots || {}).length} Tage
                     </span>
                     {plan.metadata?.blocksPerDay && (
-                      <span className="px-2 py-0.5 bg-gray-100 rounded">
+                      <span className="px-2 py-0.5 bg-neutral-100 rounded">
                         {plan.metadata.blocksPerDay} Blöcke/Tag
                       </span>
                     )}
@@ -282,8 +282,8 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
         {/* Active Calendar Plan (only in active view) */}
         {!showArchived && activeCalendarPlan && (
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Aktiver Kalender-Lernplan</h3>
-            <div className={`rounded-lg border p-4 ${isEditMode ? 'bg-white border-gray-200' : 'bg-primary-50 border-primary-200'}`}>
+            <h3 className="text-sm font-medium text-neutral-700 mb-3">Aktiver Kalender-Lernplan</h3>
+            <div className={`rounded-lg border p-4 ${isEditMode ? 'bg-white border-neutral-200' : 'bg-primary-50 border-primary-200'}`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   {isEditMode && isEditingCalendarPlanName ? (
@@ -292,7 +292,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                         type="text"
                         value={calendarPlanName}
                         onChange={(e) => setCalendarPlanName(e.target.value)}
-                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-400"
+                        className="flex-1 px-2 py-1 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-400"
                         placeholder="Lernplan Name"
                         autoFocus
                         onKeyDown={(e) => {
@@ -308,20 +308,20 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                       </button>
                       <button
                         onClick={handleCancelEditCalendarPlanName}
-                        className="px-2 py-1 text-sm text-gray-600 hover:text-gray-800"
+                        className="px-2 py-1 text-sm text-neutral-600 hover:text-neutral-800"
                       >
                         Abbrechen
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-gray-900">
+                      <h4 className="font-medium text-neutral-900">
                         {activeCalendarPlan.name || 'Lernplan'}
                       </h4>
                       {isEditMode && (
                         <button
                           onClick={handleStartEditCalendarPlanName}
-                          className="p-1 text-gray-400 hover:text-gray-600"
+                          className="p-1 text-neutral-400 hover:text-neutral-600"
                           title="Name bearbeiten"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -332,7 +332,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                       )}
                     </div>
                   )}
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-neutral-600 mt-1">
                     {activeCalendarPlan.startDate && activeCalendarPlan.endDate ? (
                       <>
                         {new Date(activeCalendarPlan.startDate).toLocaleDateString('de-DE')} -{' '}
@@ -340,17 +340,17 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                       </>
                     ) : 'Keine Datumsangabe'}
                   </p>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                    <span className="px-2 py-0.5 bg-gray-100 rounded">
+                  <div className="mt-2 flex items-center gap-3 text-xs text-neutral-500">
+                    <span className="px-2 py-0.5 bg-neutral-100 rounded">
                       {Object.keys(slotsByDate || {}).length} Tage
                     </span>
                     {activeCalendarPlan.blocksPerDay && (
-                      <span className="px-2 py-0.5 bg-gray-100 rounded">
+                      <span className="px-2 py-0.5 bg-neutral-100 rounded">
                         {activeCalendarPlan.blocksPerDay} Blöcke/Tag
                       </span>
                     )}
                     {activeCalendarPlan.creationMethod && (
-                      <span className="px-2 py-0.5 bg-gray-100 rounded">
+                      <span className="px-2 py-0.5 bg-neutral-100 rounded">
                         {activeCalendarPlan.creationMethod === 'manual' ? 'Manuell' :
                          activeCalendarPlan.creationMethod === 'automatic' ? 'Automatisch' :
                          activeCalendarPlan.creationMethod === 'template' ? 'Vorlage' :
@@ -370,7 +370,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                     <>
                       <button
                         onClick={handleArchiveCalendarPlan}
-                        className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="px-3 py-1.5 text-sm text-neutral-600 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
                         title="Archivieren"
                       >
                         Archivieren
@@ -393,7 +393,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
         {/* Themenlisten Section */}
         {filteredThemenlisten.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Themenlisten</h3>
+            <h3 className="text-sm font-medium text-neutral-700 mb-3">Themenlisten</h3>
             <div className="flex flex-col gap-3">
               {filteredThemenlisten.map((plan) => (
                 isEditMode ? (
@@ -423,7 +423,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
             {(showArchived && archivedCalendarPlans?.length > 0) ||
              (!showArchived && activeCalendarPlan) ||
              filteredThemenlisten.length > 0 ? (
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Lernpläne</h3>
+              <h3 className="text-sm font-medium text-neutral-700 mb-3">Lernpläne</h3>
             ) : null}
             <div className="flex flex-col gap-3">
               {filteredLernplaene.map((plan) => (
@@ -454,16 +454,16 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
          (!showArchived || !archivedCalendarPlans?.length) &&
          (!activeCalendarPlan || showArchived) && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400">
+            <div className="w-16 h-16 mb-4 rounded-full bg-neutral-100 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-neutral-400">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-medium text-neutral-900 mb-2">
               {showArchived ? 'Keine archivierten Einträge' : 'Noch keine Lernpläne oder Themenlisten'}
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-neutral-500 mb-4">
               {showArchived
                 ? 'Du hast noch keine Einträge archiviert.'
                 : 'Erstelle deinen ersten Lernplan oder eine Themenliste, um loszulegen.'}

@@ -22,7 +22,7 @@ const DayTile = ({
 }) => {
   return (
     <div
-      className={`flex flex-col gap-2.5 p-2 bg-white h-full min-h-[143px] ${!isCurrentMonth ? 'opacity-50' : ''} ${isCurrentMonth ? 'cursor-pointer hover:bg-gray-50 transition-colors' : 'cursor-default'} ${className}`}
+      className={`flex flex-col gap-2.5 p-2 bg-white h-full min-h-[143px] ${!isCurrentMonth ? 'opacity-50' : ''} ${isCurrentMonth ? 'cursor-pointer hover:bg-neutral-50 transition-colors' : 'cursor-default'} ${className}`}
       onClick={onClick}
     >
       {/* Day Header */}
@@ -31,7 +31,7 @@ const DayTile = ({
           className={`text-xs font-normal ${
             isToday
               ? 'bg-blue-900 text-white px-1.5 py-0.5 rounded'
-              : 'text-gray-900'
+              : 'text-neutral-900'
           }`}
         >
           {day}

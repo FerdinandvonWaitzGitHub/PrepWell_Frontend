@@ -23,7 +23,7 @@ const LoadingIcon = () => (
       stroke="currentColor"
       strokeWidth="2"
       fill="none"
-      className="text-gray-900"
+      className="text-neutral-900"
     />
   </svg>
 );
@@ -40,7 +40,7 @@ const CalendarCreationLoading = () => {
 
       {/* Text */}
       <div className="w-full flex flex-col items-center">
-        <h1 className="text-center text-gray-900 text-5xl font-extralight leading-[48px]">
+        <h1 className="text-center text-neutral-900 text-5xl font-extralight leading-[48px]">
           Dein Lernplan wird im Kalender erstellt...
         </h1>
       </div>

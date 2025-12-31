@@ -78,7 +78,7 @@ const ContentPlanEditCard = ({
       'strafrecht': { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100' },
       'querschnitt': { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', badge: 'bg-purple-100' },
     };
-    return colors[rechtsgebietId] || { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100' };
+    return colors[rechtsgebietId] || { bg: 'bg-neutral-50', border: 'border-neutral-200', text: 'text-neutral-700', badge: 'bg-neutral-100' };
   };
 
   // Toggle functions
@@ -138,16 +138,16 @@ const ContentPlanEditCard = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg border ${isNew ? 'border-primary-300 ring-2 ring-primary-100' : 'border-gray-200'} overflow-hidden`}>
+    <div className={`bg-white rounded-lg border ${isNew ? 'border-primary-300 ring-2 ring-primary-100' : 'border-neutral-200'} overflow-hidden`}>
       {/* Header Bar */}
       <div
-        className="flex items-center h-[70px] px-4 cursor-pointer hover:bg-gray-50"
+        className="flex items-center h-[70px] px-4 cursor-pointer hover:bg-neutral-50"
         onClick={() => onToggleExpand?.(plan.id)}
       >
         {/* Expand Icon */}
         <button
           onClick={(e) => { e.stopPropagation(); onToggleExpand?.(plan.id); }}
-          className="p-1.5 mr-3 text-gray-500 hover:bg-gray-100 rounded transition-colors"
+          className="p-1.5 mr-3 text-neutral-500 hover:bg-neutral-100 rounded transition-colors"
         >
           <ChevronDownIcon size={18} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
@@ -173,18 +173,18 @@ const ContentPlanEditCard = ({
           onChange={(e) => updateContentPlan(plan.id, { name: e.target.value })}
           onClick={(e) => e.stopPropagation()}
           placeholder={plan.type === 'themenliste' ? 'Themenliste Titel...' : 'Lernplan Titel...'}
-          className="flex-1 min-w-0 px-2 py-1 text-base font-medium text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-400 focus:outline-none"
+          className="flex-1 min-w-0 px-2 py-1 text-base font-medium text-neutral-900 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
         />
 
         {/* Progress Bar */}
         <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-          <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div className="w-32 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gray-900 rounded-full transition-all"
+              className="h-full bg-neutral-900 rounded-full transition-all"
               style={{ width: `${progress.percent}%` }}
             />
           </div>
-          <span className="text-sm text-gray-500 whitespace-nowrap">
+          <span className="text-sm text-neutral-500 whitespace-nowrap">
             {progress.completed}/{progress.total}
           </span>
         </div>
@@ -195,7 +195,7 @@ const ContentPlanEditCard = ({
           {plan.type === 'themenliste' && (
             <button
               onClick={(e) => { e.stopPropagation(); exportThemenlisteAsJson(plan.id); }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+              className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
               title="Als JSON exportieren"
             >
               <ExportIcon size={16} />
@@ -215,7 +215,7 @@ const ContentPlanEditCard = ({
               className={`p-1.5 rounded transition-colors ${
                 plan.isPublished
                   ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
-                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'
               }`}
               title={plan.isPublished ? 'Veröffentlichung aufheben' : 'In Community veröffentlichen'}
             >
@@ -224,7 +224,7 @@ const ContentPlanEditCard = ({
           )}
           <button
             onClick={(e) => { e.stopPropagation(); archiveContentPlan(plan.id); }}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
             title={plan.archived ? 'Wiederherstellen' : 'Archivieren'}
           >
             <ArchiveIcon size={16} />
@@ -236,7 +236,7 @@ const ContentPlanEditCard = ({
                 deleteContentPlan(plan.id);
               }
             }}
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
             title="Löschen"
           >
             <TrashIcon size={16} />
@@ -246,43 +246,43 @@ const ContentPlanEditCard = ({
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="border-t border-gray-100 bg-gray-50 p-4">
+        <div className="border-t border-neutral-100 bg-neutral-50 p-4">
           {/* Basic Info */}
           <div className="grid grid-cols-3 gap-4 mb-4">
             {/* Description */}
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Beschreibung</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Beschreibung</label>
               <textarea
                 value={plan.description || ''}
                 onChange={(e) => updateContentPlan(plan.id, { description: e.target.value })}
                 placeholder="Beschreibung..."
                 rows={2}
-                className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
+                className="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
               />
             </div>
 
             {/* Mode (only for Lernplan) */}
             {plan.type === 'lernplan' && (
               <div className="relative">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Modus</label>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">Modus</label>
                 <button
                   onClick={() => setShowModeDropdown(!showModeDropdown)}
-                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50"
+                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50"
                 >
                   <span>{plan.mode === 'examen' ? 'Examen' : 'Standard'}</span>
-                  <ChevronDownIcon size={14} className="text-gray-400" />
+                  <ChevronDownIcon size={14} className="text-neutral-400" />
                 </button>
                 {showModeDropdown && (
-                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                     <button
                       onClick={() => { updateContentPlan(plan.id, { mode: 'standard' }); setShowModeDropdown(false); }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${plan.mode === 'standard' ? 'bg-primary-50 text-primary-700' : ''}`}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${plan.mode === 'standard' ? 'bg-primary-50 text-primary-700' : ''}`}
                     >
                       Standard
                     </button>
                     <button
                       onClick={() => { updateContentPlan(plan.id, { mode: 'examen' }); setShowModeDropdown(false); }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${plan.mode === 'examen' ? 'bg-primary-50 text-primary-700' : ''}`}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${plan.mode === 'examen' ? 'bg-primary-50 text-primary-700' : ''}`}
                     >
                       Examen
                     </button>
@@ -295,20 +295,20 @@ const ContentPlanEditCard = ({
           {/* Exam Date (if examen mode) */}
           {plan.type === 'lernplan' && plan.mode === 'examen' && (
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Examenstermin</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Examenstermin</label>
               <input
                 type="date"
                 value={plan.examDate || ''}
                 onChange={(e) => updateContentPlan(plan.id, { examDate: e.target.value })}
-                className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                className="px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
               />
             </div>
           )}
 
           {/* Rechtsgebiete Section */}
-          <div className="border-t border-gray-200 pt-4 mt-2">
+          <div className="border-t border-neutral-200 pt-4 mt-2">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-gray-700">Rechtsgebiete & Inhalte</h4>
+              <h4 className="text-sm font-medium text-neutral-700">Rechtsgebiete & Inhalte</h4>
               <button
                 onClick={() => setShowRechtsgebietPicker(true)}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded transition-colors"
@@ -428,12 +428,12 @@ const RechtsgebietSection = ({
           <ChevronDownIcon size={16} className={`${colors.text} transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
         <span className={`flex-1 font-medium ${colors.text}`}>{rechtsgebiet.name}</span>
-        <span className="text-xs text-gray-500 mr-2">
+        <span className="text-xs text-neutral-500 mr-2">
           {rechtsgebiet.unterrechtsgebiete?.length || 0} Fächer
         </span>
         <button
           onClick={onRemove}
-          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+          className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
           title="Entfernen"
         >
           <TrashIcon size={14} />
@@ -472,7 +472,7 @@ const RechtsgebietSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-400 py-2">Keine Unterrechtsgebiete</p>
+            <p className="text-xs text-neutral-400 py-2">Keine Unterrechtsgebiete</p>
           )}
           <button
             onClick={onAddUnterrechtsgebiet}
@@ -513,21 +513,21 @@ const UnterrechtsgebietSection = ({
   deleteAufgabeFromPlan,
 }) => {
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border border-neutral-200 rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="flex items-center px-3 py-2 bg-gray-50">
-        <button onClick={onToggle} className="p-1 mr-2 hover:bg-gray-200 rounded">
-          <ChevronDownIcon size={14} className={`text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+      <div className="flex items-center px-3 py-2 bg-neutral-50">
+        <button onClick={onToggle} className="p-1 mr-2 hover:bg-neutral-200 rounded">
+          <ChevronDownIcon size={14} className={`text-neutral-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
         <div className="flex-1">
-          <span className="text-sm font-medium text-gray-700">{unterrechtsgebiet.name}</span>
+          <span className="text-sm font-medium text-neutral-700">{unterrechtsgebiet.name}</span>
           {unterrechtsgebiet.kategorie && (
-            <span className="ml-2 text-xs text-gray-400">({unterrechtsgebiet.kategorie})</span>
+            <span className="ml-2 text-xs text-neutral-400">({unterrechtsgebiet.kategorie})</span>
           )}
         </div>
         <button
           onClick={onRemove}
-          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+          className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
           title="Entfernen"
         >
           <TrashIcon size={12} />
@@ -563,7 +563,7 @@ const UnterrechtsgebietSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-400 py-1">Keine Kapitel</p>
+            <p className="text-xs text-neutral-400 py-1">Keine Kapitel</p>
           )}
           <button
             onClick={() => addKapitelToPlan(planId, rechtsgebietId, unterrechtsgebiet.id)}
@@ -601,21 +601,21 @@ const KapitelSection = ({
   deleteAufgabeFromPlan,
 }) => {
   return (
-    <div className="ml-3 border-l-2 border-gray-200 pl-3">
+    <div className="ml-3 border-l-2 border-neutral-200 pl-3">
       {/* Header */}
       <div className="flex items-center py-1">
-        <button onClick={onToggle} className="p-0.5 mr-1.5 hover:bg-gray-100 rounded">
-          <ChevronDownIcon size={12} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        <button onClick={onToggle} className="p-0.5 mr-1.5 hover:bg-neutral-100 rounded">
+          <ChevronDownIcon size={12} className={`text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
         <input
           type="text"
           value={kapitel.title}
           onChange={(e) => updateKapitelInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id, { title: e.target.value })}
-          className="flex-1 px-1.5 py-0.5 text-sm font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-400 focus:outline-none"
+          className="flex-1 px-1.5 py-0.5 text-sm font-medium bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
         />
         <button
           onClick={() => deleteKapitelFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id)}
-          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+          className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
           title="Löschen"
         >
           <TrashIcon size={12} />
@@ -647,7 +647,7 @@ const KapitelSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-400 py-1">Keine Themen</p>
+            <p className="text-xs text-neutral-400 py-1">Keine Themen</p>
           )}
           <button
             onClick={() => addThemaToPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id)}
@@ -681,21 +681,21 @@ const ThemaSection = ({
   deleteAufgabeFromPlan,
 }) => {
   return (
-    <div className="border-l border-gray-200 pl-3">
+    <div className="border-l border-neutral-200 pl-3">
       {/* Header */}
       <div className="flex items-center py-0.5">
-        <button onClick={onToggle} className="p-0.5 mr-1 hover:bg-gray-100 rounded">
-          <ChevronDownIcon size={10} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        <button onClick={onToggle} className="p-0.5 mr-1 hover:bg-neutral-100 rounded">
+          <ChevronDownIcon size={10} className={`text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
         <input
           type="text"
           value={thema.title}
           onChange={(e) => updateThemaInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id, { title: e.target.value })}
-          className="flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-400 focus:outline-none"
+          className="flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
         />
         <button
           onClick={() => deleteThemaFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id)}
-          className="p-0.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+          className="p-0.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
           title="Löschen"
         >
           <TrashIcon size={10} />
@@ -723,7 +723,7 @@ const ThemaSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-400">Keine Aufgaben</p>
+            <p className="text-xs text-neutral-400">Keine Aufgaben</p>
           )}
           <button
             onClick={() => addAufgabeToPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id)}
@@ -758,20 +758,20 @@ const AufgabeItem = ({
         type="checkbox"
         checked={aufgabe.completed}
         onChange={() => toggleAufgabeInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id)}
-        className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-400"
+        className="w-3.5 h-3.5 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
       />
       <input
         type="text"
         value={aufgabe.title}
         onChange={(e) => updateAufgabeInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id, { title: e.target.value })}
         placeholder="Aufgabe eingeben..."
-        className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-400 focus:outline-none ${
-          aufgabe.completed ? 'text-gray-400 line-through' : 'text-gray-700'
+        className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
+          aufgabe.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'
         }`}
       />
       <button
         onClick={() => deleteAufgabeFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id)}
-        className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
         title="Löschen"
       >
         <TrashIcon size={10} />
@@ -795,7 +795,7 @@ const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels }) => 
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
       <div className="relative z-10 bg-white rounded-lg shadow-xl p-4 w-80">
-        <h4 className="text-sm font-medium text-gray-900 mb-3">Rechtsgebiet hinzufügen</h4>
+        <h4 className="text-sm font-medium text-neutral-900 mb-3">Rechtsgebiet hinzufügen</h4>
         <div className="space-y-2">
           {rechtsgebiete.map(rg => {
             const isDisabled = existingIds.includes(rg.id);
@@ -806,13 +806,13 @@ const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels }) => 
                 disabled={isDisabled}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                   isDisabled
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'hover:bg-gray-50 text-gray-700'
+                    ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                    : 'hover:bg-neutral-50 text-neutral-700'
                 }`}
               >
                 <span className={`w-3 h-3 rounded-full ${rg.color}`} />
                 <span className="text-sm">{labels[rg.id]}</span>
-                {isDisabled && <span className="ml-auto text-xs text-gray-400">Bereits hinzugefügt</span>}
+                {isDisabled && <span className="ml-auto text-xs text-neutral-400">Bereits hinzugefügt</span>}
               </button>
             );
           })}
@@ -820,7 +820,7 @@ const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels }) => 
         <div className="mt-4 flex justify-end">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg"
           >
             Abbrechen
           </button>
@@ -834,8 +834,8 @@ const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels }) => 
  * EmptyState - Empty state placeholder
  */
 const EmptyState = ({ message, actionLabel, onAction }) => (
-  <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
-    <p className="text-sm text-gray-400 mb-2">{message}</p>
+  <div className="text-center py-6 bg-white rounded-lg border border-dashed border-neutral-300">
+    <p className="text-sm text-neutral-400 mb-2">{message}</p>
     <button onClick={onAction} className="text-sm text-primary-600 hover:text-primary-700">
       {actionLabel}
     </button>

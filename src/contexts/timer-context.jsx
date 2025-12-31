@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useTimerHistorySync, useUserSettingsSync } from '../hooks/use-supabase-sync';
 
 // LocalStorage keys
 const STORAGE_KEY = 'prepwell_timer_state';
@@ -230,11 +231,26 @@ const getTimeRange = (startTime, endTime) => {
 
 /**
  * TimerProvider component
+ *
+ * Timer state is kept local (changes every second).
+ * Timer history is synced to Supabase when authenticated.
+ * Timer config is synced to Supabase via user_settings.
  */
 export const TimerProvider = ({ children }) => {
   // Load initial state from localStorage
   const savedState = loadFromStorage();
   const savedConfig = loadConfigFromStorage();
+
+  // Use Supabase sync for timer history
+  const {
+    data: supabaseHistory,
+    saveItem: saveSessionToSupabase,
+    loading: historyLoading,
+    isAuthenticated,
+  } = useTimerHistorySync();
+
+  // Use Supabase sync for timer config (via user_settings)
+  const { settings: userSettings, updateSettings: updateUserSettings } = useUserSettingsSync();
 
   const [timerType, setTimerType] = useState(savedState?.timerType || null);
   const [timerState, setTimerState] = useState(savedState?.state || TIMER_STATES.IDLE);
@@ -265,8 +281,36 @@ export const TimerProvider = ({ children }) => {
   // Visual notification state
   const [showNotification, setShowNotification] = useState(false);
 
-  // Timer history
-  const [timerHistory, setTimerHistory] = useState(loadHistoryFromStorage);
+  // Timer history - use Supabase data if authenticated, otherwise localStorage
+  const [localTimerHistory, setLocalTimerHistory] = useState(loadHistoryFromStorage);
+  const timerHistory = isAuthenticated && supabaseHistory?.length > 0
+    ? supabaseHistory
+    : localTimerHistory;
+
+  // Function to save session to both localStorage and Supabase
+  const saveSession = useCallback((session) => {
+    const sessionWithId = {
+      ...session,
+      id: `session-${Date.now()}`,
+      savedAt: new Date().toISOString()
+    };
+
+    // Save to localStorage
+    try {
+      const history = loadHistoryFromStorage();
+      history.push(sessionWithId);
+      const trimmedHistory = history.slice(-1000);
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
+      setLocalTimerHistory(trimmedHistory);
+    } catch (error) {
+      console.error('Error saving timer session to localStorage:', error);
+    }
+
+    // Save to Supabase if authenticated
+    if (isAuthenticated) {
+      saveSessionToSupabase(sessionWithId);
+    }
+  }, [isAuthenticated, saveSessionToSupabase]);
 
   // Save state to localStorage whenever it changes
   useEffect(() => {
@@ -328,7 +372,7 @@ export const TimerProvider = ({ children }) => {
     setShowNotification(true);
     setTimeout(() => setShowNotification(false), 3000);
 
-    // Save completed session to history
+    // Save completed session to history (localStorage + Supabase)
     if (timerType === TIMER_TYPES.POMODORO && !isBreak) {
       // Save completed Pomodoro work session
       const session = {
@@ -340,8 +384,7 @@ export const TimerProvider = ({ children }) => {
         sessionNumber: currentSession,
         completed: true
       };
-      saveSessionToHistory(session);
-      setTimerHistory(loadHistoryFromStorage());
+      saveSession(session);
     } else if (timerType === TIMER_TYPES.COUNTDOWN) {
       // Save completed countdown session
       const session = {
@@ -352,8 +395,7 @@ export const TimerProvider = ({ children }) => {
         duration: countdownSettings.duration * 60,
         completed: true
       };
-      saveSessionToHistory(session);
-      setTimerHistory(loadHistoryFromStorage());
+      saveSession(session);
     }
 
     if (timerType === TIMER_TYPES.POMODORO) {
@@ -389,7 +431,7 @@ export const TimerProvider = ({ children }) => {
       // Countdown finished
       setTimerState(TIMER_STATES.IDLE);
     }
-  }, [timerType, isBreak, currentSession, totalSessions, pomodoroSettings]);
+  }, [timerType, isBreak, currentSession, totalSessions, pomodoroSettings, saveSession, startTime, countdownSettings.duration]);
 
   // Start Pomodoro timer
   const startPomodoro = useCallback((settings = pomodoroSettings, sessions = 4) => {
@@ -497,8 +539,7 @@ export const TimerProvider = ({ children }) => {
           duration: actualDuration,
           completed: false // manually stopped
         };
-        saveSessionToHistory(session);
-        setTimerHistory(loadHistoryFromStorage());
+        saveSession(session);
       }
     }
 
@@ -512,7 +553,7 @@ export const TimerProvider = ({ children }) => {
     setIsBreak(false);
     localStorage.removeItem(STORAGE_KEY);
   }, [timerType, timerState, elapsedSeconds, remainingSeconds, startTime,
-      pomodoroSettings, countdownSettings]);
+      pomodoroSettings, countdownSettings, saveSession]);
 
   // Get display info based on timer type
   const getDisplayInfo = useCallback(() => {

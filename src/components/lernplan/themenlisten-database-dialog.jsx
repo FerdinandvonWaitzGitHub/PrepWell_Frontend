@@ -10,17 +10,17 @@ const TemplateCard = ({ template, isSelected, onSelect, badge }) => {
 
   return (
     <div className={`p-5 bg-white rounded-xl border transition-all ${
-      isSelected ? 'border-gray-900 ring-1 ring-gray-900' : 'border-gray-200 hover:border-gray-300'
+      isSelected ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200 hover:border-neutral-300'
     }`}>
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         {/* Left: Info */}
         <div className="flex-1">
           {/* Stats & Badge */}
           <div className="flex items-center gap-4 mb-2">
-            <span className="text-xs font-medium text-gray-600">
+            <span className="text-xs font-medium text-neutral-600">
               {stats?.unterrechtsgebiete || 0} Unterrechtsgebiete
             </span>
-            <span className="text-xs font-medium text-gray-600">
+            <span className="text-xs font-medium text-neutral-600">
               {stats?.themen || 0} Themen
             </span>
             {badge && (
@@ -31,12 +31,12 @@ const TemplateCard = ({ template, isSelected, onSelect, badge }) => {
           </div>
 
           {/* Title */}
-          <h3 className="text-lg font-normal text-gray-900 mb-2">
+          <h3 className="text-lg font-normal text-neutral-900 mb-2">
             {name}
           </h3>
 
           {/* Description */}
-          <p className="text-sm text-gray-500 leading-relaxed">
+          <p className="text-sm text-neutral-500 leading-relaxed">
             {description}
           </p>
         </div>
@@ -46,30 +46,30 @@ const TemplateCard = ({ template, isSelected, onSelect, badge }) => {
           {/* Gewichtung */}
           {gewichtung && (
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-500 mb-1">Gewichtung der Themenblöcke</span>
+              <span className="text-xs text-neutral-500 mb-1">Gewichtung der Themenblöcke</span>
               <div className="flex items-center gap-2">
                 {gewichtung['oeffentliches-recht'] > 0 && (
-                  <div className="px-3 py-2 bg-white rounded-lg border border-gray-200 min-w-[100px]">
-                    <div className="text-sm font-medium text-gray-900">
+                  <div className="px-3 py-2 bg-white rounded-lg border border-neutral-200 min-w-[100px]">
+                    <div className="text-sm font-medium text-neutral-900">
                       {gewichtung['oeffentliches-recht']} %
                     </div>
-                    <div className="text-xs text-gray-500">Öffentliches Recht</div>
+                    <div className="text-xs text-neutral-500">Öffentliches Recht</div>
                   </div>
                 )}
                 {gewichtung['zivilrecht'] > 0 && (
-                  <div className="px-3 py-2 bg-white rounded-lg border border-gray-200 min-w-[100px]">
-                    <div className="text-sm font-medium text-gray-900">
+                  <div className="px-3 py-2 bg-white rounded-lg border border-neutral-200 min-w-[100px]">
+                    <div className="text-sm font-medium text-neutral-900">
                       {gewichtung['zivilrecht']} %
                     </div>
-                    <div className="text-xs text-gray-500">Zivilrecht</div>
+                    <div className="text-xs text-neutral-500">Zivilrecht</div>
                   </div>
                 )}
                 {gewichtung['strafrecht'] > 0 && (
-                  <div className="px-3 py-2 bg-white rounded-lg border border-gray-200 min-w-[100px]">
-                    <div className="text-sm font-medium text-gray-900">
+                  <div className="px-3 py-2 bg-white rounded-lg border border-neutral-200 min-w-[100px]">
+                    <div className="text-sm font-medium text-neutral-900">
                       {gewichtung['strafrecht']} %
                     </div>
-                    <div className="text-xs text-gray-500">Strafrecht</div>
+                    <div className="text-xs text-neutral-500">Strafrecht</div>
                   </div>
                 )}
               </div>
@@ -81,8 +81,8 @@ const TemplateCard = ({ template, isSelected, onSelect, badge }) => {
             onClick={() => onSelect(template)}
             className={`px-4 py-2.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${
               isSelected
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-900 border border-gray-300 hover:bg-gray-50'
+                ? 'bg-neutral-900 text-white'
+                : 'bg-white text-neutral-900 border border-neutral-300 hover:bg-neutral-50'
             }`}
           >
             {isSelected ? (
@@ -165,18 +165,18 @@ const ThemenlistenDatabaseDialog = ({ open, onClose, onImport }) => {
   return (
     <div className="fixed inset-0 z-50 bg-white overflow-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
+      <div className="sticky top-0 z-10 bg-white border-b border-neutral-200">
         <div className="px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
             </button>
-            <span className="text-xl font-semibold text-gray-900">Themenlistendatenbank</span>
+            <span className="text-xl font-semibold text-neutral-900">Themenlistendatenbank</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -190,7 +190,7 @@ const ThemenlistenDatabaseDialog = ({ open, onClose, onImport }) => {
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+              className="px-4 py-2.5 border border-neutral-300 text-neutral-700 rounded-full text-sm font-medium hover:bg-neutral-50 transition-colors flex items-center gap-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -203,7 +203,7 @@ const ThemenlistenDatabaseDialog = ({ open, onClose, onImport }) => {
             {selectedTemplate && (
               <button
                 onClick={handleImport}
-                className="px-5 py-2.5 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-800 transition-colors flex items-center gap-2"
+                className="px-5 py-2.5 bg-neutral-900 text-white rounded-full text-sm font-medium hover:bg-neutral-800 transition-colors flex items-center gap-2"
               >
                 Themenliste importieren
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -220,11 +220,11 @@ const ThemenlistenDatabaseDialog = ({ open, onClose, onImport }) => {
         <div className="w-full max-w-[1200px]">
           {/* Title Section */}
           <div className="py-12 text-center">
-            <p className="text-sm text-gray-500 mb-2">Themenlistendatenbank</p>
-            <h1 className="text-4xl font-extralight text-gray-900 mb-4">
+            <p className="text-sm text-neutral-500 mb-2">Themenlistendatenbank</p>
+            <h1 className="text-4xl font-extralight text-neutral-900 mb-4">
               Wähle eine Themenliste aus.
             </h1>
-            <p className="text-sm text-gray-500 max-w-xl mx-auto">
+            <p className="text-sm text-neutral-500 max-w-xl mx-auto">
               {activeTab === 'vorlagen'
                 ? 'Unten siehst du unsere Auswahl an Themenlisten, die wir stets erweitern.'
                 : 'Hier findest du von dir oder anderen Nutzern veröffentlichte Themenlisten.'}
@@ -245,17 +245,17 @@ const ThemenlistenDatabaseDialog = ({ open, onClose, onImport }) => {
 
           {/* Tabs */}
           <div className="flex justify-center mb-8">
-            <div className="inline-flex bg-gray-100 rounded-lg p-1">
+            <div className="inline-flex bg-neutral-100 rounded-lg p-1">
               <button
                 onClick={() => { setActiveTab('vorlagen'); setSelectedTemplate(null); }}
                 className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'vorlagen'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-neutral-900 shadow-sm'
+                    : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 Vorlagen
-                <span className="ml-2 px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded">
+                <span className="ml-2 px-1.5 py-0.5 bg-neutral-200 text-neutral-600 text-xs rounded">
                   {THEMENLISTEN_TEMPLATES.length}
                 </span>
               </button>
@@ -263,12 +263,12 @@ const ThemenlistenDatabaseDialog = ({ open, onClose, onImport }) => {
                 onClick={() => { setActiveTab('community'); setSelectedTemplate(null); }}
                 className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'community'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-neutral-900 shadow-sm'
+                    : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 Community
-                <span className="ml-2 px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded">
+                <span className="ml-2 px-1.5 py-0.5 bg-neutral-200 text-neutral-600 text-xs rounded">
                   {publishedThemenlisten?.length || 0}
                 </span>
               </button>
@@ -289,19 +289,19 @@ const ThemenlistenDatabaseDialog = ({ open, onClose, onImport }) => {
 
             {templates.length === 0 && (
               <div className="py-16 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-neutral-100 flex items-center justify-center">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-neutral-400">
                     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
                   </svg>
                 </div>
-                <p className="text-gray-500 mb-2">
+                <p className="text-neutral-500 mb-2">
                   {activeTab === 'community'
                     ? 'Noch keine Community-Themenlisten vorhanden.'
                     : 'Keine Vorlagen vorhanden.'}
                 </p>
                 {activeTab === 'community' && (
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-neutral-400">
                     Veröffentliche deine eigenen Themenlisten, um sie hier zu sehen.
                   </p>
                 )}

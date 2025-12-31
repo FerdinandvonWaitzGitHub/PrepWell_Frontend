@@ -18,7 +18,7 @@ const CheckmarkIcon = () => (
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-gray-900"
+      className="text-neutral-900"
     />
   </svg>
 );
@@ -35,7 +35,7 @@ const CalendarCreationSuccess = () => {
 
       {/* Text */}
       <div className="w-full flex flex-col items-center">
-        <h1 className="text-center text-gray-900 text-5xl font-extralight leading-[48px]">
+        <h1 className="text-center text-neutral-900 text-5xl font-extralight leading-[48px]">
           Dein Lernplan wurde erfolgreich erstellt!
         </h1>
       </div>

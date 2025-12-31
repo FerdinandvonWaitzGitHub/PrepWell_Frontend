@@ -23,7 +23,7 @@ const CheckIcon = () => (
  * Clock Icon
  */
 const ClockIcon = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-500">
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-neutral-500">
     <circle cx="12" cy="12" r="10" />
     <polyline points="12 6 12 12 8 14" />
   </svg>
@@ -37,10 +37,10 @@ const OutlineButton = ({ children, onClick, disabled, className = '' }) => (
     onClick={onClick}
     disabled={disabled}
     className={`
-      px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-gray-200
+      px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-neutral-200
       inline-flex justify-center items-center gap-2
-      text-gray-900 text-sm font-light font-['DM_Sans'] leading-5
-      hover:bg-gray-50 transition-colors
+      text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5
+      hover:bg-neutral-50 transition-colors
       disabled:opacity-50 disabled:cursor-not-allowed
       ${className}
     `}
@@ -78,8 +78,8 @@ const PresetButton = ({ selected, onClick, children }) => (
     className={`
       py-3 px-4 rounded-lg text-sm font-light font-['DM_Sans'] transition-colors
       ${selected
-        ? 'bg-gray-900 text-white'
-        : 'bg-white text-gray-900 outline outline-1 outline-offset-[-1px] outline-gray-200 hover:bg-gray-50'
+        ? 'bg-neutral-900 text-white'
+        : 'bg-white text-neutral-900 outline outline-1 outline-offset-[-1px] outline-neutral-200 hover:bg-neutral-50'
       }
     `}
   >
@@ -161,16 +161,16 @@ const CountdownSettingsDialog = ({ open, onOpenChange, onStart }) => {
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
         <div
-          className="w-[806px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-gray-200
+          className="w-[806px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-neutral-200
                      inline-flex flex-col justify-start items-start gap-8 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="self-stretch flex flex-col justify-start items-start gap-1.5">
-            <h2 className="self-stretch text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+            <h2 className="self-stretch text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
               Countdown Timer Einstellungen
             </h2>
-            <p className="text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5">
+            <p className="text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5">
               Wie lange möchtest du lernen?
             </p>
           </div>
@@ -179,7 +179,7 @@ const CountdownSettingsDialog = ({ open, onOpenChange, onStart }) => {
           <div className="self-stretch flex flex-col gap-6">
             {/* Quick Presets */}
             <div className="flex flex-col gap-3">
-              <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+              <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                 Schnellauswahl
               </span>
               <div className="grid grid-cols-3 gap-3">
@@ -197,12 +197,12 @@ const CountdownSettingsDialog = ({ open, onOpenChange, onStart }) => {
 
             {/* Custom Duration */}
             <div className="flex flex-col gap-3">
-              <span className="text-gray-900 text-sm font-light font-['DM_Sans']">
+              <span className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                 Eigene Zeit
               </span>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <label className="block text-xs text-gray-500 font-light font-['DM_Sans'] mb-1">Stunden</label>
+                  <label className="block text-xs text-neutral-500 font-light font-['DM_Sans'] mb-1">Stunden</label>
                   <input
                     type="number"
                     min="0"
@@ -213,14 +213,14 @@ const CountdownSettingsDialog = ({ open, onOpenChange, onStart }) => {
                     className={`
                       w-full px-3 py-2.5 text-center text-lg font-light font-['DM_Sans'] rounded-lg
                       outline outline-1 outline-offset-[-1px]
-                      focus:outline-gray-900 focus:ring-0
-                      ${isCustom ? 'outline-gray-900 bg-gray-50' : 'outline-gray-200'}
+                      focus:outline-neutral-900 focus:ring-0
+                      ${isCustom ? 'outline-neutral-900 bg-neutral-50' : 'outline-neutral-200'}
                     `}
                   />
                 </div>
-                <span className="text-2xl text-gray-400 mt-5 font-light">:</span>
+                <span className="text-2xl text-neutral-400 mt-5 font-light">:</span>
                 <div className="flex-1">
-                  <label className="block text-xs text-gray-500 font-light font-['DM_Sans'] mb-1">Minuten</label>
+                  <label className="block text-xs text-neutral-500 font-light font-['DM_Sans'] mb-1">Minuten</label>
                   <input
                     type="number"
                     min="0"
@@ -232,8 +232,8 @@ const CountdownSettingsDialog = ({ open, onOpenChange, onStart }) => {
                     className={`
                       w-full px-3 py-2.5 text-center text-lg font-light font-['DM_Sans'] rounded-lg
                       outline outline-1 outline-offset-[-1px]
-                      focus:outline-gray-900 focus:ring-0
-                      ${isCustom ? 'outline-gray-900 bg-gray-50' : 'outline-gray-200'}
+                      focus:outline-neutral-900 focus:ring-0
+                      ${isCustom ? 'outline-neutral-900 bg-neutral-50' : 'outline-neutral-200'}
                     `}
                   />
                 </div>
@@ -241,13 +241,13 @@ const CountdownSettingsDialog = ({ open, onOpenChange, onStart }) => {
             </div>
 
             {/* Summary */}
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-neutral-50 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-900 text-sm font-light font-['DM_Sans']">
+                  <p className="text-neutral-900 text-sm font-light font-['DM_Sans']">
                     <span className="font-medium">{durationDisplay}</span>
                   </p>
-                  <p className="text-gray-500 text-xs font-light font-['DM_Sans'] mt-0.5">
+                  <p className="text-neutral-500 text-xs font-light font-['DM_Sans'] mt-0.5">
                     Endet um {endTimeStr}
                   </p>
                 </div>
@@ -275,7 +275,7 @@ const CountdownSettingsDialog = ({ open, onOpenChange, onStart }) => {
           {/* Close Button */}
           <button
             onClick={() => onOpenChange(false)}
-            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-gray-100 flex items-center justify-center"
+            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-neutral-100 flex items-center justify-center"
           >
             <CloseIcon />
           </button>

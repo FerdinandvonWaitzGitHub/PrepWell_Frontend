@@ -70,25 +70,25 @@ const AufgabenStats = ({ stats, formatPercentage }) => {
       {/* Kapitel Progress */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Kapitel Overview */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-4">Kapitel-Fortschritt</h4>
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <h4 className="text-sm font-medium text-neutral-700 mb-4">Kapitel-Fortschritt</h4>
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div className="text-center">
               <p className="text-2xl font-semibold text-green-600">{completedKapitel}</p>
-              <p className="text-xs text-gray-500">Abgeschlossen</p>
+              <p className="text-xs text-neutral-500">Abgeschlossen</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-semibold text-amber-500">{inProgressKapitel}</p>
-              <p className="text-xs text-gray-500">In Bearbeitung</p>
+              <p className="text-xs text-neutral-500">In Bearbeitung</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-semibold text-gray-400">{notStartedKapitel}</p>
-              <p className="text-xs text-gray-500">Nicht begonnen</p>
+              <p className="text-2xl font-semibold text-neutral-400">{notStartedKapitel}</p>
+              <p className="text-xs text-neutral-500">Nicht begonnen</p>
             </div>
           </div>
 
           {/* Progress bar */}
-          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden flex">
+          <div className="w-full bg-neutral-200 rounded-full h-3 overflow-hidden flex">
             {totalKapitel > 0 && (
               <>
                 <div
@@ -102,14 +102,14 @@ const AufgabenStats = ({ stats, formatPercentage }) => {
               </>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
+          <p className="text-xs text-neutral-500 mt-2 text-center">
             {totalKapitel} Kapitel insgesamt
           </p>
         </div>
 
         {/* Themen Overview */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-4">Themen-Fortschritt</h4>
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <h4 className="text-sm font-medium text-neutral-700 mb-4">Themen-Fortschritt</h4>
           <div className="flex items-center justify-center mb-4">
             <div className="relative w-32 h-32">
               {/* Circular progress */}
@@ -134,13 +134,13 @@ const AufgabenStats = ({ stats, formatPercentage }) => {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold text-gray-900">
+                <span className="text-2xl font-bold text-neutral-900">
                   {formatPercentage(themenRate)}
                 </span>
               </div>
             </div>
           </div>
-          <p className="text-sm text-gray-600 text-center">
+          <p className="text-sm text-neutral-600 text-center">
             {completedThemen} von {totalThemen} Themen abgeschlossen
           </p>
         </div>

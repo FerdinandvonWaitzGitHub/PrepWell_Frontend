@@ -47,14 +47,14 @@ const Step7Template = () => {
       {/* Header */}
       <div className="w-full flex flex-col items-center gap-2.5 mb-8">
         <div className="flex items-center gap-2">
-          <span className="text-gray-500 text-xl font-medium leading-7">Schritt 7</span>
+          <span className="text-neutral-500 text-xl font-medium leading-7">Schritt 7</span>
         </div>
         <div className="w-full py-[5px] flex justify-center items-center">
-          <h1 className="text-center text-gray-900 text-3xl md:text-5xl font-extralight leading-tight md:leading-[48px]">
+          <h1 className="text-center text-neutral-900 text-3xl md:text-5xl font-extralight leading-tight md:leading-[48px]">
             Wähle einen Lernplan aus.
           </h1>
         </div>
-        <p className="w-full max-w-[900px] text-center text-gray-500 text-sm font-light leading-5">
+        <p className="w-full max-w-[900px] text-center text-neutral-500 text-sm font-light leading-5">
           Unten siehst du unsere Auswahl an Lernplänen, die wir stets erweitern.
         </p>
       </div>
@@ -74,13 +74,13 @@ const Step7Template = () => {
               <div className="p-6 flex flex-col gap-4 flex-1">
                 {/* Badges */}
                 <div className="flex flex-wrap gap-4">
-                  <div className="px-2 py-0.5 bg-gray-100 rounded-lg flex items-center">
-                    <span className="text-gray-600 text-xs font-semibold leading-4">
+                  <div className="px-2 py-0.5 bg-neutral-100 rounded-lg flex items-center">
+                    <span className="text-neutral-600 text-xs font-semibold leading-4">
                       {stats.unterrechtsgebieteCount} Unterrechtsgebiete
                     </span>
                   </div>
-                  <div className="px-2 py-0.5 bg-gray-100 rounded-lg flex items-center">
-                    <span className="text-gray-600 text-xs font-semibold leading-4">
+                  <div className="px-2 py-0.5 bg-neutral-100 rounded-lg flex items-center">
+                    <span className="text-neutral-600 text-xs font-semibold leading-4">
                       {stats.themenCount} Themen
                     </span>
                   </div>
@@ -88,13 +88,13 @@ const Step7Template = () => {
 
                 {/* Title */}
                 <div className="w-full max-w-[384px]">
-                  <h3 className="text-gray-900 text-2xl font-extralight leading-6">
+                  <h3 className="text-neutral-900 text-2xl font-extralight leading-6">
                     {template.title}
                   </h3>
                 </div>
 
                 {/* Description */}
-                <p className="w-full max-w-[487px] text-gray-400 text-sm font-normal leading-5">
+                <p className="w-full max-w-[487px] text-neutral-400 text-sm font-normal leading-5">
                   {template.description}
                 </p>
               </div>
@@ -102,7 +102,7 @@ const Step7Template = () => {
               {/* Middle Section - Weights */}
               <div className="px-6 py-6 lg:py-10 flex flex-col gap-4">
                 <div className="flex flex-col gap-[5px]">
-                  <span className="text-gray-900 text-sm font-medium leading-5">
+                  <span className="text-neutral-900 text-sm font-medium leading-5">
                     Gewichtung der Themenblöcke
                   </span>
                 </div>
@@ -110,12 +110,12 @@ const Step7Template = () => {
                   {stats.weights.map((weight) => (
                     <div
                       key={weight.name}
-                      className="p-4 rounded-lg border border-gray-200 flex flex-col gap-1"
+                      className="p-4 rounded-lg border border-neutral-200 flex flex-col gap-1"
                     >
-                      <span className="text-gray-900 text-sm font-medium leading-4">
+                      <span className="text-neutral-900 text-sm font-medium leading-4">
                         {weight.percentage} %
                       </span>
-                      <span className="text-gray-500 text-sm font-normal leading-5 line-clamp-2">
+                      <span className="text-neutral-500 text-sm font-normal leading-5 line-clamp-2">
                         {weight.name}
                       </span>
                     </div>
@@ -130,7 +130,7 @@ const Step7Template = () => {
                   className={`px-5 py-2.5 rounded-3xl flex items-center gap-2 transition-all ${
                     isSelected
                       ? 'bg-slate-600 text-white'
-                      : 'bg-white border border-gray-300 text-gray-900 hover:bg-gray-50'
+                      : 'bg-white border border-neutral-300 text-neutral-900 hover:bg-neutral-50'
                   }`}
                 >
                   <span className="text-sm font-light leading-5">

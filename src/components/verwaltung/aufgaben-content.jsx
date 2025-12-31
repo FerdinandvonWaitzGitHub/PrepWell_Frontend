@@ -81,7 +81,7 @@ const PRIORITY_DISPLAY = {
 };
 
 const PRIORITY_COLORS = {
-  low: 'text-gray-400',
+  low: 'text-neutral-400',
   medium: 'text-yellow-600',
   high: 'text-red-600'
 };
@@ -175,10 +175,10 @@ const AufgabenContent = ({ className = '' }) => {
   };
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden ${className}`}>
       {/* Container Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900">Aufgaben</h3>
+      <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200">
+        <h3 className="text-sm font-medium text-neutral-900">Aufgaben</h3>
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="relative">
@@ -187,14 +187,14 @@ const AufgabenContent = ({ className = '' }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Suchen..."
-              className="w-56 px-2 py-1 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+              className="w-56 px-2 py-1 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
             />
           </div>
 
           {/* Filter Button */}
           <button
             onClick={() => setIsFilterOpen(true)}
-            className="p-2 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+            className="p-2 text-neutral-600 border border-neutral-200 rounded-lg hover:bg-neutral-50"
             title="Filter"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -207,52 +207,52 @@ const AufgabenContent = ({ className = '' }) => {
       {/* Table Content */}
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-neutral-50 border-b border-neutral-200">
             <tr>
-              <th className="w-[12%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Fach
               </th>
-              <th className="w-[20%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-[20%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Aufgabe
               </th>
-              <th className="w-[15%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-[15%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Lernplanthema
               </th>
-              <th className="w-[18%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-[18%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Lernblock
               </th>
-              <th className="w-[6%] px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-[6%] px-3 py-2 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Prio
               </th>
-              <th className="w-[10%] px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-[10%] px-3 py-2 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Status
               </th>
-              <th className="w-[19%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-[19%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Datum
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-neutral-100">
             {filteredTasks.map((task) => (
               <tr
                 key={task.id}
-                className="hover:bg-gray-50 cursor-pointer transition-colors"
+                className="hover:bg-neutral-50 cursor-pointer transition-colors"
               >
                 <td className="px-3 py-2 truncate">
-                  <span className={`inline-block px-2 py-0.5 text-xs rounded border ${SUBJECT_COLORS[task.subject] || 'bg-gray-100 border-gray-200'}`}>
+                  <span className={`inline-block px-2 py-0.5 text-xs rounded border ${SUBJECT_COLORS[task.subject] || 'bg-neutral-100 border-neutral-200'}`}>
                     {task.subject}
                   </span>
                 </td>
                 <td className="px-3 py-2">
                   <div className="truncate">
-                    <p className="text-sm text-gray-900 font-medium truncate">{task.title}</p>
-                    <p className="text-xs text-gray-500 truncate">{task.description}</p>
+                    <p className="text-sm text-neutral-900 font-medium truncate">{task.title}</p>
+                    <p className="text-xs text-neutral-500 truncate">{task.description}</p>
                   </div>
                 </td>
-                <td className="px-3 py-2 text-sm text-gray-600 truncate">
+                <td className="px-3 py-2 text-sm text-neutral-600 truncate">
                   {task.lernplanthema || '-'}
                 </td>
-                <td className="px-3 py-2 text-sm text-gray-600 truncate">
+                <td className="px-3 py-2 text-sm text-neutral-600 truncate">
                   {task.lernblock || '-'}
                 </td>
                 <td className="px-3 py-2 text-center">
@@ -261,11 +261,11 @@ const AufgabenContent = ({ className = '' }) => {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-center">
-                  <span className={`inline-block px-2 py-0.5 text-xs rounded ${STATUS_COLORS[task.status] || 'bg-gray-100 text-gray-800'}`}>
+                  <span className={`inline-block px-2 py-0.5 text-xs rounded ${STATUS_COLORS[task.status] || 'bg-neutral-100 text-neutral-800'}`}>
                     {task.status}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-sm text-gray-600 truncate">
+                <td className="px-3 py-2 text-sm text-neutral-600 truncate">
                   {formatDate(task.date)}
                 </td>
               </tr>
@@ -273,7 +273,7 @@ const AufgabenContent = ({ className = '' }) => {
 
             {filteredTasks.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-3 py-6 text-center text-sm text-neutral-500">
                   Keine Aufgaben gefunden
                 </td>
               </tr>
@@ -283,9 +283,9 @@ const AufgabenContent = ({ className = '' }) => {
       </div>
 
       {/* Footer with Total */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-t border-gray-200">
-        <span className="text-sm font-medium text-gray-700">Total</span>
-        <span className="text-sm text-gray-600">{filteredTasks.length} Aufgaben</span>
+      <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-50 border-t border-neutral-200">
+        <span className="text-sm font-medium text-neutral-700">Total</span>
+        <span className="text-sm text-neutral-600">{filteredTasks.length} Aufgaben</span>
       </div>
 
       {/* Filter Dialog */}

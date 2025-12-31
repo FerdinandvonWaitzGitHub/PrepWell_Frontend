@@ -55,61 +55,61 @@ const AnalyseDialog = ({ open, onOpenChange, onApply }) => {
         <DialogBody className="space-y-6">
           {/* Group By Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-900">Gruppierung</label>
+            <label className="text-sm font-medium text-neutral-900">Gruppierung</label>
 
             {/* Subject Option */}
-            <label className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-white border border-neutral-200 rounded-lg cursor-pointer hover:bg-neutral-50 transition-colors">
               <input
                 type="radio"
                 name="groupBy"
                 value="subject"
                 checked={settings.groupBy === 'subject'}
                 onChange={(e) => setSettings(prev => ({ ...prev, groupBy: e.target.value }))}
-                className="mt-0.5 w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
+                className="mt-0.5 w-4 h-4 text-neutral-900 border-neutral-300 focus:ring-neutral-900"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">Nach Fach</span>
-                <p className="text-xs text-gray-500 mt-0.5">Zeigt Durchschnitt und Anzahl je Fach.</p>
+                <span className="text-sm font-medium text-neutral-900">Nach Fach</span>
+                <p className="text-xs text-neutral-500 mt-0.5">Zeigt Durchschnitt und Anzahl je Fach.</p>
               </div>
             </label>
 
             {/* Semester Option */}
-            <label className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-white border border-neutral-200 rounded-lg cursor-pointer hover:bg-neutral-50 transition-colors">
               <input
                 type="radio"
                 name="groupBy"
                 value="semester"
                 checked={settings.groupBy === 'semester'}
                 onChange={(e) => setSettings(prev => ({ ...prev, groupBy: e.target.value }))}
-                className="mt-0.5 w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
+                className="mt-0.5 w-4 h-4 text-neutral-900 border-neutral-300 focus:ring-neutral-900"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">Nach Semester</span>
-                <p className="text-xs text-gray-500 mt-0.5">Zeigt Durchschnitt und Anzahl je Semester.</p>
+                <span className="text-sm font-medium text-neutral-900">Nach Semester</span>
+                <p className="text-xs text-neutral-500 mt-0.5">Zeigt Durchschnitt und Anzahl je Semester.</p>
               </div>
             </label>
           </div>
 
           {/* Date Range */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-900">Zeitraum</label>
+            <label className="text-sm font-medium text-neutral-900">Zeitraum</label>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs text-gray-500">Von</label>
+                <label className="text-xs text-neutral-500">Von</label>
                 <input
                   type="date"
                   value={settings.startDate}
                   onChange={(e) => setSettings(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                  className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-gray-500">Bis</label>
+                <label className="text-xs text-neutral-500">Bis</label>
                 <input
                   type="date"
                   value={settings.endDate}
                   onChange={(e) => setSettings(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
+                  className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm"
                 />
               </div>
             </div>
@@ -118,14 +118,14 @@ const AnalyseDialog = ({ open, onOpenChange, onApply }) => {
           {/* ECTS Weighting Toggle */}
           <div className="flex items-center justify-between py-2">
             <div>
-              <span className="text-sm font-medium text-gray-900">ECTS-Gewichtung</span>
-              <p className="text-xs text-gray-500 mt-0.5">Durchschnitt nach ECTS-Punkten gewichten</p>
+              <span className="text-sm font-medium text-neutral-900">ECTS-Gewichtung</span>
+              <p className="text-xs text-neutral-500 mt-0.5">Durchschnitt nach ECTS-Punkten gewichten</p>
             </div>
             <button
               type="button"
               onClick={() => setSettings(prev => ({ ...prev, weightByEcts: !prev.weightByEcts }))}
               className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 ${
-                settings.weightByEcts ? 'bg-gray-900' : 'bg-gray-300'
+                settings.weightByEcts ? 'bg-neutral-900' : 'bg-neutral-300'
               }`}
             >
               <span

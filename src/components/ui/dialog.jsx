@@ -39,7 +39,7 @@ export const Dialog = ({ open, onOpenChange, children }) => {
  */
 export const DialogContent = ({ children, className = '' }) => {
   return (
-    <div className={`bg-white rounded-lg shadow-lg border border-gray-200 ${className}`}>
+    <div className={`bg-white rounded-xl shadow-md border border-neutral-200 ${className}`}>
       {children}
     </div>
   );
@@ -61,7 +61,7 @@ export const DialogHeader = ({ children, className = '' }) => {
  */
 export const DialogTitle = ({ children, className = '' }) => {
   return (
-    <h2 className={`text-lg font-light text-gray-900 ${className}`}>
+    <h2 className={`text-lg font-semibold text-neutral-900 ${className}`}>
       {children}
     </h2>
   );
@@ -72,7 +72,7 @@ export const DialogTitle = ({ children, className = '' }) => {
  */
 export const DialogDescription = ({ children, className = '' }) => {
   return (
-    <p className={`text-sm text-gray-600 leading-5 ${className}`}>
+    <p className={`text-sm text-neutral-500 leading-5 ${className}`}>
       {children}
     </p>
   );
@@ -107,7 +107,7 @@ export const DialogClose = ({ onClose }) => {
   return (
     <button
       onClick={onClose}
-      className="absolute top-4 right-4 p-1.5 rounded hover:bg-gray-100 transition-colors"
+      className="absolute top-4 right-4 p-1.5 rounded hover:bg-neutral-100 transition-colors text-neutral-400 hover:text-neutral-600"
       aria-label="Schließen"
     >
       <XIcon size={20} />

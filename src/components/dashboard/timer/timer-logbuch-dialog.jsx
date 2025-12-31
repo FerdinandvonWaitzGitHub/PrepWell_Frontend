@@ -116,24 +116,24 @@ const RechtsgebietDropdown = ({ value, onChange }) => {
       <div className="inline-flex justify-start items-start">
         <div
           onClick={() => setIsOpen(!isOpen)}
-          className="h-9 px-4 py-2 bg-white rounded-tl-lg rounded-bl-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-gray-200
-                     flex justify-start items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors"
+          className="h-9 px-4 py-2 bg-white rounded-tl-lg rounded-bl-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-neutral-200
+                     flex justify-start items-center gap-2 cursor-pointer hover:bg-neutral-50 transition-colors"
         >
-          <span className="text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5">
+          <span className="text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5">
             {selectedLabel}
           </span>
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-9 h-9 px-2 py-2 bg-white rounded-tr-lg rounded-br-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] border-r border-t border-b border-gray-200
-                     flex justify-center items-center hover:bg-gray-50 transition-colors"
+          className="w-9 h-9 px-2 py-2 bg-white rounded-tr-lg rounded-br-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] border-r border-t border-b border-neutral-200
+                     flex justify-center items-center hover:bg-neutral-50 transition-colors"
         >
           <ChevronDownIcon />
         </button>
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[180px]">
+        <div className="absolute z-50 top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-neutral-200 min-w-[180px]">
           {options.map(option => (
             <button
               key={option.id}
@@ -141,8 +141,8 @@ const RechtsgebietDropdown = ({ value, onChange }) => {
                 onChange(option.id);
                 setIsOpen(false);
               }}
-              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors
-                         ${value === option.id ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}`}
+              className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 transition-colors
+                         ${value === option.id ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-700'}`}
             >
               {option.label}
             </button>
@@ -242,16 +242,16 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
       {/* Dialog */}
       <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
         <div
-          className="p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-gray-200
+          className="p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-neutral-200
                      inline-flex flex-col justify-center items-start gap-14 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="self-stretch flex flex-col justify-start items-start gap-1.5">
-            <h2 className="self-stretch text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+            <h2 className="self-stretch text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
               Logbuch
             </h2>
-            <p className="text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5">
+            <p className="text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5">
               {formatTodayDate()}
             </p>
           </div>
@@ -259,20 +259,20 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
           {/* Content */}
           <div className="flex flex-col justify-center items-start gap-2">
             {/* Summary Card */}
-            <div className="self-stretch p-4 bg-gray-50/50 rounded-lg flex flex-col justify-center items-start gap-4">
+            <div className="self-stretch p-4 bg-neutral-50/50 rounded-lg flex flex-col justify-center items-start gap-4">
               <div className="self-stretch inline-flex justify-start items-start gap-7">
-                <span className="text-gray-900 text-sm font-medium font-['DM_Sans'] leading-4">
+                <span className="text-neutral-900 text-sm font-medium font-['DM_Sans'] leading-4">
                   Gesamte Lernzeit heute
                 </span>
-                <span className="text-right text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+                <span className="text-right text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
                   {totalLearningTime}
                 </span>
               </div>
               <div className="self-stretch inline-flex justify-start items-start gap-7">
-                <span className="text-gray-900 text-sm font-medium font-['DM_Sans'] leading-4">
+                <span className="text-neutral-900 text-sm font-medium font-['DM_Sans'] leading-4">
                   Lernziel {new Date().toLocaleDateString('de-DE', { weekday: 'long' })}
                 </span>
-                <span className="text-right text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+                <span className="text-right text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
                   7h 40min
                 </span>
               </div>
@@ -283,7 +283,7 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
               {/* Von Column */}
               <div className="bg-white inline-flex flex-col justify-start items-start gap-5">
                 <div className="h-6 flex flex-col justify-center items-start">
-                  <span className="text-gray-900 text-sm font-medium font-['DM_Sans'] leading-5">Von</span>
+                  <span className="text-neutral-900 text-sm font-medium font-['DM_Sans'] leading-5">Von</span>
                 </div>
                 {entries.map((entry, index) => (
                   <input
@@ -291,8 +291,8 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
                     type="time"
                     value={entry.startTime}
                     onChange={(e) => handleUpdateEntry(index, 'startTime', e.target.value)}
-                    className="h-9 px-3.5 bg-white rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-gray-200
-                               text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5"
+                    className="h-9 px-3.5 bg-white rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-neutral-200
+                               text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5"
                   />
                 ))}
               </div>
@@ -302,7 +302,7 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
                 <div className="w-6 h-6" />
                 {entries.map((_, index) => (
                   <div key={`arrow-${index}`} className="self-stretch h-9 px-2.5 flex flex-col justify-center items-center">
-                    <span className="text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5">→</span>
+                    <span className="text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5">→</span>
                   </div>
                 ))}
               </div>
@@ -310,7 +310,7 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
               {/* Bis Column */}
               <div className="bg-white inline-flex flex-col justify-start items-start gap-5">
                 <div className="h-6 flex flex-col justify-center items-start">
-                  <span className="text-gray-900 text-sm font-medium font-['DM_Sans'] leading-5">Bis</span>
+                  <span className="text-neutral-900 text-sm font-medium font-['DM_Sans'] leading-5">Bis</span>
                 </div>
                 {entries.map((entry, index) => (
                   <input
@@ -318,8 +318,8 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
                     type="time"
                     value={entry.endTime}
                     onChange={(e) => handleUpdateEntry(index, 'endTime', e.target.value)}
-                    className="h-9 px-3.5 bg-white rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-gray-200
-                               text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5"
+                    className="h-9 px-3.5 bg-white rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-neutral-200
+                               text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5"
                   />
                 ))}
               </div>
@@ -329,7 +329,7 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
                 <div className="w-6 h-6" />
                 {entries.map((entry, index) => (
                   <div key={`duration-${index}`} className="self-stretch h-9 px-2.5 flex flex-col justify-center items-center">
-                    <span className="text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5">
+                    <span className="text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5">
                       {calculateDuration(entry.startTime, entry.endTime)}
                     </span>
                   </div>
@@ -339,7 +339,7 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
               {/* Rechtsgebiet Column */}
               <div className="bg-white inline-flex flex-col justify-start items-start gap-5">
                 <div className="h-6 flex flex-col justify-center items-start">
-                  <span className="text-gray-900 text-sm font-medium font-['DM_Sans'] leading-5">Rechtsgebiet</span>
+                  <span className="text-neutral-900 text-sm font-medium font-['DM_Sans'] leading-5">Rechtsgebiet</span>
                 </div>
                 {entries.map((entry, index) => (
                   <RechtsgebietDropdown
@@ -368,7 +368,7 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
             {/* Add Session Button */}
             <button
               onClick={handleAddEntry}
-              className="h-8 bg-white inline-flex justify-center items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
+              className="h-8 bg-white inline-flex justify-center items-center gap-2 text-neutral-500 hover:text-neutral-700 transition-colors"
             >
               <PlusIcon />
               <span className="text-xs font-medium font-['DM_Sans'] leading-4">Session nachtragen</span>
@@ -379,11 +379,11 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
           <div className="self-stretch h-10 inline-flex justify-between items-end">
             <button
               onClick={handleBack}
-              className="px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-gray-200
-                         inline-flex justify-center items-center gap-2 hover:bg-gray-50 transition-colors"
+              className="px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-neutral-200
+                         inline-flex justify-center items-center gap-2 hover:bg-neutral-50 transition-colors"
             >
               <ArrowLeftIcon />
-              <span className="text-gray-900 text-sm font-light font-['DM_Sans'] leading-5">Zurück</span>
+              <span className="text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5">Zurück</span>
             </button>
             <button
               onClick={handleSave}
@@ -398,7 +398,7 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
           {/* Close Button */}
           <button
             onClick={() => onOpenChange(false)}
-            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-gray-100 flex items-center justify-center"
+            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-neutral-100 flex items-center justify-center"
           >
             <CloseIcon />
           </button>

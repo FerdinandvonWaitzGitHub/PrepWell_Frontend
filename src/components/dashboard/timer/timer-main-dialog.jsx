@@ -112,13 +112,13 @@ const CircularProgressRing = ({ progress = 0, timeDisplay }) => {
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
-          className="text-gray-900"
+          className="text-neutral-900"
           style={{ transition: 'stroke-dashoffset 0.5s ease' }}
         />
       </svg>
       {/* Time display centered */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-4xl font-light font-['DM_Sans'] text-gray-900 leading-10">
+        <span className="text-4xl font-light font-['DM_Sans'] text-neutral-900 leading-10">
           {timeDisplay}
         </span>
       </div>
@@ -134,10 +134,10 @@ const OutlineButton = ({ children, onClick, disabled, className = '' }) => (
     onClick={onClick}
     disabled={disabled}
     className={`
-      px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-gray-200
+      px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-neutral-200
       inline-flex justify-center items-center gap-2
-      text-gray-900 text-sm font-light font-['DM_Sans'] leading-5
-      hover:bg-gray-50 transition-colors
+      text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5
+      hover:bg-neutral-50 transition-colors
       disabled:opacity-50 disabled:cursor-not-allowed
       ${className}
     `}
@@ -172,8 +172,8 @@ const PrimaryButton = ({ children, onClick, disabled, className = '' }) => (
 const SmallOutlineButton = ({ children, onClick }) => (
   <button
     onClick={onClick}
-    className="px-2.5 py-[3px] rounded-[5px] outline outline-1 outline-offset-[-1px] outline-gray-200
-               text-gray-900 text-sm font-light font-['DM_Sans'] leading-5 hover:bg-gray-50 transition-colors"
+    className="px-2.5 py-[3px] rounded-[5px] outline outline-1 outline-offset-[-1px] outline-neutral-200
+               text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5 hover:bg-neutral-50 transition-colors"
   >
     {children}
   </button>
@@ -199,28 +199,28 @@ const SplitDropdown = ({ value, options, onChange }) => {
       <div className="inline-flex justify-start items-start">
         <div
           onClick={() => setIsOpen(!isOpen)}
-          className="h-9 pl-5 pr-4 py-2 bg-white rounded-tl-lg rounded-bl-lg outline outline-1 outline-offset-[-1px] outline-gray-200
-                     flex justify-center items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors"
+          className="h-9 pl-5 pr-4 py-2 bg-white rounded-tl-lg rounded-bl-lg outline outline-1 outline-offset-[-1px] outline-neutral-200
+                     flex justify-center items-center gap-2 cursor-pointer hover:bg-neutral-50 transition-colors"
         >
-          <span className="text-gray-900 text-sm font-light font-['DM_Sans'] leading-5">
+          <span className="text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5">
             {selectedLabel}
           </span>
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-9 h-9 px-2 py-2 bg-white rounded-tr-lg rounded-br-lg border-r border-t border-b border-gray-200
-                     flex justify-center items-center hover:bg-gray-50 transition-colors"
+          className="w-9 h-9 px-2 py-2 bg-white rounded-tr-lg rounded-br-lg border-r border-t border-b border-neutral-200
+                     flex justify-center items-center hover:bg-neutral-50 transition-colors"
         >
           <ChevronDownIcon />
         </button>
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[200px] max-h-64 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-neutral-200 min-w-[200px] max-h-64 overflow-y-auto">
           {options.map((group, groupIdx) => (
-            <div key={groupIdx} className="border-b border-gray-100 last:border-b-0">
+            <div key={groupIdx} className="border-b border-neutral-100 last:border-b-0">
               {group.label && (
-                <div className="px-3 py-2 bg-gray-50 text-xs font-medium text-gray-600">
+                <div className="px-3 py-2 bg-neutral-50 text-xs font-medium text-neutral-600">
                   {group.label}
                 </div>
               )}
@@ -231,7 +231,7 @@ const SplitDropdown = ({ value, options, onChange }) => {
                     onChange(option.id);
                     setIsOpen(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-900 hover:bg-gray-50 transition-colors"
+                  className="w-full px-4 py-2 text-left text-sm text-neutral-900 hover:bg-neutral-50 transition-colors"
                 >
                   {option.label}
                 </button>
@@ -306,14 +306,14 @@ const PomodoroTimerView = () => {
         {/* Time Range with -5/+5 */}
         <div className="inline-flex justify-center items-center gap-7">
           <SmallOutlineButton>- 5</SmallOutlineButton>
-          <span className="text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+          <span className="text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
             {formatTimeHHMM(startTime)} → {formatTimeHHMM(endTime)}
           </span>
           <SmallOutlineButton>+ 5</SmallOutlineButton>
         </div>
 
         {/* Session Cancel Link */}
-        <button className="py-2.5 opacity-50 inline-flex justify-center items-center gap-2 text-gray-900 text-sm font-light font-['DM_Sans'] leading-5">
+        <button className="py-2.5 opacity-50 inline-flex justify-center items-center gap-2 text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5">
           Session abbrechen & löschen
           <TrashIcon />
         </button>
@@ -335,7 +335,7 @@ const PomodoroTimerView = () => {
 
         {/* Working On Dropdown */}
         <div className="flex flex-col justify-center items-start gap-3.5">
-          <span className="text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+          <span className="text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
             Ich arbeite an...
           </span>
           <SplitDropdown
@@ -390,7 +390,7 @@ const CountdownTimerView = ({ dailyLearningGoalMinutes = 480 }) => {
         {/* Learning Goal with -5/+5 */}
         <div className="inline-flex justify-center items-center gap-7">
           <SmallOutlineButton>- 5</SmallOutlineButton>
-          <span className="text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+          <span className="text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
             Lernziel {goalHours}h {goalMinutes > 0 ? `${goalMinutes}min` : ''}
           </span>
           <SmallOutlineButton>+ 5</SmallOutlineButton>
@@ -409,7 +409,7 @@ const CountdownTimerView = ({ dailyLearningGoalMinutes = 480 }) => {
 
         {/* Working On Dropdown */}
         <div className="flex flex-col justify-center items-start gap-3.5">
-          <span className="text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+          <span className="text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
             Ich arbeite an...
           </span>
           <SplitDropdown
@@ -475,7 +475,7 @@ const CountupTimerView = ({ dailyLearningGoalMinutes = 480 }) => {
         {/* Learning Goal with -5/+5 */}
         <div className="inline-flex justify-center items-center gap-7">
           <SmallOutlineButton>- 5</SmallOutlineButton>
-          <span className="text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+          <span className="text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
             Lernziel {goalHours}h {goalMinutes > 0 ? `${goalMinutes}min` : ''}
           </span>
           <SmallOutlineButton>+ 5</SmallOutlineButton>
@@ -494,7 +494,7 @@ const CountupTimerView = ({ dailyLearningGoalMinutes = 480 }) => {
 
         {/* Working On Dropdown */}
         <div className="flex flex-col justify-center items-start gap-3.5">
-          <span className="text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+          <span className="text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
             Ich arbeite an...
           </span>
           <SplitDropdown
@@ -522,10 +522,10 @@ const PlayIcon = () => (
  */
 const EmptyState = () => (
   <div className="w-full py-16 flex flex-col justify-center items-center gap-4">
-    <div className="text-gray-400 text-lg font-light font-['DM_Sans']">
+    <div className="text-neutral-400 text-lg font-light font-['DM_Sans']">
       Noch keine Zeiterfassung konfiguriert
     </div>
-    <div className="text-gray-400 text-sm font-light font-['DM_Sans'] text-center max-w-md">
+    <div className="text-neutral-400 text-sm font-light font-['DM_Sans'] text-center max-w-md">
       Klicke auf "Einstellungen", um deinen Timer einzurichten. Du kannst zwischen Pomodoro, Countdown und Stoppuhr wählen.
     </div>
   </div>
@@ -550,7 +550,7 @@ const ConfiguredIdleState = ({ onStart, timerConfig }) => {
 
   return (
     <div className="w-full py-12 flex flex-col justify-center items-center gap-6">
-      <div className="text-gray-900 text-lg font-light font-['DM_Sans']">
+      <div className="text-neutral-900 text-lg font-light font-['DM_Sans']">
         {getTimerTypeLabel()}
       </div>
       <button
@@ -676,16 +676,16 @@ const TimerMainDialog = ({ open, onOpenChange, onSettingsClick, dailyLearningGoa
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
         <div
-          className="w-[806px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-gray-200
+          className="w-[806px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-neutral-200
                      inline-flex flex-col justify-start items-center gap-14 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="self-stretch flex flex-col justify-start items-start gap-1.5">
-            <h2 className="self-stretch text-gray-900 text-lg font-light font-['DM_Sans'] leading-4">
+            <h2 className="self-stretch text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
               {getTitle()}
             </h2>
-            <p className="text-gray-500 text-sm font-normal font-['DM_Sans'] leading-5">
+            <p className="text-neutral-500 text-sm font-normal font-['DM_Sans'] leading-5">
               Du kannst in den Einstellungen die Art der Zeiterfassung und deren Konfiguration bearbeiten.
             </p>
           </div>
@@ -713,7 +713,7 @@ const TimerMainDialog = ({ open, onOpenChange, onSettingsClick, dailyLearningGoa
           {/* Close Button */}
           <button
             onClick={() => onOpenChange(false)}
-            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-gray-100 flex items-center justify-center"
+            className="w-4 h-4 absolute right-4 top-4 rounded-sm hover:bg-neutral-100 flex items-center justify-center"
           >
             <CloseIcon />
           </button>

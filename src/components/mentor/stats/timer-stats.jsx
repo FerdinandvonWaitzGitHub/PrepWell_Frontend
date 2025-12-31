@@ -59,8 +59,8 @@ const TimerStats = ({ stats, formatDuration }) => {
       {/* Completion & Mode Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Completion Rate */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-4">Abschlussrate</h4>
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <h4 className="text-sm font-medium text-neutral-700 mb-4">Abschlussrate</h4>
           <div className="flex items-center justify-center">
             <div className="relative w-32 h-32">
               <svg className="w-32 h-32 transform -rotate-90">
@@ -84,21 +84,21 @@ const TimerStats = ({ stats, formatDuration }) => {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold text-gray-900">
+                <span className="text-2xl font-bold text-neutral-900">
                   {Math.round(completionRate)}%
                 </span>
-                <span className="text-xs text-gray-500">abgeschlossen</span>
+                <span className="text-xs text-neutral-500">abgeschlossen</span>
               </div>
             </div>
           </div>
-          <p className="text-sm text-gray-500 text-center mt-2">
+          <p className="text-sm text-neutral-500 text-center mt-2">
             Sessions vollständig beendet vs. abgebrochen
           </p>
         </div>
 
         {/* Timer Mode Distribution */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-4">
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <h4 className="text-sm font-medium text-neutral-700 mb-4">
             Timer-Modus Verteilung
           </h4>
           {modeData.length > 0 ? (
@@ -124,42 +124,42 @@ const TimerStats = ({ stats, formatDuration }) => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-neutral-500 text-center">
                 Präferierter Modus: <strong>{preferredMode}</strong>
               </p>
             </>
           ) : (
             <div className="h-40 flex items-center justify-center">
-              <p className="text-gray-400">Noch keine Timer-Daten</p>
+              <p className="text-neutral-400">Noch keine Timer-Daten</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Session Breakdown */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-4">Session-Übersicht</h4>
+      <div className="bg-white rounded-lg border border-neutral-200 p-4">
+        <h4 className="text-sm font-medium text-neutral-700 mb-4">Session-Übersicht</h4>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <div className="w-12 h-12 mx-auto mb-2 bg-red-100 rounded-full flex items-center justify-center">
               <span className="text-xl">🍅</span>
             </div>
-            <p className="text-xl font-semibold text-gray-900">{pomodoroCount}</p>
-            <p className="text-xs text-gray-500">Pomodoro</p>
+            <p className="text-xl font-semibold text-neutral-900">{pomodoroCount}</p>
+            <p className="text-xs text-neutral-500">Pomodoro</p>
           </div>
           <div>
             <div className="w-12 h-12 mx-auto mb-2 bg-blue-100 rounded-full flex items-center justify-center">
               <span className="text-xl">⏱️</span>
             </div>
-            <p className="text-xl font-semibold text-gray-900">{countdownCount}</p>
-            <p className="text-xs text-gray-500">Countdown</p>
+            <p className="text-xl font-semibold text-neutral-900">{countdownCount}</p>
+            <p className="text-xs text-neutral-500">Countdown</p>
           </div>
           <div>
             <div className="w-12 h-12 mx-auto mb-2 bg-green-100 rounded-full flex items-center justify-center">
               <span className="text-xl">⏲️</span>
             </div>
-            <p className="text-xl font-semibold text-gray-900">{countupCount}</p>
-            <p className="text-xs text-gray-500">Count-up</p>
+            <p className="text-xl font-semibold text-neutral-900">{countupCount}</p>
+            <p className="text-xs text-neutral-500">Count-up</p>
           </div>
         </div>
       </div>

@@ -15,7 +15,7 @@ const StatCard = ({
   const trendColors = {
     up: 'text-green-600',
     down: 'text-red-600',
-    stable: 'text-gray-500'
+    stable: 'text-neutral-500'
   };
 
   const trendIcons = {
@@ -25,13 +25,13 @@ const StatCard = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 p-4 ${className}`}>
-      <p className="text-sm text-gray-500 mb-1">{label}</p>
+    <div className={`bg-white rounded-lg border border-neutral-200 p-4 ${className}`}>
+      <p className="text-sm text-neutral-500 mb-1">{label}</p>
       <div className="flex items-baseline gap-2">
-        <span className={`font-semibold text-gray-900 ${size === 'large' ? 'text-3xl' : 'text-2xl'}`}>
+        <span className={`font-semibold text-neutral-900 ${size === 'large' ? 'text-3xl' : 'text-2xl'}`}>
           {value}
         </span>
-        {unit && <span className="text-gray-500 text-sm">{unit}</span>}
+        {unit && <span className="text-neutral-500 text-sm">{unit}</span>}
       </div>
       {trend && (
         <div className={`flex items-center gap-1 mt-1 text-sm ${trendColors[trend]}`}>

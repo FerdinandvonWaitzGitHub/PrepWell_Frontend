@@ -84,8 +84,8 @@ const FaecherStats = ({ stats, formatPercentage }) => {
       {pieData.length > 0 && pieData.some(d => d.value > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Pie Chart */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-4">Fächerverteilung</h4>
+          <div className="bg-white rounded-lg border border-neutral-200 p-4">
+            <h4 className="text-sm font-medium text-neutral-700 mb-4">Fächerverteilung</h4>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -110,17 +110,17 @@ const FaecherStats = ({ stats, formatPercentage }) => {
           </div>
 
           {/* Progress per Subject */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-4">Fortschritt pro Fach</h4>
+          <div className="bg-white rounded-lg border border-neutral-200 p-4">
+            <h4 className="text-sm font-medium text-neutral-700 mb-4">Fortschritt pro Fach</h4>
             {progressData.length > 0 ? (
               <div className="space-y-3">
                 {progressData.map((item) => (
                   <div key={item.name}>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-700">{item.name}</span>
+                      <span className="text-neutral-700">{item.name}</span>
                       <span className="font-medium">{item.fortschritt}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-neutral-200 rounded-full h-2">
                       <div
                         className="h-2 rounded-full transition-all"
                         style={{
@@ -133,7 +133,7 @@ const FaecherStats = ({ stats, formatPercentage }) => {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 text-center py-8">
+              <p className="text-sm text-neutral-500 text-center py-8">
                 Noch keine Fortschrittsdaten verfügbar
               </p>
             )}
@@ -142,9 +142,9 @@ const FaecherStats = ({ stats, formatPercentage }) => {
       )}
 
       {pieData.length === 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">Noch keine Fächer-Daten verfügbar</p>
-          <p className="text-sm text-gray-400 mt-1">Erstelle Lernblöcke, um Statistiken zu sehen</p>
+        <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center">
+          <p className="text-neutral-500">Noch keine Fächer-Daten verfügbar</p>
+          <p className="text-sm text-neutral-400 mt-1">Erstelle Lernblöcke, um Statistiken zu sehen</p>
         </div>
       )}
     </StatCategory>

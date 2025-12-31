@@ -27,13 +27,13 @@ const calculateLearningDays = (startDate, endDate, bufferDays, vacationDays) => 
  * Instruction card component
  */
 const InstructionCard = ({ title, description }) => (
-  <div className="flex-1 p-6 bg-white rounded-[10px] outline outline-1 outline-offset-[-1px] outline-gray-200 flex flex-col justify-start items-start gap-10">
+  <div className="flex-1 p-6 bg-white rounded-[10px] outline outline-1 outline-offset-[-1px] outline-neutral-200 flex flex-col justify-start items-start gap-10">
     <div className="self-stretch flex justify-start items-start gap-2">
       <div className="flex-1 flex flex-col justify-start items-start gap-2">
-        <div className="self-stretch text-gray-900 text-lg font-light leading-5">
+        <div className="self-stretch text-neutral-900 text-lg font-light leading-5">
           {title}
         </div>
-        <div className="self-stretch text-gray-500 text-sm font-light leading-5">
+        <div className="self-stretch text-neutral-500 text-sm font-light leading-5">
           {description}
         </div>
       </div>
@@ -73,10 +73,10 @@ const Step7Manual = () => {
         {/* Learning days info box */}
         <div className="max-w-[520px] mx-auto p-4 bg-primary-50/50 rounded-lg flex flex-col justify-start items-start gap-4">
           <div className="self-stretch flex justify-between items-start">
-            <div className="text-gray-900 text-sm font-medium leading-4">
+            <div className="text-neutral-900 text-sm font-medium leading-4">
               Anzahl der Lerntage
             </div>
-            <div className="text-right text-gray-900 text-lg font-light leading-4">
+            <div className="text-right text-neutral-900 text-lg font-light leading-4">
               {learningDays} Tage
             </div>
           </div>

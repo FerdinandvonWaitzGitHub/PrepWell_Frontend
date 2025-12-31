@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useAuth } from './auth-context';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 const CheckInContext = createContext(null);
 
@@ -126,7 +128,26 @@ const getCurrentPeriod = (settings) => {
   return 'morning';
 };
 
+/**
+ * CheckInProvider
+ *
+ * Now uses Supabase for persistence when authenticated,
+ * with LocalStorage fallback for offline/unauthenticated use.
+ */
 export const CheckInProvider = ({ children }) => {
+  const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
+  const syncedRef = useRef(false);
+  const userIdRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+
+  // Reset syncedRef when user changes (logout/login)
+  useEffect(() => {
+    if (user?.id !== userIdRef.current) {
+      syncedRef.current = false;
+      userIdRef.current = user?.id || null;
+    }
+  }, [user?.id]);
+
   // Check-in responses history: { [date]: { morning?: {...}, evening?: {...} } }
   const [responses, setResponses] = useState(() => {
     try {
@@ -147,39 +168,196 @@ export const CheckInProvider = ({ children }) => {
     }
   });
 
-  // Persist responses
+  // Fetch responses from Supabase
+  const fetchFromSupabase = useCallback(async () => {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('checkin_responses')
+        .select('*')
+        .order('response_date', { ascending: false });
+
+      if (error) throw error;
+
+      // Convert array to object format { [date]: { period: { answers, timestamp } } }
+      const responsesObj = {};
+      data?.forEach(row => {
+        const date = row.response_date;
+        if (!responsesObj[date]) {
+          responsesObj[date] = {};
+        }
+        // Determine period based on stored data or default to morning
+        const period = row.period || 'morning';
+        responsesObj[date][period] = {
+          answers: {
+            positivity: row.mood,
+            energy: row.energy,
+            motivation: row.focus,
+            stress: row.stress || 3, // Default if not stored
+          },
+          timestamp: row.created_at,
+          notes: row.notes,
+        };
+      });
+
+      return responsesObj;
+    } catch (err) {
+      console.error('Error fetching check-in responses:', err);
+      return null;
+    }
+  }, [isSupabaseEnabled, isAuthenticated]);
+
+  // Sync LocalStorage to Supabase on first login
+  const syncToSupabase = useCallback(async (localResponses) => {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+      return;
+    }
+
+    try {
+      // Check if user already has data
+      const { data: existingData } = await supabase
+        .from('checkin_responses')
+        .select('id')
+        .limit(1);
+
+      if (existingData && existingData.length > 0) {
+        return; // User has data, don't overwrite
+      }
+
+      // Migrate local data
+      const toInsert = [];
+      Object.entries(localResponses).forEach(([date, periods]) => {
+        Object.entries(periods).forEach(([period, data]) => {
+          if (data.answers && !data.skipped) {
+            toInsert.push({
+              user_id: user.id,
+              response_date: date,
+              period,
+              mood: data.answers.positivity,
+              energy: data.answers.energy,
+              focus: data.answers.motivation,
+              stress: data.answers.stress,
+              notes: data.notes || null,
+            });
+          }
+        });
+      });
+
+      if (toInsert.length > 0) {
+        const { error } = await supabase
+          .from('checkin_responses')
+          .insert(toInsert);
+
+        if (error) {
+          console.error('Error syncing check-in responses:', error);
+        }
+      }
+    } catch (err) {
+      console.error('Error in syncToSupabase:', err);
+    }
+  }, [isSupabaseEnabled, isAuthenticated, user]);
+
+  // Initial load and sync
+  useEffect(() => {
+    const initData = async () => {
+      if (!isSupabaseEnabled || !isAuthenticated || syncedRef.current) {
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const localData = responses;
+        await syncToSupabase(localData);
+
+        const supabaseData = await fetchFromSupabase();
+        if (supabaseData !== null) {
+          setResponses(supabaseData);
+          localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(supabaseData));
+          syncedRef.current = true;
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initData();
+  }, [isSupabaseEnabled, isAuthenticated, fetchFromSupabase, syncToSupabase]);
+
+  // Persist responses to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(responses));
   }, [responses]);
 
-  // Persist settings
+  // Persist settings to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
   }, [settings]);
 
+  // Save check-in to Supabase
+  const saveToSupabase = useCallback(async (date, period, data) => {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+      return;
+    }
+
+    try {
+      if (data.skipped) {
+        // Don't save skipped entries to Supabase
+        return;
+      }
+
+      const { error } = await supabase
+        .from('checkin_responses')
+        .upsert({
+          user_id: user.id,
+          response_date: date,
+          period,
+          mood: data.answers?.positivity,
+          energy: data.answers?.energy,
+          focus: data.answers?.motivation,
+          stress: data.answers?.stress,
+          notes: data.notes || null,
+        }, { onConflict: 'user_id,response_date,period' });
+
+      if (error) {
+        console.error('Error saving check-in:', error);
+      }
+    } catch (err) {
+      console.error('Error saving check-in to Supabase:', err);
+    }
+  }, [isSupabaseEnabled, isAuthenticated, user]);
+
   /**
    * Submit check-in responses
+   * Now syncs to Supabase when authenticated
    */
-  const submitCheckIn = (answers, period = null) => {
+  const submitCheckIn = useCallback((answers, period = null) => {
     const today = getTodayKey();
     const currentPeriod = period || getCurrentPeriod(settings) || 'morning';
+
+    const checkInData = {
+      answers,
+      timestamp: new Date().toISOString()
+    };
 
     setResponses(prev => ({
       ...prev,
       [today]: {
         ...prev[today],
-        [currentPeriod]: {
-          answers,
-          timestamp: new Date().toISOString()
-        }
+        [currentPeriod]: checkInData
       }
     }));
-  };
+
+    // Sync to Supabase
+    saveToSupabase(today, currentPeriod, checkInData);
+  }, [settings, saveToSupabase]);
 
   /**
    * Skip today's check-in (mark as skipped)
    */
-  const skipCheckIn = (period = null) => {
+  const skipCheckIn = useCallback((period = null) => {
     const today = getTodayKey();
     const currentPeriod = period || getCurrentPeriod(settings) || 'morning';
 
@@ -193,7 +371,8 @@ export const CheckInProvider = ({ children }) => {
         }
       }
     }));
-  };
+    // Skipped entries are not synced to Supabase
+  }, [settings]);
 
   /**
    * Check if check-in is needed now
@@ -339,9 +518,9 @@ export const CheckInProvider = ({ children }) => {
   /**
    * Update check-in settings
    */
-  const updateSettings = (newSettings) => {
+  const updateSettings = useCallback((newSettings) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
-  };
+  }, []);
 
   const value = {
     // Data
@@ -355,6 +534,8 @@ export const CheckInProvider = ({ children }) => {
     isCheckInNeeded,
     wasMorningSkipped,
     isCheckInButtonEnabled,
+    loading,
+    isAuthenticated,
 
     // Actions
     submitCheckIn,

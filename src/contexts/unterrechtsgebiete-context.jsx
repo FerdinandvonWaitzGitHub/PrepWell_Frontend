@@ -73,7 +73,7 @@ export const UnterrechtsgebieteProvider = ({ children }) => {
         flat.push({
           ...item,
           rechtsgebiet: rechtsgebietId,
-          color: RECHTSGEBIET_COLORS[rechtsgebietId] || 'bg-gray-500'
+          color: RECHTSGEBIET_COLORS[rechtsgebietId] || 'bg-neutral-500'
         });
       });
     });

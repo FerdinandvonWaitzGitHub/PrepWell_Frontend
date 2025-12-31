@@ -1,12 +1,12 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useWizardDraftSync } from '../../../hooks/use-supabase-sync';
 
 /**
  * Lernplan Wizard Context
- * Manages multi-step wizard state with localStorage persistence
+ * Manages multi-step wizard state with Supabase persistence
+ * Falls back to localStorage when not authenticated
  */
-
-const STORAGE_KEY = 'prepwell_lernplan_wizard_draft';
 
 /**
  * Calculate learning days per week from weekStructure
@@ -102,58 +102,43 @@ const initialWizardState = {
 const WizardContext = createContext(null);
 
 /**
- * Load draft from localStorage
- */
-const loadDraft = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...initialWizardState, ...parsed };
-    }
-  } catch (error) {
-    console.error('Error loading wizard draft:', error);
-  }
-  return null;
-};
-
-/**
- * Save draft to localStorage
- */
-const saveDraft = (state) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      ...state,
-      lastModified: new Date().toISOString(),
-    }));
-  } catch (error) {
-    console.error('Error saving wizard draft:', error);
-  }
-};
-
-/**
- * Clear draft from localStorage
- */
-const clearDraft = () => {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error('Error clearing wizard draft:', error);
-  }
-};
-
-/**
  * Wizard Provider Component
+ * Now uses Supabase for persistence when authenticated,
+ * with LocalStorage fallback for offline/unauthenticated use.
  */
 export const WizardProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Initialize state from localStorage or default
+  // Use Supabase sync hook for wizard drafts
+  const {
+    draft: syncedDraft,
+    loading: draftLoading,
+    saveDraft: saveDraftToSupabase,
+    clearDraft: clearDraftFromSupabase,
+    hasDraft: checkHasDraft,
+    isAuthenticated,
+  } = useWizardDraftSync();
+
+  // Track if initial sync is complete
+  const initialSyncDone = useRef(false);
+
+  // Initialize state from synced draft or default
   const [wizardState, setWizardState] = useState(() => {
-    const draft = loadDraft();
-    return draft || initialWizardState;
+    // On first render, use synced draft if available
+    if (syncedDraft && syncedDraft.currentStep > 0) {
+      return { ...initialWizardState, ...syncedDraft };
+    }
+    return initialWizardState;
   });
+
+  // Update state when synced draft changes (e.g., after login sync)
+  useEffect(() => {
+    if (syncedDraft && !initialSyncDone.current && syncedDraft.currentStep > 1) {
+      setWizardState(prev => ({ ...initialWizardState, ...syncedDraft }));
+      initialSyncDone.current = true;
+    }
+  }, [syncedDraft]);
 
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -201,12 +186,25 @@ export const WizardProvider = ({ children }) => {
     prevWeekStructureRef.current = currentWeekStructure;
   }, [wizardState.weekStructure, wizardState.startDate, wizardState.endDate]);
 
-  // Auto-save on state change
+  // Auto-save on state change (debounced to avoid too many Supabase calls)
+  const saveTimeoutRef = useRef(null);
   useEffect(() => {
     if (wizardState.currentStep > 0) {
-      saveDraft(wizardState);
+      // Clear any pending save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      // Debounce save by 500ms
+      saveTimeoutRef.current = setTimeout(() => {
+        saveDraftToSupabase(wizardState);
+      }, 500);
     }
-  }, [wizardState]);
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [wizardState, saveDraftToSupabase]);
 
   // Update wizard data
   const updateWizardData = useCallback((updates) => {
@@ -272,18 +270,18 @@ export const WizardProvider = ({ children }) => {
   }, []);
 
   // Save and exit
-  const saveAndExit = useCallback(() => {
-    saveDraft(wizardState);
+  const saveAndExit = useCallback(async () => {
+    await saveDraftToSupabase(wizardState);
     setShowExitDialog(false);
     navigate(wizardState.returnPath);
-  }, [wizardState, navigate]);
+  }, [wizardState, navigate, saveDraftToSupabase]);
 
   // Discard and exit
-  const discardAndExit = useCallback(() => {
-    clearDraft();
+  const discardAndExit = useCallback(async () => {
+    await clearDraftFromSupabase();
     setShowExitDialog(false);
     navigate(wizardState.returnPath);
-  }, [wizardState.returnPath, navigate]);
+  }, [wizardState.returnPath, navigate, clearDraftFromSupabase]);
 
   // Complete wizard - sends data to API
   const completeWizard = useCallback(async () => {
@@ -327,8 +325,8 @@ export const WizardProvider = ({ children }) => {
 
       console.log('✅ Lernplan erstellt:', result.lernplanId);
 
-      // Clear draft after successful creation
-      clearDraft();
+      // Clear draft after successful creation (from both localStorage and Supabase)
+      await clearDraftFromSupabase();
 
       // Reset state
       setWizardState(initialWizardState);
@@ -346,27 +344,25 @@ export const WizardProvider = ({ children }) => {
       setError(err.message || 'Ein Fehler ist aufgetreten');
       setIsLoading(false);
     }
-  }, [wizardState, navigate]);
+  }, [wizardState, navigate, clearDraftFromSupabase]);
 
-  // Check if there's a saved draft
+  // Check if there's a saved draft (uses synced state)
   const hasDraft = useCallback(() => {
-    const draft = loadDraft();
-    return draft && draft.currentStep > 1;
-  }, []);
+    return checkHasDraft();
+  }, [checkHasDraft]);
 
-  // Resume from draft
+  // Resume from draft (uses synced state)
   const resumeDraft = useCallback(() => {
-    const draft = loadDraft();
-    if (draft) {
-      setWizardState(draft);
+    if (syncedDraft) {
+      setWizardState({ ...initialWizardState, ...syncedDraft });
     }
-  }, []);
+  }, [syncedDraft]);
 
   // Start fresh
-  const startFresh = useCallback((returnPath = '/lernplan') => {
-    clearDraft();
+  const startFresh = useCallback(async (returnPath = '/lernplan') => {
+    await clearDraftFromSupabase();
     setWizardState({ ...initialWizardState, returnPath });
-  }, []);
+  }, [clearDraftFromSupabase]);
 
   // Complete manual calendar wizard - shows loading/success flow
   const completeManualCalendar = useCallback(async () => {
@@ -380,8 +376,8 @@ export const WizardProvider = ({ children }) => {
       // Note: The calendar data is saved by Step8Calendar on unmount
       // Here we just clear the draft and set success status
 
-      // Clear the wizard draft
-      clearDraft();
+      // Clear the wizard draft (from both localStorage and Supabase)
+      await clearDraftFromSupabase();
 
       // Set success status
       setCalendarCreationStatus('success');
@@ -396,7 +392,7 @@ export const WizardProvider = ({ children }) => {
       setCalendarCreationStatus('error');
       setCalendarCreationErrors([err.message || 'Ein Fehler ist aufgetreten']);
     }
-  }, [navigate]);
+  }, [navigate, clearDraftFromSupabase]);
 
   // Create Lernplan from template selection (for automatic/template paths)
   const createLernplanFromTemplate = useCallback(async () => {
@@ -436,8 +432,8 @@ export const WizardProvider = ({ children }) => {
 
       console.log('✅ Lernplan erstellt:', result.lernplanId);
 
-      // Clear the wizard draft
-      clearDraft();
+      // Clear the wizard draft (from both localStorage and Supabase)
+      await clearDraftFromSupabase();
 
       // Set success status
       setCalendarCreationStatus('success');
@@ -452,7 +448,7 @@ export const WizardProvider = ({ children }) => {
       setCalendarCreationStatus('error');
       setCalendarCreationErrors([err.message || 'Ein Fehler ist aufgetreten']);
     }
-  }, [wizardState, navigate]);
+  }, [wizardState, navigate, clearDraftFromSupabase]);
 
   // Reset calendar creation status
   const resetCalendarCreationStatus = useCallback(() => {
@@ -500,8 +496,8 @@ export const WizardProvider = ({ children }) => {
 
       console.log('✅ Lernplan erstellt:', result.lernplanId);
 
-      // Clear the wizard draft
-      clearDraft();
+      // Clear the wizard draft (from both localStorage and Supabase)
+      await clearDraftFromSupabase();
 
       // Set success status
       setCalendarCreationStatus('success');
@@ -516,16 +512,18 @@ export const WizardProvider = ({ children }) => {
       setCalendarCreationStatus('error');
       setCalendarCreationErrors([err.message || 'Ein Fehler ist aufgetreten']);
     }
-  }, [wizardState, navigate]);
+  }, [wizardState, navigate, clearDraftFromSupabase]);
 
   const value = {
     // State
     ...wizardState,
     isLoading,
+    draftLoading, // Loading state for Supabase sync
     error,
     showExitDialog,
     calendarCreationStatus,
     calendarCreationErrors,
+    isAuthenticated, // Whether user is authenticated (for UI hints)
 
     // Actions
     updateWizardData,

@@ -122,7 +122,7 @@ const Step7Automatic = () => {
   };
 
   // Get colors for current Rechtsgebiet
-  const colors = RECHTSGEBIET_COLORS[selectedRechtsgebiet] || { bg: 'bg-gray-900', text: 'text-gray-100' };
+  const colors = RECHTSGEBIET_COLORS[selectedRechtsgebiet] || { bg: 'bg-neutral-900', text: 'text-neutral-100' };
 
   return (
     <div className="flex flex-col items-center gap-9">
@@ -130,17 +130,17 @@ const Step7Automatic = () => {
       <div className="flex flex-col items-center gap-3.5">
         {/* Rechtsgebiet Dropdown */}
         <div className="flex items-center gap-3.5">
-          <span className="text-gray-900 text-lg font-light">Rechtsgebiet auswählen</span>
+          <span className="text-neutral-900 text-lg font-light">Rechtsgebiet auswählen</span>
           <div className="relative">
             <button
               onClick={() => setShowRechtsgebietDropdown(!showRechtsgebietDropdown)}
-              className="h-9 pl-5 pr-4 py-2 bg-white rounded-lg border border-gray-300 flex items-center gap-2"
+              className="h-9 pl-5 pr-4 py-2 bg-white rounded-lg border border-neutral-300 flex items-center gap-2"
             >
-              <span className="text-gray-900 text-sm font-light">{selectedRechtsgebiet}</span>
-              <ChevronDown className="w-4 h-4 text-gray-900" />
+              <span className="text-neutral-900 text-sm font-light">{selectedRechtsgebiet}</span>
+              <ChevronDown className="w-4 h-4 text-neutral-900" />
             </button>
             {showRechtsgebietDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg z-10">
                 {Object.keys(RECHTSGEBIET_COLORS).map((rg) => (
                   <button
                     key={rg}
@@ -149,7 +149,7 @@ const Step7Automatic = () => {
                       setSelectedUnterrechtsgebiet(null);
                       setShowRechtsgebietDropdown(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50"
                   >
                     {rg}
                   </button>
@@ -161,19 +161,19 @@ const Step7Automatic = () => {
 
         {/* Unterrechtsgebiet Dropdown */}
         <div className="flex items-center gap-3.5">
-          <span className="text-gray-900 text-lg font-light">Unterrechtsgebiet auswählen</span>
+          <span className="text-neutral-900 text-lg font-light">Unterrechtsgebiet auswählen</span>
           <div className="relative">
             <button
               onClick={() => setShowUnterrechtsgebietDropdown(!showUnterrechtsgebietDropdown)}
-              className="h-9 pl-5 pr-4 py-2 bg-white rounded-lg border border-gray-300 flex items-center gap-2"
+              className="h-9 pl-5 pr-4 py-2 bg-white rounded-lg border border-neutral-300 flex items-center gap-2"
             >
-              <span className="text-gray-900 text-sm font-light">
+              <span className="text-neutral-900 text-sm font-light">
                 {selectedUnterrechtsgebiet || 'Neues Unterrechtsgebiet'}
               </span>
-              <ChevronDown className="w-4 h-4 text-gray-900" />
+              <ChevronDown className="w-4 h-4 text-neutral-900" />
             </button>
             {showUnterrechtsgebietDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[200px]">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg z-10 min-w-[200px]">
                 {currentUnterrechtsgebiete.map((urg) => (
                   <button
                     key={urg}
@@ -181,7 +181,7 @@ const Step7Automatic = () => {
                       setSelectedUnterrechtsgebiet(urg);
                       setShowUnterrechtsgebietDropdown(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50"
                   >
                     {urg}
                   </button>
@@ -191,7 +191,7 @@ const Step7Automatic = () => {
                     addUnterrechtsgebiet();
                     setShowUnterrechtsgebietDropdown(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 border-t border-gray-100 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 border-t border-neutral-100 flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
                   Neues Unterrechtsgebiet
@@ -223,7 +223,7 @@ const Step7Automatic = () => {
                   updateLernplan(newLernplan);
                   setSelectedUnterrechtsgebiet(e.target.value);
                 }}
-                className="text-center text-gray-900 text-2xl font-extralight bg-transparent border-none outline-none"
+                className="text-center text-neutral-900 text-2xl font-extralight bg-transparent border-none outline-none"
                 placeholder="Neues Unterrechtsgebiet..."
               />
               <input
@@ -234,7 +234,7 @@ const Step7Automatic = () => {
                   newLernplan.rechtsgebiete[selectedRechtsgebiet].unterrechtsgebiete[selectedUnterrechtsgebiet].beschreibung = e.target.value;
                   updateLernplan(newLernplan);
                 }}
-                className="w-[717px] text-center text-gray-400 text-sm font-normal bg-transparent border-none outline-none"
+                className="w-[717px] text-center text-neutral-400 text-sm font-normal bg-transparent border-none outline-none"
                 placeholder="Beschreibung hinzufügen..."
               />
             </div>
@@ -254,8 +254,8 @@ const Step7Automatic = () => {
                 >
                   {/* Lerntag Header */}
                   <div className="flex items-center gap-2">
-                    <div className="px-2 py-0.5 bg-gray-100 rounded-lg">
-                      <span className="text-gray-600 text-xs font-semibold">Lerntag {lerntagIndex + 1}</span>
+                    <div className="px-2 py-0.5 bg-neutral-100 rounded-lg">
+                      <span className="text-neutral-600 text-xs font-semibold">Lerntag {lerntagIndex + 1}</span>
                     </div>
                   </div>
 
@@ -265,11 +265,11 @@ const Step7Automatic = () => {
                       {/* Thema Header */}
                       <div className="px-2.5 pt-1 pb-2.5 flex flex-col gap-2.5">
                         <div className="flex items-center gap-5">
-                          <span className="text-gray-900 text-lg font-semibold">
+                          <span className="text-neutral-900 text-lg font-semibold">
                             {themaIndex + 1}. Thema
                           </span>
-                          <div className="px-2 py-0.5 bg-gray-100 rounded-lg">
-                            <span className="text-gray-600 text-xs font-semibold">
+                          <div className="px-2 py-0.5 bg-neutral-100 rounded-lg">
+                            <span className="text-neutral-600 text-xs font-semibold">
                               {thema.bloecke}/{blocksPerDay} Blöcke
                             </span>
                           </div>
@@ -279,16 +279,16 @@ const Step7Automatic = () => {
                               newLernplan.rechtsgebiete[selectedRechtsgebiet].unterrechtsgebiete[selectedUnterrechtsgebiet].lerntage[lerntagIndex].themen.splice(themaIndex, 1);
                               updateLernplan(newLernplan);
                             }}
-                            className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50"
+                            className="w-8 h-8 rounded-lg border border-neutral-200 flex items-center justify-center hover:bg-neutral-50"
                           >
-                            <Trash2 className="w-4 h-4 text-gray-400" />
+                            <Trash2 className="w-4 h-4 text-neutral-400" />
                           </button>
                         </div>
                         <input
                           type="text"
                           value={thema.beschreibung}
                           onChange={(e) => updateThema(lerntagIndex, themaIndex, 'beschreibung', e.target.value)}
-                          className="w-96 text-gray-400 text-sm font-normal bg-transparent border-none outline-none"
+                          className="w-96 text-neutral-400 text-sm font-normal bg-transparent border-none outline-none"
                           placeholder="Beschreibung hinzufügen..."
                         />
                       </div>
@@ -302,7 +302,7 @@ const Step7Automatic = () => {
                           {thema.aufgaben.map((aufgabe, aufgabeIndex) => (
                             <div
                               key={aufgabe.id}
-                              className="w-96 p-2.5 rounded-lg border border-gray-200 flex justify-between items-center"
+                              className="w-96 p-2.5 rounded-lg border border-neutral-200 flex justify-between items-center"
                             >
                               <div className="flex items-start gap-2">
                                 <input
@@ -313,7 +313,7 @@ const Step7Automatic = () => {
                                     newLernplan.rechtsgebiete[selectedRechtsgebiet].unterrechtsgebiete[selectedUnterrechtsgebiet].lerntage[lerntagIndex].themen[themaIndex].aufgaben[aufgabeIndex].erledigt = e.target.checked;
                                     updateLernplan(newLernplan);
                                   }}
-                                  className="w-4 h-4 rounded border border-gray-300"
+                                  className="w-4 h-4 rounded border border-neutral-300"
                                 />
                                 <div className="flex flex-col gap-1.5">
                                   <input
@@ -324,7 +324,7 @@ const Step7Automatic = () => {
                                       newLernplan.rechtsgebiete[selectedRechtsgebiet].unterrechtsgebiete[selectedUnterrechtsgebiet].lerntage[lerntagIndex].themen[themaIndex].aufgaben[aufgabeIndex].titel = e.target.value;
                                       updateLernplan(newLernplan);
                                     }}
-                                    className="text-gray-900 text-sm font-medium bg-transparent border-none outline-none"
+                                    className="text-neutral-900 text-sm font-medium bg-transparent border-none outline-none"
                                     placeholder="Aufgabe"
                                   />
                                   <input
@@ -335,7 +335,7 @@ const Step7Automatic = () => {
                                       newLernplan.rechtsgebiete[selectedRechtsgebiet].unterrechtsgebiete[selectedUnterrechtsgebiet].lerntage[lerntagIndex].themen[themaIndex].aufgaben[aufgabeIndex].beschreibung = e.target.value;
                                       updateLernplan(newLernplan);
                                     }}
-                                    className="text-gray-500 text-sm font-normal bg-transparent border-none outline-none"
+                                    className="text-neutral-500 text-sm font-normal bg-transparent border-none outline-none"
                                     placeholder="Aufgabenbeschreibung"
                                   />
                                 </div>
@@ -347,7 +347,7 @@ const Step7Automatic = () => {
                                     newLernplan.rechtsgebiete[selectedRechtsgebiet].unterrechtsgebiete[selectedUnterrechtsgebiet].lerntage[lerntagIndex].themen[themaIndex].aufgaben[aufgabeIndex].wichtig = !aufgabe.wichtig;
                                     updateLernplan(newLernplan);
                                   }}
-                                  className={`h-8 px-0.5 rounded-lg ${aufgabe.wichtig ? 'text-red-500' : 'text-gray-300'}`}
+                                  className={`h-8 px-0.5 rounded-lg ${aufgabe.wichtig ? 'text-red-500' : 'text-neutral-300'}`}
                                 >
                                   <span className="text-xl font-semibold">!</span>
                                 </button>
@@ -356,10 +356,10 @@ const Step7Automatic = () => {
                           ))}
                           <button
                             onClick={() => addAufgabe(lerntagIndex, themaIndex)}
-                            className="h-8 px-3 py-2 bg-white rounded-lg border border-gray-300 flex items-center gap-2"
+                            className="h-8 px-3 py-2 bg-white rounded-lg border border-neutral-300 flex items-center gap-2"
                           >
-                            <span className="text-gray-900 text-xs font-medium">Aufgabe hinzufügen</span>
-                            <Plus className="w-4 h-4 text-gray-900" />
+                            <span className="text-neutral-900 text-xs font-medium">Aufgabe hinzufügen</span>
+                            <Plus className="w-4 h-4 text-neutral-900" />
                           </button>
                         </div>
                       </div>
@@ -373,7 +373,7 @@ const Step7Automatic = () => {
                         onClick={() => addThema(lerntagIndex)}
                         className="px-2.5 pt-1 pb-2.5"
                       >
-                        <span className="text-gray-900 text-lg font-semibold">
+                        <span className="text-neutral-900 text-lg font-semibold">
                           {lerntag.themen.length + 1}. Neues Thema erstellen...
                         </span>
                       </button>
@@ -386,10 +386,10 @@ const Step7Automatic = () => {
             {/* Add Lerntag Button */}
             <button
               onClick={addLerntag}
-              className="p-5 bg-white rounded-[5px] border border-dashed border-neutral-300 flex flex-col items-center justify-center gap-2 min-w-[400px] min-h-[200px] hover:bg-gray-50"
+              className="p-5 bg-white rounded-[5px] border border-dashed border-neutral-300 flex flex-col items-center justify-center gap-2 min-w-[400px] min-h-[200px] hover:bg-neutral-50"
             >
-              <Plus className="w-8 h-8 text-gray-400" />
-              <span className="text-gray-400 text-sm">Lerntag hinzufügen</span>
+              <Plus className="w-8 h-8 text-neutral-400" />
+              <span className="text-neutral-400 text-sm">Lerntag hinzufügen</span>
             </button>
           </div>
         )}
@@ -397,10 +397,10 @@ const Step7Automatic = () => {
         {/* Empty State - No Unterrechtsgebiet selected */}
         {!selectedUnterrechtsgebiet && (
           <div className="flex flex-col items-center gap-4 py-20">
-            <p className="text-gray-500 text-lg">Wähle oder erstelle ein Unterrechtsgebiet, um Lerntage hinzuzufügen.</p>
+            <p className="text-neutral-500 text-lg">Wähle oder erstelle ein Unterrechtsgebiet, um Lerntage hinzuzufügen.</p>
             <button
               onClick={addUnterrechtsgebiet}
-              className="px-5 py-2.5 bg-gray-900 text-white rounded-3xl flex items-center gap-2"
+              className="px-5 py-2.5 bg-neutral-900 text-white rounded-3xl flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               <span className="text-sm font-light">Neues Unterrechtsgebiet erstellen</span>

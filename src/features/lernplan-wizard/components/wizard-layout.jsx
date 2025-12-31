@@ -81,19 +81,19 @@ const WizardLayout = ({ children }) => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header - Simplified without main navigation */}
-      <header className="h-[72px] px-8 flex items-center justify-between border-b border-gray-100">
+      <header className="h-[72px] px-8 flex items-center justify-between border-b border-neutral-100">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">P</span>
           </div>
-          <span className="font-semibold text-gray-900">PrepWell</span>
+          <span className="font-semibold text-neutral-900">PrepWell</span>
         </div>
 
         {/* Step indicator */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Schritt</span>
-          <span className="text-sm font-semibold text-gray-900">
+          <span className="text-sm text-neutral-500">Schritt</span>
+          <span className="text-sm font-semibold text-neutral-900">
             {currentStep} / {totalSteps}
           </span>
         </div>
@@ -102,14 +102,14 @@ const WizardLayout = ({ children }) => {
         <Button
           variant="ghost"
           onClick={handleCancel}
-          className="text-gray-500 hover:text-gray-700"
+          className="text-neutral-500 hover:text-neutral-700"
         >
           Abbrechen
         </Button>
       </header>
 
       {/* Progress bar */}
-      <div className="h-1 bg-gray-100">
+      <div className="h-1 bg-neutral-100">
         <div
           className="h-full bg-primary-600 transition-all duration-300"
           style={{ width: `${(currentStep / totalSteps) * 100}%` }}
@@ -124,7 +124,7 @@ const WizardLayout = ({ children }) => {
       </main>
 
       {/* Footer with navigation buttons */}
-      <footer className="border-t border-gray-100 px-4 sm:px-8 py-4">
+      <footer className="border-t border-neutral-100 px-4 sm:px-8 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Back button */}
           <Button

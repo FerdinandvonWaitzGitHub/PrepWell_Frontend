@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useUserSettingsSync } from '../hooks/use-supabase-sync';
 
 const STORAGE_KEY = 'prepwell_mentor_activated';
 
@@ -7,6 +8,9 @@ const STORAGE_KEY = 'prepwell_mentor_activated';
  *
  * The mentor feature requires explicit activation by the user.
  * Once activated, statistics and analytics become available.
+ *
+ * Now uses Supabase for persistence when authenticated,
+ * with LocalStorage fallback for offline/unauthenticated use.
  */
 const MentorContext = createContext(null);
 
@@ -40,38 +44,45 @@ const saveMentorState = (state) => {
  * MentorProvider component
  */
 export const MentorProvider = ({ children }) => {
-  const [mentorState, setMentorState] = useState(loadMentorState);
+  // Use Supabase sync hook for user settings
+  const { settings, updateSettings, loading } = useUserSettingsSync();
 
-  // Persist state changes to localStorage
+  // Local state as fallback for activatedAt (not in user_settings table)
+  const [activatedAt, setActivatedAt] = useState(() => loadMentorState().activatedAt);
+
+  // Get isActivated from settings (synced) or fallback to localStorage
+  const isActivated = settings.mentorActivated ?? loadMentorState().isActivated;
+
+  // Persist activatedAt to localStorage (not synced to Supabase)
   useEffect(() => {
-    saveMentorState(mentorState);
-  }, [mentorState]);
+    saveMentorState({ isActivated, activatedAt });
+  }, [isActivated, activatedAt]);
 
   /**
    * Activate the mentor feature
+   * Now syncs to Supabase when authenticated
    */
-  const activateMentor = () => {
-    setMentorState({
-      isActivated: true,
-      activatedAt: new Date().toISOString()
-    });
-  };
+  const activateMentor = useCallback(() => {
+    const now = new Date().toISOString();
+    setActivatedAt(now);
+    updateSettings({ mentorActivated: true });
+  }, [updateSettings]);
 
   /**
    * Deactivate the mentor feature (reset)
+   * Now syncs to Supabase when authenticated
    */
-  const deactivateMentor = () => {
-    setMentorState({
-      isActivated: false,
-      activatedAt: null
-    });
-  };
+  const deactivateMentor = useCallback(() => {
+    setActivatedAt(null);
+    updateSettings({ mentorActivated: false });
+  }, [updateSettings]);
 
   const value = {
-    isActivated: mentorState.isActivated,
-    activatedAt: mentorState.activatedAt,
+    isActivated,
+    activatedAt,
     activateMentor,
-    deactivateMentor
+    deactivateMentor,
+    loading,
   };
 
   return (

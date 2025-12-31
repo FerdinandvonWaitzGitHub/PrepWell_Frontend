@@ -59,19 +59,19 @@ const MonthHeatmap = ({ year, month, data = {} }) => {
 
   // Get color class based on score
   const getColorClass = (score) => {
-    if (!score || score === 0) return 'bg-gray-100';
-    if (score >= 90) return 'bg-gray-900';
-    if (score >= 70) return 'bg-gray-600';
-    if (score >= 50) return 'bg-gray-400';
-    if (score >= 30) return 'bg-gray-300';
-    return 'bg-gray-200';
+    if (!score || score === 0) return 'bg-neutral-100';
+    if (score >= 90) return 'bg-neutral-900';
+    if (score >= 70) return 'bg-neutral-600';
+    if (score >= 50) return 'bg-neutral-400';
+    if (score >= 30) return 'bg-neutral-300';
+    return 'bg-neutral-200';
   };
 
   return (
-    <div className="w-80 p-5 bg-white rounded-[10px] border border-gray-200 inline-flex flex-col justify-start items-end gap-2.5">
+    <div className="w-80 p-5 bg-white rounded-[10px] border border-neutral-200 inline-flex flex-col justify-start items-end gap-2.5">
       {/* Month name */}
       <div className="self-stretch inline-flex justify-start items-center gap-1.5">
-        <div className="text-gray-900 text-lg font-light leading-4">
+        <div className="text-neutral-900 text-lg font-light leading-4">
           {monthNames[month]}
         </div>
       </div>
@@ -127,9 +127,9 @@ const YearViewDialog = ({ open, onClose }) => {
       {/* Header */}
       <div className="px-12 py-2 flex justify-between items-center">
         <div className="w-24 h-9 flex flex-col justify-center items-center">
-          <span className="text-xl font-semibold text-gray-900">PrepWell</span>
+          <span className="text-xl font-semibold text-neutral-900">PrepWell</span>
         </div>
-        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-sm font-normal">
+        <div className="w-8 h-8 bg-neutral-200 rounded-full flex items-center justify-center text-neutral-600 text-sm font-normal">
           CN
         </div>
       </div>
@@ -142,11 +142,11 @@ const YearViewDialog = ({ open, onClose }) => {
             <div className="self-stretch min-h-12 flex flex-col items-center gap-7">
               <div className="w-full max-w-[1389px] flex flex-col items-center gap-2.5">
                 <div className="self-stretch py-[5px] flex justify-center items-center gap-2">
-                  <div className="flex-1 text-center text-gray-900 text-5xl font-extralight leading-[48px]">
+                  <div className="flex-1 text-center text-neutral-900 text-5xl font-extralight leading-[48px]">
                     Das ist dein Jahr, Celina.
                   </div>
                 </div>
-                <div className="w-[900px] text-center text-gray-500 text-sm font-light leading-5">
+                <div className="w-[900px] text-center text-neutral-500 text-sm font-light leading-5">
                   Deine Produktivität auf einen Blick. Dunklere Felder bedeuten höhere Aktivität.
                 </div>
               </div>
@@ -159,7 +159,7 @@ const YearViewDialog = ({ open, onClose }) => {
                     <select
                       value={selectedMetric}
                       onChange={(e) => setSelectedMetric(e.target.value)}
-                      className="h-9 px-4 py-2 bg-white rounded-lg border border-gray-300 text-gray-900 text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      className="h-9 px-4 py-2 bg-white rounded-lg border border-neutral-300 text-neutral-900 text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-neutral-500"
                     >
                       {metrics.map(metric => (
                         <option key={metric.id} value={metric.id}>
@@ -170,7 +170,7 @@ const YearViewDialog = ({ open, onClose }) => {
                   </div>
                 </div>
 
-                <span className="text-gray-500 text-sm font-light leading-5">
+                <span className="text-neutral-500 text-sm font-light leading-5">
                   im Jahr
                 </span>
 
@@ -180,7 +180,7 @@ const YearViewDialog = ({ open, onClose }) => {
                     <select
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(Number(e.target.value))}
-                      className="h-9 px-4 py-2 bg-white rounded-lg border border-gray-300 text-gray-900 text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      className="h-9 px-4 py-2 bg-white rounded-lg border border-neutral-300 text-neutral-900 text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-neutral-500"
                     >
                       {availableYears.map(year => (
                         <option key={year} value={year}>
@@ -194,7 +194,7 @@ const YearViewDialog = ({ open, onClose }) => {
             </div>
 
             {/* Divider */}
-            <div className="self-stretch h-px bg-gray-200" />
+            <div className="self-stretch h-px bg-neutral-200" />
 
             {/* Month Grid - 3 rows of 4 months */}
             <div className="self-stretch flex flex-col items-center gap-10">
@@ -237,16 +237,16 @@ const YearViewDialog = ({ open, onClose }) => {
 
             {/* Legend */}
             <div className="flex items-center gap-4">
-              <span className="text-gray-500 text-sm">Weniger</span>
+              <span className="text-neutral-500 text-sm">Weniger</span>
               <div className="flex gap-1">
-                <div className="w-6 h-6 bg-gray-100 rounded" />
-                <div className="w-6 h-6 bg-gray-200 rounded" />
-                <div className="w-6 h-6 bg-gray-300 rounded" />
-                <div className="w-6 h-6 bg-gray-400 rounded" />
-                <div className="w-6 h-6 bg-gray-600 rounded" />
-                <div className="w-6 h-6 bg-gray-900 rounded" />
+                <div className="w-6 h-6 bg-neutral-100 rounded" />
+                <div className="w-6 h-6 bg-neutral-200 rounded" />
+                <div className="w-6 h-6 bg-neutral-300 rounded" />
+                <div className="w-6 h-6 bg-neutral-400 rounded" />
+                <div className="w-6 h-6 bg-neutral-600 rounded" />
+                <div className="w-6 h-6 bg-neutral-900 rounded" />
               </div>
-              <span className="text-gray-500 text-sm">Mehr</span>
+              <span className="text-neutral-500 text-sm">Mehr</span>
             </div>
           </div>
         </div>
@@ -255,12 +255,12 @@ const YearViewDialog = ({ open, onClose }) => {
         <div className="self-stretch px-7 flex justify-start items-end gap-2.5">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-full border border-gray-300 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+            className="px-5 py-2.5 rounded-full border border-neutral-300 flex items-center gap-2 hover:bg-neutral-50 transition-colors"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-gray-900">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-neutral-900">
               <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="text-gray-900 text-sm font-light leading-5">
+            <span className="text-neutral-900 text-sm font-light leading-5">
               Zurück zum Mentor
             </span>
           </button>

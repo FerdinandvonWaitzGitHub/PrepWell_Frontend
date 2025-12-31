@@ -275,7 +275,7 @@ const ManageThemeBlockDialog = ({
         <DialogBody className="space-y-5">
           {/* Titel */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">
+            <label className="text-sm font-medium text-neutral-900">
               Titel <span className="text-red-500">*</span>
             </label>
             <input
@@ -283,45 +283,45 @@ const ManageThemeBlockDialog = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="z.B. Vorlesung Mathe, Lerngruppe..."
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
               autoFocus
             />
           </div>
 
           {/* Beschreibung */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">Beschreibung</label>
+            <label className="text-sm font-medium text-neutral-900">Beschreibung</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optionale Notizen..."
               rows={2}
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm resize-none"
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm resize-none"
             />
           </div>
 
           {/* Uhrzeit */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-900">
+            <label className="text-sm font-medium text-neutral-900">
               Uhrzeit <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">Von</label>
+                <label className="text-sm text-neutral-600">Von</label>
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">Bis</label>
+                <label className="text-sm text-neutral-600">Bis</label>
                 <input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
             </div>
@@ -334,33 +334,33 @@ const ManageThemeBlockDialog = ({
                 type="checkbox"
                 checked={repeatEnabled}
                 onChange={(e) => setRepeatEnabled(e.target.checked)}
-                className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                className="w-5 h-5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
               />
-              <span className="text-sm font-medium text-gray-900">Termin wiederholen</span>
+              <span className="text-sm font-medium text-neutral-900">Termin wiederholen</span>
             </label>
 
             {repeatEnabled && (
               <div className="space-y-4 pl-8">
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-600">Wiederholung</label>
+                  <label className="text-sm text-neutral-600">Wiederholung</label>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setIsRepeatTypeOpen(!isRepeatTypeOpen)}
-                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 text-left"
                     >
-                      <span className="text-sm text-gray-900">{getRepeatTypeName()}</span>
-                      <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
+                      <span className="text-sm text-neutral-900">{getRepeatTypeName()}</span>
+                      <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {isRepeatTypeOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                         {repeatTypeOptions.map(opt => (
                           <button
                             key={opt.id}
                             type="button"
                             onClick={() => { setRepeatType(opt.id); setIsRepeatTypeOpen(false); }}
-                            className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                              repeatType === opt.id ? 'bg-gray-100 font-medium' : ''
+                            className={`w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                              repeatType === opt.id ? 'bg-neutral-100 font-medium' : ''
                             }`}
                           >
                             {opt.name}
@@ -373,7 +373,7 @@ const ManageThemeBlockDialog = ({
 
                 {repeatType === 'custom' && (
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-600">An diesen Tagen</label>
+                    <label className="text-sm text-neutral-600">An diesen Tagen</label>
                     <div className="flex flex-wrap gap-2">
                       {weekdayOptions.map(day => (
                         <button
@@ -381,7 +381,7 @@ const ManageThemeBlockDialog = ({
                           type="button"
                           onClick={() => toggleCustomDay(day.id)}
                           className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
-                            customDays.includes(day.id) ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            customDays.includes(day.id) ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                           }`}
                         >
                           {day.short}
@@ -392,7 +392,7 @@ const ManageThemeBlockDialog = ({
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-600">Anzahl Wiederholungen</label>
+                  <label className="text-sm text-neutral-600">Anzahl Wiederholungen</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="number"
@@ -400,9 +400,9 @@ const ManageThemeBlockDialog = ({
                       max="100"
                       value={repeatCount}
                       onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                      className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm text-center"
+                      className="w-24 px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm text-center"
                     />
-                    <span className="text-sm text-gray-600">mal</span>
+                    <span className="text-sm text-neutral-600">mal</span>
                   </div>
                 </div>
               </div>
@@ -410,32 +410,32 @@ const ManageThemeBlockDialog = ({
           </div>
 
           {/* Aufgaben */}
-          <div className="space-y-3 pt-2 border-t border-gray-200">
-            <label className="text-sm font-medium text-gray-900">Aufgaben</label>
+          <div className="space-y-3 pt-2 border-t border-neutral-200">
+            <label className="text-sm font-medium text-neutral-900">Aufgaben</label>
 
             {/* Task List */}
             {tasks.length > 0 && (
               <div className="space-y-2">
                 {tasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg group">
+                  <div key={task.id} className="flex items-center gap-3 p-3 bg-neutral-50 rounded-lg group">
                     <input
                       type="checkbox"
                       checked={task.completed}
                       onChange={() => handleToggleTask(task.id)}
-                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                      className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
                     />
-                    <span className={`flex-1 text-sm ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                    <span className={`flex-1 text-sm ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
                       {task.text}
                     </span>
                     {task.source && (
-                      <span className="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded">
+                      <span className="text-xs text-neutral-400 bg-neutral-200 px-2 py-0.5 rounded">
                         {task.source === 'todos' ? 'To-Do' : task.source === 'themenliste' ? 'Themenliste' : 'Lernplan'}
                       </span>
                     )}
                     <button
                       type="button"
                       onClick={() => handleRemoveTask(task.id)}
-                      className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-neutral-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <TrashIcon size={14} />
                     </button>
@@ -452,13 +452,13 @@ const ManageThemeBlockDialog = ({
                 onChange={(e) => setNewTaskText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddNewTask()}
                 placeholder="Neue Aufgabe eingeben..."
-                className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
               />
               <button
                 type="button"
                 onClick={handleAddNewTask}
                 disabled={!newTaskText.trim()}
-                className="px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Hinzufügen
               </button>
@@ -469,21 +469,21 @@ const ManageThemeBlockDialog = ({
               <button
                 type="button"
                 onClick={() => setShowTaskSource(!showTaskSource)}
-                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900"
               >
                 <PlusIcon size={14} />
                 <span>Aus vorhandenen Aufgaben hinzufügen</span>
               </button>
 
               {showTaskSource && (
-                <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                <div className="p-4 bg-neutral-50 rounded-lg space-y-3">
                   {/* Source Selection */}
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => { setSelectedSource('todos'); setSelectedThemeListId(null); }}
                       className={`px-3 py-1.5 rounded-lg text-sm ${
-                        selectedSource === 'todos' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                        selectedSource === 'todos' ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
                       }`}
                     >
                       To-Dos ({availableTasks.length})
@@ -492,7 +492,7 @@ const ManageThemeBlockDialog = ({
                       type="button"
                       onClick={() => { setSelectedSource('themenliste'); }}
                       className={`px-3 py-1.5 rounded-lg text-sm ${
-                        selectedSource === 'themenliste' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                        selectedSource === 'themenliste' ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
                       }`}
                     >
                       Themenlisten ({themeLists.length})
@@ -504,7 +504,7 @@ const ManageThemeBlockDialog = ({
                     <select
                       value={selectedThemeListId || ''}
                       onChange={(e) => setSelectedThemeListId(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
                     >
                       <option value="">Themenliste wählen...</option>
                       {themeLists.map(list => (
@@ -521,18 +521,18 @@ const ManageThemeBlockDialog = ({
                           key={task.id}
                           type="button"
                           onClick={() => handleAddExistingTask(task)}
-                          className="w-full flex items-center gap-2 p-2 text-left text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-100"
+                          className="w-full flex items-center gap-2 p-2 text-left text-sm bg-white border border-neutral-200 rounded-lg hover:bg-neutral-100"
                         >
-                          <PlusIcon size={12} className="text-gray-400" />
+                          <PlusIcon size={12} className="text-neutral-400" />
                           <span className="flex-1 truncate">{task.text || task.title}</span>
                           {task.thema && (
-                            <span className="text-xs text-gray-400 truncate max-w-[100px]">{task.thema}</span>
+                            <span className="text-xs text-neutral-400 truncate max-w-[100px]">{task.thema}</span>
                           )}
                         </button>
                       ))}
                     </div>
                   ) : selectedSource && (
-                    <p className="text-sm text-gray-500 text-center py-2">
+                    <p className="text-sm text-neutral-500 text-center py-2">
                       {selectedSource === 'themenliste' && !selectedThemeListId
                         ? 'Bitte eine Themenliste wählen'
                         : 'Keine verfügbaren Aufgaben'}

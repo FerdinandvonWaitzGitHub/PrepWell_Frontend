@@ -59,7 +59,7 @@ const Step9Lerntage = () => {
             unterrechtsgebiet,
             lerntagIndex: lerntagIndex + 1,
             blocks: lerntag.themen?.reduce((sum, t) => sum + (t.bloecke || 1), 0) || 1,
-            color: MANUAL_RECHTSGEBIET_COLORS[rechtsgebiet] || 'bg-gray-500',
+            color: MANUAL_RECHTSGEBIET_COLORS[rechtsgebiet] || 'bg-neutral-500',
             kategorie: unterrechtsgebiet,
           });
         });
@@ -226,8 +226,8 @@ const Step9Lerntage = () => {
           </div>
 
           <div className="text-center">
-            <p className="text-lg font-medium text-gray-900">Lernplan wird erstellt</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-lg font-medium text-neutral-900">Lernplan wird erstellt</p>
+            <p className="text-sm text-neutral-500 mt-1">
               Basierend auf {unterrechtsgebieteOrder.length} Unterrechtsgebieten
             </p>
           </div>
@@ -319,38 +319,38 @@ const Step9Lerntage = () => {
         )}
 
         {/* Summary with metadata */}
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+        <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Anzahl Lerntage:</span>
-            <span className="font-semibold text-gray-900">{items.length} Tage</span>
+            <span className="text-sm text-neutral-600">Anzahl Lerntage:</span>
+            <span className="font-semibold text-neutral-900">{items.length} Tage</span>
           </div>
           {metadata && (
-            <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-3 gap-2 text-xs text-gray-500">
+            <div className="mt-2 pt-2 border-t border-neutral-200 grid grid-cols-3 gap-2 text-xs text-neutral-500">
               <div>
-                <span className="block text-gray-400">Kalendertage</span>
-                <span className="font-medium text-gray-600">{metadata.totalCalendarDays}</span>
+                <span className="block text-neutral-400">Kalendertage</span>
+                <span className="font-medium text-neutral-600">{metadata.totalCalendarDays}</span>
               </div>
               {isTemplateMode ? (
                 <div>
-                  <span className="block text-gray-400">Vorlagen-Inhalte</span>
-                  <span className="font-medium text-gray-600">{metadata.templateContentCount || items.length}</span>
+                  <span className="block text-neutral-400">Vorlagen-Inhalte</span>
+                  <span className="font-medium text-neutral-600">{metadata.templateContentCount || items.length}</span>
                 </div>
               ) : (
                 <div>
-                  <span className="block text-gray-400">Aktive Tage</span>
-                  <span className="font-medium text-gray-600">{metadata.activeLearningDays}</span>
+                  <span className="block text-neutral-400">Aktive Tage</span>
+                  <span className="font-medium text-neutral-600">{metadata.activeLearningDays}</span>
                 </div>
               )}
               {!isTemplateMode && (
                 <div>
-                  <span className="block text-gray-400">Netto Lerntage</span>
-                  <span className="font-medium text-gray-600">{metadata.netLearningDays}</span>
+                  <span className="block text-neutral-400">Netto Lerntage</span>
+                  <span className="font-medium text-neutral-600">{metadata.netLearningDays}</span>
                 </div>
               )}
               {isTemplateMode && (
                 <div>
-                  <span className="block text-gray-400">Blöcke/Tag</span>
-                  <span className="font-medium text-gray-600">{blocksPerDay}</span>
+                  <span className="block text-neutral-400">Blöcke/Tag</span>
+                  <span className="font-medium text-neutral-600">{blocksPerDay}</span>
                 </div>
               )}
             </div>
@@ -372,11 +372,11 @@ const Step9Lerntage = () => {
                     ? 'opacity-50 border-primary-300'
                     : dragOverIndex === index
                     ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-neutral-200 hover:border-neutral-300'
                 }`}
               >
                 {/* Drag handle */}
-                <div className="text-gray-400 group-hover:text-gray-600">
+                <div className="text-neutral-400 group-hover:text-neutral-600">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <circle cx="9" cy="6" r="1.5" />
                     <circle cx="15" cy="6" r="1.5" />
@@ -388,7 +388,7 @@ const Step9Lerntage = () => {
                 </div>
 
                 {/* Position number */}
-                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600">
+                <div className="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center text-xs font-semibold text-neutral-600">
                   {index + 1}
                 </div>
 
@@ -397,8 +397,8 @@ const Step9Lerntage = () => {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm truncate">{item.theme}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="font-medium text-neutral-900 text-sm truncate">{item.theme}</p>
+                  <p className="text-xs text-neutral-500">
                     {item.blocks} Blöcke
                     {item.kategorie && ` • ${item.kategorie}`}
                   </p>
@@ -409,7 +409,7 @@ const Step9Lerntage = () => {
                   <button
                     onClick={() => moveItem(index, -1)}
                     disabled={index === 0}
-                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M18 15l-6-6-6 6" />
@@ -418,7 +418,7 @@ const Step9Lerntage = () => {
                   <button
                     onClick={() => moveItem(index, 1)}
                     disabled={index === items.length - 1}
-                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M6 9l6 6 6-6" />
@@ -429,8 +429,8 @@ const Step9Lerntage = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-            <p className="text-gray-500 mb-4">Keine Lerntage generiert</p>
+          <div className="text-center py-12 bg-neutral-50 rounded-xl border-2 border-dashed border-neutral-300">
+            <p className="text-neutral-500 mb-4">Keine Lerntage generiert</p>
             <button
               onClick={generateLearningDays}
               className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"

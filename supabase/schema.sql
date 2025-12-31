@@ -109,7 +109,47 @@ CREATE TABLE uebungsklausuren (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Themenlisten (Theme Lists)
+-- Content Plans (Lernpläne & Themenlisten - hierarchical structure)
+-- Stores the full hierarchy: Plan → Rechtsgebiete → Unterrechtsgebiete → Kapitel → Themen → Aufgaben
+CREATE TABLE content_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT CHECK (type IN ('lernplan', 'themenliste')) DEFAULT 'themenliste',
+  description TEXT,
+  mode app_mode DEFAULT 'standard',
+  exam_date DATE,
+  archived BOOLEAN DEFAULT FALSE,
+  is_published BOOLEAN DEFAULT FALSE,
+  published_at TIMESTAMPTZ,
+  -- Full hierarchical structure as JSONB
+  -- Structure: [{ rechtsgebietId, name, unterrechtsgebiete: [{ id, name, kategorie, kapitel: [{ id, title, themen: [{ id, title, aufgaben: [...] }] }] }] }]
+  rechtsgebiete JSONB DEFAULT '[]',
+  -- Import tracking
+  imported_from TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Published Themenlisten (Community sharing)
+CREATE TABLE published_themenlisten (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_plan_id UUID REFERENCES content_plans(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  mode app_mode DEFAULT 'standard',
+  -- Statistics
+  stats JSONB DEFAULT '{"unterrechtsgebiete": 0, "themen": 0}',
+  gewichtung JSONB DEFAULT '{}',
+  -- Snapshot of rechtsgebiete at publish time
+  rechtsgebiete JSONB DEFAULT '[]',
+  tags TEXT[] DEFAULT '{}',
+  published_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Themenlisten (Theme Lists) - LEGACY, kept for backwards compatibility
 CREATE TABLE themenlisten (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -138,12 +178,14 @@ CREATE TABLE checkin_responses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   response_date DATE NOT NULL,
+  period TEXT CHECK (period IN ('morning', 'evening')) DEFAULT 'morning',
   mood INT CHECK (mood >= 1 AND mood <= 5),
   energy INT CHECK (energy >= 1 AND energy <= 5),
   focus INT CHECK (focus >= 1 AND focus <= 5),
+  stress INT CHECK (stress >= 1 AND stress <= 5),
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, response_date)
+  UNIQUE(user_id, response_date, period)
 );
 
 -- Timer Sessions (for statistics)
@@ -169,6 +211,82 @@ CREATE TABLE wizard_drafts (
   UNIQUE(user_id)
 );
 
+-- Private Blocks (Personal calendar entries, not part of Lernplan)
+CREATE TABLE private_blocks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  block_date DATE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  start_time TIME,
+  end_time TIME,
+  all_day BOOLEAN DEFAULT FALSE,
+  repeat_enabled BOOLEAN DEFAULT FALSE,
+  repeat_type TEXT,
+  repeat_count INT,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Calendar Slots (User's learning slots, independent of Lernplan)
+-- Supports both wizard-created and manual slots
+CREATE TABLE calendar_slots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  content_plan_id UUID REFERENCES content_plans(id) ON DELETE SET NULL,
+  slot_date DATE NOT NULL,
+  position INT CHECK (position >= 1 AND position <= 4),
+  content_id TEXT,
+  title TEXT,
+  rechtsgebiet TEXT,
+  unterrechtsgebiet TEXT,
+  block_type TEXT DEFAULT 'lernblock',
+  is_locked BOOLEAN DEFAULT FALSE,
+  is_from_lernplan BOOLEAN DEFAULT FALSE,
+  has_time BOOLEAN DEFAULT FALSE,
+  start_hour INT,
+  duration INT,
+  start_time TIME,
+  end_time TIME,
+  repeat_enabled BOOLEAN DEFAULT FALSE,
+  repeat_type TEXT,
+  repeat_count INT,
+  tasks JSONB DEFAULT '[]',
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Calendar Tasks (Daily tasks, separate from Aufgaben in content plans)
+CREATE TABLE calendar_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  task_date DATE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  priority TEXT CHECK (priority IN ('low', 'medium', 'high')) DEFAULT 'medium',
+  completed BOOLEAN DEFAULT FALSE,
+  linked_slot_id UUID REFERENCES calendar_slots(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Archived Lernpläne (Previous calendar configurations)
+CREATE TABLE archived_lernplaene (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT,
+  description TEXT,
+  start_date DATE,
+  end_date DATE,
+  slots_data JSONB DEFAULT '{}',
+  metadata JSONB DEFAULT '{}',
+  archived_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- User Settings
 CREATE TABLE user_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -176,6 +294,7 @@ CREATE TABLE user_settings (
   mentor_activated BOOLEAN DEFAULT FALSE,
   preferred_grade_system grade_system DEFAULT 'punkte',
   timer_settings JSONB DEFAULT '{}',
+  custom_subjects TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -198,6 +317,28 @@ CREATE INDEX idx_leistungen_user_id ON leistungen(user_id);
 CREATE INDEX idx_uebungsklausuren_user_id ON uebungsklausuren(user_id);
 CREATE INDEX idx_checkin_user_date ON checkin_responses(user_id, response_date);
 CREATE INDEX idx_timer_sessions_user_id ON timer_sessions(user_id);
+CREATE INDEX idx_content_plans_user_id ON content_plans(user_id);
+CREATE INDEX idx_content_plans_type ON content_plans(type);
+CREATE INDEX idx_content_plans_archived ON content_plans(archived);
+CREATE INDEX idx_published_themenlisten_user_id ON published_themenlisten(user_id);
+
+-- Private Blocks indexes
+CREATE INDEX idx_private_blocks_user_id ON private_blocks(user_id);
+CREATE INDEX idx_private_blocks_date ON private_blocks(block_date);
+CREATE INDEX idx_private_blocks_user_date ON private_blocks(user_id, block_date);
+
+-- Calendar Slots indexes
+CREATE INDEX idx_calendar_slots_user_id ON calendar_slots(user_id);
+CREATE INDEX idx_calendar_slots_date ON calendar_slots(slot_date);
+CREATE INDEX idx_calendar_slots_user_date ON calendar_slots(user_id, slot_date);
+
+-- Calendar Tasks indexes
+CREATE INDEX idx_calendar_tasks_user_id ON calendar_tasks(user_id);
+CREATE INDEX idx_calendar_tasks_date ON calendar_tasks(task_date);
+CREATE INDEX idx_calendar_tasks_user_date ON calendar_tasks(user_id, task_date);
+
+-- Archived Lernplaene indexes
+CREATE INDEX idx_archived_lernplaene_user_id ON archived_lernplaene(user_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -211,11 +352,17 @@ ALTER TABLE aufgaben ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leistungen ENABLE ROW LEVEL SECURITY;
 ALTER TABLE uebungsklausuren ENABLE ROW LEVEL SECURITY;
 ALTER TABLE themenlisten ENABLE ROW LEVEL SECURITY;
+ALTER TABLE content_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE published_themenlisten ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_unterrechtsgebiete ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checkin_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE timer_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wizard_drafts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE private_blocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_slots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE archived_lernplaene ENABLE ROW LEVEL SECURITY;
 
 -- Lernplaene Policies
 CREATE POLICY "Users can view own lernplaene" ON lernplaene
@@ -285,7 +432,7 @@ CREATE POLICY "Users can update own uebungsklausuren" ON uebungsklausuren
 CREATE POLICY "Users can delete own uebungsklausuren" ON uebungsklausuren
   FOR DELETE USING (auth.uid() = user_id);
 
--- Themenlisten Policies (public for published)
+-- Themenlisten Policies (public for published) - LEGACY
 CREATE POLICY "Users can view own themenlisten" ON themenlisten
   FOR SELECT USING (auth.uid() = user_id OR is_published = TRUE);
 CREATE POLICY "Users can create own themenlisten" ON themenlisten
@@ -293,6 +440,24 @@ CREATE POLICY "Users can create own themenlisten" ON themenlisten
 CREATE POLICY "Users can update own themenlisten" ON themenlisten
   FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own themenlisten" ON themenlisten
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Content Plans Policies
+CREATE POLICY "Users can view own content_plans" ON content_plans
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own content_plans" ON content_plans
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own content_plans" ON content_plans
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own content_plans" ON content_plans
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Published Themenlisten Policies (public read for community)
+CREATE POLICY "Anyone can view published_themenlisten" ON published_themenlisten
+  FOR SELECT USING (TRUE);
+CREATE POLICY "Users can create own published_themenlisten" ON published_themenlisten
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own published_themenlisten" ON published_themenlisten
   FOR DELETE USING (auth.uid() = user_id);
 
 -- Custom Unterrechtsgebiete Policies
@@ -335,6 +500,44 @@ CREATE POLICY "Users can create own settings" ON user_settings
 CREATE POLICY "Users can update own settings" ON user_settings
   FOR UPDATE USING (auth.uid() = user_id);
 
+-- Private Blocks Policies
+CREATE POLICY "Users can view own private_blocks" ON private_blocks
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own private_blocks" ON private_blocks
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own private_blocks" ON private_blocks
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own private_blocks" ON private_blocks
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Calendar Slots Policies
+CREATE POLICY "Users can view own calendar_slots" ON calendar_slots
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own calendar_slots" ON calendar_slots
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own calendar_slots" ON calendar_slots
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own calendar_slots" ON calendar_slots
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Calendar Tasks Policies
+CREATE POLICY "Users can view own calendar_tasks" ON calendar_tasks
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own calendar_tasks" ON calendar_tasks
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own calendar_tasks" ON calendar_tasks
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own calendar_tasks" ON calendar_tasks
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Archived Lernplaene Policies
+CREATE POLICY "Users can view own archived_lernplaene" ON archived_lernplaene
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own archived_lernplaene" ON archived_lernplaene
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own archived_lernplaene" ON archived_lernplaene
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- ============================================
 -- FUNCTIONS
 -- ============================================
@@ -363,5 +566,13 @@ CREATE TRIGGER update_uebungsklausuren_updated_at BEFORE UPDATE ON uebungsklausu
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER update_themenlisten_updated_at BEFORE UPDATE ON themenlisten
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER update_content_plans_updated_at BEFORE UPDATE ON content_plans
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER update_private_blocks_updated_at BEFORE UPDATE ON private_blocks
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER update_calendar_slots_updated_at BEFORE UPDATE ON calendar_slots
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER update_calendar_tasks_updated_at BEFORE UPDATE ON calendar_tasks
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();

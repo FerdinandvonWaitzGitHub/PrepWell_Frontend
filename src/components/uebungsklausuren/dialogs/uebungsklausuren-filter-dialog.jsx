@@ -126,11 +126,11 @@ const UebungsklausurenFilterDialog = ({ open, onOpenChange, filters, onApply }) 
         <DialogBody className="space-y-6">
           {/* Presets */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-900">Schnellauswahl</label>
+            <label className="text-sm font-medium text-neutral-900">Schnellauswahl</label>
             {PRESETS.map(preset => (
               <label
                 key={preset.id}
-                className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                className="flex items-start gap-3 p-3 bg-white border border-neutral-200 rounded-lg cursor-pointer hover:bg-neutral-50 transition-colors"
               >
                 <input
                   type="radio"
@@ -138,9 +138,9 @@ const UebungsklausurenFilterDialog = ({ open, onOpenChange, filters, onApply }) 
                   value={preset.id}
                   checked={selectedPreset === preset.id}
                   onChange={() => handlePresetChange(preset.id)}
-                  className="mt-0.5 w-4 h-4 text-gray-900 border-gray-300 focus:ring-gray-900"
+                  className="mt-0.5 w-4 h-4 text-neutral-900 border-neutral-300 focus:ring-neutral-900"
                 />
-                <span className="text-sm text-gray-700">{preset.name}</span>
+                <span className="text-sm text-neutral-700">{preset.name}</span>
               </label>
             ))}
           </div>
@@ -150,7 +150,7 @@ const UebungsklausurenFilterDialog = ({ open, onOpenChange, filters, onApply }) 
             <>
               {/* Subject Filter */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Rechtsgebiete</label>
+                <label className="text-sm font-medium text-neutral-900">Rechtsgebiete</label>
                 <div className="space-y-2">
                   {RECHTSGEBIETE.map(subject => (
                     <label
@@ -161,14 +161,14 @@ const UebungsklausurenFilterDialog = ({ open, onOpenChange, filters, onApply }) 
                         type="checkbox"
                         checked={localFilters.subjects.includes(subject)}
                         onChange={() => handleSubjectToggle(subject)}
-                        className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                        className="w-4 h-4 text-neutral-900 border-neutral-300 rounded focus:ring-neutral-900"
                       />
-                      <span className="text-sm text-gray-700">{subject}</span>
+                      <span className="text-sm text-neutral-700">{subject}</span>
                     </label>
                   ))}
                 </div>
                 {localFilters.subjects.length === 0 && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-neutral-500">
                     Keine Auswahl = Alle anzeigen
                   </p>
                 )}
@@ -176,21 +176,21 @@ const UebungsklausurenFilterDialog = ({ open, onOpenChange, filters, onApply }) 
 
               {/* Sort Options */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-900">Sortierung</label>
+                <label className="text-sm font-medium text-neutral-900">Sortierung</label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsSortOpen(!isSortOpen)}
-                    className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
                   >
-                    <span className="text-sm text-gray-900">
+                    <span className="text-sm text-neutral-900">
                       {SORT_OPTIONS.find(s => s.value === localFilters.primarySort)?.label || 'Auswählen'}
                     </span>
-                    <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isSortOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                       {SORT_OPTIONS.map(option => (
                         <button
                           key={option.value}
@@ -199,8 +199,8 @@ const UebungsklausurenFilterDialog = ({ open, onOpenChange, filters, onApply }) 
                             setLocalFilters(prev => ({ ...prev, primarySort: option.value }));
                             setIsSortOpen(false);
                           }}
-                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                            localFilters.primarySort === option.value ? 'bg-primary-50 text-gray-900 font-medium' : 'text-gray-700'
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                            localFilters.primarySort === option.value ? 'bg-primary-50 text-neutral-900 font-medium' : 'text-neutral-700'
                           }`}
                         >
                           {option.label}
@@ -211,14 +211,14 @@ const UebungsklausurenFilterDialog = ({ open, onOpenChange, filters, onApply }) 
                 </div>
 
                 {/* Sort Direction Toggle */}
-                <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex border border-neutral-200 rounded-lg overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setLocalFilters(prev => ({ ...prev, sortDirection: 'desc' }))}
                     className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
                       localFilters.sortDirection === 'desc'
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                        ? 'bg-neutral-900 text-white'
+                        : 'bg-white text-neutral-700 hover:bg-neutral-50'
                     }`}
                   >
                     Absteigend
@@ -228,8 +228,8 @@ const UebungsklausurenFilterDialog = ({ open, onOpenChange, filters, onApply }) 
                     onClick={() => setLocalFilters(prev => ({ ...prev, sortDirection: 'asc' }))}
                     className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
                       localFilters.sortDirection === 'asc'
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                        ? 'bg-neutral-900 text-white'
+                        : 'bg-white text-neutral-700 hover:bg-neutral-50'
                     }`}
                   >
                     Aufsteigend

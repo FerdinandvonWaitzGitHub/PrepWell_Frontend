@@ -189,20 +189,20 @@ const CreatePrivateBlockDialog = ({
           <div className="space-y-4">
             {/* Titel */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-900">Titel</label>
+              <label className="text-sm font-medium text-neutral-900">Titel</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Titel eintragen..."
                 autoFocus
-                className="w-full h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-gray-200 text-sm"
+                className="w-full h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
               />
             </div>
 
             {/* Start Date & Time */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-900">Beginn</label>
+              <label className="text-sm font-medium text-neutral-900">Beginn</label>
               <div className="flex gap-2">
                 <input
                   type="date"
@@ -214,12 +214,12 @@ const CreatePrivateBlockDialog = ({
                       setEndDate(e.target.value);
                     }
                   }}
-                  className="flex-1 h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-gray-200 text-sm"
+                  className="flex-1 h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
                 />
                 <select
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-24 h-9 px-2 py-1 bg-white rounded-lg shadow-sm border border-gray-200 text-sm"
+                  className="w-24 h-9 px-2 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
                 >
                   {timeOptions.map(time => (
                     <option key={time} value={time}>{time}</option>
@@ -230,19 +230,19 @@ const CreatePrivateBlockDialog = ({
 
             {/* End Date & Time */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-900">Ende</label>
+              <label className="text-sm font-medium text-neutral-900">Ende</label>
               <div className="flex gap-2">
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate}
-                  className="flex-1 h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-gray-200 text-sm"
+                  className="flex-1 h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
                 />
                 <select
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-24 h-9 px-2 py-1 bg-white rounded-lg shadow-sm border border-gray-200 text-sm"
+                  className="w-24 h-9 px-2 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
                 >
                   {timeOptions.map(time => (
                     <option key={time} value={time}>{time}</option>
@@ -253,13 +253,13 @@ const CreatePrivateBlockDialog = ({
 
             {/* Beschreibung */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-900">Beschreibung (optional)</label>
+              <label className="text-sm font-medium text-neutral-900">Beschreibung (optional)</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Beschreibung eintragen..."
                 rows={3}
-                className="w-full px-3 py-2 bg-white rounded-lg shadow-sm border border-gray-200 text-sm resize-none"
+                className="w-full px-3 py-2 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm resize-none"
               />
             </div>
 
@@ -270,33 +270,33 @@ const CreatePrivateBlockDialog = ({
                   type="checkbox"
                   checked={repeatEnabled}
                   onChange={(e) => setRepeatEnabled(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                  className="w-5 h-5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
                 />
-                <span className="text-sm font-medium text-gray-900">Termin wiederholen</span>
+                <span className="text-sm font-medium text-neutral-900">Termin wiederholen</span>
               </label>
 
               {repeatEnabled && (
                 <div className="space-y-4 pl-8">
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-600">Wiederholung</label>
+                    <label className="text-sm text-neutral-600">Wiederholung</label>
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setIsRepeatTypeOpen(!isRepeatTypeOpen)}
-                        className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
+                        className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 text-left"
                       >
-                        <span className="text-sm text-gray-900">{getRepeatTypeName()}</span>
-                        <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
+                        <span className="text-sm text-neutral-900">{getRepeatTypeName()}</span>
+                        <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isRepeatTypeOpen ? 'rotate-180' : ''}`} />
                       </button>
                       {isRepeatTypeOpen && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
                           {repeatTypeOptions.map(opt => (
                             <button
                               key={opt.id}
                               type="button"
                               onClick={() => { setRepeatType(opt.id); setIsRepeatTypeOpen(false); }}
-                              className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                                repeatType === opt.id ? 'bg-gray-100 font-medium' : ''
+                              className={`w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg last:rounded-b-lg ${
+                                repeatType === opt.id ? 'bg-neutral-100 font-medium' : ''
                               }`}
                             >
                               {opt.name}
@@ -309,7 +309,7 @@ const CreatePrivateBlockDialog = ({
 
                   {repeatType === 'custom' && (
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-600">An diesen Tagen</label>
+                      <label className="text-sm text-neutral-600">An diesen Tagen</label>
                       <div className="flex flex-wrap gap-2">
                         {weekdayOptions.map(day => (
                           <button
@@ -317,7 +317,7 @@ const CreatePrivateBlockDialog = ({
                             type="button"
                             onClick={() => toggleCustomDay(day.id)}
                             className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
-                              customDays.includes(day.id) ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              customDays.includes(day.id) ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                             }`}
                           >
                             {day.short}
@@ -328,7 +328,7 @@ const CreatePrivateBlockDialog = ({
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-600">Anzahl Wiederholungen</label>
+                    <label className="text-sm text-neutral-600">Anzahl Wiederholungen</label>
                     <div className="flex items-center gap-3">
                       <input
                         type="number"
@@ -336,9 +336,9 @@ const CreatePrivateBlockDialog = ({
                         max="100"
                         value={repeatCount}
                         onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                        className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm text-center"
+                        className="w-24 px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm text-center"
                       />
-                      <span className="text-sm text-gray-600">mal</span>
+                      <span className="text-sm text-neutral-600">mal</span>
                     </div>
                   </div>
                 </div>

@@ -63,8 +63,8 @@ const Step1Lernzeitraum = () => {
         {/* Date inputs container */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Start Date */}
-          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="bg-neutral-50 rounded-xl p-6 border border-neutral-200">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               Startdatum
             </label>
             <input
@@ -72,16 +72,16 @@ const Step1Lernzeitraum = () => {
               value={localStartDate}
               onChange={(e) => setLocalStartDate(e.target.value)}
               min={today}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 text-gray-900 bg-white"
+              className="w-full px-4 py-3 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 text-neutral-900 bg-white"
             />
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-neutral-500 mt-2">
               An welchem Tag möchtest du starten?
             </p>
           </div>
 
           {/* End Date */}
-          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="bg-neutral-50 rounded-xl p-6 border border-neutral-200">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               Enddatum
             </label>
             <input
@@ -89,11 +89,11 @@ const Step1Lernzeitraum = () => {
               value={localEndDate}
               onChange={(e) => setLocalEndDate(e.target.value)}
               min={localStartDate || today}
-              className={`w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary-400 focus:border-primary-400 text-gray-900 bg-white ${
-                !endDateValid ? 'border-red-300' : 'border-gray-300'
+              className={`w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary-400 focus:border-primary-400 text-neutral-900 bg-white ${
+                !endDateValid ? 'border-red-300' : 'border-neutral-300'
               }`}
             />
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-neutral-500 mt-2">
               Wann ist deine Prüfung oder dein Zieldatum?
             </p>
             {!endDateValid && (
@@ -125,10 +125,10 @@ const Step1Lernzeitraum = () => {
                 </svg>
               </div>
               <div>
-                <p className="font-semibold text-gray-900">
+                <p className="font-semibold text-neutral-900">
                   {learningDays} Tage Lernzeitraum
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-neutral-500">
                   Das entspricht ca. {Math.floor(learningDays / 7)} Wochen
                 </p>
               </div>

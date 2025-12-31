@@ -79,8 +79,8 @@ const LernzeitStats = ({ stats, formatDuration }) => {
 
       {/* 4-Week Trend Chart */}
       {trendData.length > 0 && trendData.some(d => d.zeit > 0) && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-4">
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <h4 className="text-sm font-medium text-neutral-700 mb-4">
             Lernzeit-Trend (letzte 4 Wochen)
             <span className={`ml-2 ${trendDirection === 'up' ? 'text-green-600' : 'text-red-600'}`}>
               {trendDirection === 'up' ? '↑ Steigend' : '↓ Fallend'}

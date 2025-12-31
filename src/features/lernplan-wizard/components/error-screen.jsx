@@ -27,12 +27,12 @@ const ErrorScreen = ({ error, onRetry, onCancel }) => {
         </div>
 
         {/* Title */}
-        <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+        <h2 className="text-2xl font-semibold text-neutral-900 mb-3">
           Etwas ist schiefgelaufen
         </h2>
 
         {/* Description */}
-        <p className="text-gray-500 mb-2">
+        <p className="text-neutral-500 mb-2">
           Bei der Erstellung deines Lernplans ist ein Fehler aufgetreten.
         </p>
 
@@ -44,21 +44,21 @@ const ErrorScreen = ({ error, onRetry, onCancel }) => {
         )}
 
         {/* Troubleshooting hints */}
-        <div className="bg-gray-50 rounded-xl p-4 mb-8 text-left">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">
+        <div className="bg-neutral-50 rounded-xl p-4 mb-8 text-left">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-2">
             Mögliche Lösungen:
           </h4>
-          <ul className="text-sm text-gray-600 space-y-1">
+          <ul className="text-sm text-neutral-600 space-y-1">
             <li className="flex items-start gap-2">
-              <span className="text-gray-400">•</span>
+              <span className="text-neutral-400">•</span>
               Überprüfe deine Internetverbindung
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-gray-400">•</span>
+              <span className="text-neutral-400">•</span>
               Versuche es in einigen Minuten erneut
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-gray-400">•</span>
+              <span className="text-neutral-400">•</span>
               Kontaktiere den Support, falls das Problem bestehen bleibt
             </li>
           </ul>

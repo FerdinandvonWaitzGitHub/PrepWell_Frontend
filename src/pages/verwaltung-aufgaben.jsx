@@ -14,7 +14,7 @@ const VerwaltungAufgabenPage = () => {
   const [showTutorialModal, setShowTutorialModal] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-50">
       {/* Header */}
       <Header currentPage="verwaltung-aufgaben" />
 
@@ -38,7 +38,7 @@ const VerwaltungAufgabenPage = () => {
 
           {/* Footer */}
           <footer className="py-1">
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-xs text-neutral-400 text-center">
               © 2026 PrepWell GmbH - Impressum & Datenschutzerklärung
             </p>
           </footer>
@@ -50,15 +50,15 @@ const VerwaltungAufgabenPage = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Coming Soon</h3>
+              <h3 className="text-lg font-semibold text-neutral-900">Coming Soon</h3>
               <button
                 onClick={() => setShowTutorialModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-neutral-400 hover:text-neutral-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-gray-600 mb-4">
+            <p className="text-neutral-600 mb-4">
               Das Tutorial wird bald verfügbar sein. Wir erstellen gerade hilfreiche Anleitungen für dich.
             </p>
             <button

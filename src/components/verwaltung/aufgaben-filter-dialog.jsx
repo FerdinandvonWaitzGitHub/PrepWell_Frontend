@@ -83,7 +83,7 @@ const AufgabenFilterDialog = ({
         <DialogBody className="py-4 space-y-5">
           {/* Fächer filtern */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Fächer filtern</h4>
+            <h4 className="text-sm font-medium text-neutral-900 mb-2">Fächer filtern</h4>
             <div className="space-y-2">
               {FAECHER_KATALOG.map((fach) => (
                 <label key={fach} className="flex items-center gap-2 cursor-pointer">
@@ -91,9 +91,9 @@ const AufgabenFilterDialog = ({
                     type="checkbox"
                     checked={localFilters.faecher.includes(fach)}
                     onChange={() => handleFachChange(fach)}
-                    className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                    className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
                   />
-                  <span className="text-sm text-gray-700">{fach}</span>
+                  <span className="text-sm text-neutral-700">{fach}</span>
                 </label>
               ))}
             </div>
@@ -101,11 +101,11 @@ const AufgabenFilterDialog = ({
 
           {/* Status filtern */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Status filtern</h4>
+            <h4 className="text-sm font-medium text-neutral-900 mb-2">Status filtern</h4>
             <select
               value={localFilters.status}
               onChange={(e) => setLocalFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+              className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
             >
               <option value="standard">Standard</option>
               <option value="erledigt">Erledigt</option>
@@ -115,41 +115,41 @@ const AufgabenFilterDialog = ({
 
           {/* Wichtigkeit filtern */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Wichtigkeit filtern</h4>
+            <h4 className="text-sm font-medium text-neutral-900 mb-2">Wichtigkeit filtern</h4>
             <div className="space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={localFilters.wichtigkeit.includes('high')}
                   onChange={() => handleWichtigkeitChange('high')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">Hoch (!!)</span>
+                <span className="text-sm text-neutral-700">Hoch (!!)</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={localFilters.wichtigkeit.includes('medium')}
                   onChange={() => handleWichtigkeitChange('medium')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">Mittel (!)</span>
+                <span className="text-sm text-neutral-700">Mittel (!)</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={localFilters.wichtigkeit.includes('low')}
                   onChange={() => handleWichtigkeitChange('low')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">Niedrig</span>
+                <span className="text-sm text-neutral-700">Niedrig</span>
               </label>
             </div>
           </div>
 
           {/* Zeitrahmen */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Zeitrahmen</h4>
+            <h4 className="text-sm font-medium text-neutral-900 mb-2">Zeitrahmen</h4>
             <div className="space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -158,9 +158,9 @@ const AufgabenFilterDialog = ({
                   value="alle"
                   checked={localFilters.zeitrahmen === 'alle'}
                   onChange={(e) => setLocalFilters(prev => ({ ...prev, zeitrahmen: e.target.value }))}
-                  className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-neutral-300 focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">Alle Aufgaben</span>
+                <span className="text-sm text-neutral-700">Alle Aufgaben</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -169,9 +169,9 @@ const AufgabenFilterDialog = ({
                   value="vergangen"
                   checked={localFilters.zeitrahmen === 'vergangen'}
                   onChange={(e) => setLocalFilters(prev => ({ ...prev, zeitrahmen: e.target.value }))}
-                  className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-neutral-300 focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">Vergangene Aufgaben</span>
+                <span className="text-sm text-neutral-700">Vergangene Aufgaben</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -180,9 +180,9 @@ const AufgabenFilterDialog = ({
                   value="zukuenftig"
                   checked={localFilters.zeitrahmen === 'zukuenftig'}
                   onChange={(e) => setLocalFilters(prev => ({ ...prev, zeitrahmen: e.target.value }))}
-                  className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-neutral-300 focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">Zukünftige Aufgaben</span>
+                <span className="text-sm text-neutral-700">Zukünftige Aufgaben</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -191,30 +191,30 @@ const AufgabenFilterDialog = ({
                   value="benutzerdefiniert"
                   checked={localFilters.zeitrahmen === 'benutzerdefiniert'}
                   onChange={(e) => setLocalFilters(prev => ({ ...prev, zeitrahmen: e.target.value }))}
-                  className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-neutral-300 focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">Benutzerdefinierte Zeitrahmen</span>
+                <span className="text-sm text-neutral-700">Benutzerdefinierte Zeitrahmen</span>
               </label>
 
               {/* Date pickers for custom range */}
               {localFilters.zeitrahmen === 'benutzerdefiniert' && (
                 <div className="flex items-center gap-3 mt-3 ml-6">
                   <div className="flex-1">
-                    <label className="block text-xs text-gray-500 mb-1">Von</label>
+                    <label className="block text-xs text-neutral-500 mb-1">Von</label>
                     <input
                       type="date"
                       value={localFilters.datumVon}
                       onChange={(e) => setLocalFilters(prev => ({ ...prev, datumVon: e.target.value }))}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                      className="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-gray-500 mb-1">Bis</label>
+                    <label className="block text-xs text-neutral-500 mb-1">Bis</label>
                     <input
                       type="date"
                       value={localFilters.datumBis}
                       onChange={(e) => setLocalFilters(prev => ({ ...prev, datumBis: e.target.value }))}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                      className="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
                     />
                   </div>
                 </div>
@@ -226,7 +226,7 @@ const AufgabenFilterDialog = ({
         <DialogFooter>
           <button
             onClick={handleCancel}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-800 transition-colors"
           >
             Abbrechen
           </button>

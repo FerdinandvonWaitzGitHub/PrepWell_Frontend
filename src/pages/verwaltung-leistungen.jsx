@@ -18,7 +18,7 @@ const VerwaltungLeistungenPage = () => {
   const { isExamMode } = useAppMode();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-neutral-50 flex flex-col">
       {/* Header */}
       <Header userInitials="CN" currentPage="verwaltung-leistungen" />
 
@@ -35,7 +35,7 @@ const VerwaltungLeistungenPage = () => {
 
         {/* Footer */}
         <footer className="py-1 flex-shrink-0">
-          <p className="text-xs text-gray-400 text-center">
+          <p className="text-xs text-neutral-400 text-center">
             © 2026 PrepWell GmbH - Impressum & Datenschutzerklärung
           </p>
         </footer>

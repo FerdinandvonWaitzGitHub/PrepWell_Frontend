@@ -50,7 +50,7 @@ const CircularProgress = ({ progress = 0, size = 24, strokeWidth = 2 }) => {
         fill="none"
         stroke="currentColor"
         strokeWidth={strokeWidth}
-        className="text-gray-200"
+        className="text-neutral-200"
       />
       <circle
         cx={size / 2}
@@ -62,7 +62,7 @@ const CircularProgress = ({ progress = 0, size = 24, strokeWidth = 2 }) => {
         strokeDasharray={circumference}
         strokeDashoffset={strokeDashoffset}
         strokeLinecap="round"
-        className="text-slate-600"
+        className="text-neutral-900"
         style={{ transition: 'stroke-dashoffset 0.5s ease' }}
       />
     </svg>
@@ -90,14 +90,14 @@ const TimerWidget = ({ onClick }) => {
     return (
       <button
         onClick={onClick}
-        className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+        className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors"
       >
         <div className="flex flex-col items-end gap-0.5">
-          <span className="text-sm font-medium text-gray-700">Timer starten</span>
-          <span className="text-xs text-gray-500">{currentTime}</span>
+          <span className="text-sm font-medium text-neutral-700">Timer starten</span>
+          <span className="text-xs text-neutral-500">{currentTime}</span>
         </div>
-        <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+        <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-neutral-400">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
@@ -136,15 +136,15 @@ const TimerWidget = ({ onClick }) => {
   return (
     <button
       onClick={onClick}
-      className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+      className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors"
     >
       <div className="flex flex-col items-end gap-0.5">
-        <span className={`text-sm font-medium ${isPaused ? 'text-gray-500' : 'text-gray-900'}`}>
+        <span className={`text-sm font-medium ${isPaused ? 'text-neutral-500' : 'text-neutral-900'}`}>
           {isPaused && '⏸ '}{getTimerLabel()}
         </span>
-        <span className="text-xs text-gray-500">{getSecondaryLabel()}</span>
+        <span className="text-xs text-neutral-500">{getSecondaryLabel()}</span>
       </div>
-      <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
+      <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100">
         <CircularProgress progress={progress} size={24} strokeWidth={2.5} />
       </div>
     </button>
@@ -213,7 +213,7 @@ const DashboardSubHeader = ({
     if (checkInDone) {
       // Completed state
       return (
-        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-gray-200 bg-white text-gray-500 text-sm">
+        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-white text-neutral-500 text-sm">
           <span>Check-Ins erledigt</span>
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
@@ -226,22 +226,22 @@ const DashboardSubHeader = ({
     if (!checkInEnabled) {
       // Disabled state (grayed out)
       return (
-        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-gray-200 bg-gray-50 text-gray-400 text-sm cursor-not-allowed">
-          <span>Check-In am Abend</span>
-          <span className="text-gray-300">→</span>
+        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-400 text-sm cursor-not-allowed">
+          <span>Check-Out</span>
+          <span className="text-neutral-300">→</span>
         </div>
       );
     }
 
     // Active state
-    const label = isEvening ? 'Check-In am Abend' : 'Check-In am Morgen';
+    const label = isEvening ? 'Check-Out' : 'Check-In';
     return (
       <button
         onClick={handleCheckInClick}
-        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 text-sm transition-colors"
+        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-white text-neutral-800 hover:bg-neutral-50 text-sm transition-colors"
       >
         <span>{label}</span>
-        <span className="text-gray-500">→</span>
+        <span className="text-neutral-500">→</span>
       </button>
     );
   };
@@ -250,14 +250,14 @@ const DashboardSubHeader = ({
   const progressPercentage = Math.min(100, learningPercentage);
 
   return (
-    <section className="px-8 py-4 border-b border-gray-200 bg-white">
+    <section className="px-8 py-4 border-b border-neutral-200 bg-white">
       <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-4">
         {/* Left Side */}
         <div className="flex flex-wrap items-center gap-6">
           {/* Date & Title */}
           <div className="flex flex-col gap-0.5">
-            <p className="text-sm font-medium text-gray-900">{displayDate}</p>
-            <p className="text-xs text-gray-500">Dashboard</p>
+            <p className="text-sm font-medium text-neutral-900">{displayDate}</p>
+            <p className="text-xs text-neutral-500">Dashboard</p>
           </div>
 
           {/* Check-In Button */}
@@ -265,17 +265,17 @@ const DashboardSubHeader = ({
 
           {/* Daily Learning Progress */}
           <div className="flex flex-col gap-1 min-w-[200px]">
-            <span className="text-xs text-gray-600">
+            <span className="text-xs text-neutral-600">
               {formatHoursMinutes(learningMinutesCompleted)} von {formatHoursMinutes(learningMinutesGoal)} Tageslernziel
             </span>
             <div className="w-full flex items-center gap-1">
-              <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+              <div className="flex-1 bg-neutral-200 rounded-full h-1.5">
                 <div
-                  className="bg-slate-600 h-1.5 rounded-full transition-all"
+                  className="bg-neutral-900 h-1.5 rounded-full transition-all"
                   style={{ width: `${progressPercentage}%` }}
                 />
               </div>
-              <div className="w-16 bg-gray-100 rounded-full h-1.5" />
+              <div className="w-16 bg-neutral-100 rounded-full h-1.5" />
             </div>
           </div>
         </div>

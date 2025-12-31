@@ -58,7 +58,7 @@ const DayTypeBadge = ({ type }) => {
   };
 
   return (
-    <span className="px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded-lg text-[10px] sm:text-xs font-semibold text-gray-600">
+    <span className="px-1.5 sm:px-2 py-0.5 bg-neutral-100 rounded-lg text-[10px] sm:text-xs font-semibold text-neutral-600">
       <span className="sm:hidden">{labels[type].short}</span>
       <span className="hidden sm:inline">{labels[type].full}</span>
     </span>
@@ -116,25 +116,25 @@ const BlockSelector = ({ blockType, onPrev, onNext }) => {
       className={`p-1 sm:p-2 md:p-3 rounded-lg flex items-center justify-between gap-0.5 sm:gap-1 ${
         isLernblock
           ? 'bg-blue-50/50'
-          : 'bg-white border border-gray-200'
+          : 'bg-white border border-neutral-200'
       }`}
     >
       <button
         type="button"
         onClick={onPrev}
-        className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+        className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 flex items-center justify-center text-neutral-600 hover:text-neutral-900 transition-colors"
         aria-label="Vorheriger Block-Typ"
       >
         <ChevronLeft />
       </button>
-      <span className="flex-1 text-center text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 truncate min-w-0">
+      <span className="flex-1 text-center text-[10px] sm:text-xs md:text-sm font-medium text-neutral-900 truncate min-w-0">
         <span className="md:hidden">{BLOCK_TYPE_LABELS[blockType].short}</span>
         <span className="hidden md:inline">{BLOCK_TYPE_LABELS[blockType].full}</span>
       </span>
       <button
         type="button"
         onClick={onNext}
-        className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+        className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 flex items-center justify-center text-neutral-600 hover:text-neutral-900 transition-colors"
         aria-label="Nächster Block-Typ"
       >
         <ChevronRight />
@@ -169,7 +169,7 @@ const DayColumn = ({ day, blocks, onBlockChange }) => {
     <div className="flex flex-col gap-1 sm:gap-2">
       {/* Day header */}
       <div className="pb-1 sm:pb-2 flex flex-col items-start gap-0.5 sm:gap-1">
-        <span className="text-xs sm:text-sm md:text-base font-light text-gray-900">
+        <span className="text-xs sm:text-sm md:text-base font-light text-neutral-900">
           <span className="md:hidden">{day.short}</span>
           <span className="hidden md:inline">{day.label}</span>
         </span>
@@ -257,7 +257,7 @@ const Step5Wochenstruktur = () => {
 
       <div className="space-y-7">
         {/* Week grid - full width with 7 equal columns */}
-        <div className="p-2 sm:p-4 md:p-5 bg-white rounded-[10px] border border-gray-100 w-full">
+        <div className="p-2 sm:p-4 md:p-5 bg-white rounded-[10px] border border-neutral-100 w-full">
           <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-4">
             {DAYS.map((day) => (
               <DayColumn
@@ -272,14 +272,14 @@ const Step5Wochenstruktur = () => {
 
         {/* Info box: Feste und flexible Blöcke */}
         <div className="max-w-[550px] mx-auto px-4 py-3 rounded-[10px] flex items-start gap-3">
-          <div className="pt-0.5 text-gray-900">
+          <div className="pt-0.5 text-neutral-900">
             <InfoIcon />
           </div>
           <div className="flex-1">
-            <h4 className="text-sm font-medium text-gray-900 leading-5">
+            <h4 className="text-sm font-medium text-neutral-900 leading-5">
               Feste und flexible Blöcke
             </h4>
-            <p className="text-sm font-normal text-gray-500 leading-5 mt-1">
+            <p className="text-sm font-normal text-neutral-500 leading-5 mt-1">
               Mit dem intelligenten Lernplan-Manager kannst du einzelne Termine oder ganze Lerntage verschieben. Sobald ein Tag einen festen Termin enthält, wird dieser fixiert und bleibt von Verschiebungen in der Umgebung unbeeinflusst. Feste Blöcke sind "Klausur" und "Frei".
             </p>
           </div>

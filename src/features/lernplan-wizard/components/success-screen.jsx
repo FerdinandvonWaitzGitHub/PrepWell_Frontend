@@ -28,12 +28,12 @@ const SuccessScreen = ({ returnPath = '/lernplan' }) => {
         </div>
 
         {/* Title */}
-        <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+        <h2 className="text-2xl font-semibold text-neutral-900 mb-3">
           Lernplan erfolgreich erstellt!
         </h2>
 
         {/* Description */}
-        <p className="text-gray-500 mb-8">
+        <p className="text-neutral-500 mb-8">
           Dein personalisierter Lernplan wurde erstellt und ist jetzt in deinem Kalender verfügbar.
         </p>
 
