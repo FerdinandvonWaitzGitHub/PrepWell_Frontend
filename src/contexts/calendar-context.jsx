@@ -455,8 +455,60 @@ export const CalendarProvider = ({ children }) => {
   }, [contentsById]);
 
   /**
+   * Calculate repeat dates based on repeat settings
+   * @param {string} startDateKey - Starting date (YYYY-MM-DD)
+   * @param {string} repeatType - 'daily', 'weekly', 'monthly', or 'custom'
+   * @param {number} repeatCount - Number of repetitions
+   * @param {Array} customDays - For 'custom' type, array of weekday indices (0=Sun, 1=Mon, etc.)
+   * @returns {Array} Array of date strings (YYYY-MM-DD)
+   */
+  const calculateRepeatDates = useCallback((startDateKey, repeatType, repeatCount, customDays = []) => {
+    const dates = [];
+    const startDate = new Date(startDateKey + 'T12:00:00'); // Use noon to avoid timezone issues
+
+    for (let i = 1; i <= repeatCount; i++) {
+      let nextDate = new Date(startDate);
+
+      switch (repeatType) {
+        case 'daily':
+          nextDate.setDate(startDate.getDate() + i);
+          break;
+        case 'weekly':
+          nextDate.setDate(startDate.getDate() + (i * 7));
+          break;
+        case 'monthly':
+          nextDate.setMonth(startDate.getMonth() + i);
+          break;
+        case 'custom':
+          // For custom, find next matching weekday
+          // This is more complex - we need to iterate day by day
+          let daysAdded = 0;
+          let currentDate = new Date(startDate);
+          let matchesFound = 0;
+          while (matchesFound < i) {
+            daysAdded++;
+            currentDate = new Date(startDate);
+            currentDate.setDate(startDate.getDate() + daysAdded);
+            if (customDays.includes(currentDate.getDay())) {
+              matchesFound++;
+            }
+          }
+          nextDate = currentDate;
+          break;
+        default:
+          nextDate.setDate(startDate.getDate() + (i * 7)); // Default to weekly
+      }
+
+      dates.push(nextDate.toISOString().split('T')[0]);
+    }
+
+    return dates;
+  }, []);
+
+  /**
    * Add a slot with automatic content creation
    * Creates content from slot data if not exists
+   * Handles repeat/series appointments
    * @param {string} dateKey - The date (YYYY-MM-DD)
    * @param {Object} slotData - Slot data with embedded content
    * @returns {{ slot: Object, content: Object }}
@@ -476,14 +528,17 @@ export const CalendarProvider = ({ children }) => {
       aufgaben: slotData.aufgaben || [],
     });
 
-    // Create slot referencing the content
-    const slot = {
-      id: slotData.id || `slot-${Date.now()}`,
+    // Generate a series ID if this is a repeating appointment
+    const seriesId = slotData.repeatEnabled ? `series-${Date.now()}` : null;
+
+    // Create base slot referencing the content
+    const createSlot = (isOriginal = true) => ({
+      id: `slot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       contentId: content.id,
       position: slotData.position || 1,
       blockType: slotData.blockType || 'lernblock',
       isLocked: slotData.isLocked || false,
-      isFromLernplan: slotData.isFromLernplan || false, // true = wizard-created, false = manual
+      isFromLernplan: slotData.isFromLernplan || false,
       tasks: slotData.tasks || [],
       // Time overrides (optional)
       hasTime: slotData.hasTime || false,
@@ -491,25 +546,43 @@ export const CalendarProvider = ({ children }) => {
       duration: slotData.duration,
       startTime: slotData.startTime,
       endTime: slotData.endTime,
-      // Repeat settings
-      repeatEnabled: slotData.repeatEnabled || false,
-      repeatType: slotData.repeatType,
-      repeatCount: slotData.repeatCount,
+      // Repeat settings (only on original)
+      repeatEnabled: isOriginal ? (slotData.repeatEnabled || false) : false,
+      repeatType: isOriginal ? slotData.repeatType : null,
+      repeatCount: isOriginal ? slotData.repeatCount : null,
+      seriesId: seriesId, // Links all slots in a series
       createdAt: new Date().toISOString(),
-    };
+    });
 
-    // Add slot to date
-    const currentSlots = slotsByDate[dateKey] || [];
-    const updatedSlots = {
-      ...slotsByDate,
-      [dateKey]: [...currentSlots, slot],
-    };
+    // Start with the original slot
+    const originalSlot = createSlot(true);
+    let updatedSlots = { ...slotsByDate };
+
+    // Add original slot to the first date
+    const currentSlots = updatedSlots[dateKey] || [];
+    updatedSlots[dateKey] = [...currentSlots, originalSlot];
+
+    // If repeat is enabled, create slots for all repeat dates
+    if (slotData.repeatEnabled && slotData.repeatType && slotData.repeatCount > 0) {
+      const repeatDates = calculateRepeatDates(
+        dateKey,
+        slotData.repeatType,
+        slotData.repeatCount,
+        slotData.customDays || []
+      );
+
+      repeatDates.forEach(repeatDateKey => {
+        const repeatSlot = createSlot(false);
+        const existingSlots = updatedSlots[repeatDateKey] || [];
+        updatedSlots[repeatDateKey] = [...existingSlots, repeatSlot];
+      });
+    }
 
     setSlotsByDate(updatedSlots);
     saveToStorage(STORAGE_KEY_SLOTS, updatedSlots);
 
-    return { slot, content };
-  }, [slotsByDate, contentsById, saveContent]);
+    return { slot: originalSlot, content };
+  }, [slotsByDate, contentsById, saveContent, calculateRepeatDates]);
 
   /**
    * Build a display block from slot (merges slot + content)
@@ -555,10 +628,11 @@ export const CalendarProvider = ({ children }) => {
       isFromLernplan: slot.isFromLernplan || false, // Distinguishes wizard vs manual
       tasks: slot.tasks || [],
 
-      // Repeat
+      // Repeat / Series
       repeatEnabled: slot.repeatEnabled || false,
       repeatType: slot.repeatType,
       repeatCount: slot.repeatCount,
+      seriesId: slot.seriesId || null, // Links all slots in a series
     };
   }, [contentsById]);
 
@@ -578,24 +652,53 @@ export const CalendarProvider = ({ children }) => {
 
   /**
    * Add a private block to a specific date
-   * Now synced to Supabase
+   * Now synced to Supabase with repeat support
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {Object} block - The private block data
    */
   const addPrivateBlock = useCallback(async (dateKey, block) => {
-    const blockWithId = {
+    // Generate a series ID if this is a repeating appointment
+    const seriesId = block.repeatEnabled ? `private-series-${Date.now()}` : null;
+
+    // Create the base block with ID
+    const createBlock = (forDateKey, isOriginal = true) => ({
       ...block,
-      id: block.id || `private-${Date.now()}`,
+      id: `private-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       blockType: 'private',
       createdAt: new Date().toISOString(),
-    };
+      // Series linking
+      seriesId: seriesId,
+      // Only store repeat settings on the original block
+      repeatEnabled: isOriginal ? (block.repeatEnabled || false) : false,
+      repeatType: isOriginal ? block.repeatType : null,
+      repeatCount: isOriginal ? block.repeatCount : null,
+      customDays: isOriginal ? block.customDays : null,
+    });
 
+    // Create the original block for the first date
+    const originalBlock = createBlock(dateKey, true);
     const currentBlocks = privateBlocksByDate[dateKey] || [];
-    const newBlocks = [...currentBlocks, blockWithId];
+    await saveDayBlocks(dateKey, [...currentBlocks, originalBlock]);
 
-    await saveDayBlocks(dateKey, newBlocks);
-    return blockWithId;
-  }, [privateBlocksByDate, saveDayBlocks]);
+    // If repeat is enabled, create blocks for all repeat dates
+    if (block.repeatEnabled && block.repeatType && block.repeatCount > 0) {
+      const repeatDates = calculateRepeatDates(
+        dateKey,
+        block.repeatType,
+        block.repeatCount,
+        block.customDays || []
+      );
+
+      // Create blocks for each repeat date
+      for (const repeatDateKey of repeatDates) {
+        const repeatBlock = createBlock(repeatDateKey, false);
+        const existingBlocks = privateBlocksByDate[repeatDateKey] || [];
+        await saveDayBlocks(repeatDateKey, [...existingBlocks, repeatBlock]);
+      }
+    }
+
+    return originalBlock;
+  }, [privateBlocksByDate, saveDayBlocks, calculateRepeatDates]);
 
   /**
    * Update a private block
@@ -629,6 +732,26 @@ export const CalendarProvider = ({ children }) => {
   }, [privateBlocksByDate, saveDayBlocks]);
 
   /**
+   * Delete all private blocks in a series (by seriesId)
+   * Useful for deleting all recurring private appointments at once
+   * @param {string} seriesId - The series ID
+   */
+  const deleteSeriesPrivateBlocks = useCallback(async (seriesId) => {
+    if (!seriesId) return;
+
+    // Iterate through all dates and remove blocks with matching seriesId
+    for (const dateKey of Object.keys(privateBlocksByDate)) {
+      const dayBlocks = privateBlocksByDate[dateKey] || [];
+      const hasSeriesBlocks = dayBlocks.some(block => block.seriesId === seriesId);
+
+      if (hasSeriesBlocks) {
+        const filteredBlocks = dayBlocks.filter(block => block.seriesId !== seriesId);
+        await saveDayBlocks(dateKey, filteredBlocks);
+      }
+    }
+  }, [privateBlocksByDate, saveDayBlocks]);
+
+  /**
    * Get private blocks for a specific date
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @returns {Array} The private blocks for that day
@@ -636,6 +759,53 @@ export const CalendarProvider = ({ children }) => {
   const getPrivateBlocks = useCallback((dateKey) => {
     return privateBlocksByDate[dateKey] || [];
   }, [privateBlocksByDate]);
+
+  // ============================================
+  // SLOT DELETE OPERATIONS
+  // ============================================
+
+  /**
+   * Delete a single slot from a specific date
+   * @param {string} dateKey - The date key (YYYY-MM-DD)
+   * @param {string} slotId - The slot ID to delete
+   */
+  const deleteSlot = useCallback((dateKey, slotId) => {
+    const currentSlots = slotsByDate[dateKey] || [];
+    const filteredSlots = currentSlots.filter(slot => slot.id !== slotId);
+
+    const updatedSlots = {
+      ...slotsByDate,
+      [dateKey]: filteredSlots,
+    };
+
+    setSlotsByDate(updatedSlots);
+    saveToStorage(STORAGE_KEY_SLOTS, updatedSlots);
+  }, [slotsByDate]);
+
+  /**
+   * Delete all slots in a series (by seriesId)
+   * Useful for deleting all recurring appointments at once
+   * @param {string} seriesId - The series ID
+   */
+  const deleteSeriesSlots = useCallback((seriesId) => {
+    if (!seriesId) return;
+
+    const updatedSlots = { ...slotsByDate };
+
+    // Iterate through all dates and remove slots with matching seriesId
+    Object.keys(updatedSlots).forEach(dateKey => {
+      const daySlots = updatedSlots[dateKey] || [];
+      updatedSlots[dateKey] = daySlots.filter(slot => slot.seriesId !== seriesId);
+
+      // Clean up empty date entries
+      if (updatedSlots[dateKey].length === 0) {
+        delete updatedSlots[dateKey];
+      }
+    });
+
+    setSlotsByDate(updatedSlots);
+    saveToStorage(STORAGE_KEY_SLOTS, updatedSlots);
+  }, [slotsByDate]);
 
   // ============================================
   // TASKS CRUD
@@ -1885,10 +2055,15 @@ export const CalendarProvider = ({ children }) => {
     buildBlockFromSlot,
     getBlocksForDate,
 
+    // Slot Delete Actions
+    deleteSlot,
+    deleteSeriesSlots,
+
     // Private Block Actions
     addPrivateBlock,
     updatePrivateBlock,
     deletePrivateBlock,
+    deleteSeriesPrivateBlocks,
     getPrivateBlocks,
 
     // Task Actions

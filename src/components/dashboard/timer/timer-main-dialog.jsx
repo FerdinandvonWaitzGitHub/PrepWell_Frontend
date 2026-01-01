@@ -640,29 +640,14 @@ const TimerMainDialog = ({ open, onOpenChange, onSettingsClick, dailyLearningGoa
     setShowLogbuch(true);
   };
 
-  // Settings button component with conditional red styling
-  const SettingsButton = () => {
-    if (!isConfigured) {
-      // Red button when not configured
-      return (
-        <button
-          onClick={onSettingsClick}
-          className="px-5 py-2.5 bg-red-500 rounded-3xl inline-flex justify-center items-center gap-2
-                     text-white text-sm font-light font-['DM_Sans'] leading-5
-                     hover:bg-red-600 transition-colors"
-        >
-          Einstellungen
-          <SettingsIcon />
-        </button>
-      );
+  // Settings button click handler - directly call the prop
+  const handleSettingsButtonClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Settings button clicked');
+    if (onSettingsClick) {
+      onSettingsClick();
     }
-    // Normal outline button when configured
-    return (
-      <OutlineButton onClick={onSettingsClick}>
-        Einstellungen
-        <SettingsIcon />
-      </OutlineButton>
-    );
   };
 
   return (
@@ -696,9 +681,33 @@ const TimerMainDialog = ({ open, onOpenChange, onSettingsClick, dailyLearningGoa
           </div>
 
           {/* Footer */}
-          <div className="self-stretch h-10 inline-flex justify-end items-end gap-2.5">
+          <div className="self-stretch inline-flex justify-end items-center gap-2.5">
             <div className="flex justify-end items-center gap-2">
-              <SettingsButton />
+              {/* Settings Button - inline to avoid closure issues */}
+              {!isConfigured ? (
+                <button
+                  type="button"
+                  onClick={handleSettingsButtonClick}
+                  className="px-5 py-2.5 bg-red-500 rounded-3xl inline-flex justify-center items-center gap-2
+                             text-white text-sm font-light font-['DM_Sans'] leading-5
+                             hover:bg-red-600 transition-colors"
+                >
+                  Einstellungen
+                  <SettingsIcon />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSettingsButtonClick}
+                  className="px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-neutral-200
+                             inline-flex justify-center items-center gap-2
+                             text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5
+                             hover:bg-neutral-50 transition-colors"
+                >
+                  Einstellungen
+                  <SettingsIcon />
+                </button>
+              )}
               <OutlineButton onClick={handleLogbuchClick}>
                 Logbuch
                 <BookIcon />

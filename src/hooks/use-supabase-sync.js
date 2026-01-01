@@ -34,6 +34,7 @@ const STORAGE_KEYS = {
   settings: 'prepwell_settings',
   gradeSystem: 'prepwell_grade_system',
   customSubjects: 'prepwell_custom_subjects',
+  logbuchEntries: 'prepwell_logbuch_entries',
 };
 
 /**
@@ -78,23 +79,29 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
   const userIdRef = useRef(null);
 
   // Reset syncedRef when user changes (logout/login)
+  // Fix: Explicitly handle logout to null
   useEffect(() => {
-    if (user?.id !== userIdRef.current) {
+    if (user === null) {
       syncedRef.current = false;
-      userIdRef.current = user?.id || null;
+      userIdRef.current = null;
+    } else if (user?.id !== userIdRef.current) {
+      syncedRef.current = false;
+      userIdRef.current = user?.id;
     }
-  }, [user?.id]);
+  }, [user]);
 
   const {
     orderBy = 'created_at',
     orderDirection = 'desc',
     transformToSupabase = (d) => d,
     transformFromSupabase = (d) => d,
+    onConflict = 'id', // Default onConflict column, can be overridden
+    enabled = true, // Set to false to disable Supabase sync (localStorage only)
   } = options;
 
   // Fetch data from Supabase
   const fetchFromSupabase = useCallback(async () => {
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
+    if (!enabled || !isSupabaseEnabled || !isAuthenticated || !supabase) {
       return null;
     }
 
@@ -110,11 +117,11 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       console.error(`Error fetching from ${tableName}:`, err);
       return null;
     }
-  }, [isSupabaseEnabled, isAuthenticated, tableName, orderBy, orderDirection, transformFromSupabase]);
+  }, [enabled, isSupabaseEnabled, isAuthenticated, tableName, orderBy, orderDirection, transformFromSupabase]);
 
   // Sync LocalStorage data to Supabase (on first login)
   const syncToSupabase = useCallback(async (localData) => {
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+    if (!enabled || !isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
       return;
     }
 
@@ -150,7 +157,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     } catch (err) {
       console.error(`Error in syncToSupabase for ${tableName}:`, err);
     }
-  }, [isSupabaseEnabled, isAuthenticated, user, tableName, transformToSupabase]);
+  }, [enabled, isSupabaseEnabled, isAuthenticated, user, tableName, transformToSupabase]);
 
   // Initial load and sync
   useEffect(() => {
@@ -209,7 +216,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
 
         const { error: upsertError } = await supabase
           .from(tableName)
-          .upsert(dataToUpsert, { onConflict: 'id' });
+          .upsert(dataToUpsert, { onConflict });
 
         if (upsertError) throw upsertError;
       }
@@ -335,9 +342,11 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
 
 /**
  * Hook specifically for Content Plans (Lernpläne & Themenlisten)
+ * NOTE: Supabase sync disabled - table does not exist yet
  */
 export function useContentPlansSync() {
   return useSupabaseSync('content_plans', STORAGE_KEYS.contentPlans, [], {
+    enabled: false, // Table does not exist in Supabase yet
     orderBy: 'created_at',
     orderDirection: 'desc',
     transformToSupabase: (plan) => ({
@@ -372,9 +381,11 @@ export function useContentPlansSync() {
 
 /**
  * Hook for Published Themenlisten (Community)
+ * NOTE: Supabase sync disabled - table does not exist yet
  */
 export function usePublishedThemenlistenSync() {
   return useSupabaseSync('published_themenlisten', STORAGE_KEYS.publishedThemenlisten, [], {
+    enabled: false, // Table does not exist in Supabase yet
     orderBy: 'published_at',
     orderDirection: 'desc',
     transformToSupabase: (plan) => ({
@@ -471,13 +482,14 @@ export function useUebungsklausurenSync() {
 /**
  * Hook for Check-In Responses
  * Note: checkin_responses has UNIQUE(user_id, response_date, period) constraint
- * The active implementation in checkin-context.jsx handles this correctly.
- * This hook is provided for consistency but period must be included for proper upsert.
+ * Uses correct onConflict for proper upsert behavior.
  */
 export function useCheckInSync() {
   return useSupabaseSync('checkin_responses', STORAGE_KEYS.checkinResponses, [], {
     orderBy: 'response_date',
     orderDirection: 'desc',
+    // Fix: Use correct onConflict for checkin_responses table
+    onConflict: 'user_id,response_date,period',
     transformToSupabase: (response) => ({
       response_date: response.date || response.responseDate,
       period: response.period || 'morning',
@@ -522,6 +534,35 @@ export function useTimerHistorySync() {
       completed: row.completed,
       date: row.session_date,
       time: row.session_time,
+      createdAt: row.created_at,
+    }),
+  });
+}
+
+/**
+ * Hook for Logbuch Entries (manual time tracking)
+ */
+export function useLogbuchSync() {
+  return useSupabaseSync('logbuch_entries', STORAGE_KEYS.logbuchEntries, [], {
+    orderBy: 'entry_date',
+    orderDirection: 'desc',
+    transformToSupabase: (entry) => ({
+      id: entry.id?.startsWith('logbuch-') || entry.id?.startsWith('local-') ? undefined : entry.id,
+      entry_date: entry.date,
+      start_time: entry.startTime,
+      end_time: entry.endTime,
+      rechtsgebiet: entry.rechtsgebiet,
+      duration_minutes: entry.durationMinutes,
+      notes: entry.notes,
+    }),
+    transformFromSupabase: (row) => ({
+      id: row.id,
+      date: row.entry_date,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      rechtsgebiet: row.rechtsgebiet,
+      durationMinutes: row.duration_minutes,
+      notes: row.notes,
       createdAt: row.created_at,
     }),
   });
@@ -1701,6 +1742,7 @@ export function useLernplanMetadataSync() {
   }, [isSupabaseEnabled, isAuthenticated, user]);
 
   // Update metadata
+  // Fix: Read ALL user_settings fields to avoid race condition with useUserSettingsSync
   const updateMetadata = useCallback(async (newMetadata) => {
     setLernplanMetadata(newMetadata);
     saveToStorage(STORAGE_KEYS.lernplanMetadata, newMetadata);
@@ -1710,20 +1752,23 @@ export function useLernplanMetadataSync() {
     }
 
     try {
-      // Get current settings
+      // Get ALL current settings (not just timer_settings) to avoid overwriting other fields
       const { data: currentSettings } = await supabase
         .from('user_settings')
-        .select('timer_settings')
+        .select('*')
         .eq('user_id', user.id)
         .single();
 
       const timerSettings = currentSettings?.timer_settings || {};
 
-      // Update with lernplan metadata
+      // Update with lernplan metadata, preserving ALL other user_settings fields
       const { error } = await supabase
         .from('user_settings')
         .upsert({
           user_id: user.id,
+          mentor_activated: currentSettings?.mentor_activated ?? false,
+          preferred_grade_system: currentSettings?.preferred_grade_system ?? 'punkte',
+          custom_subjects: currentSettings?.custom_subjects ?? [],
           timer_settings: {
             ...timerSettings,
             lernplanMetadata: newMetadata,
@@ -1739,6 +1784,7 @@ export function useLernplanMetadataSync() {
   }, [isSupabaseEnabled, isAuthenticated, user]);
 
   // Clear metadata
+  // Fix: Read ALL user_settings fields to avoid race condition
   const clearMetadata = useCallback(async () => {
     setLernplanMetadata(null);
     saveToStorage(STORAGE_KEYS.lernplanMetadata, null);
@@ -1748,9 +1794,10 @@ export function useLernplanMetadataSync() {
     }
 
     try {
+      // Get ALL current settings to preserve other fields
       const { data: currentSettings } = await supabase
         .from('user_settings')
-        .select('timer_settings')
+        .select('*')
         .eq('user_id', user.id)
         .single();
 
@@ -1761,6 +1808,9 @@ export function useLernplanMetadataSync() {
         .from('user_settings')
         .upsert({
           user_id: user.id,
+          mentor_activated: currentSettings?.mentor_activated ?? false,
+          preferred_grade_system: currentSettings?.preferred_grade_system ?? 'punkte',
+          custom_subjects: currentSettings?.custom_subjects ?? [],
           timer_settings: timerSettings,
         }, { onConflict: 'user_id' });
 

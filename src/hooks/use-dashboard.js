@@ -81,13 +81,14 @@ export function useDashboard() {
   const displayDate = useMemo(() => formatDisplayDate(currentDate), [currentDate]);
 
   /**
-   * Toggle task priority (medium <-> high)
+   * Toggle task priority
+   * @param taskId - Task ID
+   * @param newPriority - The new priority value ('none', 'medium', 'high')
    */
-  const toggleTaskPriority = useCallback((taskId) => {
+  const toggleTaskPriority = useCallback((taskId, newPriority) => {
     const dayTasks = tasksByDate[dateString] || [];
     const task = dayTasks.find(t => t.id === taskId);
     if (task) {
-      const newPriority = task.priority === 'high' ? 'medium' : 'high';
       updateTaskInContext(dateString, taskId, { priority: newPriority });
     }
   }, [dateString, tasksByDate, updateTaskInContext]);

@@ -76,7 +76,7 @@ const AddThemeDialog = ({ open, onOpenChange, date, onSelectType }) => {
           <DialogDescription>{formatDate(date)}</DialogDescription>
         </DialogHeader>
 
-        <DialogBody>
+        <DialogBody className="pb-8">
           <div className="space-y-3">
             {blockTypes.map((blockType) => {
               const Icon = blockType.icon;

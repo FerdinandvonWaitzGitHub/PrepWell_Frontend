@@ -37,7 +37,9 @@
       "Bash(npx husky init)",
       "Bash(claude mcp remove:*)",
       "Bash(claude mcp list:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npx supabase:*)",
+      "Bash(supabase link:*)"
     ]
   }
 }

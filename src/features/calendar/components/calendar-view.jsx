@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import CalendarHeader from './calendar-header';
 import CalendarGrid from './calendar-grid';
 import DayManagementDialog from './day-management-dialog';
@@ -42,8 +42,7 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
   const {
     slotsByDate,
     updateDaySlots: updateContextDaySlots,
-    lernplanMetadata,
-    hasActiveLernplan
+    addPrivateBlock,
   } = useCalendar();
 
   // Update an existing learning block
@@ -177,6 +176,16 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
 
     // Save to CalendarContext (persists to localStorage)
     updateContextDaySlots(dateKey, updatedSlots);
+  };
+
+  // Add a private block (with repeat support)
+  const handleAddPrivateBlock = (date, blockData) => {
+    const dateKey = formatDateKey(date);
+    addPrivateBlock(dateKey, {
+      ...blockData,
+      startTime: blockData.startTime || '09:00',
+      endTime: blockData.endTime || '11:00',
+    });
   };
 
   // Note: Calendar data now comes from CalendarContext
@@ -433,7 +442,7 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         open={isCreatePrivateDialogOpen}
         onOpenChange={setIsCreatePrivateDialogOpen}
         date={selectedBlockDay}
-        onSave={handleAddBlock}
+        onSave={handleAddPrivateBlock}
       />
     </div>
   );

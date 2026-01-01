@@ -49,7 +49,7 @@ const ProfileIcon = ({ className = '' }) => {
   };
 
   const handleProfileClick = () => {
-    navigate('/einstellungen');
+    navigate('/profil');
     setIsOpen(false);
   };
 

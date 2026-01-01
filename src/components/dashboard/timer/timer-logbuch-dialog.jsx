@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { RECHTSGEBIET_LABELS, ALL_UNTERRECHTSGEBIETE } from '../../../data/unterrechtsgebiete-data';
+import { useLogbuchSync, useLernplanMetadataSync } from '../../../hooks/use-supabase-sync';
 
 /**
  * Close Icon
@@ -155,12 +156,44 @@ const RechtsgebietDropdown = ({ value, onChange }) => {
 
 /**
  * TimerLogbuchDialog - Manual time tracking log matching Figma design
+ * Uses Supabase sync for data persistence
  */
 const TimerLogbuchDialog = ({ open, onOpenChange }) => {
-  const [entries, setEntries] = useState([
-    { startTime: '12:55', endTime: '13:55', rechtsgebiet: 'zivilrecht' },
-    { startTime: '14:05', endTime: '15:35', rechtsgebiet: 'oeffentliches-recht' },
-  ]);
+  // Supabase sync hooks
+  const { data: allEntries, save: saveAllEntries } = useLogbuchSync();
+  const { lernplanMetadata } = useLernplanMetadataSync();
+
+  // Local state for today's entries (editable)
+  const [entries, setEntries] = useState([]);
+  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // Load today's entries when dialog opens
+  useEffect(() => {
+    if (open) {
+      const todayEntries = allEntries.filter(entry => entry.date === today);
+      if (todayEntries.length > 0) {
+        setEntries(todayEntries);
+      } else {
+        // Start with one empty entry for new entries
+        setEntries([{ startTime: '', endTime: '', rechtsgebiet: '' }]);
+      }
+    }
+  }, [open, allEntries, today]);
+
+  // Get learning goal from Lernplan metadata (synced via Supabase)
+  const learningGoal = useMemo(() => {
+    if (lernplanMetadata?.hoursPerDay) {
+      const hours = Math.floor(lernplanMetadata.hoursPerDay);
+      const mins = Math.round((lernplanMetadata.hoursPerDay - hours) * 60);
+      return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
+    }
+    // Default based on blocksPerDay (each block = 2 hours)
+    if (lernplanMetadata?.blocksPerDay) {
+      const hours = lernplanMetadata.blocksPerDay * 2;
+      return `${hours}h`;
+    }
+    return '8h'; // Default fallback
+  }, [lernplanMetadata]);
 
   // Calculate total learning time
   const totalLearningTime = useMemo(() => {
@@ -204,30 +237,28 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const handleSave = useCallback(() => {
-    // Save entries to localStorage
+  const handleSave = useCallback(async () => {
+    // Save entries via Supabase sync (replaces today's entries)
     try {
-      const existingEntries = JSON.parse(localStorage.getItem('prepwell_logbuch_entries') || '[]');
-      const today = new Date().toISOString().split('T')[0];
+      // Filter out today's old entries and add the updated ones
+      const otherDaysEntries = allEntries.filter(entry => entry.date !== today);
 
-      const newEntries = entries
+      const todayEntries = entries
         .filter(e => e.startTime && e.endTime && e.rechtsgebiet)
         .map(entry => ({
           ...entry,
           date: today,
-          id: `logbuch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          id: entry.id || `logbuch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         }));
 
-      localStorage.setItem(
-        'prepwell_logbuch_entries',
-        JSON.stringify([...existingEntries, ...newEntries])
-      );
+      // Save all entries (Supabase + localStorage fallback)
+      await saveAllEntries([...otherDaysEntries, ...todayEntries]);
 
       onOpenChange(false);
     } catch (error) {
       console.error('Error saving logbuch entries:', error);
     }
-  }, [entries, onOpenChange]);
+  }, [entries, allEntries, today, saveAllEntries, onOpenChange]);
 
   if (!open) return null;
 
@@ -273,7 +304,7 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
                   Lernziel {new Date().toLocaleDateString('de-DE', { weekday: 'long' })}
                 </span>
                 <span className="text-right text-neutral-900 text-lg font-light font-['DM_Sans'] leading-4">
-                  7h 40min
+                  {learningGoal}
                 </span>
               </div>
             </div>

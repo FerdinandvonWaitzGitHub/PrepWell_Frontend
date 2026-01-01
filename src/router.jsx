@@ -10,6 +10,7 @@ import { MentorProvider } from './contexts/mentor-context';
 import { ExamsProvider } from './contexts/exams-context';
 import { UebungsklausurenProvider } from './contexts/uebungsklausuren-context';
 import { CheckInProvider } from './contexts/checkin-context';
+import { OnboardingProvider } from './contexts/onboarding-context';
 
 // Pages
 import DashboardPage from './pages/dashboard';
@@ -19,9 +20,11 @@ import CalendarMonthPage from './pages/calendar-month';
 import VerwaltungLeistungenPage from './pages/verwaltung-leistungen';
 import VerwaltungAufgabenPage from './pages/verwaltung-aufgaben';
 import EinstellungenPage from './pages/einstellungen';
+import ProfilPage from './pages/profil';
 import MentorPage from './pages/mentor';
 import CheckInPage from './pages/checkin';
 import AuthPage from './pages/Auth';
+import OnboardingPage from './pages/onboarding';
 
 // Lernplan Wizard
 import { LernplanWizardPage } from './features/lernplan-wizard';
@@ -64,6 +67,10 @@ const router = createBrowserRouter([
     element: <EinstellungenPage />,
   },
   {
+    path: '/profil',
+    element: <ProfilPage />,
+  },
+  {
     path: '/mentor',
     element: <MentorPage />,
   },
@@ -74,6 +81,10 @@ const router = createBrowserRouter([
   {
     path: '/auth',
     element: <AuthPage />,
+  },
+  {
+    path: '/onboarding',
+    element: <OnboardingPage />,
   },
 ]);
 
@@ -86,17 +97,19 @@ export default function AppRouter() {
       <UnterrechtsgebieteProvider>
         <CalendarProvider>
           <AppModeProvider>
-            <TimerProvider>
-              <ExamsProvider>
-                <UebungsklausurenProvider>
-                  <MentorProvider>
-                    <CheckInProvider>
-                      <RouterProvider router={router} />
-                    </CheckInProvider>
-                  </MentorProvider>
-                </UebungsklausurenProvider>
-              </ExamsProvider>
-            </TimerProvider>
+            <OnboardingProvider>
+              <TimerProvider>
+                <ExamsProvider>
+                  <UebungsklausurenProvider>
+                    <MentorProvider>
+                      <CheckInProvider>
+                        <RouterProvider router={router} />
+                      </CheckInProvider>
+                    </MentorProvider>
+                  </UebungsklausurenProvider>
+                </ExamsProvider>
+              </TimerProvider>
+            </OnboardingProvider>
           </AppModeProvider>
         </CalendarProvider>
       </UnterrechtsgebieteProvider>

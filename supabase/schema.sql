@@ -1,24 +1,45 @@
 -- PrepWell Database Schema for Supabase
+-- IDEMPOTENT: Can be run multiple times without errors
 -- Run this in Supabase SQL Editor (https://supabase.com/dashboard/project/vitvxwfcutysuifuqnqi/sql)
 
 -- ============================================
--- ENUMS
+-- ENUMS (with IF NOT EXISTS workaround)
 -- ============================================
 
-CREATE TYPE app_mode AS ENUM ('standard', 'exam');
-CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high');
-CREATE TYPE task_status AS ENUM ('unerledigt', 'erledigt');
-CREATE TYPE grade_system AS ENUM ('punkte', 'noten');
-CREATE TYPE exam_status AS ENUM ('angemeldet', 'bestanden', 'nicht_bestanden', 'ausstehend');
-CREATE TYPE timer_type AS ENUM ('pomodoro', 'countdown', 'countup');
-CREATE TYPE block_type AS ENUM ('lernblock', 'exam', 'repetition', 'private');
+DO $$ BEGIN
+  CREATE TYPE app_mode AS ENUM ('standard', 'exam');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE task_status AS ENUM ('unerledigt', 'erledigt');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE grade_system AS ENUM ('punkte', 'noten');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE exam_status AS ENUM ('angemeldet', 'bestanden', 'nicht_bestanden', 'ausstehend');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE timer_type AS ENUM ('pomodoro', 'countdown', 'countup');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE block_type AS ENUM ('lernblock', 'exam', 'repetition', 'private');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ============================================
 -- TABLES
 -- ============================================
 
 -- Lernpläne (Learning Plans)
-CREATE TABLE lernplaene (
+CREATE TABLE IF NOT EXISTS lernplaene (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -33,7 +54,7 @@ CREATE TABLE lernplaene (
 );
 
 -- Contents (Learning Material)
-CREATE TABLE contents (
+CREATE TABLE IF NOT EXISTS contents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   lernplan_id UUID REFERENCES lernplaene(id) ON DELETE CASCADE,
@@ -48,8 +69,8 @@ CREATE TABLE contents (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Calendar Slots
-CREATE TABLE slots (
+-- Calendar Slots (Legacy)
+CREATE TABLE IF NOT EXISTS slots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lernplan_id UUID NOT NULL REFERENCES lernplaene(id) ON DELETE CASCADE,
   content_id UUID REFERENCES contents(id) ON DELETE SET NULL,
@@ -63,7 +84,7 @@ CREATE TABLE slots (
 );
 
 -- Aufgaben (Tasks)
-CREATE TABLE aufgaben (
+CREATE TABLE IF NOT EXISTS aufgaben (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   lernplan_id UUID REFERENCES lernplaene(id) ON DELETE CASCADE,
@@ -78,7 +99,7 @@ CREATE TABLE aufgaben (
 );
 
 -- Leistungen (Exams/Grades - Normal Mode)
-CREATE TABLE leistungen (
+CREATE TABLE IF NOT EXISTS leistungen (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   subject TEXT NOT NULL,
@@ -96,7 +117,7 @@ CREATE TABLE leistungen (
 );
 
 -- Übungsklausuren (Practice Exams - Exam Mode)
-CREATE TABLE uebungsklausuren (
+CREATE TABLE IF NOT EXISTS uebungsklausuren (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   lernplan_id UUID REFERENCES lernplaene(id) ON DELETE CASCADE,
@@ -110,8 +131,7 @@ CREATE TABLE uebungsklausuren (
 );
 
 -- Content Plans (Lernpläne & Themenlisten - hierarchical structure)
--- Stores the full hierarchy: Plan → Rechtsgebiete → Unterrechtsgebiete → Kapitel → Themen → Aufgaben
-CREATE TABLE content_plans (
+CREATE TABLE IF NOT EXISTS content_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -122,35 +142,30 @@ CREATE TABLE content_plans (
   archived BOOLEAN DEFAULT FALSE,
   is_published BOOLEAN DEFAULT FALSE,
   published_at TIMESTAMPTZ,
-  -- Full hierarchical structure as JSONB
-  -- Structure: [{ rechtsgebietId, name, unterrechtsgebiete: [{ id, name, kategorie, kapitel: [{ id, title, themen: [{ id, title, aufgaben: [...] }] }] }] }]
   rechtsgebiete JSONB DEFAULT '[]',
-  -- Import tracking
   imported_from TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Published Themenlisten (Community sharing)
-CREATE TABLE published_themenlisten (
+CREATE TABLE IF NOT EXISTS published_themenlisten (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source_plan_id UUID REFERENCES content_plans(id) ON DELETE SET NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
   mode app_mode DEFAULT 'standard',
-  -- Statistics
   stats JSONB DEFAULT '{"unterrechtsgebiete": 0, "themen": 0}',
   gewichtung JSONB DEFAULT '{}',
-  -- Snapshot of rechtsgebiete at publish time
   rechtsgebiete JSONB DEFAULT '[]',
   tags TEXT[] DEFAULT '{}',
   published_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Themenlisten (Theme Lists) - LEGACY, kept for backwards compatibility
-CREATE TABLE themenlisten (
+-- Themenlisten (Theme Lists) - LEGACY
+CREATE TABLE IF NOT EXISTS themenlisten (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -164,7 +179,7 @@ CREATE TABLE themenlisten (
 );
 
 -- Custom Unterrechtsgebiete
-CREATE TABLE custom_unterrechtsgebiete (
+CREATE TABLE IF NOT EXISTS custom_unterrechtsgebiete (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -174,7 +189,7 @@ CREATE TABLE custom_unterrechtsgebiete (
 );
 
 -- Check-In Responses (Mentor)
-CREATE TABLE checkin_responses (
+CREATE TABLE IF NOT EXISTS checkin_responses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   response_date DATE NOT NULL,
@@ -189,7 +204,7 @@ CREATE TABLE checkin_responses (
 );
 
 -- Timer Sessions (for statistics)
-CREATE TABLE timer_sessions (
+CREATE TABLE IF NOT EXISTS timer_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   lernplan_id UUID REFERENCES lernplaene(id) ON DELETE SET NULL,
@@ -201,8 +216,22 @@ CREATE TABLE timer_sessions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Logbuch Entries (Manual time tracking for learning sessions)
+CREATE TABLE IF NOT EXISTS logbuch_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  entry_date DATE NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  rechtsgebiet TEXT,
+  duration_minutes INT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Wizard Draft (persists incomplete wizards)
-CREATE TABLE wizard_drafts (
+CREATE TABLE IF NOT EXISTS wizard_drafts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   current_step INT DEFAULT 1,
@@ -211,8 +240,8 @@ CREATE TABLE wizard_drafts (
   UNIQUE(user_id)
 );
 
--- Private Blocks (Personal calendar entries, not part of Lernplan)
-CREATE TABLE private_blocks (
+-- Private Blocks (Personal calendar entries)
+CREATE TABLE IF NOT EXISTS private_blocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   block_date DATE NOT NULL,
@@ -229,9 +258,8 @@ CREATE TABLE private_blocks (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Calendar Slots (User's learning slots, independent of Lernplan)
--- Supports both wizard-created and manual slots
-CREATE TABLE calendar_slots (
+-- Calendar Slots (User's learning slots)
+CREATE TABLE IF NOT EXISTS calendar_slots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   content_plan_id UUID REFERENCES content_plans(id) ON DELETE SET NULL,
@@ -258,8 +286,8 @@ CREATE TABLE calendar_slots (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Calendar Tasks (Daily tasks, separate from Aufgaben in content plans)
-CREATE TABLE calendar_tasks (
+-- Calendar Tasks (Daily tasks)
+CREATE TABLE IF NOT EXISTS calendar_tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   task_date DATE NOT NULL,
@@ -273,8 +301,8 @@ CREATE TABLE calendar_tasks (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Archived Lernpläne (Previous calendar configurations)
-CREATE TABLE archived_lernplaene (
+-- Archived Lernpläne
+CREATE TABLE IF NOT EXISTS archived_lernplaene (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT,
@@ -288,7 +316,7 @@ CREATE TABLE archived_lernplaene (
 );
 
 -- User Settings
-CREATE TABLE user_settings (
+CREATE TABLE IF NOT EXISTS user_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
   mentor_activated BOOLEAN DEFAULT FALSE,
@@ -303,42 +331,37 @@ CREATE TABLE user_settings (
 -- INDEXES
 -- ============================================
 
-CREATE INDEX idx_lernplaene_user_id ON lernplaene(user_id);
-CREATE INDEX idx_lernplaene_archived ON lernplaene(archived);
-CREATE INDEX idx_contents_lernplan_id ON contents(lernplan_id);
-CREATE INDEX idx_slots_lernplan_id ON slots(lernplan_id);
-CREATE INDEX idx_slots_date ON slots(date);
-CREATE INDEX idx_slots_lernplan_date ON slots(lernplan_id, date);
-CREATE INDEX idx_aufgaben_user_id ON aufgaben(user_id);
-CREATE INDEX idx_aufgaben_lernplan_id ON aufgaben(lernplan_id);
-CREATE INDEX idx_aufgaben_due_date ON aufgaben(due_date);
-CREATE INDEX idx_aufgaben_status ON aufgaben(status);
-CREATE INDEX idx_leistungen_user_id ON leistungen(user_id);
-CREATE INDEX idx_uebungsklausuren_user_id ON uebungsklausuren(user_id);
-CREATE INDEX idx_checkin_user_date ON checkin_responses(user_id, response_date);
-CREATE INDEX idx_timer_sessions_user_id ON timer_sessions(user_id);
-CREATE INDEX idx_content_plans_user_id ON content_plans(user_id);
-CREATE INDEX idx_content_plans_type ON content_plans(type);
-CREATE INDEX idx_content_plans_archived ON content_plans(archived);
-CREATE INDEX idx_published_themenlisten_user_id ON published_themenlisten(user_id);
-
--- Private Blocks indexes
-CREATE INDEX idx_private_blocks_user_id ON private_blocks(user_id);
-CREATE INDEX idx_private_blocks_date ON private_blocks(block_date);
-CREATE INDEX idx_private_blocks_user_date ON private_blocks(user_id, block_date);
-
--- Calendar Slots indexes
-CREATE INDEX idx_calendar_slots_user_id ON calendar_slots(user_id);
-CREATE INDEX idx_calendar_slots_date ON calendar_slots(slot_date);
-CREATE INDEX idx_calendar_slots_user_date ON calendar_slots(user_id, slot_date);
-
--- Calendar Tasks indexes
-CREATE INDEX idx_calendar_tasks_user_id ON calendar_tasks(user_id);
-CREATE INDEX idx_calendar_tasks_date ON calendar_tasks(task_date);
-CREATE INDEX idx_calendar_tasks_user_date ON calendar_tasks(user_id, task_date);
-
--- Archived Lernplaene indexes
-CREATE INDEX idx_archived_lernplaene_user_id ON archived_lernplaene(user_id);
+CREATE INDEX IF NOT EXISTS idx_lernplaene_user_id ON lernplaene(user_id);
+CREATE INDEX IF NOT EXISTS idx_lernplaene_archived ON lernplaene(archived);
+CREATE INDEX IF NOT EXISTS idx_contents_lernplan_id ON contents(lernplan_id);
+CREATE INDEX IF NOT EXISTS idx_slots_lernplan_id ON slots(lernplan_id);
+CREATE INDEX IF NOT EXISTS idx_slots_date ON slots(date);
+CREATE INDEX IF NOT EXISTS idx_slots_lernplan_date ON slots(lernplan_id, date);
+CREATE INDEX IF NOT EXISTS idx_aufgaben_user_id ON aufgaben(user_id);
+CREATE INDEX IF NOT EXISTS idx_aufgaben_lernplan_id ON aufgaben(lernplan_id);
+CREATE INDEX IF NOT EXISTS idx_aufgaben_due_date ON aufgaben(due_date);
+CREATE INDEX IF NOT EXISTS idx_aufgaben_status ON aufgaben(status);
+CREATE INDEX IF NOT EXISTS idx_leistungen_user_id ON leistungen(user_id);
+CREATE INDEX IF NOT EXISTS idx_uebungsklausuren_user_id ON uebungsklausuren(user_id);
+CREATE INDEX IF NOT EXISTS idx_checkin_user_date ON checkin_responses(user_id, response_date);
+CREATE INDEX IF NOT EXISTS idx_timer_sessions_user_id ON timer_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_logbuch_entries_user_id ON logbuch_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_logbuch_entries_date ON logbuch_entries(entry_date);
+CREATE INDEX IF NOT EXISTS idx_logbuch_entries_user_date ON logbuch_entries(user_id, entry_date);
+CREATE INDEX IF NOT EXISTS idx_content_plans_user_id ON content_plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_content_plans_type ON content_plans(type);
+CREATE INDEX IF NOT EXISTS idx_content_plans_archived ON content_plans(archived);
+CREATE INDEX IF NOT EXISTS idx_published_themenlisten_user_id ON published_themenlisten(user_id);
+CREATE INDEX IF NOT EXISTS idx_private_blocks_user_id ON private_blocks(user_id);
+CREATE INDEX IF NOT EXISTS idx_private_blocks_date ON private_blocks(block_date);
+CREATE INDEX IF NOT EXISTS idx_private_blocks_user_date ON private_blocks(user_id, block_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_slots_user_id ON calendar_slots(user_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_slots_date ON calendar_slots(slot_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_slots_user_date ON calendar_slots(user_id, slot_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_tasks_user_id ON calendar_tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_tasks_date ON calendar_tasks(task_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_tasks_user_date ON calendar_tasks(user_id, task_date);
+CREATE INDEX IF NOT EXISTS idx_archived_lernplaene_user_id ON archived_lernplaene(user_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -357,6 +380,7 @@ ALTER TABLE published_themenlisten ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_unterrechtsgebiete ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checkin_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE timer_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE logbuch_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wizard_drafts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private_blocks ENABLE ROW LEVEL SECURITY;
@@ -364,179 +388,197 @@ ALTER TABLE calendar_slots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE calendar_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE archived_lernplaene ENABLE ROW LEVEL SECURITY;
 
+-- ============================================
+-- POLICIES (with DROP IF EXISTS)
+-- ============================================
+
 -- Lernplaene Policies
-CREATE POLICY "Users can view own lernplaene" ON lernplaene
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own lernplaene" ON lernplaene
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own lernplaene" ON lernplaene
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own lernplaene" ON lernplaene
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own lernplaene" ON lernplaene;
+CREATE POLICY "Users can view own lernplaene" ON lernplaene FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own lernplaene" ON lernplaene;
+CREATE POLICY "Users can create own lernplaene" ON lernplaene FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own lernplaene" ON lernplaene;
+CREATE POLICY "Users can update own lernplaene" ON lernplaene FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own lernplaene" ON lernplaene;
+CREATE POLICY "Users can delete own lernplaene" ON lernplaene FOR DELETE USING (auth.uid() = user_id);
 
 -- Contents Policies
-CREATE POLICY "Users can view own contents" ON contents
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own contents" ON contents
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own contents" ON contents
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own contents" ON contents
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own contents" ON contents;
+CREATE POLICY "Users can view own contents" ON contents FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own contents" ON contents;
+CREATE POLICY "Users can create own contents" ON contents FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own contents" ON contents;
+CREATE POLICY "Users can update own contents" ON contents FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own contents" ON contents;
+CREATE POLICY "Users can delete own contents" ON contents FOR DELETE USING (auth.uid() = user_id);
 
--- Slots Policies (based on lernplan ownership)
-CREATE POLICY "Users can view slots of own lernplaene" ON slots
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM lernplaene WHERE lernplaene.id = slots.lernplan_id AND lernplaene.user_id = auth.uid())
-  );
-CREATE POLICY "Users can create slots in own lernplaene" ON slots
-  FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM lernplaene WHERE lernplaene.id = slots.lernplan_id AND lernplaene.user_id = auth.uid())
-  );
-CREATE POLICY "Users can update slots in own lernplaene" ON slots
-  FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM lernplaene WHERE lernplaene.id = slots.lernplan_id AND lernplaene.user_id = auth.uid())
-  );
-CREATE POLICY "Users can delete slots in own lernplaene" ON slots
-  FOR DELETE USING (
-    EXISTS (SELECT 1 FROM lernplaene WHERE lernplaene.id = slots.lernplan_id AND lernplaene.user_id = auth.uid())
-  );
+-- Slots Policies
+DROP POLICY IF EXISTS "Users can view slots of own lernplaene" ON slots;
+CREATE POLICY "Users can view slots of own lernplaene" ON slots FOR SELECT USING (
+  EXISTS (SELECT 1 FROM lernplaene WHERE lernplaene.id = slots.lernplan_id AND lernplaene.user_id = auth.uid())
+);
+DROP POLICY IF EXISTS "Users can create slots in own lernplaene" ON slots;
+CREATE POLICY "Users can create slots in own lernplaene" ON slots FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM lernplaene WHERE lernplaene.id = slots.lernplan_id AND lernplaene.user_id = auth.uid())
+);
+DROP POLICY IF EXISTS "Users can update slots in own lernplaene" ON slots;
+CREATE POLICY "Users can update slots in own lernplaene" ON slots FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM lernplaene WHERE lernplaene.id = slots.lernplan_id AND lernplaene.user_id = auth.uid())
+);
+DROP POLICY IF EXISTS "Users can delete slots in own lernplaene" ON slots;
+CREATE POLICY "Users can delete slots in own lernplaene" ON slots FOR DELETE USING (
+  EXISTS (SELECT 1 FROM lernplaene WHERE lernplaene.id = slots.lernplan_id AND lernplaene.user_id = auth.uid())
+);
 
 -- Aufgaben Policies
-CREATE POLICY "Users can view own aufgaben" ON aufgaben
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own aufgaben" ON aufgaben
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own aufgaben" ON aufgaben
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own aufgaben" ON aufgaben
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own aufgaben" ON aufgaben;
+CREATE POLICY "Users can view own aufgaben" ON aufgaben FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own aufgaben" ON aufgaben;
+CREATE POLICY "Users can create own aufgaben" ON aufgaben FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own aufgaben" ON aufgaben;
+CREATE POLICY "Users can update own aufgaben" ON aufgaben FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own aufgaben" ON aufgaben;
+CREATE POLICY "Users can delete own aufgaben" ON aufgaben FOR DELETE USING (auth.uid() = user_id);
 
 -- Leistungen Policies
-CREATE POLICY "Users can view own leistungen" ON leistungen
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own leistungen" ON leistungen
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own leistungen" ON leistungen
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own leistungen" ON leistungen
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own leistungen" ON leistungen;
+CREATE POLICY "Users can view own leistungen" ON leistungen FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own leistungen" ON leistungen;
+CREATE POLICY "Users can create own leistungen" ON leistungen FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own leistungen" ON leistungen;
+CREATE POLICY "Users can update own leistungen" ON leistungen FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own leistungen" ON leistungen;
+CREATE POLICY "Users can delete own leistungen" ON leistungen FOR DELETE USING (auth.uid() = user_id);
 
--- Übungsklausuren Policies
-CREATE POLICY "Users can view own uebungsklausuren" ON uebungsklausuren
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own uebungsklausuren" ON uebungsklausuren
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own uebungsklausuren" ON uebungsklausuren
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own uebungsklausuren" ON uebungsklausuren
-  FOR DELETE USING (auth.uid() = user_id);
+-- Uebungsklausuren Policies
+DROP POLICY IF EXISTS "Users can view own uebungsklausuren" ON uebungsklausuren;
+CREATE POLICY "Users can view own uebungsklausuren" ON uebungsklausuren FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own uebungsklausuren" ON uebungsklausuren;
+CREATE POLICY "Users can create own uebungsklausuren" ON uebungsklausuren FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own uebungsklausuren" ON uebungsklausuren;
+CREATE POLICY "Users can update own uebungsklausuren" ON uebungsklausuren FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own uebungsklausuren" ON uebungsklausuren;
+CREATE POLICY "Users can delete own uebungsklausuren" ON uebungsklausuren FOR DELETE USING (auth.uid() = user_id);
 
--- Themenlisten Policies (public for published) - LEGACY
-CREATE POLICY "Users can view own themenlisten" ON themenlisten
-  FOR SELECT USING (auth.uid() = user_id OR is_published = TRUE);
-CREATE POLICY "Users can create own themenlisten" ON themenlisten
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own themenlisten" ON themenlisten
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own themenlisten" ON themenlisten
-  FOR DELETE USING (auth.uid() = user_id);
+-- Themenlisten Policies (LEGACY)
+DROP POLICY IF EXISTS "Users can view own themenlisten" ON themenlisten;
+CREATE POLICY "Users can view own themenlisten" ON themenlisten FOR SELECT USING (auth.uid() = user_id OR is_published = TRUE);
+DROP POLICY IF EXISTS "Users can create own themenlisten" ON themenlisten;
+CREATE POLICY "Users can create own themenlisten" ON themenlisten FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own themenlisten" ON themenlisten;
+CREATE POLICY "Users can update own themenlisten" ON themenlisten FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own themenlisten" ON themenlisten;
+CREATE POLICY "Users can delete own themenlisten" ON themenlisten FOR DELETE USING (auth.uid() = user_id);
 
 -- Content Plans Policies
-CREATE POLICY "Users can view own content_plans" ON content_plans
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own content_plans" ON content_plans
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own content_plans" ON content_plans
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own content_plans" ON content_plans
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own content_plans" ON content_plans;
+CREATE POLICY "Users can view own content_plans" ON content_plans FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own content_plans" ON content_plans;
+CREATE POLICY "Users can create own content_plans" ON content_plans FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own content_plans" ON content_plans;
+CREATE POLICY "Users can update own content_plans" ON content_plans FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own content_plans" ON content_plans;
+CREATE POLICY "Users can delete own content_plans" ON content_plans FOR DELETE USING (auth.uid() = user_id);
 
--- Published Themenlisten Policies (public read for community)
-CREATE POLICY "Anyone can view published_themenlisten" ON published_themenlisten
-  FOR SELECT USING (TRUE);
-CREATE POLICY "Users can create own published_themenlisten" ON published_themenlisten
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can delete own published_themenlisten" ON published_themenlisten
-  FOR DELETE USING (auth.uid() = user_id);
+-- Published Themenlisten Policies
+DROP POLICY IF EXISTS "Anyone can view published_themenlisten" ON published_themenlisten;
+CREATE POLICY "Anyone can view published_themenlisten" ON published_themenlisten FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Users can create own published_themenlisten" ON published_themenlisten;
+CREATE POLICY "Users can create own published_themenlisten" ON published_themenlisten FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own published_themenlisten" ON published_themenlisten;
+CREATE POLICY "Users can delete own published_themenlisten" ON published_themenlisten FOR DELETE USING (auth.uid() = user_id);
 
 -- Custom Unterrechtsgebiete Policies
-CREATE POLICY "Users can view own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can delete own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete;
+CREATE POLICY "Users can view own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete;
+CREATE POLICY "Users can create own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete;
+CREATE POLICY "Users can delete own custom_unterrechtsgebiete" ON custom_unterrechtsgebiete FOR DELETE USING (auth.uid() = user_id);
 
 -- Check-In Policies
-CREATE POLICY "Users can view own checkin_responses" ON checkin_responses
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own checkin_responses" ON checkin_responses
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own checkin_responses" ON checkin_responses
-  FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own checkin_responses" ON checkin_responses;
+CREATE POLICY "Users can view own checkin_responses" ON checkin_responses FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own checkin_responses" ON checkin_responses;
+CREATE POLICY "Users can create own checkin_responses" ON checkin_responses FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own checkin_responses" ON checkin_responses;
+CREATE POLICY "Users can update own checkin_responses" ON checkin_responses FOR UPDATE USING (auth.uid() = user_id);
 
 -- Timer Sessions Policies
-CREATE POLICY "Users can view own timer_sessions" ON timer_sessions
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own timer_sessions" ON timer_sessions
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own timer_sessions" ON timer_sessions;
+CREATE POLICY "Users can view own timer_sessions" ON timer_sessions FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own timer_sessions" ON timer_sessions;
+CREATE POLICY "Users can create own timer_sessions" ON timer_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Logbuch Entries Policies
+DROP POLICY IF EXISTS "Users can view own logbuch_entries" ON logbuch_entries;
+DROP POLICY IF EXISTS "logbuch_select" ON logbuch_entries;
+CREATE POLICY "Users can view own logbuch_entries" ON logbuch_entries FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own logbuch_entries" ON logbuch_entries;
+DROP POLICY IF EXISTS "logbuch_insert" ON logbuch_entries;
+CREATE POLICY "Users can create own logbuch_entries" ON logbuch_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own logbuch_entries" ON logbuch_entries;
+DROP POLICY IF EXISTS "logbuch_update" ON logbuch_entries;
+CREATE POLICY "Users can update own logbuch_entries" ON logbuch_entries FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own logbuch_entries" ON logbuch_entries;
+DROP POLICY IF EXISTS "logbuch_delete" ON logbuch_entries;
+CREATE POLICY "Users can delete own logbuch_entries" ON logbuch_entries FOR DELETE USING (auth.uid() = user_id);
 
 -- Wizard Drafts Policies
-CREATE POLICY "Users can view own wizard_drafts" ON wizard_drafts
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own wizard_drafts" ON wizard_drafts
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own wizard_drafts" ON wizard_drafts
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own wizard_drafts" ON wizard_drafts
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own wizard_drafts" ON wizard_drafts;
+CREATE POLICY "Users can view own wizard_drafts" ON wizard_drafts FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own wizard_drafts" ON wizard_drafts;
+CREATE POLICY "Users can create own wizard_drafts" ON wizard_drafts FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own wizard_drafts" ON wizard_drafts;
+CREATE POLICY "Users can update own wizard_drafts" ON wizard_drafts FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own wizard_drafts" ON wizard_drafts;
+CREATE POLICY "Users can delete own wizard_drafts" ON wizard_drafts FOR DELETE USING (auth.uid() = user_id);
 
 -- User Settings Policies
-CREATE POLICY "Users can view own settings" ON user_settings
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own settings" ON user_settings
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own settings" ON user_settings
-  FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own settings" ON user_settings;
+CREATE POLICY "Users can view own settings" ON user_settings FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own settings" ON user_settings;
+CREATE POLICY "Users can create own settings" ON user_settings FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own settings" ON user_settings;
+CREATE POLICY "Users can update own settings" ON user_settings FOR UPDATE USING (auth.uid() = user_id);
 
 -- Private Blocks Policies
-CREATE POLICY "Users can view own private_blocks" ON private_blocks
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own private_blocks" ON private_blocks
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own private_blocks" ON private_blocks
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own private_blocks" ON private_blocks
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own private_blocks" ON private_blocks;
+CREATE POLICY "Users can view own private_blocks" ON private_blocks FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own private_blocks" ON private_blocks;
+CREATE POLICY "Users can create own private_blocks" ON private_blocks FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own private_blocks" ON private_blocks;
+CREATE POLICY "Users can update own private_blocks" ON private_blocks FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own private_blocks" ON private_blocks;
+CREATE POLICY "Users can delete own private_blocks" ON private_blocks FOR DELETE USING (auth.uid() = user_id);
 
 -- Calendar Slots Policies
-CREATE POLICY "Users can view own calendar_slots" ON calendar_slots
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own calendar_slots" ON calendar_slots
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own calendar_slots" ON calendar_slots
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own calendar_slots" ON calendar_slots
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own calendar_slots" ON calendar_slots;
+CREATE POLICY "Users can view own calendar_slots" ON calendar_slots FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own calendar_slots" ON calendar_slots;
+CREATE POLICY "Users can create own calendar_slots" ON calendar_slots FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own calendar_slots" ON calendar_slots;
+CREATE POLICY "Users can update own calendar_slots" ON calendar_slots FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own calendar_slots" ON calendar_slots;
+CREATE POLICY "Users can delete own calendar_slots" ON calendar_slots FOR DELETE USING (auth.uid() = user_id);
 
 -- Calendar Tasks Policies
-CREATE POLICY "Users can view own calendar_tasks" ON calendar_tasks
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own calendar_tasks" ON calendar_tasks
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own calendar_tasks" ON calendar_tasks
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own calendar_tasks" ON calendar_tasks
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own calendar_tasks" ON calendar_tasks;
+CREATE POLICY "Users can view own calendar_tasks" ON calendar_tasks FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own calendar_tasks" ON calendar_tasks;
+CREATE POLICY "Users can create own calendar_tasks" ON calendar_tasks FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own calendar_tasks" ON calendar_tasks;
+CREATE POLICY "Users can update own calendar_tasks" ON calendar_tasks FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own calendar_tasks" ON calendar_tasks;
+CREATE POLICY "Users can delete own calendar_tasks" ON calendar_tasks FOR DELETE USING (auth.uid() = user_id);
 
 -- Archived Lernplaene Policies
-CREATE POLICY "Users can view own archived_lernplaene" ON archived_lernplaene
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create own archived_lernplaene" ON archived_lernplaene
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can delete own archived_lernplaene" ON archived_lernplaene
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can view own archived_lernplaene" ON archived_lernplaene;
+CREATE POLICY "Users can view own archived_lernplaene" ON archived_lernplaene FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own archived_lernplaene" ON archived_lernplaene;
+CREATE POLICY "Users can create own archived_lernplaene" ON archived_lernplaene FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own archived_lernplaene" ON archived_lernplaene;
+CREATE POLICY "Users can delete own archived_lernplaene" ON archived_lernplaene FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================
 -- FUNCTIONS
@@ -551,28 +593,58 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply trigger to all tables with updated_at
+-- ============================================
+-- TRIGGERS (with DROP IF EXISTS)
+-- ============================================
+
+DROP TRIGGER IF EXISTS update_lernplaene_updated_at ON lernplaene;
 CREATE TRIGGER update_lernplaene_updated_at BEFORE UPDATE ON lernplaene
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_contents_updated_at ON contents;
 CREATE TRIGGER update_contents_updated_at BEFORE UPDATE ON contents
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_slots_updated_at ON slots;
 CREATE TRIGGER update_slots_updated_at BEFORE UPDATE ON slots
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_aufgaben_updated_at ON aufgaben;
 CREATE TRIGGER update_aufgaben_updated_at BEFORE UPDATE ON aufgaben
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_leistungen_updated_at ON leistungen;
 CREATE TRIGGER update_leistungen_updated_at BEFORE UPDATE ON leistungen
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_uebungsklausuren_updated_at ON uebungsklausuren;
 CREATE TRIGGER update_uebungsklausuren_updated_at BEFORE UPDATE ON uebungsklausuren
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_themenlisten_updated_at ON themenlisten;
 CREATE TRIGGER update_themenlisten_updated_at BEFORE UPDATE ON themenlisten
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_content_plans_updated_at ON content_plans;
 CREATE TRIGGER update_content_plans_updated_at BEFORE UPDATE ON content_plans
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_logbuch_entries_updated_at ON logbuch_entries;
+CREATE TRIGGER update_logbuch_entries_updated_at BEFORE UPDATE ON logbuch_entries
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_user_settings_updated_at ON user_settings;
 CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_private_blocks_updated_at ON private_blocks;
 CREATE TRIGGER update_private_blocks_updated_at BEFORE UPDATE ON private_blocks
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_calendar_slots_updated_at ON calendar_slots;
 CREATE TRIGGER update_calendar_slots_updated_at BEFORE UPDATE ON calendar_slots
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_calendar_tasks_updated_at ON calendar_tasks;
 CREATE TRIGGER update_calendar_tasks_updated_at BEFORE UPDATE ON calendar_tasks
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();

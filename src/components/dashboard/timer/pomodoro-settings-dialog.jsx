@@ -167,12 +167,12 @@ const PomodoroSettingsDialog = ({ open, onOpenChange, onStart, initialSettings }
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/50"
+        className="fixed inset-0 z-[60] bg-black/50"
         onClick={() => onOpenChange(false)}
       />
 
       {/* Dialog */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
         <div
           className="w-[806px] p-6 relative bg-white rounded-[10px] shadow-lg outline outline-1 outline-offset-[-1px] outline-neutral-200
                      inline-flex flex-col justify-start items-start gap-8 pointer-events-auto"

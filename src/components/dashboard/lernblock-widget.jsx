@@ -83,7 +83,8 @@ const DragHandleIcon = () => (
  * - Expanded (with description): bg-neutral-100, NO border, rounded-lg, p-2.5
  * - Collapsed (no description): border border-neutral-200, bg-white, rounded-lg
  * - Dual "!" priority indicators
- * - Only trash icon on hover (no edit, no drag handle)
+ * - Drag handle on hover for drag & drop to Zeitplan
+ * - Trash icon on hover
  */
 const TaskItem = ({
   task,
@@ -98,6 +99,26 @@ const TaskItem = ({
 }) => {
   // Determine if expanded (has description) or collapsed
   const hasDescription = task.description && task.description.trim().length > 0;
+
+  // Drag handlers for dropping tasks onto Zeitplan blocks
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'task',
+      source: 'todos',
+      task: {
+        id: task.id,
+        text: task.text,
+        completed: task.completed,
+        priority: task.priority,
+      }
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.classList.remove('opacity-50');
+  };
 
   if (isEditing) {
     return (
@@ -135,12 +156,19 @@ const TaskItem = ({
 
   return (
     <div
-      className={`flex items-center gap-3 p-2.5 rounded-lg group transition-all ${
+      className={`flex items-center gap-3 p-2.5 rounded-lg group transition-all cursor-grab active:cursor-grabbing ${
         hasDescription
-          ? 'bg-neutral-100'
-          : 'border border-neutral-200 bg-white'
+          ? 'bg-neutral-100 hover:bg-neutral-150'
+          : 'border border-neutral-200 bg-white hover:bg-neutral-50'
       }`}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
+      {/* Drag Handle - visible on hover */}
+      <span className="flex-shrink-0 text-neutral-300 group-hover:text-neutral-400 transition-colors">
+        <DragHandleIcon />
+      </span>
       <input
         type="checkbox"
         checked={task.completed}
@@ -158,33 +186,31 @@ const TaskItem = ({
           </p>
         )}
       </div>
-      <div className="flex items-center gap-0.5">
-        {/* Dual "!" priority indicators - Figma style */}
-        <button
-          type="button"
-          onClick={() => onTogglePriority(task.id, 1)}
-          className={`text-xl font-semibold transition-colors ${
-            priorityLevel >= 1 ? 'text-neutral-900' : 'text-neutral-200 hover:text-neutral-400'
-          }`}
-          title="Priorität 1"
-        >
-          !
-        </button>
-        <button
-          type="button"
-          onClick={() => onTogglePriority(task.id, 2)}
-          className={`text-xl font-semibold transition-colors ${
-            priorityLevel >= 2 ? 'text-neutral-900' : 'text-neutral-200 hover:text-neutral-400'
-          }`}
-          title="Priorität 2"
-        >
-          !
-        </button>
-      </div>
+      {/* Priority indicator - single button that cycles through: none → medium → high → none */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Cycle through: none (0) → medium (1) → high (2) → none (0)
+          const nextLevel = (priorityLevel + 1) % 3;
+          const nextPriority = nextLevel === 0 ? 'none' : nextLevel === 1 ? 'medium' : 'high';
+          onTogglePriority(task.id, nextPriority);
+        }}
+        className={`px-1.5 py-0.5 rounded text-sm font-semibold transition-colors ${
+          priorityLevel === 0
+            ? 'text-neutral-300 hover:text-neutral-500'
+            : priorityLevel === 1
+            ? 'text-yellow-600 bg-yellow-50'
+            : 'text-red-600 bg-red-50'
+        }`}
+        title={priorityLevel === 0 ? 'Keine Priorität' : priorityLevel === 1 ? 'Mittlere Priorität' : 'Hohe Priorität'}
+      >
+        {priorityLevel === 0 ? '!' : priorityLevel === 1 ? '!' : '!!'}
+      </button>
       {/* Trash icon - only on hover */}
       <button
         type="button"
-        onClick={() => onDelete(task.id)}
+        onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
         className="w-6 h-6 flex items-center justify-center rounded text-neutral-300 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 transition-all"
         title="Löschen"
       >
@@ -275,17 +301,11 @@ const TaskList = ({
                 if (e.key === 'Enter') handleNewTaskSubmit();
                 if (e.key === 'Escape') handleNewTaskCancel();
               }}
+              onBlur={handleNewTaskSubmit}
               placeholder="Neue Aufgabe..."
               autoFocus
               className="flex-1 text-sm border-none outline-none bg-transparent"
             />
-            <button
-              type="button"
-              onClick={handleNewTaskSubmit}
-              className="text-xs text-neutral-600 hover:text-neutral-900"
-            >
-              OK
-            </button>
           </div>
         )}
       </div>

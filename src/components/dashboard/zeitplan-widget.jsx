@@ -30,19 +30,22 @@ const ZeitplanWidget = ({
   onDropTaskToBlock, // Callback when a task is dropped onto a block
 }) => {
   const [blocks, setBlocks] = useState(data?.blocks || []);
-  const [containerHeight, setContainerHeight] = useState(0);
   const [dragOverBlockId, setDragOverBlockId] = useState(null);
   const timelineContainerRef = useRef(null);
 
-  const baseStartHour = 6;
-  const hourSpan = 17; // 6-22 inkl.
+  // Current time
+  const currentHour = new Date().getHours();
+  const currentMinute = new Date().getMinutes();
 
-  // Dynamische hourHeight basierend auf verfügbarer Höhe
-  // Mindesthöhe 20px für Lesbarkeit, Maximum 50px
-  const calculatedHourHeight = containerHeight > 0 ? Math.floor(containerHeight / hourSpan) : 32;
-  const hourHeight = Math.max(20, Math.min(50, calculatedHourHeight));
+  // Always show full 24 hours (00:00 - 24:00), scrollable
+  const baseStartHour = 0;
+  const baseEndHour = 24;
+  const hourSpan = 24;
 
-  const hours = Array.from({ length: hourSpan }, (_, i) => baseStartHour + i); // 6-22
+  // Hour height for good visibility
+  const hourHeight = 52;
+
+  const hours = Array.from({ length: hourSpan }, (_, i) => baseStartHour + i);
   const timeLabelsWidth = 40; // Breite für die Stunden-Labels
   const scheduledBlocks = blocks;
   const totalTimelineHeight = hourSpan * hourHeight;
@@ -51,21 +54,14 @@ const ZeitplanWidget = ({
     setBlocks(data?.blocks || []);
   }, [data]);
 
-  // Container-Höhe messen und bei Resize aktualisieren
+  // Auto-scroll to current time on mount
   useEffect(() => {
-    const updateHeight = () => {
-      if (timelineContainerRef.current) {
-        // Berechne verfügbare Höhe: Viewport - Header - Statusbar - Footer - Padding
-        const viewportHeight = window.innerHeight;
-        const reservedHeight = 280; // Header, Statusbar, Footer, Padding
-        const availableHeight = viewportHeight - reservedHeight;
-        setContainerHeight(Math.max(300, availableHeight));
-      }
-    };
-
-    updateHeight();
-    window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
+    if (timelineContainerRef.current) {
+      // Scroll to show current time in upper third of visible area
+      const scrollToHour = Math.max(0, currentHour - 2);
+      const scrollPosition = scrollToHour * hourHeight;
+      timelineContainerRef.current.scrollTop = scrollPosition;
+    }
   }, []);
 
   const plannedDuration = blocks.reduce((sum, block) => sum + Number(block.duration || 0), 0);
@@ -93,10 +89,8 @@ const ZeitplanWidget = ({
     };
   };
 
-  // Current time indicator
-  const currentHour = new Date().getHours();
-  const currentMinute = new Date().getMinutes();
-  const isInRange = currentHour >= baseStartHour && currentHour < baseStartHour + hourSpan;
+  // Current time indicator position
+  const isInRange = currentHour >= baseStartHour && currentHour < baseEndHour;
   const currentTimePositionPx = isInRange
     ? (currentHour - baseStartHour + currentMinute / 60) * hourHeight
     : null;
@@ -137,8 +131,8 @@ const ZeitplanWidget = ({
         </div>
       </div>
 
-      {/* Timeline - Dynamische Höhe, kein Scrollen */}
-      <div ref={timelineContainerRef} className="p-4">
+      {/* Timeline - Scrollbar bei Bedarf */}
+      <div ref={timelineContainerRef} className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
         <div className="relative" style={{ height: `${totalTimelineHeight}px` }}>
           {/* Hour Labels and Grid Lines */}
           <div className="relative" style={{ height: `${totalTimelineHeight}px` }}>
@@ -156,17 +150,21 @@ const ZeitplanWidget = ({
             ))}
           </div>
 
-          {/* Current Time Indicator */}
+          {/* Current Time Indicator - Figma: Red dot + line */}
           {currentTimePositionPx !== null && (
             <div
               className="absolute left-0 right-0 z-10 pointer-events-none"
               style={{ top: `${currentTimePositionPx}px` }}
             >
-              <div className="flex items-center gap-2">
-                <span className="w-8 text-xs font-bold text-red-500 text-right">
+              <div className="flex items-center">
+                {/* Time label */}
+                <span className="w-8 text-xs font-bold text-red-500 text-right mr-1">
                   {currentHour}:{currentMinute.toString().padStart(2, '0')}
                 </span>
-                <div className="flex-1 border-t-2 border-red-500"></div>
+                {/* Red Dot (Figma: Ellipse 6x6px) */}
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                {/* Line */}
+                <div className="flex-1 border-t-2 border-red-500 ml-0.5" />
               </div>
             </div>
           )}

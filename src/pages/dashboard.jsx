@@ -52,6 +52,7 @@ const DashboardPage = () => {
 
   // Handle settings click from timer main dialog - show selection dialog
   const handleTimerSettingsClick = () => {
+    console.log('handleTimerSettingsClick: closing main, opening selection');
     setShowTimerMain(false);
     setShowTimerSelection(true);
   };

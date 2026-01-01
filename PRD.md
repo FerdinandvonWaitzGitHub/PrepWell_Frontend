@@ -85,21 +85,23 @@ VITE_SUPABASE_URL=https://[project-ref].supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 
-**Services:**
+**Data Layer (Sync Hooks):**
 ```javascript
+// src/hooks/use-supabase-sync.js
 import {
-  lernplaeneService,
-  slotsService,
-  aufgabenService,
-  leistungenService,
-  wizardService,
-  // ... weitere Services
-} from './services/supabaseService';
+  useSupabaseSync,
+  useExamsSync,
+  useCheckInSync,
+  useContentPlansSync,
+  useCalendarSlotsSync,
+  useCalendarTasksSync,
+  // ... weitere Hooks
+} from './hooks/use-supabase-sync';
 ```
 
 ### 2.3 Supabase-Integrationsstatus
 
-**Aktueller Stand (Dezember 2025):**
+**Aktueller Stand (Januar 2026):**
 
 | Context | Supabase-Tabelle | Status | Beschreibung |
 |---------|------------------|--------|--------------|
@@ -126,15 +128,18 @@ import {
 - Offline: LocalStorage-Fallback mit automatischem Sync beim Reconnect
 - Debouncing: Wizard Draft wird mit 500ms Debounce gespeichert
 - Date-keyed Transformationen: `slotsByDate`, `tasksByDate`, `privateBlocksByDate` werden zwischen Object-Format (lokal) und flachen Arrays (Supabase) transformiert
+- Konfigurierbare `onConflict`-Strategie: Hooks können eigene Upsert-Konfliktauflösung definieren (z.B. `useCheckInSync` nutzt `user_id,response_date,period`)
 
 **Data Layer:** `src/hooks/use-supabase-sync.js` bietet wiederverwendbare Hooks:
-- `useSupabaseSync` - Generischer Sync-Hook
+- `useSupabaseSync` - Generischer Sync-Hook mit konfigurierbarem `onConflict`
 - `useExamsSync`, `useUebungsklausurenSync` - Leistungs-Hooks
+- `useCheckInSync` - Check-In/Check-Out Daten (mit `period`-Support)
 - `useContentPlansSync`, `useWizardDraftSync` - Content-Hooks
 - `useUserSettingsSync` - Settings-Hook
 - `useCalendarSlotsSync`, `useCalendarTasksSync` - Kalender-Hooks
 - `usePrivateBlocksSync`, `useArchivedLernplaeneSync` - Block/Archiv-Hooks
 - `useLernplanMetadataSync`, `usePublishedThemenlistenSync` - Metadata/Community-Hooks
+- `useTimerHistorySync` - Timer-Sessions
 
 **Migration SQL:** Siehe `supabase/migrations/002_add_calendar_tables.sql` für die neuen Tabellen.
 
