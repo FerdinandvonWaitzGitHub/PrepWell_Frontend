@@ -35,3 +35,6 @@ analyze-*.cjs
 
 # Local development data (server.js)
 data/*.json
+
+# Temporarily disabled API
+api/
