@@ -58,6 +58,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Helper to set CORS headers on response
+function setCorsHeaders(res: VercelResponse): void {
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
+}
+
 /**
  * Build the prompt for OpenAI to generate a learning plan
  */
@@ -244,7 +251,7 @@ async function callOpenAI(prompt: string): Promise<string> {
     throw new Error(`OpenAI API Fehler: ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -337,13 +344,15 @@ export default async function handler(
 ): Promise<void> {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    res.status(200).set(corsHeaders).end();
+    setCorsHeaders(res);
+    res.status(200).end();
     return;
   }
 
   // Only allow POST
   if (req.method !== 'POST') {
-    res.status(405).set(corsHeaders).json({ error: 'Method not allowed' });
+    setCorsHeaders(res);
+    res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
@@ -352,7 +361,8 @@ export default async function handler(
 
     // Validate required fields
     if (!wizardData.startDate || !wizardData.endDate) {
-      res.status(400).set(corsHeaders).json({
+      setCorsHeaders(res);
+      res.status(400).json({
         success: false,
         error: 'startDate und endDate sind erforderlich',
       });
@@ -380,7 +390,8 @@ export default async function handler(
         const end = new Date(wizardData.endDate);
         const totalCalendarDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-        res.status(200).set(corsHeaders).json({
+        setCorsHeaders(res);
+        res.status(200).json({
           success: true,
           learningDays,
           totalDays: learningDays.length,
@@ -397,16 +408,19 @@ export default async function handler(
         // Fall back to local generation
         const fallbackResult = generateLocalFallback(wizardData);
         fallbackResult.message = `KI-Fehler: ${(aiError as Error).message}. Lokaler Fallback verwendet.`;
-        res.status(200).set(corsHeaders).json(fallbackResult);
+        setCorsHeaders(res);
+        res.status(200).json(fallbackResult);
       }
     } else {
       // No API key configured, use fallback
       const fallbackResult = generateLocalFallback(wizardData);
-      res.status(200).set(corsHeaders).json(fallbackResult);
+      setCorsHeaders(res);
+      res.status(200).json(fallbackResult);
     }
   } catch (error) {
     console.error('Generate plan error:', error);
-    res.status(500).set(corsHeaders).json({
+    setCorsHeaders(res);
+    res.status(500).json({
       success: false,
       error: (error as Error).message || 'Interner Serverfehler',
     });
