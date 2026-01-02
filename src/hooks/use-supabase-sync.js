@@ -39,11 +39,21 @@ const STORAGE_KEYS = {
 
 /**
  * Load data from localStorage
+ * Handles both JSON and plain string values for backwards compatibility
  */
 const loadFromStorage = (key, defaultValue) => {
   try {
     const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
+    if (!stored) return defaultValue;
+
+    // Try to parse as JSON first
+    try {
+      return JSON.parse(stored);
+    } catch {
+      // If JSON.parse fails, return the raw string value
+      // This handles legacy values stored without JSON.stringify
+      return stored;
+    }
   } catch (error) {
     console.error(`Error loading ${key} from localStorage:`, error);
     return defaultValue;
@@ -227,7 +237,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       setError(err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [isSupabaseEnabled, isAuthenticated, user, tableName, storageKey, transformToSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user, tableName, storageKey, transformToSupabase, onConflict]);
 
   // Save single item
   const saveItem = useCallback(async (item) => {
@@ -769,6 +779,7 @@ export function useWizardDraftSync() {
     };
 
     initDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSupabaseEnabled, isAuthenticated, fetchFromSupabase]);
 
   // Save draft (to both localStorage and Supabase)
@@ -897,6 +908,8 @@ export function useCalendarSlotsSync() {
         repeatEnabled: row.repeat_enabled,
         repeatType: row.repeat_type,
         repeatCount: row.repeat_count,
+        seriesId: row.series_id,
+        customDays: row.custom_days,
         tasks: row.tasks || [],
         metadata: row.metadata || {},
         createdAt: row.created_at,
@@ -931,6 +944,8 @@ export function useCalendarSlotsSync() {
           repeat_enabled: slot.repeatEnabled || false,
           repeat_type: slot.repeatType,
           repeat_count: slot.repeatCount,
+          series_id: slot.seriesId,
+          custom_days: slot.customDays,
           tasks: slot.tasks || [],
           metadata: slot.metadata || {},
         });
@@ -1046,6 +1061,8 @@ export function useCalendarSlotsSync() {
           repeat_enabled: slot.repeatEnabled || false,
           repeat_type: slot.repeatType,
           repeat_count: slot.repeatCount,
+          series_id: slot.seriesId,
+          custom_days: slot.customDays,
           tasks: slot.tasks || [],
           metadata: slot.metadata || {},
         }));
@@ -1355,6 +1372,8 @@ export function usePrivateBlocksSync() {
         repeatEnabled: row.repeat_enabled,
         repeatType: row.repeat_type,
         repeatCount: row.repeat_count,
+        seriesId: row.series_id,
+        customDays: row.custom_days,
         blockType: 'private',
         metadata: row.metadata || {},
         createdAt: row.created_at,
@@ -1420,6 +1439,8 @@ export function usePrivateBlocksSync() {
                 repeat_enabled: block.repeatEnabled || false,
                 repeat_type: block.repeatType,
                 repeat_count: block.repeatCount,
+                series_id: block.seriesId,
+                custom_days: block.customDays,
                 metadata: block.metadata || {},
               });
             });
@@ -1476,6 +1497,8 @@ export function usePrivateBlocksSync() {
           repeat_enabled: block.repeatEnabled || false,
           repeat_type: block.repeatType,
           repeat_count: block.repeatCount,
+          series_id: block.seriesId,
+          custom_days: block.customDays,
           metadata: block.metadata || {},
         }));
 
@@ -1739,6 +1762,7 @@ export function useLernplanMetadataSync() {
     };
 
     initSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSupabaseEnabled, isAuthenticated, user]);
 
   // Update metadata
