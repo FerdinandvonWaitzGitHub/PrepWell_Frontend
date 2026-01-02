@@ -245,14 +245,18 @@ CREATE TABLE IF NOT EXISTS private_blocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   block_date DATE NOT NULL,
+  end_date DATE, -- BUG-012 FIX: End date for multi-day blocks
   title TEXT NOT NULL,
   description TEXT,
   start_time TIME,
   end_time TIME,
   all_day BOOLEAN DEFAULT FALSE,
+  is_multi_day BOOLEAN DEFAULT FALSE, -- BUG-012 FIX: Multi-day flag
   repeat_enabled BOOLEAN DEFAULT FALSE,
   repeat_type TEXT,
   repeat_count INT,
+  series_id UUID,
+  custom_days JSONB,
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -280,6 +284,8 @@ CREATE TABLE IF NOT EXISTS calendar_slots (
   repeat_enabled BOOLEAN DEFAULT FALSE,
   repeat_type TEXT,
   repeat_count INT,
+  series_id UUID,
+  custom_days JSONB,
   tasks JSONB DEFAULT '[]',
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -328,6 +334,38 @@ CREATE TABLE IF NOT EXISTS user_settings (
 );
 
 -- ============================================
+-- MIGRATIONS (for existing databases)
+-- Must run BEFORE indexes to ensure columns exist
+-- ============================================
+
+-- Migration: Add series_id and custom_days to private_blocks
+DO $$ BEGIN
+  ALTER TABLE private_blocks ADD COLUMN series_id UUID;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE private_blocks ADD COLUMN custom_days JSONB;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- Migration: Add series_id and custom_days to calendar_slots
+DO $$ BEGIN
+  ALTER TABLE calendar_slots ADD COLUMN series_id UUID;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE calendar_slots ADD COLUMN custom_days JSONB;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- Migration: Add end_date and is_multi_day to private_blocks (BUG-012 FIX)
+DO $$ BEGIN
+  ALTER TABLE private_blocks ADD COLUMN end_date DATE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE private_blocks ADD COLUMN is_multi_day BOOLEAN DEFAULT FALSE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- ============================================
 -- INDEXES
 -- ============================================
 
@@ -355,9 +393,11 @@ CREATE INDEX IF NOT EXISTS idx_published_themenlisten_user_id ON published_theme
 CREATE INDEX IF NOT EXISTS idx_private_blocks_user_id ON private_blocks(user_id);
 CREATE INDEX IF NOT EXISTS idx_private_blocks_date ON private_blocks(block_date);
 CREATE INDEX IF NOT EXISTS idx_private_blocks_user_date ON private_blocks(user_id, block_date);
+CREATE INDEX IF NOT EXISTS idx_private_blocks_series_id ON private_blocks(series_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_slots_user_id ON calendar_slots(user_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_slots_date ON calendar_slots(slot_date);
 CREATE INDEX IF NOT EXISTS idx_calendar_slots_user_date ON calendar_slots(user_id, slot_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_slots_series_id ON calendar_slots(series_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_tasks_user_id ON calendar_tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_tasks_date ON calendar_tasks(task_date);
 CREATE INDEX IF NOT EXISTS idx_calendar_tasks_user_date ON calendar_tasks(user_id, task_date);
@@ -648,3 +688,7 @@ CREATE TRIGGER update_calendar_slots_updated_at BEFORE UPDATE ON calendar_slots
 DROP TRIGGER IF EXISTS update_calendar_tasks_updated_at ON calendar_tasks;
 CREATE TRIGGER update_calendar_tasks_updated_at BEFORE UPDATE ON calendar_tasks
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================
+-- END OF SCHEMA
+-- ============================================

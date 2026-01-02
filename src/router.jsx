@@ -82,43 +82,43 @@ const router = createBrowserRouter([
   },
   {
     path: '/lernplan',
-    element: <LernplanPage />,
+    element: <ProtectedRoute><LernplanPage /></ProtectedRoute>,
   },
   {
     path: '/lernplan/erstellen',
-    element: <LernplanWizardPage />,
+    element: <ProtectedRoute><LernplanWizardPage /></ProtectedRoute>,
   },
   {
     path: '/kalender/woche',
-    element: <CalendarWeekPage />,
+    element: <ProtectedRoute><CalendarWeekPage /></ProtectedRoute>,
   },
   {
     path: '/kalender/monat',
-    element: <CalendarMonthPage />,
+    element: <ProtectedRoute><CalendarMonthPage /></ProtectedRoute>,
   },
   {
     path: '/verwaltung/leistungen',
-    element: <VerwaltungLeistungenPage />,
+    element: <ProtectedRoute><VerwaltungLeistungenPage /></ProtectedRoute>,
   },
   {
     path: '/verwaltung/aufgaben',
-    element: <VerwaltungAufgabenPage />,
+    element: <ProtectedRoute><VerwaltungAufgabenPage /></ProtectedRoute>,
   },
   {
     path: '/einstellungen',
-    element: <EinstellungenPage />,
+    element: <ProtectedRoute><EinstellungenPage /></ProtectedRoute>,
   },
   {
     path: '/profil',
-    element: <ProfilPage />,
+    element: <ProtectedRoute><ProfilPage /></ProtectedRoute>,
   },
   {
     path: '/mentor',
-    element: <MentorPage />,
+    element: <ProtectedRoute><MentorPage /></ProtectedRoute>,
   },
   {
     path: '/checkin',
-    element: <CheckInPage />,
+    element: <ProtectedRoute><CheckInPage /></ProtectedRoute>,
   },
   {
     path: '/auth',
@@ -126,7 +126,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/onboarding',
-    element: <OnboardingPage />,
+    element: <ProtectedRoute><OnboardingPage /></ProtectedRoute>,
   },
 ]);
 

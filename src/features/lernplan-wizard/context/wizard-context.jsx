@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWizardDraftSync } from '../../../hooks/use-supabase-sync';
+import { useCalendar } from '../../../contexts/calendar-context';
 
 /**
  * Lernplan Wizard Context
@@ -106,9 +107,23 @@ const WizardContext = createContext(null);
  * Now uses Supabase for persistence when authenticated,
  * with LocalStorage fallback for offline/unauthenticated use.
  */
+// Weekday keys for slot generation
+const WEEKDAY_KEYS = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag'];
+
+// Position to time mapping (used for wizard-generated slots)
+const POSITION_TO_TIME = {
+  1: { startTime: '08:00', endTime: '10:00' },
+  2: { startTime: '10:00', endTime: '12:00' },
+  3: { startTime: '14:00', endTime: '16:00' },
+  4: { startTime: '16:00', endTime: '18:00' },
+};
+
 export const WizardProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Calendar context for saving slots directly
+  const { setCalendarData } = useCalendar();
 
   // Use Supabase sync hook for wizard drafts
   const {
@@ -220,11 +235,47 @@ export const WizardProvider = ({ children }) => {
   }, []);
 
   // Go to previous step
+  // BUG-019 FIX: Reset relevant state when going back to allow re-selection
   const prevStep = useCallback(() => {
-    setWizardState(prev => ({
-      ...prev,
-      currentStep: Math.max(prev.currentStep - 1, 1),
-    }));
+    setWizardState(prev => {
+      const newStep = Math.max(prev.currentStep - 1, 1);
+      const updates = { currentStep: newStep };
+
+      // Reset step-specific data when going back from certain steps
+      // This allows users to make different choices when navigating back
+      if (prev.currentStep === 7 && newStep === 6) {
+        // Going back from Step 7 to Step 6 (method selection)
+        // Reset creation method and all path-specific data
+        updates.creationMethod = null;
+        updates.selectedTemplate = null;
+        updates.manualLernplan = null;
+        updates.unterrechtsgebieteOrder = [];
+        updates.learningDaysOrder = [];
+        updates.adjustments = {};
+        updates.totalSteps = 10; // Reset to default
+      }
+
+      if (prev.currentStep === 8 && newStep === 7) {
+        // Going back from Step 8 to Step 7
+        // Reset data entered in Step 8+
+        updates.unterrechtsgebieteOrder = [];
+        updates.learningDaysOrder = [];
+        updates.adjustments = {};
+      }
+
+      if (prev.currentStep === 9 && newStep === 8) {
+        // Going back from Step 9 to Step 8
+        updates.learningDaysOrder = [];
+        updates.adjustments = {};
+      }
+
+      if (prev.currentStep === 10 && newStep === 9) {
+        // Going back from Step 10 to Step 9
+        updates.adjustments = {};
+      }
+
+      return { ...prev, ...updates };
+    });
   }, []);
 
   // Go to specific step
@@ -246,7 +297,7 @@ export const WizardProvider = ({ children }) => {
       case 3:
         return wizardState.vacationDays === null || wizardState.vacationDays >= 0;
       case 4:
-        return wizardState.blocksPerDay >= 1 && wizardState.blocksPerDay <= 6;
+        return wizardState.blocksPerDay >= 1 && wizardState.blocksPerDay <= 4; // Max 4 slots per day
       case 5:
         // Check that all days have blocks defined (not empty arrays)
         return Object.values(wizardState.weekStructure).every(blocks =>
@@ -364,17 +415,183 @@ export const WizardProvider = ({ children }) => {
     setWizardState({ ...initialWizardState, returnPath });
   }, [clearDraftFromSupabase]);
 
+  /**
+   * Generate full calendar slots from wizard state
+   * Creates slots for all days in the learning period based on weekStructure
+   * Respects bufferDays and vacationDays:
+   * - Learning period: startDate to (endDate - bufferDays - vacationDays)
+   * - Vacation period: collected at end before buffer
+   * - Buffer period: last days before exam
+   */
+  const generateSlotsFromWizardState = useCallback(() => {
+    const { startDate, endDate, weekStructure, bufferDays, vacationDays } = wizardState;
+    if (!startDate || !endDate) return {};
+
+    // Parse dates
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    const learningStart = new Date(startYear, startMonth - 1, startDay);
+    const examEnd = new Date(endYear, endMonth - 1, endDay);
+
+    // Calculate effective buffer and vacation days (default to 0 if null)
+    const effectiveBufferDays = bufferDays ?? 0;
+    const effectiveVacationDays = vacationDays ?? 0;
+
+    // Calculate period boundaries (working backwards from examEnd)
+    // Buffer period: last X days before exam
+    const bufferStart = new Date(examEnd);
+    bufferStart.setDate(bufferStart.getDate() - effectiveBufferDays + 1);
+
+    // Vacation period: before buffer period
+    const vacationStart = new Date(bufferStart);
+    vacationStart.setDate(vacationStart.getDate() - effectiveVacationDays);
+
+    // Learning period ends before vacation
+    const learningEnd = new Date(vacationStart);
+    learningEnd.setDate(learningEnd.getDate() - 1);
+
+    const slots = {};
+    const currentDate = new Date(learningStart);
+    const now = new Date().toISOString();
+
+    // Helper to format date key
+    const formatDateKey = (date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    // Iterate through all days from start to exam end
+    while (currentDate <= examEnd) {
+      const dateKey = formatDateKey(currentDate);
+
+      // Get day of week (convert Sunday=0 to our Monday=0 system)
+      const dayOfWeek = currentDate.getDay();
+      const adjustedIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const dayKey = WEEKDAY_KEYS[adjustedIndex];
+      const dayBlocks = weekStructure[dayKey] || [];
+
+      // Determine what type of period this day falls into
+      const isBufferPeriod = effectiveBufferDays > 0 && currentDate >= bufferStart;
+      const isVacationPeriod = effectiveVacationDays > 0 && currentDate >= vacationStart && currentDate < bufferStart;
+      const isLearningPeriod = currentDate <= learningEnd;
+
+      if (isBufferPeriod) {
+        // Buffer days: Create special "buffer" slots (for review/catch-up)
+        const bufferSlots = [{
+          id: `${dateKey}-buffer-0`,
+          date: dateKey,
+          position: 1,
+          status: 'buffer',
+          blockType: 'buffer',
+          topicId: `${dateKey}-buffer`,
+          topicTitle: 'Puffertag',
+          groupId: `${dateKey}-buffer-group`,
+          groupSize: 1,
+          groupIndex: 0,
+          isFromTemplate: true,
+          isFromLernplan: true,
+          isBufferDay: true,
+          // Time information (full day representation)
+          startTime: '08:00',
+          endTime: '18:00',
+          hasTime: true,
+          createdAt: now,
+          updatedAt: now,
+        }];
+        slots[dateKey] = bufferSlots;
+      } else if (isVacationPeriod) {
+        // Vacation days: Create special "vacation" slots (no learning)
+        const vacationSlots = [{
+          id: `${dateKey}-vacation-0`,
+          date: dateKey,
+          position: 1,
+          status: 'vacation',
+          blockType: 'vacation',
+          topicId: `${dateKey}-vacation`,
+          topicTitle: 'Urlaubstag',
+          groupId: `${dateKey}-vacation-group`,
+          groupSize: 1,
+          groupIndex: 0,
+          isFromTemplate: true,
+          isFromLernplan: true,
+          isVacationDay: true,
+          // Time information (full day representation)
+          startTime: '08:00',
+          endTime: '18:00',
+          hasTime: true,
+          createdAt: now,
+          updatedAt: now,
+        }];
+        slots[dateKey] = vacationSlots;
+      } else if (isLearningPeriod) {
+        // Normal learning days: Create slots from weekStructure
+        const daySlots = dayBlocks.map((blockType, index) => {
+          const position = index + 1;
+          const timeInfo = POSITION_TO_TIME[position] || POSITION_TO_TIME[1];
+          return {
+            id: `${dateKey}-slot-${index}`,
+            date: dateKey,
+            position,
+            status: 'topic',
+            blockType: blockType,
+            topicId: `${dateKey}-block-${index}`,
+            topicTitle: '',
+            groupId: `${dateKey}-group-${index}`,
+            groupSize: 1,
+            groupIndex: 0,
+            isFromTemplate: true,
+            isFromLernplan: true,
+            // Time information based on position
+            startTime: timeInfo.startTime,
+            endTime: timeInfo.endTime,
+            hasTime: true,
+            createdAt: now,
+            updatedAt: now,
+          };
+        });
+
+        if (daySlots.length > 0) {
+          slots[dateKey] = daySlots;
+        }
+      }
+
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    console.log(`Wizard: Generated slots - Learning days, Vacation: ${effectiveVacationDays} days, Buffer: ${effectiveBufferDays} days`);
+
+    return slots;
+  }, [wizardState]);
+
   // Complete manual calendar wizard - shows loading/success flow
   const completeManualCalendar = useCallback(async () => {
     setCalendarCreationStatus('loading');
     setCalendarCreationErrors([]);
 
     try {
-      // Simulate a brief delay to show loading state
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Generate slots from wizard state BEFORE showing loading
+      // This ensures slots are created immediately, not relying on Step8Calendar unmount
+      const slots = generateSlotsFromWizardState();
+      console.log('Wizard: Generated', Object.keys(slots).length, 'days of slots');
 
-      // Note: The calendar data is saved by Step8Calendar on unmount
-      // Here we just clear the draft and set success status
+      // Create metadata for this Lernplan
+      const metadata = {
+        name: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
+        startDate: wizardState.startDate,
+        endDate: wizardState.endDate,
+        blocksPerDay: wizardState.blocksPerDay,
+        weekStructure: wizardState.weekStructure,
+      };
+
+      // Save to CalendarContext - wait for this to complete
+      await setCalendarData(slots, metadata);
+      console.log('Wizard: Calendar data saved to context');
+
+      // Brief delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Clear the wizard draft (from both localStorage and Supabase)
       await clearDraftFromSupabase();
@@ -392,7 +609,7 @@ export const WizardProvider = ({ children }) => {
       setCalendarCreationStatus('error');
       setCalendarCreationErrors([err.message || 'Ein Fehler ist aufgetreten']);
     }
-  }, [navigate, clearDraftFromSupabase]);
+  }, [navigate, clearDraftFromSupabase, generateSlotsFromWizardState, wizardState, setCalendarData]);
 
   // Create Lernplan from template selection (for automatic/template paths)
   const createLernplanFromTemplate = useCallback(async () => {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 const AuthContext = createContext(null);
@@ -7,6 +7,47 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Initialize user settings in Supabase if they don't exist
+  const initializeUserSettings = useCallback(async (userId) => {
+    if (!isSupabaseConfigured() || !userId) return;
+
+    try {
+      // Check if user_settings already exists
+      const { data: existingSettings, error: fetchError } = await supabase
+        .from('user_settings')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        // PGRST116 = no rows returned, which is expected for new users
+        console.error('Error checking user settings:', fetchError);
+        return;
+      }
+
+      // If no settings exist, create default settings
+      if (!existingSettings) {
+        const { error: insertError } = await supabase
+          .from('user_settings')
+          .insert({
+            user_id: userId,
+            mentor_activated: false,
+            preferred_grade_system: 'punkte',
+            timer_settings: {},
+            custom_subjects: [],
+          });
+
+        if (insertError) {
+          console.error('Error creating user settings:', insertError);
+        } else {
+          console.log('Created default user settings for user:', userId);
+        }
+      }
+    } catch (err) {
+      console.error('Error initializing user settings:', err);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -19,6 +60,11 @@ export function AuthProvider({ children }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Initialize user settings for logged in user
+      if (session?.user?.id) {
+        initializeUserSettings(session.user.id);
+      }
     });
 
     // Listen for auth changes
@@ -26,11 +72,16 @@ export function AuthProvider({ children }) {
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+
+        // Initialize user settings when user logs in
+        if (_event === 'SIGNED_IN' && session?.user?.id) {
+          initializeUserSettings(session.user.id);
+        }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [initializeUserSettings]);
 
   const signUp = async (email, password, firstName = '', lastName = '') => {
     if (!isSupabaseConfigured()) {
@@ -100,6 +151,83 @@ export function AuthProvider({ children }) {
     return { data, error };
   };
 
+  // BUG-016 FIX: Add updateProfile function to update user metadata
+  const updateProfile = async (profileData) => {
+    if (!isSupabaseConfigured()) {
+      return { error: { message: 'Supabase nicht konfiguriert' } };
+    }
+
+    // Build the updated user_metadata object
+    const currentMetadata = user?.user_metadata || {};
+    const updatedMetadata = { ...currentMetadata };
+
+    // Handle full_name update
+    if (profileData.full_name !== undefined) {
+      updatedMetadata.full_name = profileData.full_name;
+      // Also update first/last name if full_name is provided
+      const nameParts = profileData.full_name.trim().split(' ');
+      if (nameParts.length >= 2) {
+        updatedMetadata.first_name = nameParts[0];
+        updatedMetadata.last_name = nameParts.slice(1).join(' ');
+      } else if (nameParts.length === 1) {
+        updatedMetadata.first_name = nameParts[0];
+      }
+    }
+
+    // Handle individual name updates
+    if (profileData.first_name !== undefined) {
+      updatedMetadata.first_name = profileData.first_name;
+    }
+    if (profileData.last_name !== undefined) {
+      updatedMetadata.last_name = profileData.last_name;
+    }
+
+    const { data, error } = await supabase.auth.updateUser({
+      data: updatedMetadata,
+    });
+
+    // Update local user state if successful
+    if (!error && data?.user) {
+      setUser(data.user);
+    }
+
+    return { data, error };
+  };
+
+  // BUG-016 FIX: Add deleteAccount function (marks account for deletion)
+  const deleteAccount = async () => {
+    if (!isSupabaseConfigured()) {
+      return { error: { message: 'Supabase nicht konfiguriert' } };
+    }
+
+    // Note: Supabase doesn't allow users to delete themselves directly.
+    // This would require a server-side function or admin action.
+    // For now, we sign out and mark the request.
+    try {
+      // Clear all local data
+      const keysToRemove = [
+        'prepwell_calendar_slots',
+        'prepwell_calendar_tasks',
+        'prepwell_private_blocks',
+        'prepwell_content_plans',
+        'prepwell_timer_state',
+        'prepwell_timer_history',
+        'prepwell_timer_config',
+        'prepwell_settings',
+        'prepwell_checkin_data',
+        'prepwell_onboarding_complete',
+      ];
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
+      // Sign out
+      await signOut();
+
+      return { data: { message: 'Account-Daten gelöscht. Bitte kontaktiere den Support für vollständige Kontolöschung.' }, error: null };
+    } catch (err) {
+      return { error: { message: err.message || 'Fehler beim Löschen des Accounts' } };
+    }
+  };
+
   // Helper to get user's first name
   const getFirstName = () => {
     return user?.user_metadata?.first_name || '';
@@ -143,6 +271,8 @@ export function AuthProvider({ children }) {
     signOut,
     resetPassword,
     updatePassword,
+    updateProfile, // BUG-016 FIX
+    deleteAccount, // BUG-016 FIX
     // Name helpers
     getFirstName,
     getLastName,

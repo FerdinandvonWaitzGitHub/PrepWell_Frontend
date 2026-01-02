@@ -230,7 +230,7 @@ export function useDashboard() {
       text: text.trim(),
       title: text.trim(),
       subject,
-      priority: 'medium',
+      priority: 'none',
     });
 
     return newTask;

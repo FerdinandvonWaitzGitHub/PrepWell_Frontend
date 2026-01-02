@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { RECHTSGEBIET_LABELS, ALL_UNTERRECHTSGEBIETE } from '../../../data/unterrechtsgebiete-data';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 import { useLogbuchSync, useLernplanMetadataSync } from '../../../hooks/use-supabase-sync';
 
 /**
@@ -237,8 +237,15 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
     onOpenChange(false);
   }, [onOpenChange]);
 
+  // BUG-020 FIX: State for save errors
+  const [saveError, setSaveError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleSave = useCallback(async () => {
     // Save entries via Supabase sync (replaces today's entries)
+    setIsSaving(true);
+    setSaveError(null);
+
     try {
       // Filter out today's old entries and add the updated ones
       const otherDaysEntries = allEntries.filter(entry => entry.date !== today);
@@ -254,9 +261,17 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
       // Save all entries (Supabase + localStorage fallback)
       await saveAllEntries([...otherDaysEntries, ...todayEntries]);
 
+      // BUG-020 FIX: Always close dialog after save attempt
       onOpenChange(false);
     } catch (error) {
       console.error('Error saving logbuch entries:', error);
+      setSaveError('Speichern fehlgeschlagen. Bitte erneut versuchen.');
+      // BUG-020 FIX: Still close dialog after a short delay to show error
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 2000);
+    } finally {
+      setIsSaving(false);
     }
   }, [entries, allEntries, today, saveAllEntries, onOpenChange]);
 
@@ -406,23 +421,34 @@ const TimerLogbuchDialog = ({ open, onOpenChange }) => {
             </button>
           </div>
 
+          {/* BUG-020 FIX: Error message display */}
+          {saveError && (
+            <div className="self-stretch p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {saveError}
+            </div>
+          )}
+
           {/* Footer */}
           <div className="self-stretch h-10 inline-flex justify-between items-end">
             <button
               onClick={handleBack}
+              disabled={isSaving}
               className="px-5 py-2.5 rounded-3xl outline outline-1 outline-offset-[-1px] outline-neutral-200
-                         inline-flex justify-center items-center gap-2 hover:bg-neutral-50 transition-colors"
+                         inline-flex justify-center items-center gap-2 hover:bg-neutral-50 transition-colors disabled:opacity-50"
             >
               <ArrowLeftIcon />
               <span className="text-neutral-900 text-sm font-light font-['DM_Sans'] leading-5">Zurück</span>
             </button>
             <button
               onClick={handleSave}
+              disabled={isSaving}
               className="px-5 py-2.5 bg-slate-600 rounded-3xl
-                         inline-flex justify-center items-center gap-2 hover:bg-slate-700 transition-colors"
+                         inline-flex justify-center items-center gap-2 hover:bg-slate-700 transition-colors disabled:opacity-50"
             >
-              <span className="text-white text-sm font-light font-['DM_Sans'] leading-5">Fertig</span>
-              <CheckIcon />
+              <span className="text-white text-sm font-light font-['DM_Sans'] leading-5">
+                {isSaving ? 'Speichert...' : 'Fertig'}
+              </span>
+              {!isSaving && <CheckIcon />}
             </button>
           </div>
 

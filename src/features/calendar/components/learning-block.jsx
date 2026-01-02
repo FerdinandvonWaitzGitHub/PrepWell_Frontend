@@ -47,17 +47,25 @@ const LearningBlock = ({
   }
 
   // Determine background color based on block type (English keys)
+  // Consistent with week-grid.jsx colors
   const getBackgroundColor = () => {
     switch (blockType.toLowerCase()) {
       case 'exam':
-        return 'bg-blue-50 border-blue-100';
+        return 'bg-amber-50 border-amber-200'; // Amber for urgency
       case 'free':
+        return 'bg-neutral-50 border-neutral-200'; // Gray for free time
       case 'private':
-        return 'bg-neutral-50 border-neutral-200';
+        return 'bg-violet-50 border-violet-200'; // Violet for private (distinct)
       case 'repetition':
-        return 'bg-primary-50 border-primary-100';
+        return 'bg-purple-50 border-purple-200'; // Purple for repetition
+      case 'buffer':
+        return 'bg-orange-50 border-orange-200'; // Orange for buffer/catch-up days
+      case 'vacation':
+        return 'bg-green-50 border-green-200'; // Green for vacation days
+      case 'theme':
+      case 'lernblock':
       default:
-        return 'bg-primary-50 border-primary-100';
+        return 'bg-primary-50 border-primary-100'; // Primary for learning
     }
   };
 
@@ -65,6 +73,13 @@ const LearningBlock = ({
   const getDisplayName = () => {
     if (blockType === 'lernblock' && unterrechtsgebiet?.name) {
       return unterrechtsgebiet.name;
+    }
+    // Special display names for buffer and vacation
+    if (blockType === 'buffer') {
+      return title || 'Puffertag';
+    }
+    if (blockType === 'vacation') {
+      return title || 'Urlaubstag';
     }
     // For other block types, use title or fallback
     return title || blockType;

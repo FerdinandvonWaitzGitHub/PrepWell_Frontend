@@ -9,22 +9,35 @@ import { AlertTriangle } from 'lucide-react';
  * - Time labels scroll with content
  */
 
-// Block type colors
+// Block type colors - visually distinct for each type
 const BLOCK_COLORS = {
+  // Learning blocks (theme/lernblock) - primary color
   theme: 'bg-primary-100 border-primary-200 hover:bg-primary-150',
-  repetition: 'bg-primary-100 border-primary-200 hover:bg-primary-150',
-  exam: 'bg-blue-100 border-blue-200 hover:bg-blue-150',
+  lernblock: 'bg-primary-100 border-primary-200 hover:bg-primary-150',
+  // Repetition - purple tint
+  repetition: 'bg-purple-100 border-purple-200 hover:bg-purple-150',
+  // Exam - amber/orange for urgency
+  exam: 'bg-amber-100 border-amber-200 hover:bg-amber-150',
+  // Free time - neutral gray
   free: 'bg-neutral-100 border-neutral-200 hover:bg-neutral-150',
-  private: 'bg-violet-100 border-violet-200 hover:bg-violet-150'
+  // Private blocks - violet for clear distinction
+  private: 'bg-violet-100 border-violet-300 hover:bg-violet-150',
+  // Buffer days - orange for catch-up time
+  buffer: 'bg-orange-100 border-orange-200 hover:bg-orange-150',
+  // Vacation days - green for rest
+  vacation: 'bg-green-100 border-green-200 hover:bg-green-150'
 };
 
 // Block type display names
 const BLOCK_TYPE_NAMES = {
   theme: 'Thema',
+  lernblock: 'Lernblock',
   repetition: 'Wiederholung',
   exam: 'Klausur',
   free: 'Freizeit',
-  private: 'Privat'
+  private: 'Privat',
+  buffer: 'Puffertag',
+  vacation: 'Urlaubstag'
 };
 
 const WeekGrid = ({

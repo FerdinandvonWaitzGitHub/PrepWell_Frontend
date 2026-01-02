@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Header, SubHeader } from '../components/layout';
 import { useAuth } from '../contexts/auth-context';
 import { useAppMode } from '../contexts/appmode-context';
-import { User, Mail, Calendar, Shield, Pencil, Check, X } from 'lucide-react';
+import { User, Mail, Calendar, Shield, Pencil, Check, X, ToggleLeft, ToggleRight, Trash2, LogOut, AlertTriangle } from 'lucide-react';
 
 /**
  * ProfilPage - Benutzerprofil
@@ -14,12 +14,24 @@ import { User, Mail, Calendar, Shield, Pencil, Check, X } from 'lucide-react';
  */
 const ProfilPage = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated, getInitials, updateProfile } = useAuth();
-  const { isExamMode, modeDisplayText, isTrialMode, isSubscribed, trialDaysRemaining } = useAppMode();
+  const { user, isAuthenticated, getInitials, updateProfile, deleteAccount, signOut } = useAuth();
+  const {
+    isExamMode,
+    modeDisplayText,
+    isTrialMode,
+    isSubscribed,
+    trialDaysRemaining,
+    toggleMode,
+    canToggleMode,
+    isModeManuallySet,
+  } = useAppMode();
 
   // Edit states
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // Get user data
   const initials = getInitials();
@@ -48,6 +60,31 @@ const ProfilPage = () => {
   const handleCancelEdit = () => {
     setIsEditingName(false);
     setEditName('');
+  };
+
+  // BUG-016 FIX: Handle sign out
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  // BUG-016 FIX: Handle delete account
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      const { error } = await deleteAccount();
+      if (error) {
+        setDeleteError(error.message);
+        setIsDeleting(false);
+      } else {
+        // Account deleted, redirect to auth
+        navigate('/auth');
+      }
+    } catch (err) {
+      setDeleteError(err.message || 'Fehler beim Löschen des Accounts');
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -127,7 +164,7 @@ const ProfilPage = () => {
               </div>
 
               {/* Account Status */}
-              <div className="flex items-center gap-4 py-3">
+              <div className="flex items-center gap-4 py-3 border-b border-neutral-100">
                 <Shield className="w-5 h-5 text-neutral-400" />
                 <div className="flex-1">
                   <p className="text-xs text-neutral-400 mb-0.5">Kontostatus</p>
@@ -156,6 +193,40 @@ const ProfilPage = () => {
                   </div>
                 </div>
               </div>
+
+              {/* App Mode Toggle */}
+              <div className="flex items-center gap-4 py-3">
+                {isExamMode ? (
+                  <ToggleRight className="w-5 h-5 text-primary-600" />
+                ) : (
+                  <ToggleLeft className="w-5 h-5 text-neutral-400" />
+                )}
+                <div className="flex-1">
+                  <p className="text-xs text-neutral-400 mb-0.5">App-Modus</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-neutral-900">
+                      {isExamMode ? 'Examensmodus' : 'Normalmodus'}
+                    </span>
+                    {canToggleMode ? (
+                      <button
+                        onClick={toggleMode}
+                        className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline"
+                      >
+                        {isExamMode ? 'Zu Normalmodus wechseln' : 'Zu Examensmodus wechseln'}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-neutral-400">
+                        (Erstelle einen Lernplan für Examensmodus)
+                      </span>
+                    )}
+                    {isModeManuallySet && (
+                      <span className="text-xs font-medium text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                        Manuell
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -170,6 +241,64 @@ const ProfilPage = () => {
                 <User className="w-4 h-4 text-neutral-500" />
                 <span>Einstellungen bearbeiten</span>
               </button>
+              {/* BUG-016 FIX: Sign out button */}
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 rounded-md transition-colors text-left"
+              >
+                <LogOut className="w-4 h-4 text-neutral-500" />
+                <span>Abmelden</span>
+              </button>
+            </div>
+          </div>
+
+          {/* BUG-016 FIX: Danger Zone */}
+          <div className="bg-white rounded-md border border-red-200 p-6 mt-6">
+            <h3 className="text-sm font-medium text-red-600 mb-4">Gefahrenzone</h3>
+            <div className="space-y-2">
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors text-left"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Konto löschen</span>
+                </button>
+              ) : (
+                <div className="p-4 bg-red-50 rounded-md">
+                  <div className="flex items-start gap-3 mb-4">
+                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-red-900">
+                        Bist du sicher?
+                      </p>
+                      <p className="text-xs text-red-700 mt-1">
+                        Diese Aktion löscht alle deine lokalen Daten und meldet dich ab.
+                        Für die vollständige Kontolöschung kontaktiere bitte den Support.
+                      </p>
+                    </div>
+                  </div>
+                  {deleteError && (
+                    <p className="text-xs text-red-600 mb-3">{deleteError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 px-3 py-2 text-sm text-neutral-700 bg-white border border-neutral-200 rounded-md hover:bg-neutral-50"
+                      disabled={isDeleting}
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      onClick={handleDeleteAccount}
+                      className="flex-1 px-3 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? 'Wird gelöscht...' : 'Ja, löschen'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

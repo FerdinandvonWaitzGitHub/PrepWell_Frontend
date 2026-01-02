@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTimer, TIMER_TYPES } from '../../../contexts/timer-context';
-import { useCalendar } from '../../../contexts/calendar-context';
 import { RECHTSGEBIET_LABELS, ALL_UNTERRECHTSGEBIETE } from '../../../data/unterrechtsgebiete-data';
 import TimerLogbuchDialog from './timer-logbuch-dialog';
 
@@ -526,7 +525,7 @@ const EmptyState = () => (
       Noch keine Zeiterfassung konfiguriert
     </div>
     <div className="text-neutral-400 text-sm font-light font-['DM_Sans'] text-center max-w-md">
-      Klicke auf "Einstellungen", um deinen Timer einzurichten. Du kannst zwischen Pomodoro, Countdown und Stoppuhr wählen.
+      Klicke auf &ldquo;Einstellungen&rdquo;, um deinen Timer einzurichten. Du kannst zwischen Pomodoro, Countdown und Stoppuhr wählen.
     </div>
   </div>
 );
@@ -570,7 +569,8 @@ const ConfiguredIdleState = ({ onStart, timerConfig }) => {
  * TimerMainDialog - Main unified timer dialog matching Figma design
  */
 const TimerMainDialog = ({ open, onOpenChange, onSettingsClick, dailyLearningGoalMinutes = 480 }) => {
-  const { timerType, isActive, stopTimer, isConfigured, timerConfig, startFromConfig } = useTimer();
+  const { timerType, isActive, stopTimer: _stopTimer, isConfigured, timerConfig, startFromConfig } = useTimer();
+  void _stopTimer; // Reserved for future use
   const [showLogbuch, setShowLogbuch] = useState(false);
 
   if (!open) return null;
@@ -630,9 +630,8 @@ const TimerMainDialog = ({ open, onOpenChange, onSettingsClick, dailyLearningGoa
   };
 
   const handleFinish = () => {
-    if (isActive) {
-      stopTimer();
-    }
+    // Just close the dialog - don't stop the timer
+    // User can stop the timer via "Session beenden" button in the timer view
     onOpenChange(false);
   };
 

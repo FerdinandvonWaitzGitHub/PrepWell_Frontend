@@ -2,12 +2,10 @@
 
 ## Projektdokumentation
 
-Vor Änderungen am Projekt bitte [PRD.md](PRD.md) lesen für vollständige Details zu:
-- Produktübersicht und Vision
-- Funktionale Anforderungen
-- Design System und UI-Komponenten
-- API-Spezifikation
-- Implementierungsstatus
+Vor Änderungen am Projekt bitte [PRD.md](PRD.md) lesen - die **Single Source of Truth** mit:
+- **Teil 1:** Aktueller Stand (Architektur, Features, Supabase-Integration)
+- **Teil 2:** Bugs & Funktionstest-Checkliste
+- **Teil 3:** Roadmap (Backend-Migration, Mobile, Premium)
 
 ---
 
@@ -19,8 +17,8 @@ Vor Änderungen am Projekt bitte [PRD.md](PRD.md) lesen für vollständige Detai
 - React 18 + Vite
 - Tailwind CSS
 - React Router v6
+- Supabase (PostgreSQL + Auth)
 - Zod (Validierung)
-- LocalStorage (Persistenz)
 
 ### Architektur: Content-Slot-Block Modell
 
@@ -40,43 +38,32 @@ CONTENT ─────► SLOT ─────► BLOCK
 
 ### State Management
 
-3 React Context Provider:
+10+ React Context Provider (wichtigste):
 1. `CalendarProvider` - SSOT für Kalender, Slots, Aufgaben, ContentPlans
 2. `TimerProvider` - Timer-Zustand (Pomodoro/Countdown/Countup)
-3. `UnterrechtsgebieteProvider` - Rechtsgebiete-Auswahl
+3. `AuthProvider` - Supabase Authentifizierung
+4. `AppModeProvider` - Examen vs Normal Modus
 
 ### Wichtige Konventionen
 
 - **Sprache**: Deutsche UI-Texte, englischer Code
-- **Persistenz**: Alles in LocalStorage (`prepwell_*` Keys)
+- **Persistenz**: Supabase (primär) + LocalStorage (Fallback)
 - **Komponenten**: Funktionale Komponenten mit Hooks
-- **Styling**: Tailwind utility classes, Design Tokens in `design-tokens.js`
+- **Styling**: Tailwind utility classes, Design Tokens in `tailwind.config.js`
 
 ### Projektstruktur
 
 ```
 src/
-├── pages/           # Seitenkomponenten
+├── pages/           # Seitenkomponenten (11)
 ├── components/      # UI-Komponenten
 ├── features/        # Feature-Module (calendar, wizard)
-├── contexts/        # React Context
-├── hooks/           # Custom Hooks
+├── contexts/        # React Context (10+)
+├── hooks/           # Custom Hooks (inkl. use-supabase-sync.js)
 ├── services/        # API-Services
 ├── data/            # Statische Daten (Rechtsgebiete, Templates)
 └── utils/           # Hilfsfunktionen
 ```
-
-### Inhaltliche Hierarchie
-
-```
-Fach → Kapitel → Themen → Aufgaben
-```
-
-**Terminologie-Mapping:**
-| Im Code | UI-Begriff | Beispiel |
-|---------|------------|----------|
-| Rechtsgebiet | Fach | Zivilrecht |
-| Unterrechtsgebiet | Kapitel | BGB AT, Schuldrecht |
 
 ### Fächer (4 Hauptkategorien)
 
@@ -86,3 +73,18 @@ Fach → Kapitel → Themen → Aufgaben
 | `zivilrecht` | Zivilrecht | Blau |
 | `strafrecht` | Strafrecht | Rot |
 | `querschnitt` | Querschnittsrecht | Violett |
+
+### Supabase-Tabellen
+
+| Tabelle | Beschreibung |
+|---------|--------------|
+| `calendar_slots` | Kalender-Slots |
+| `calendar_tasks` | Aufgaben |
+| `private_blocks` | Private Termine (mit Serientermine) |
+| `content_plans` | Lernpläne & Themenlisten |
+| `timer_sessions` | Timer-History |
+| `logbuch_entries` | Manuelle Zeiterfassung |
+| `checkin_responses` | Check-In Daten |
+| `user_settings` | Benutzereinstellungen |
+
+Schema: `supabase/schema.sql` (idempotent)

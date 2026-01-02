@@ -5,16 +5,52 @@ import { useTimerHistorySync, useUserSettingsSync } from '../hooks/use-supabase-
 const STORAGE_KEY = 'prepwell_timer_state';
 const HISTORY_STORAGE_KEY = 'prepwell_timer_history';
 const CONFIG_STORAGE_KEY = 'prepwell_timer_config';
+const USER_SETTINGS_KEY = 'prepwell_settings'; // BUG-015 FIX: Sync with settings page
+
+/**
+ * BUG-015 FIX: Load user settings (from settings page) to get pomodoro/break durations
+ */
+const loadUserSettingsFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(USER_SETTINGS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading user settings from localStorage:', error);
+  }
+  return null;
+};
 
 /**
  * Load timer configuration from localStorage
+ * BUG-015 FIX: Merge with user settings from settings page
  */
 const loadConfigFromStorage = () => {
   try {
     const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
+    const config = stored ? JSON.parse(stored) : null;
+
+    // BUG-015 FIX: Also load user settings and merge pomodoro settings
+    const userSettings = loadUserSettingsFromStorage();
+    if (userSettings?.learning) {
+      const learning = userSettings.learning;
+      // Create merged pomodoro settings using user settings as primary source
+      const mergedPomodoroSettings = {
+        sessionDuration: learning.pomodoroDuration || config?.pomodoroSettings?.sessionDuration || 25,
+        breakDuration: learning.breakDuration || config?.pomodoroSettings?.breakDuration || 5,
+        longBreakDuration: config?.pomodoroSettings?.longBreakDuration || 15,
+        sessionsBeforeLongBreak: config?.pomodoroSettings?.sessionsBeforeLongBreak || 4,
+        autoStartBreak: config?.pomodoroSettings?.autoStartBreak ?? true,
+      };
+
+      return {
+        ...config,
+        pomodoroSettings: mergedPomodoroSettings,
+      };
     }
+
+    return config;
   } catch (error) {
     console.error('Error loading timer config from localStorage:', error);
   }
@@ -434,8 +470,21 @@ export const TimerProvider = ({ children }) => {
   }, [timerType, isBreak, currentSession, totalSessions, pomodoroSettings, saveSession, startTime, countdownSettings.duration]);
 
   // Start Pomodoro timer
-  const startPomodoro = useCallback((settings = pomodoroSettings, sessions = 4) => {
-    const mergedSettings = { ...DEFAULT_POMODORO_SETTINGS, ...settings };
+  // BUG-015 FIX: Always read latest user settings before starting
+  const startPomodoro = useCallback((settings = null, sessions = 4) => {
+    // Re-read user settings to get latest pomodoro/break durations
+    const userSettings = loadUserSettingsFromStorage();
+    const userLearningSettings = userSettings?.learning || {};
+
+    // Build settings: passed settings > user settings > current pomodoroSettings > defaults
+    const mergedSettings = {
+      ...DEFAULT_POMODORO_SETTINGS,
+      ...pomodoroSettings,
+      sessionDuration: userLearningSettings.pomodoroDuration || pomodoroSettings.sessionDuration || DEFAULT_POMODORO_SETTINGS.sessionDuration,
+      breakDuration: userLearningSettings.breakDuration || pomodoroSettings.breakDuration || DEFAULT_POMODORO_SETTINGS.breakDuration,
+      ...(settings || {}),
+    };
+
     setPomodoroSettings(mergedSettings);
     setTotalSessions(sessions);
     setCurrentSession(1);
@@ -625,15 +674,19 @@ export const TimerProvider = ({ children }) => {
   }, [pomodoroSettings, countdownSettings, totalSessions]);
 
   // Start timer using saved configuration
+  // BUG-015 FIX: Re-read config to get latest user settings
   const startFromConfig = useCallback(() => {
-    if (!timerConfig) return;
+    // Re-read config fresh to get latest merged settings
+    const freshConfig = loadConfigFromStorage() || timerConfig;
+    if (!freshConfig) return;
 
-    switch (timerConfig.timerType) {
+    switch (freshConfig.timerType) {
       case TIMER_TYPES.POMODORO:
-        startPomodoro(timerConfig.pomodoroSettings, timerConfig.totalSessions);
+        // startPomodoro will also re-read user settings, ensuring latest values
+        startPomodoro(freshConfig.pomodoroSettings, freshConfig.totalSessions);
         break;
       case TIMER_TYPES.COUNTDOWN:
-        startCountdown(timerConfig.countdownSettings?.duration || 60);
+        startCountdown(freshConfig.countdownSettings?.duration || 60);
         break;
       case TIMER_TYPES.COUNTUP:
         startCountup();

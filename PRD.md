@@ -1,31 +1,26 @@
-# Product Requirements Document (PRD)
-# PrepWell WebApp
+# PrepWell - Product Requirements Document
 
-**Version:** 1.7
-**Datum:** 31. Dezember 2025
-**Status:** MVP Development - Supabase Integration
+**Version:** 2.0
+**Stand:** Januar 2026
+**Status:** MVP mit Supabase-Integration
 
 ---
 
-## 1. Produktübersicht
+# Teil 1: Aktueller Stand
 
-### 1.1 Vision
-PrepWell ist eine webbasierte Lernmanagement-Plattform, die Jurastudierenden bei der strukturierten Vorbereitung auf das deutsche Staatsexamen unterstützt. Die App ermöglicht es Nutzern, personalisierte Lernpläne zu erstellen, ihren Lernfortschritt zu verfolgen und ihre Prüfungsvorbereitung effizient zu organisieren.
+---
 
-### 1.2 Problem Statement
-Jurastudierende stehen vor der Herausforderung, ein umfangreiches Stoffgebiet systematisch zu erlernen. Bestehende Lösungen bieten keine spezialisierte Unterstützung für die Strukturierung des juristischen Lernstoffs nach Rechtsgebieten und Unterrechtsgebieten. Viele Studierende verlieren den Überblick über ihren Lernfortschritt und kämpfen mit ineffizienter Zeitplanung.
+## 1. Produktbeschreibung
 
-### 1.3 Lösung
-PrepWell bietet:
-- Einen geführten Wizard zur Erstellung individueller Lernpläne
-- Eine hierarchische Struktur für juristische Inhalte (Fach → Kapitel → Themen → Aufgaben)
-- Einen integrierten Kalender zur Visualisierung und Verwaltung von Lernblöcken
-- Aufgabenmanagement mit Verknüpfung zu Lernblöcken
-- Timer-Funktionalität für fokussiertes Lernen (Pomodoro, Countdown)
+PrepWell ist eine webbasierte Lernmanagement-Plattform für Jurastudierende zur strukturierten Vorbereitung auf das deutsche Staatsexamen.
 
-### 1.4 Zielgruppe
-- **Primär:** Jurastudierende in der Examensvorbereitung (1. und 2. Staatsexamen)
-- **Sekundär:** Referendare, Studierende anderer Fachrichtungen mit strukturiertem Lernbedarf
+### Kernfunktionen
+- Personalisierte Lernpläne mit 10-Schritte-Wizard
+- Kalender mit Monats- und Wochenansicht
+- Timer-System (Pomodoro, Countdown, Count-up)
+- Aufgabenverwaltung mit Block-Zuordnung
+- Statistik-Dashboard (Mentor)
+- Check-In System (Morgens/Abends)
 
 ---
 
@@ -33,675 +28,230 @@ PrepWell bietet:
 
 | Komponente | Technologie | Version |
 |------------|-------------|---------|
-| Frontend Framework | React | 18.3.1 |
-| Build Tool | Vite | 5.4.11 |
+| Frontend | React | 18.3.1 |
+| Build Tool | Vite | 5.4.21 |
 | Routing | React Router | 6.22.0 |
 | Styling | Tailwind CSS | 3.4.15 |
 | Icons | Lucide React | 0.561.0 |
 | Charts | Recharts | 3.6.0 |
 | Validierung | Zod | 4.2.1 |
-| Backend | Vercel Serverless Functions | @vercel/node |
-| Datenbank (Legacy) | Vercel KV (Redis) | @vercel/kv |
-| **Datenbank (Neu)** | **Supabase (PostgreSQL)** | **@supabase/supabase-js 2.x** |
-| **Auth** | **Supabase Auth** | **eingebaut** |
-| KI-Integration | OpenAI API | gpt-4o-mini |
+| Datenbank | Supabase (PostgreSQL) | 2.x |
+| Auth | Supabase Auth | eingebaut |
 | Deployment | Vercel | - |
-| Pre-Commit Hooks | Husky + lint-staged | 9.x / 16.x |
-| Linting | ESLint | 8.57.1 |
-
-### 2.1 Entwicklungswerkzeuge
-
-**Pre-Commit Hooks:**
-Automatische Code-Qualitätsprüfung vor jedem Commit.
-
-```bash
-# Konfiguration in package.json
-"lint-staged": {
-  "src/**/*.{js,jsx}": ["eslint --fix --max-warnings 0"],
-  "api/**/*.ts": ["eslint --fix --max-warnings 0"]
-}
-```
-
-**Was passiert bei `git commit`:**
-1. Husky aktiviert den Pre-Commit Hook
-2. lint-staged führt ESLint nur auf geänderten Dateien aus
-3. Bei Fehlern wird der Commit abgebrochen
-4. `--fix` behebt automatisch behebbare Probleme
-
-### 2.2 Supabase Integration
-
-**Datenbank-Migration von Vercel KV zu Supabase:**
-
-| Aspekt | Vercel KV (Alt) | Supabase (Neu) |
-|--------|-----------------|----------------|
-| Datenbank | Redis (Key-Value) | PostgreSQL (relational) |
-| Auth | Keine | Email, OAuth, Magic Link |
-| Realtime | Nein | WebSocket-Subscriptions |
-| Row Level Security | Nein | Ja (Policies) |
-
-**Konfiguration (.env.local):**
-```bash
-VITE_SUPABASE_URL=https://[project-ref].supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...
-```
-
-**Data Layer (Sync Hooks):**
-```javascript
-// src/hooks/use-supabase-sync.js
-import {
-  useSupabaseSync,
-  useExamsSync,
-  useCheckInSync,
-  useContentPlansSync,
-  useCalendarSlotsSync,
-  useCalendarTasksSync,
-  // ... weitere Hooks
-} from './hooks/use-supabase-sync';
-```
-
-### 2.3 Supabase-Integrationsstatus
-
-**Aktueller Stand (Januar 2026):**
-
-| Context | Supabase-Tabelle | Status | Beschreibung |
-|---------|------------------|--------|--------------|
-| ExamsContext | `leistungen` | ✅ Integriert | Klausuren & Noten sync |
-| UebungsklausurenContext | `uebungsklausuren` | ✅ Integriert | Übungsklausuren sync |
-| CheckInContext | `checkin_responses` | ✅ Integriert | Check-in Daten (morgens/abends) |
-| MentorContext | `user_settings` | ✅ Integriert | Mentor-Aktivierung |
-| TimerContext | `timer_sessions` | ✅ Integriert | Timer-History (Config lokal) |
-| WizardContext | `wizard_drafts` | ✅ Integriert | Lernplan-Wizard Draft |
-| CalendarContext (contentPlans) | `content_plans` | ✅ Integriert | Lernpläne & Themenlisten |
-| CalendarContext (customUnterrechtsgebiete) | `user_settings` | ✅ Integriert | Eigene Rechtsgebiete |
-| CalendarContext (slotsByDate) | `calendar_slots` | ✅ Integriert | Kalender-Slots |
-| CalendarContext (tasksByDate) | `calendar_tasks` | ✅ Integriert | Tagesaufgaben |
-| CalendarContext (privateBlocksByDate) | `private_blocks` | ✅ Integriert | Private Termine |
-| CalendarContext (archivedLernplaene) | `archived_lernplaene` | ✅ Integriert | Archivierte Pläne |
-| CalendarContext (lernplanMetadata) | `user_settings` | ✅ Integriert | Aktiver Lernplan Metadaten |
-| CalendarContext (publishedThemenlisten) | `published_themenlisten` | ✅ Integriert | Community Themenlisten |
-| CalendarContext (themeLists) | - | 📦 LocalStorage | LEGACY - durch contentPlans ersetzt |
-| CalendarContext (contentsById) | - | 📦 LocalStorage | Content-Objekte (lokal) |
-
-**Synchronisations-Logik:**
-- Bei Authentifizierung: LocalStorage-Daten werden automatisch zu Supabase migriert
-- Danach: Supabase ist die primäre Datenquelle (Source of Truth)
-- Offline: LocalStorage-Fallback mit automatischem Sync beim Reconnect
-- Debouncing: Wizard Draft wird mit 500ms Debounce gespeichert
-- Date-keyed Transformationen: `slotsByDate`, `tasksByDate`, `privateBlocksByDate` werden zwischen Object-Format (lokal) und flachen Arrays (Supabase) transformiert
-- Konfigurierbare `onConflict`-Strategie: Hooks können eigene Upsert-Konfliktauflösung definieren (z.B. `useCheckInSync` nutzt `user_id,response_date,period`)
-
-**Data Layer:** `src/hooks/use-supabase-sync.js` bietet wiederverwendbare Hooks:
-- `useSupabaseSync` - Generischer Sync-Hook mit konfigurierbarem `onConflict`
-- `useExamsSync`, `useUebungsklausurenSync` - Leistungs-Hooks
-- `useCheckInSync` - Check-In/Check-Out Daten (mit `period`-Support)
-- `useContentPlansSync`, `useWizardDraftSync` - Content-Hooks
-- `useUserSettingsSync` - Settings-Hook
-- `useCalendarSlotsSync`, `useCalendarTasksSync` - Kalender-Hooks
-- `usePrivateBlocksSync`, `useArchivedLernplaeneSync` - Block/Archiv-Hooks
-- `useLernplanMetadataSync`, `usePublishedThemenlistenSync` - Metadata/Community-Hooks
-- `useTimerHistorySync` - Timer-Sessions
-
-**Migration SQL:** Siehe `supabase/migrations/002_add_calendar_tables.sql` für die neuen Tabellen.
-
-**Hinweis:** Die Supabase-Integration dient als Zwischenlösung. Geplant ist die Migration auf ein eigenes TypeScript-Backend.
-
-**Auth-Nutzung:**
-```javascript
-import { useAuth } from './contexts/auth-context';
-
-const { user, signIn, signOut, isAuthenticated } = useAuth();
-```
-
-**Schema:** Siehe `supabase/schema.sql` für die komplette Datenbankstruktur.
 
 ---
 
 ## 3. Architektur
 
-### 3.1 Datenmodell (Content-Slot-Block)
-
-PrepWell verwendet ein Datenmodell mit drei Konzepten und zeitlicher Hierarchie:
+### 3.1 Content-Slot-Block Modell
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    ZEITLICHE HIERARCHIE                     │
-│              Lernplan → Monat → Woche → Tag                 │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                         TAG                                 │
-│                    (z.B. 2025-01-15)                        │
-│  Bis zu 4 Slots pro Tag:                                    │
-│  08:00-10:00 │ 10:00-12:00 │ 14:00-16:00 │ 16:00-18:00      │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────┐
-                    │   CONTENT   │
-                    │(Schuldrecht)│
-                    └──────┬──────┘
-                           │
-              ┌────────────┴────────────┐
-              ▼                         ▼
-        ┌──────────┐              ┌──────────┐
-        │   SLOT   │              │  BLOCK   │
-        │ (Monat)  │              │ (Woche)  │
-        └──────────┘              └──────────┘
+ZEITLICHE HIERARCHIE: Lernplan → Monat → Woche → Tag
+
+Pro Tag: bis zu 4 Slots
+08:00-10:00 │ 10:00-12:00 │ 14:00-16:00 │ 16:00-18:00
+
+CONTENT (Was)     →  SLOT (Wann)      →  BLOCK (Wie anzeigen)
+Zeitlose Inhalte     Datum + Position    UI-Komponente
 ```
 
-**Beziehung Content : Slots (1:n)**
-- 1 Content kann mehrere Slots am gleichen Tag belegen
-- Beispiel: "Schuldrecht" belegt 3 Slots (08:00-16:00)
+### 3.2 State Management (React Context)
 
-**CONTENT (Was):**
-- Zeitlose Lerninhalte
-- Hierarchie: Fach → Kapitel → Themen → Aufgaben
-- Speicherung: `contentsById` (CalendarContext)
+| Context | Beschreibung | Supabase-Sync |
+|---------|--------------|---------------|
+| `CalendarProvider` | Slots, Tasks, Private Blocks, ContentPlans | Ja |
+| `TimerProvider` | Timer-Zustand, Sessions | Ja (History) |
+| `AuthProvider` | Authentifizierung | Ja |
+| `AppModeProvider` | Examen vs Normal Modus | Lokal |
+| `MentorProvider` | Mentor-Aktivierung | Ja |
+| `CheckInProvider` | Check-In Responses | Ja |
+| `ExamsProvider` | Leistungen (Normal) | Ja |
+| `UebungsklausurenProvider` | Klausuren (Examen) | Ja |
+| `OnboardingProvider` | Onboarding-Status | Lokal |
 
-**SLOT (Monatskalender):**
-- Kompakte Darstellung (Titel, Farbe)
-- Zeitliche Zuordnung (Datum + Slot 1-4)
-- Speicherung: `slotsByDate` (CalendarContext)
+### 3.3 Persistenz-Strategie
 
-**BLOCK (Wochenkalender/Startseite):**
-- Detaillierte Darstellung (Themen, Aufgaben, Timer)
-- UI-Komponente für interaktive Bearbeitung
-- Teile von Content können aus Slots in Blocks übernommen werden
-
-### 3.2 State Management
-
-**React Context Provider:**
-1. `CalendarProvider` - SSOT für Kalender, Slots, Aufgaben, ContentPlans, Themenlisten
-2. `AppModeProvider` - Examen-Modus vs Normal-Modus Erkennung
-3. `TimerProvider` - Timer-Zustand, Einstellungen, Session-Historie
-4. `UnterrechtsgebieteProvider` - Verwaltung der Rechtsgebiete-Auswahl
-5. `MentorProvider` - Aktivierungsstatus des Mentors
-6. `CheckInProvider` - Tägliches Check-In System
-7. `ExamsProvider` - Klausuren und Leistungen (Normal-Modus)
-8. `UebungsklausurenProvider` - Übungsklausuren (Examen-Modus)
-
-**Persistenz:** Supabase (primär) mit LocalStorage-Fallback (offline-fähig)
-
-**LocalStorage-Keys (dienen als Fallback/Cache für Supabase-Daten):**
-| Key | Supabase-Tabelle | Inhalt |
-|-----|------------------|--------|
-| `prepwell_calendar_slots` | `calendar_slots` | Kalender-Slots |
-| `prepwell_contents` | - | Content-Objekte (nur lokal) |
-| `prepwell_tasks` | `calendar_tasks` | Tagesaufgaben |
-| `prepwell_private_blocks` | `private_blocks` | Private Termine |
-| `prepwell_content_plans` | `content_plans` | Lernpläne/Themenlisten |
-| `prepwell_published_themenlisten` | `published_themenlisten` | Community-Themenlisten |
-| `prepwell_lernplan_metadata` | `user_settings` | Aktiver Lernplan Metadaten |
-| `prepwell_archived_lernplaene` | `archived_lernplaene` | Archivierte Pläne |
-| `prepwell_timer_settings` | - | Timer-Einstellungen (nur lokal) |
-| `prepwell_timer_history` | `timer_sessions` | Timer-Session-Historie |
-| `prepwell_mentor_activated` | `user_settings` | Mentor-Aktivierungsstatus |
-| `prepwell_checkin_responses` | `checkin_responses` | Check-In Antworten |
-| `prepwell_exams` | `leistungen` | Klausuren (Normal-Modus) |
-| `prepwell_uebungsklausuren` | `uebungsklausuren` | Übungsklausuren (Examen-Modus) |
-| `prepwell_custom_subjects` | `user_settings` | Benutzerdefinierte Fächer |
-| `prepwell_grade_system` | `user_settings` | Bevorzugtes Notensystem |
-| `prepwell_lernplan_wizard_draft` | `wizard_drafts` | Wizard-Zwischenspeicher |
-
-### 3.3 Projektstruktur
-
-#### Root-Verzeichnis
 ```
-PrepWell_Frontend/
-├── api/                    # Vercel Serverless Functions (Produktion)
-├── data/                   # Lokale JSON-Daten (Entwicklung, gitignored)
-├── node_modules/           # Dependencies (gitignored)
-├── public/                 # Statische Assets
-├── src/                    # Frontend-Quellcode
-│
-├── .env.local              # Umgebungsvariablen (gitignored)
-├── .eslintrc.cjs           # ESLint-Konfiguration
-├── .gitignore              # Git-Ausschlüsse
-├── CLAUDE.md               # AI-Kontext für Claude Code
-├── index.html              # HTML-Einstiegspunkt
-├── package.json            # Projektdefinition & Scripts
-├── postcss.config.js       # PostCSS (für Tailwind)
-├── PRD.md                  # Produktdokumentation
-├── server.js               # Lokaler Express-Server
-├── tailwind.config.js      # Tailwind CSS Konfiguration
-├── vercel.json             # Vercel Deployment-Konfiguration
-└── vite.config.js          # Vite Build-Konfiguration
+Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
+                   ↓
+              Offline-fähig
 ```
-
-#### Frontend (src/)
-```
-src/
-├── app.jsx                 # Root-Komponente
-├── main.jsx                # React-Einstiegspunkt
-├── router.jsx              # React Router Konfiguration
-├── index.css               # Globale Styles
-├── design-tokens.js        # Design-System Tokens
-│
-├── pages/                  # Seitenkomponenten (1 pro Route)
-│   ├── Dashboard.jsx
-│   ├── Kalender.jsx
-│   ├── Lernplaene.jsx
-│   ├── Leistungen.jsx
-│   ├── Aufgaben.jsx
-│   ├── Einstellungen.jsx
-│   └── Mentor.jsx
-│
-├── components/             # UI-Komponenten
-│   ├── layout/             # Header, Navigation, Sidebar
-│   ├── ui/                 # Wiederverwendbare UI (Button, Modal, etc.)
-│   ├── dashboard/          # Dashboard-spezifisch
-│   │   └── timer/          # Timer-Komponenten
-│   ├── lernplan/           # Lernplan-Karten, Listen
-│   ├── mentor/             # Mentor-Feature
-│   │   ├── dashboard/
-│   │   └── stats/
-│   ├── settings/           # Einstellungs-Komponenten
-│   ├── uebungsklausuren/   # Übungsklausuren (Examen-Modus)
-│   │   └── dialogs/
-│   └── verwaltung/         # Verwaltungs-Komponenten
-│       └── dialogs/
-│
-├── features/               # Feature-Module (in sich geschlossen)
-│   ├── calendar/           # Kalender-Feature
-│   │   ├── components/     # Kalender-UI
-│   │   ├── hooks/          # Kalender-Hooks
-│   │   └── utils/          # Kalender-Hilfsfunktionen
-│   └── lernplan-wizard/    # Wizard-Feature
-│       ├── components/     # Wizard-UI
-│       ├── context/        # Wizard-State
-│       └── steps/          # Wizard-Schritte (1-10)
-│
-├── contexts/               # React Context Provider
-│   ├── CalendarContext.jsx # SSOT für Kalender, Slots, Aufgaben
-│   ├── TimerContext.jsx    # Timer-State
-│   ├── AppModeContext.jsx  # Normal/Examen-Modus
-│   └── ...
-│
-├── hooks/                  # Custom React Hooks
-├── services/               # API-Service Layer
-├── data/                   # Statische Daten (Rechtsgebiete, etc.)
-├── types/                  # TypeScript/JSDoc Typen
-├── utils/                  # Allgemeine Hilfsfunktionen
-└── styles/                 # Zusätzliche CSS-Dateien
-```
-
-#### Backend (api/)
-```
-api/
-├── lib/
-│   ├── kv.ts               # Vercel KV Datenbankoperationen
-│   └── utils.ts            # CORS, Validierung, Hilfsfunktionen
-├── types.ts                # Shared TypeScript Types
-│
-├── lernplaene/
-│   ├── index.ts            # GET/POST /api/lernplaene
-│   └── [id].ts             # GET/PUT/DELETE /api/lernplaene/:id
-├── kalender/
-│   └── [lernplanId]/
-│       ├── slots.ts        # GET/PUT/POST /api/kalender/:id/slots
-│       └── slots/
-│           └── bulk.ts     # POST /api/kalender/:id/slots/bulk
-├── aufgaben/
-│   ├── index.ts            # GET/POST /api/aufgaben
-│   └── [id].ts             # GET/PUT/DELETE /api/aufgaben/:id
-├── leistungen/
-│   ├── index.ts            # GET/POST /api/leistungen
-│   └── [id].ts             # GET/PUT/DELETE /api/leistungen/:id
-├── wizard/
-│   ├── draft.ts            # GET/PUT/DELETE /api/wizard/draft
-│   └── complete.ts         # POST /api/wizard/complete
-├── unterrechtsgebiete/
-│   ├── index.ts            # GET/POST /api/unterrechtsgebiete
-│   └── [id].ts             # DELETE /api/unterrechtsgebiete/:id
-└── generate-plan.ts        # POST /api/generate-plan
-```
-
-#### Konventionen
-
-| Regel | Beschreibung |
-|-------|--------------|
-| **Keine neuen Root-Ordner** | Neue Funktionalität gehört in `src/features/` |
-| **Komponenten-Struktur** | `components/` = wiederverwendbar, `features/` = feature-spezifisch |
-| **Keine tiefen Imports** | Max. 3 Ebenen: `../../components/ui/Button` |
-| **Feature-Isolation** | Features importieren nur aus `components/`, `hooks/`, `utils/` |
-| **Datei-Benennung** | PascalCase für Komponenten, camelCase für Utilities |
 
 ---
 
-## 4. Funktionale Anforderungen
+## 4. Seitenstruktur
 
-### 4.1 Seitenstruktur
+| Route | Seite | Beschreibung |
+|-------|-------|--------------|
+| `/` | Dashboard | Tagesübersicht mit Widgets |
+| `/onboarding` | Onboarding | Willkommens-Flow für neue User |
+| `/lernplan` | Lernpläne | Übersicht aller Pläne |
+| `/lernplan/erstellen` | Wizard | 10-Schritte Lernplan-Erstellung |
+| `/kalender/woche` | Wochenansicht | Detaillierte Wochenplanung |
+| `/kalender/monat` | Monatsansicht | Übersichtskalender |
+| `/verwaltung/leistungen` | Leistungen | Klausuren & Noten |
+| `/verwaltung/aufgaben` | Aufgaben | Aufgabenverwaltung |
+| `/einstellungen` | Einstellungen | App-Konfiguration |
+| `/mentor` | Mentor | Statistik-Dashboard |
+| `/profil` | Profil | Benutzerprofil |
 
-| # | Seite | Route | Status | Beschreibung |
-|---|-------|-------|--------|--------------|
-| 1 | Startseite | `/` | ✅ | Dashboard mit Tagesübersicht |
-| 2 | Lernpläne | `/lernplan` | ✅ | Übersicht aller Lernpläne |
-| 3 | Kalender (Woche) | `/kalender/woche` | ✅ | Wochenansicht |
-| 4 | Kalender (Monat) | `/kalender/monat` | ✅ | Monatsansicht |
-| 5 | Verwaltung > Leistungen | `/verwaltung/leistungen` | ✅ | Klausurverwaltung |
-| 6 | Verwaltung > Aufgaben | `/verwaltung/aufgaben` | ✅ | Aufgabenverwaltung |
-| 7 | Einstellungen | `/einstellungen` | ✅ | Benutzereinstellungen |
-| 8 | Mentor | `/mentor` | ✅ | KI-Mentor |
-| 9 | Wizard | `/lernplan/erstellen` | ✅ | 10-Schritte Wizard |
+---
 
-### 4.2 Lernplan-Wizard (10 Schritte)
+## 5. Features im Detail
 
-Der Wizard führt Nutzer durch die Erstellung eines personalisierten Lernplans:
+### 5.1 Lernplan-Wizard (10 Schritte)
 
-| Schritt | Name | Beschreibung |
-|---------|------|--------------|
-| 1 | Lernzeitraum | Start- und Enddatum festlegen |
-| 2 | Puffertage | Anzahl unverplanter Tage |
-| 3 | Urlaubstage | Freie Tage markieren |
-| 4 | Tagesblöcke | Anzahl Lernblöcke pro Tag (1-4) |
-| 5 | Wochenstruktur | Aktive Lerntage auswählen |
-| 6 | Erstellungsmethode | Manual/Automatisch/Vorlage/KI |
-| 7a | Manual | Manuelle Themenverteilung |
-| 7b | Automatisch | Automatische Generierung |
-| 7c | Vorlage | Vordefinierte Vorlagen |
-| 7d | KI | KI-gestützte Erstellung |
-| 8 | Unterrechtsgebiete | Rechtsgebiete auswählen |
-| 9 | Lerntage | Feinabstimmung der Tage |
-| 10 | Anpassungen | Finale Überprüfung |
+| Schritt | Funktion |
+|---------|----------|
+| 1 | Lernzeitraum (Start/Ende) |
+| 2 | Puffertage |
+| 3 | Urlaubstage markieren |
+| 4 | Tagesblöcke (1-4) |
+| 5 | Wochenstruktur |
+| 6 | Erstellungsmethode (Manual/Auto/Vorlage/KI) |
+| 7 | Themenverteilung |
+| 8 | Kalendervorschau |
+| 9 | Feinabstimmung |
+| 10 | Abschluss |
 
-**Erstellungsmethoden:**
-- **Manual:** Nutzer verteilt Themen selbst auf Tage
-- **Automatisch:** System verteilt Themen gleichmäßig
-- **Vorlage:** Vordefinierte Lernpläne (z.B. "6-Monats-Intensivkurs")
-- **KI:** OpenAI-basierte intelligente Planerstellung
+**Wizard-Draft:** Automatisches Speichern alle 500ms zu Supabase.
 
-### 4.3 Kalender-Feature
+### 5.2 Kalender-Feature
 
 **Blocktypen:**
-| Typ | Farbe | Beschreibung |
+| Typ | Farbe | Wiederholung |
 |-----|-------|--------------|
-| Tagesthema | Rechtsgebiet-Farbe | Hauptlernblock |
-| Wiederholung | Orange | Wiederholungseinheit |
-| Klausur | Rot | Prüfungstermin |
-| Privat | Grau | Persönlicher Termin |
-| Freizeit | Grün | Freizeitaktivität |
+| Tagesthema | Rechtsgebiet-Farbe | Ja |
+| Wiederholung | Orange | Ja |
+| Klausur | Rot | Ja |
+| Privat | Grau | Ja |
+| Freizeit | Grün | Ja |
 
-**Funktionen:**
-- Drag & Drop für Aufgaben in Blöcke
-- Wiederholungsfunktion (täglich/wöchentlich/monatlich)
-- Zeitangaben (Start/Ende)
-- Fortschrittstracking pro Block
-- Sperren/Entsperren von Blöcken
+**Serientermine:** Täglich, Wöchentlich, Monatlich, Benutzerdefiniert (Wochentage)
 
-### 4.4 Dashboard (Startseite)
+### 5.3 Timer-System
 
-**Widgets:**
-- **Lernblock-Widget:** Aktueller/nächster Lernblock
-- **Zeitplan-Widget:** Tagesübersicht mit Stunden
-- **Aufgaben-Widget:** Heutige Aufgaben
-- **Timer-Widget:** Pomodoro/Countdown/Count-up
-- **Fortschritts-Widget:** Täglicher Fortschritt
-
-**Timer-Modi:**
 | Modus | Beschreibung |
 |-------|--------------|
-| Pomodoro | 25 Min Arbeit + 5 Min Pause |
+| Pomodoro | 25 Min Arbeit + 5 Min Pause (konfigurierbar) |
 | Countdown | Individuelle Zeit |
-| Count-up | Unbegrenzt aufwärts |
+| Count-up | Stoppuhr ohne Limit |
 
-### 4.5 Aufgabenverwaltung
+**Logbuch:** Manuelle Zeiterfassung für vergangene Aktivitäten.
 
-**Aufgaben-Eigenschaften:**
-- Titel und Beschreibung
-- Priorität (mittel/hoch)
-- Verknüpfung mit Lernblock
-- Fälligkeitsdatum
-- Status (offen/erledigt)
+### 5.4 Dashboard Widgets
 
-**Ansichten:**
-- Kanban-Board
-- Listenansicht
-- Filter nach Rechtsgebiet, Priorität, Status
+- **Lernblock-Widget:** Aktueller/nächster Block
+- **Zeitplan-Widget:** Stunden-Übersicht mit rotem Zeitpunkt-Dot
+- **Aufgaben-Widget:** Tagesaufgaben mit Prioritäten
+- **Timer-Widget:** Schnellzugriff auf Timer
+- **Fortschritts-Widget:** Tagesziel-Anzeige
 
-### 4.6 Themenlisten (Hierarchie)
+### 5.5 Mentor & Statistiken
 
-```
-Lernplan
-└── Fach (z.B. Zivilrecht)
-    └── Kapitel (z.B. Schuldrecht)
-        └── Themen (z.B. Kaufvertrag)
-            └── Aufgaben (z.B. Fall 1 lösen)
-```
+**Aktivierung:** Dialog beim ersten Besuch
 
-**Terminologie-Mapping:**
-| Synonym | Primärer Begriff |
-|---------|------------------|
-| Rechtsgebiet | Fach |
-| Unterrechtsgebiet | Kapitel |
-
-**Funktionen:**
-- Aufklappbare Hierarchie
-- Fortschrittsanzeige pro Ebene
-- Aufgaben in Kalenderblöcke ziehen
-- Themen bearbeiten/löschen
-
-### 4.7 Themenlistendatenbank
-
-Die Themenlistendatenbank ermöglicht Nutzern, vorgefertigte Themenlisten zu importieren oder eigene Themenlisten mit der Community zu teilen.
-
-**Zugriff:**
-- Button "Themenlistendatenbank" auf der Lernpläne-Seite (neben "Neue Themenliste")
-- Öffnet Full-Screen-Dialog mit Datenbank-Übersicht
-
-**Tabs:**
-| Tab | Beschreibung |
-|-----|--------------|
-| Vorlagen | Vordefinierte Templates (z.B. Examensvorbereitung, Zivilrecht Intensiv) |
-| Community | Vom Nutzer veröffentlichte Themenlisten |
-
-**Template-Informationen:**
-- Name und Beschreibung
-- Statistiken: Anzahl Unterrechtsgebiete, Anzahl Themen
-- Gewichtung der Rechtsgebiete (in %)
-- Modus: Examen/Standard
-- Tags für Filterung
-
-**Filter & Suche:**
-- Volltextsuche nach Name, Beschreibung, Tags
-- Filter nach Rechtsgebiet (Zivilrecht, Öffentliches Recht, Strafrecht)
-- Filter nach Modus (Examen, Standard)
-
-**Import/Export-Funktionen:**
-
-| Funktion | Beschreibung |
-|----------|--------------|
-| Template importieren | Vordefiniertes Template als neue Themenliste übernehmen |
-| JSON importieren | Themenliste aus JSON-Datei importieren |
-| JSON exportieren | Eigene Themenliste als JSON-Datei herunterladen |
-| Veröffentlichen | Eigene Themenliste zur Community hinzufügen |
-| Veröffentlichung aufheben | Aus Community entfernen |
-
-**JSON-Export Format:**
-```json
-{
-  "id": "export-...",
-  "name": "Themenliste Name",
-  "description": "Beschreibung",
-  "exportedAt": "2025-12-21T...",
-  "stats": {
-    "unterrechtsgebiete": 12,
-    "themen": 156
-  },
-  "gewichtung": {
-    "zivilrecht": 45,
-    "oeffentliches-recht": 35,
-    "strafrecht": 20
-  },
-  "rechtsgebiete": [...]
-}
-```
-
-**LocalStorage-Keys:**
-- `prepwell_published_themenlisten` - Vom Nutzer veröffentlichte Themenlisten
-
-### 4.8 Mentor & Check-In
-
-Der Mentor bietet Statistiken und Auswertungen zum Lernfortschritt.
-
-**Aktivierung:**
-- Erster Besuch zeigt "Mentor aktivieren" Dialog
-- Nach Aktivierung: Vollständiges Statistik-Dashboard
-
-**Check-In System:**
-- Täglicher Check-In beim ersten Besuch
-- Erfasst: Stimmung, Energielevel, Fokus-Level
-- Optionale Notiz
-- Ergebnisse fließen in Statistiken ein
-
-**Statistik-Kategorien:**
-
-| Kategorie | Metriken |
-|-----------|----------|
-| Lernzeit | Ø pro Tag/Woche, längste Session, Gesamt |
-| Zeitpunkte | Produktivste Tageszeit, Ø Start/Ende |
-| Fächer | Verteilung nach Rechtsgebiet |
-| Aufgaben | Erledigungsrate, Kapitel-Fortschritt |
-| Planung | Planerfüllung, On-Track-Score |
-| Konsistenz | Streaks, Lerntage/Woche |
-| Wiederholungen | Rep-Blöcke, Überfällige |
-| Timer | Sessions/Tag, Abschlussrate |
+**Metriken:**
+- Lernzeit (Ø pro Tag/Woche, Gesamt)
+- Produktivste Tageszeit
+- Fächer-Verteilung
+- Aufgaben-Erledigungsrate
+- Streak-Tage
+- Timer-Sessions
 
 **Visualisierungen:**
-- Performance-Heatmap (letzte 30 Tage)
-- Jahresansicht (12 Monate als Heatmap-Grid)
+- Performance-Heatmap (30 Tage)
+- Jahresansicht (12 Monate)
+- WellScore (Radial Chart)
 - Liniendiagramme für Trends
-- Score-Cards für Einzelwerte
 
-**LocalStorage-Keys:**
-- `prepwell_mentor_activated` - Aktivierungsstatus
-- `prepwell_checkin_responses` - Check-In Historie
-- `prepwell_timer_history` - Timer-Session-Historie
+### 5.6 Check-In System
 
-### 4.9 App-Modus (Examen vs Normal)
+| Zeitpunkt | Erfassung |
+|-----------|-----------|
+| Morgens | Stimmung, Energielevel, Fokus, Tagesziele |
+| Abends | Reflexion, Erfolge, Herausforderungen |
 
-Die WebApp unterscheidet zwei grundlegende Betriebsmodi, die das Nutzererlebnis beeinflussen:
+### 5.7 App-Modus
 
-**Modi:**
-| Modus | Aktivierung | Beschreibung |
-|-------|-------------|--------------|
-| Examen-Modus | Automatisch wenn Lernplan existiert | Voller Funktionsumfang, Lernplan steuert alles |
-| Normal-Modus | Standard (kein aktiver Lernplan) | Reduzierter Funktionsumfang, Themenlisten-basiert |
+| Modus | Aktivierung | Features |
+|-------|-------------|----------|
+| Examen | Aktiver Lernplan vorhanden | Voller Umfang |
+| Normal | Kein Lernplan | Reduziert (keine Lernpläne-Nav) |
 
-**Modus-Erkennung:**
-- Automatisch basierend auf `contentPlans` mit `type: 'lernplan'`
-- Ein aktiver (nicht archivierter) Lernplan → Examen-Modus
-- Kein aktiver Lernplan → Normal-Modus
+---
 
-**Unterschiede:**
+## 6. Supabase-Integration
 
-| Feature | Examen-Modus | Normal-Modus |
-|---------|--------------|--------------|
-| Navigation "Lernpläne" | Aktiv | Deaktiviert (ausgegraut) |
-| Standard-Kalenderansicht | Monatsansicht | Wochenansicht |
-| Lernplan-Features | Vollständig | Nicht verfügbar |
-| Themenlisten | Via Lernplan | Direkt nutzbar |
+### 6.1 Tabellen-Status
 
-**UI-Anpassungen im Normal-Modus:**
-- Deaktivierte Navigation-Items werden grau dargestellt (`text-gray-300`)
-- Cursor zeigt `not-allowed` bei Hover
-- Tooltip: "Nur im Examen-Modus verfügbar"
+| Tabelle | Context | Status |
+|---------|---------|--------|
+| `users` | AuthContext | Aktiv |
+| `user_settings` | Mehrere | Aktiv |
+| `content_plans` | CalendarContext | Aktiv |
+| `calendar_slots` | CalendarContext | Aktiv |
+| `calendar_tasks` | CalendarContext | Aktiv |
+| `private_blocks` | CalendarContext | Aktiv |
+| `archived_lernplaene` | CalendarContext | Aktiv |
+| `published_themenlisten` | CalendarContext | Aktiv |
+| `wizard_drafts` | WizardContext | Aktiv |
+| `timer_sessions` | TimerContext | Aktiv |
+| `checkin_responses` | CheckInContext | Aktiv |
+| `leistungen` | ExamsContext | Aktiv |
+| `uebungsklausuren` | UebungsklausurenContext | Aktiv |
+| `logbuch_entries` | LogbuchContext | Aktiv |
 
-**Context:**
-```javascript
-const {
-  appMode,           // 'exam' | 'normal'
-  isExamMode,        // boolean
-  isNormalMode,      // boolean
-  activeLernplan,    // aktueller Lernplan oder null
-  isNavItemDisabled, // (key) => boolean
-  defaultCalendarView // 'monat' | 'woche'
-} = useAppMode();
+### 6.2 Sync-Hooks
+
+Alle in `src/hooks/use-supabase-sync.js`:
+- `useSupabaseSync` - Generischer Hook
+- `useContentPlansSync`
+- `useCalendarSlotsSync`
+- `useCalendarTasksSync`
+- `usePrivateBlocksSync`
+- `useTimerHistorySync`
+- `useCheckInSync`
+- `useLogbuchSync`
+- ... und weitere
+
+### 6.3 Schema
+
+Idempotentes Schema in `supabase/schema.sql`:
+- Kann mehrfach ausgeführt werden ohne Fehler
+- Row Level Security (RLS) für alle Tabellen
+- Trigger für `updated_at` Timestamps
+
+---
+
+## 7. Projektstruktur
+
+```
+src/
+├── pages/              # 11 Seitenkomponenten
+├── components/         # UI-Komponenten
+│   ├── layout/         # Header, Nav, Sidebar
+│   ├── ui/             # Button, Dialog, Badge, etc.
+│   ├── dashboard/      # Dashboard-Widgets
+│   │   └── timer/      # Timer-Dialoge
+│   ├── charts/         # RadialChart, LineChart
+│   ├── mentor/         # Mentor-Dashboard
+│   └── ...
+├── features/           # Feature-Module
+│   ├── calendar/       # Kalender-Feature
+│   └── lernplan-wizard/# Wizard-Feature
+├── contexts/           # 10+ React Contexts
+├── hooks/              # Custom Hooks (inkl. Supabase-Sync)
+├── services/           # API-Services
+├── data/               # Statische Daten (Rechtsgebiete)
+└── utils/              # Hilfsfunktionen
 ```
 
-### 4.10 Leistungen & Übungsklausuren
-
-Die Seite `/verwaltung/leistungen` zeigt unterschiedliche Inhalte je nach App-Modus:
-
-**Normal-Modus: Leistungsübersicht**
-
-Verwaltung von Semester-Klausuren und Leistungsnachweisen.
-
-| Feature | Beschreibung |
-|---------|--------------|
-| Notensystem | Dual: Punkte (0-18) ODER Noten (1.0-5.0) |
-| Tabellen-Spalten | Fach, Semester, Thema, Datum (Zeit), Note |
-| Fächer | Vordefiniert + benutzerdefinierte Fächer |
-| Gewichtung | ECTS-basiert für Durchschnittsberechnung |
-| Semester | Auswählbar (WS/SS 2021-2025) |
-
-**Examen-Modus: Übungsklausuren**
-
-Verwaltung von Übungsklausuren zur Staatsexamensvorbereitung.
-
-| Feature | Beschreibung |
-|---------|--------------|
-| Notensystem | Nur Punkte (0-18) |
-| Tabellen-Spalten | Fach, Thema, Datum, Note |
-| Rechtsgebiete | Zivilrecht, Strafrecht, Öffentliches Recht |
-| Auswertung | Popup-Dialog mit Recharts-Diagrammen |
-
-**Auswertungs-Dialog (Examen-Modus):**
-
-| Tab | Visualisierung |
-|-----|----------------|
-| Entwicklung | Liniendiagramm mit Notentrend + laufender Durchschnitt |
-| Gewichtung | Balkendiagramm zur Verteilung nach Rechtsgebiet |
-
-**Statistiken:**
-- Durchschnittsnoten pro Rechtsgebiet
-- Trend-Indikatoren (Verbesserung/Verschlechterung)
-- Beste/niedrigste Note
-- Empfehlungen basierend auf Verteilung
-
-**Dialoge:**
-- Neue Klausur erstellen
-- Klausur bearbeiten/löschen
-- Filtern & Sortieren
-- Auswertung (nur Examen-Modus)
-
 ---
 
-## 5. Nicht-funktionale Anforderungen
+## 8. Design System
 
-### 5.1 Performance
-- First Contentful Paint: < 1.5s
-- Time to Interactive: < 3s
-- LocalStorage-Operationen: < 50ms
-
-### 5.2 Kompatibilität
-- Browser: Chrome, Firefox, Safari, Edge (aktuelle Versionen)
-- Viewport: Desktop-first (≥1024px), Tablet-Support (≥768px)
-
-### 5.3 Barrierefreiheit
-- Tastaturnavigation
-- ARIA-Labels
-- Kontrastverhältnis ≥ 4.5:1
-
-### 5.4 Datensicherheit
-- Alle Daten lokal im Browser (MVP)
-- Keine sensiblen Daten in URLs
-- HTTPS-only in Produktion
-
----
-
-## 6. Design System
-
-### 6.1 Farbpalette
-
-**Primärfarben (Brand):**
-- Primary-50: #FFE7E7
-- Primary-100: #FFD7D7
-- Primary-200: #FFCECE
-- Primary-300: #FFC3C3
-- Primary-400: #FFC4C4
-
-**Rechtsgebiete:**
+### Farben (Rechtsgebiete)
 | Rechtsgebiet | Farbe |
 |--------------|-------|
 | Öffentliches Recht | Grün (#10B981) |
@@ -709,393 +259,646 @@ Verwaltung von Übungsklausuren zur Staatsexamensvorbereitung.
 | Strafrecht | Rot (#EF4444) |
 | Querschnittsrecht | Violett (#8B5CF6) |
 
-**Graustufen:**
-- Gray-50 bis Gray-950
+### Typografie
+- **Font:** DM Sans
+- **H1:** 24px, Extralight (200)
+- **Body:** 16px, Normal (400)
 
-### 6.2 Typografie
-
-**Schriftart:** DM Sans (Google Fonts)
-
-| Verwendung | Größe | Gewicht |
-|------------|-------|---------|
-| H1 | 24px | Semibold (600) |
-| H2 | 20px | Semibold (600) |
-| H3 | 18px | Medium (500) |
-| Body | 16px | Normal (400) |
-| Small | 14px | Normal (400) |
-| XSmall | 12px | Normal (400) |
-
-### 6.3 Komponenten
-
-**Button-Varianten:**
-- `primary` - Hauptaktion
-- `default` - Sekundäraktion
-- `ghost` - Tertiäraktion
-- `icon` - Nur Icon
-
-**Badge-Varianten:**
-- `default` - Standard
-- `primary` - Hervorgehoben
-- `outline` - Umrandet
-
-**Dialog:**
-- Modal mit Overlay
-- Schließbar via X oder Escape
-- Responsive Breite
+### Komponenten
+- Buttons: primary, default, ghost, icon
+- Dialoge: Modal mit Overlay
+- Badges: default, primary, outline
 
 ---
 
-## 7. API-Spezifikation
+## 9. Externe Abhängigkeiten
 
-### 7.1 Backend-Architektur
+- **Supabase:** Datenbank & Auth
+- **Vercel:** Hosting & Serverless Functions
+- **OpenAI:** KI-Lernplan-Generierung (optional)
 
-Das Backend unterstützt zwei Umgebungen mit identischen Endpoints:
+---
 
-| Umgebung | Technologie | Datenbank | Port |
-|----------|-------------|-----------|------|
-| **Produktion** | Vercel Serverless Functions | Vercel KV (Redis) | - |
-| **Lokale Entwicklung** | Express.js | JSON-Dateien | 3010 |
+## 10. Bekannte Limitierungen
 
-**Base URLs:**
-- Produktion: `https://[projekt].vercel.app/api`
-- Lokale Entwicklung: `http://localhost:3010/api`
+1. **Offline:** LocalStorage-Fallback vorhanden, aber kein vollständiger Offline-Modus
+2. **Mobile:** Desktop-first, Tablet-Support, Mobile eingeschränkt
+3. **Realtime:** Kein Echtzeit-Sync zwischen Tabs/Geräten
+4. **Backend:** Supabase als Zwischenlösung (Migration geplant)
 
-#### 7.1.1 Produktion (Vercel Serverless)
+---
 
-**Projektstruktur:**
-```
-api/
-├── lib/
-│   ├── kv.ts              # Vercel KV Datenbankoperationen
-│   └── utils.ts           # CORS, Validierung, Hilfsfunktionen
-├── types.ts               # Shared TypeScript Types
-├── lernplaene/
-│   ├── index.ts           # GET/POST /api/lernplaene
-│   └── [id].ts            # GET/PUT/DELETE /api/lernplaene/:id
-├── kalender/
-│   └── [lernplanId]/
-│       ├── slots.ts       # GET/PUT/POST /api/kalender/:lernplanId/slots
-│       └── slots/
-│           └── bulk.ts    # POST /api/kalender/:lernplanId/slots/bulk
-├── aufgaben/
-│   ├── index.ts           # GET/POST /api/aufgaben
-│   └── [id].ts            # GET/PUT/DELETE /api/aufgaben/:id
-├── leistungen/
-│   ├── index.ts           # GET/POST /api/leistungen
-│   └── [id].ts            # GET/PUT/DELETE /api/leistungen/:id
-├── wizard/
-│   ├── draft.ts           # GET/PUT/DELETE /api/wizard/draft
-│   └── complete.ts        # POST /api/wizard/complete
-├── unterrechtsgebiete/
-│   ├── index.ts           # GET/POST /api/unterrechtsgebiete
-│   └── [id].ts            # DELETE /api/unterrechtsgebiete/:id
-└── generate-plan.ts       # POST /api/generate-plan
-```
+# Teil 2: Bugs & Funktionstest
 
-#### 7.1.2 Lokale Entwicklung (Express Server)
+---
 
-Für Entwicklung ohne Vercel CLI steht ein lokaler Express-Server zur Verfügung.
+## 11. Bekannte Bugs
 
-**Datei:** `server.js`
+### 11.1 Kritisch (Blocker)
 
-**Starten:**
+| ID | Bug | Bereich | Status |
+|----|-----|---------|--------|
+| - | Keine kritischen Bugs bekannt | - | - |
+
+### 11.2 Hoch (Funktionalität beeinträchtigt)
+
+| ID | Bug | Bereich | Status |
+|----|-----|---------|--------|
+| BUG-001 | ESLint-Fehler blockieren Commits | Build | Offen |
+| BUG-002 | Unused imports in vielen Dateien | Code Quality | Offen |
+
+### 11.3 Mittel (Funktioniert, aber nicht optimal)
+
+| ID | Bug | Bereich | Status |
+|----|-----|---------|--------|
+| BUG-010 | React Hook Dependency Warnings | Performance | Offen |
+| BUG-011 | Fast refresh Warnungen bei Context-Exporten | DevExp | Offen |
+| BUG-012 | Chunk size > 500kb Warnung beim Build | Bundle | Offen |
+
+### 11.4 Niedrig (Kosmetisch/Minor)
+
+| ID | Bug | Bereich | Status |
+|----|-----|---------|--------|
+| BUG-020 | LF/CRLF Git Warnungen (Windows) | Git | Offen |
+
+---
+
+## 12. Funktionstest-Checkliste
+
+### 12.1 Authentifizierung
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Login mit Email/Passwort | Erfolgreich einloggen | [ ] | - |
+| Registrierung | Account erstellen | [ ] | - |
+| Logout | Session beenden, Redirect | [ ] | - |
+| Session Persistenz | Nach Reload eingeloggt bleiben | [ ] | - |
+| Protected Routes | Redirect zu Login wenn nicht auth | [ ] | - |
+
+### 12.2 Dashboard
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Lernblock-Widget zeigt aktuellen Block | Korrekter Block für aktuelle Zeit | [ ] | - |
+| Zeitplan-Widget mit rotem Dot | Dot bewegt sich mit Uhrzeit | [ ] | - |
+| Aufgaben-Widget zeigt Tagesaufgaben | Aufgaben für heute sichtbar | [ ] | - |
+| Timer-Widget funktioniert | Alle 3 Modi starten | [ ] | - |
+| Tagesziel berechnet korrekt | Basiert auf Slots des Tages | [ ] | - |
+
+### 12.3 Lernplan-Wizard
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Schritt 1-10 durchlaufen | Alle Schritte erreichbar | [ ] | - |
+| Draft wird automatisch gespeichert | Nach 500ms zu Supabase | [ ] | - |
+| Zurück-Navigation | Vorherige Schritte behalten Daten | [ ] | - |
+| Wizard abschließen | Lernplan wird erstellt | [ ] | - |
+| KI-Generierung | OpenAI generiert Plan | [ ] | - |
+
+### 12.4 Kalender
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Monatsansicht Navigation | Vor/Zurück funktioniert | [ ] | - |
+| Wochenansicht Navigation | Vor/Zurück funktioniert | [ ] | - |
+| Block erstellen (Tagesthema) | Block erscheint im Kalender | [ ] | - |
+| Block erstellen (Privat) | Privater Block erscheint | [ ] | - |
+| Serientermin erstellen (täglich) | Mehrere Blöcke erstellt | [ ] | - |
+| Serientermin erstellen (wöchentlich) | Blöcke im Wochenrhythmus | [ ] | - |
+| Serientermin erstellen (monatlich) | Blöcke im Monatsrhythmus | [ ] | - |
+| Serientermin erstellen (custom) | Blöcke an gewählten Tagen | [ ] | - |
+| Block bearbeiten | Änderungen gespeichert | [ ] | - |
+| Block löschen | Block entfernt | [ ] | - |
+| Serie löschen | Alle Blöcke der Serie entfernt | [ ] | - |
+
+### 12.5 Aufgaben
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Aufgabe erstellen | Neue Aufgabe erscheint | [ ] | - |
+| Aufgabe abhaken | Status ändert sich | [ ] | - |
+| Priorität ändern | Priorität aktualisiert | [ ] | - |
+| Aufgabe löschen | Aufgabe entfernt | [ ] | - |
+| Aufgabe zu Block zuordnen | Verknüpfung funktioniert | [ ] | - |
+
+### 12.6 Timer
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Pomodoro starten | 25 Min Timer läuft | [ ] | - |
+| Pomodoro Pause | 5 Min Pause startet | [ ] | - |
+| Countdown starten | Gewählte Zeit läuft ab | [ ] | - |
+| Count-up starten | Zeit zählt hoch | [ ] | - |
+| Timer pausieren | Timer hält an | [ ] | - |
+| Timer fortsetzen | Timer läuft weiter | [ ] | - |
+| Timer beenden | Session wird gespeichert | [ ] | - |
+| Logbuch Eintrag | Manuelle Zeit erfasst | [ ] | - |
+
+### 12.7 Mentor & Check-In
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Mentor aktivieren | Dialog erscheint, Aktivierung | [ ] | - |
+| Check-In morgens | Formular ausfüllbar | [ ] | - |
+| Check-In abends | Formular ausfüllbar | [ ] | - |
+| Statistiken anzeigen | Daten korrekt berechnet | [ ] | - |
+| Heatmap funktioniert | Farben korrekt | [ ] | - |
+
+### 12.8 Leistungen/Übungsklausuren
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Klausur hinzufügen | Eintrag erscheint | [ ] | - |
+| Klausur bearbeiten | Änderungen gespeichert | [ ] | - |
+| Klausur löschen | Eintrag entfernt | [ ] | - |
+| Notensystem Punkte | 0-18 Punkte funktioniert | [ ] | - |
+| Notensystem Noten | 1.0-5.0 funktioniert | [ ] | - |
+| Auswertung (Examen) | Diagramme anzeigen | [ ] | - |
+
+### 12.9 Supabase Sync
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Daten laden bei Login | Supabase-Daten erscheinen | [ ] | - |
+| Änderungen speichern | Zu Supabase synchronisiert | [ ] | - |
+| Offline-Fallback | LocalStorage funktioniert | [ ] | - |
+| Migration LocalStorage → Supabase | Alte Daten übernommen | [ ] | - |
+
+### 12.10 Themenlisten
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Themenliste erstellen | Neue Liste erscheint | [ ] | - |
+| Themen hinzufügen | Themen in Liste | [ ] | - |
+| Template importieren | Vordefinierte Liste | [ ] | - |
+| JSON exportieren | Datei heruntergeladen | [ ] | - |
+| JSON importieren | Liste importiert | [ ] | - |
+| Community veröffentlichen | Liste in Community | [ ] | - |
+
+---
+
+## 13. Code Quality Tasks
+
+### 13.1 ESLint Fixes (Priorität: Hoch)
+
 ```bash
-# Nur API-Server
-npm run dev:api
-
-# Frontend + API parallel
-npm run dev:full
+# Betroffene Dateien (49 Errors, 27 Warnings):
+src/components/common/loading-screen.jsx
+src/components/dashboard/timer/countdown-settings-dialog.jsx
+src/components/dashboard/timer/pomodoro-settings-dialog.jsx
+src/components/dashboard/timer/timer-logbuch-dialog.jsx
+src/components/dashboard/timer/timer-main-dialog.jsx
+src/components/dashboard/timer/timer-selection-dialog.jsx
+src/components/dashboard/zeitplan-widget.jsx
+src/components/layout/profile-icon.jsx
+src/contexts/calendar-context.jsx
+src/contexts/onboarding-context.jsx
+src/features/calendar/components/calendar-view.jsx
+src/hooks/use-dashboard.js
+src/hooks/use-supabase-sync.js
+src/pages/dashboard.jsx
+src/pages/onboarding.jsx
+src/pages/profil.jsx
 ```
 
-**Lokale Datenspeicherung:**
+**Häufigste Fehler:**
+- `'React' is defined but never used` - React 17+ JSX Transform
+- `'X' is assigned a value but never used` - Unused destructuring
+- React Hook dependency warnings
+
+### 13.2 Bundle Optimierung (Priorität: Mittel)
+
+Aktuell: 1,466 kB (gzip: 368 kB)
+Ziel: < 500 kB
+
+**Optionen:**
+- [ ] Code-Splitting mit dynamic imports
+- [ ] Tree-shaking verbessern
+- [ ] Große Dependencies analysieren
+
+---
+
+## 14. Priorisierte Aufgabenliste
+
+### Sofort
+
+1. [ ] ESLint-Fehler in geänderten Dateien fixen
+2. [ ] Unused imports entfernen (React, etc.)
+3. [ ] Serientermine testen (neues Feature)
+
+### Diese Woche
+
+4. [ ] Alle Funktionstests durchführen
+5. [ ] React Hook Dependency Warnungen fixen
+6. [ ] Supabase Sync validieren
+
+### Später
+
+7. [ ] Bundle-Größe optimieren
+8. [ ] Performance-Profiling
+9. [ ] Accessibility-Audit
+
+---
+
+## 15. Test-Protokoll
+
+| Datum | Tester | Bereich | Ergebnis | Notizen |
+|-------|--------|---------|----------|---------|
+| - | - | - | - | - |
+
+---
+
+# Teil 3: Roadmap
+
+---
+
+## 16. Strategische Ziele
+
+1. **Eigenes Backend** - Migration von Supabase zu eigenem TypeScript-Backend
+2. **Mobile App** - React Native Version für iOS/Android
+3. **Community Features** - Lerngruppen, geteilte Inhalte
+4. **Premium-Modell** - Monetarisierung durch erweiterte Features
+
+---
+
+## 17. Phasen-Übersicht
+
 ```
-data/
-├── lernplaene.json        # Lernpläne
-├── slots.json             # Kalender-Slots
-├── aufgaben.json          # Aufgaben
-├── leistungen.json        # Leistungen/Klausuren
-├── wizard-draft.json      # Wizard-Zwischenspeicher
-└── unterrechtsgebiete.json # Unterrechtsgebiete
+Q1 2026: Stabilisierung & Backend-Planung
+Q2 2026: Backend-Migration Phase 1
+Q3 2026: Backend-Migration Phase 2 + Mobile
+Q4 2026: Community & Premium Features
 ```
 
-**Hinweise:**
-- Daten werden persistent in JSON-Dateien gespeichert
-- `data/*.json` ist in `.gitignore` (wird nicht committet)
-- Unterstützt OpenAI-Integration via `.env.local`
+---
 
-### 7.2 Endpoints
+## 18. Phase 1: Stabilisierung (Q1 2026)
 
-**Lernpläne:**
+### 18.1 Technische Schulden
+
+| Task | Priorität | Aufwand |
+|------|-----------|---------|
+| ESLint-Fehler komplett beheben | Hoch | 2-3h |
+| Bundle-Größe optimieren (< 500kb) | Mittel | 4-6h |
+| TypeScript Migration starten | Mittel | 20-40h |
+| Test-Suite aufbauen (Jest/Vitest) | Mittel | 10-20h |
+| E2E Tests (Playwright/Cypress) | Niedrig | 10-15h |
+
+### 18.2 UX-Verbesserungen
+
+| Feature | Beschreibung | Aufwand |
+|---------|--------------|---------|
+| Mobile Optimierung | Responsive für < 768px | 10-15h |
+| Keyboard Shortcuts | Schnellnavigation | 4-6h |
+| Dark Mode | Dunkles Farbschema | 6-8h |
+| Loading States | Skeleton Screens | 4-6h |
+| Error Boundaries | Bessere Fehlerbehandlung | 3-4h |
+
+### 18.3 Backend-Vorbereitung
+
+| Task | Beschreibung |
+|------|--------------|
+| API-Spezifikation | OpenAPI/Swagger Schema definieren |
+| Datenmodell finalisieren | ERD für eigenes Backend |
+| Auth-Strategie | JWT vs Session-based |
+| Hosting evaluieren | Railway, Render, Fly.io, etc. |
+
+---
+
+## 19. Phase 2: Eigenes Backend (Q2-Q3 2026)
+
+### 19.1 Technologie-Stack (Vorschlag)
+
+| Komponente | Option A | Option B |
+|------------|----------|----------|
+| Runtime | Node.js | Bun |
+| Framework | Express.js | Hono |
+| ORM | Prisma | Drizzle |
+| Datenbank | PostgreSQL | PostgreSQL |
+| Auth | Passport.js | Lucia |
+| Validation | Zod | Zod |
+| API Style | REST | tRPC |
+
+### 19.2 Migration von Supabase
+
+**Phase 2a: Parallelbetrieb**
+1. Eigenes Backend aufsetzen
+2. Doppelte Schreibvorgänge (Supabase + Eigenes)
+3. Lesevorgänge noch von Supabase
+4. Datenintegrität validieren
+
+**Phase 2b: Umstellung**
+1. Lesevorgänge auf eigenes Backend
+2. Supabase nur noch Backup
+3. Supabase-Hooks entfernen
+4. Auth-Migration (eigene User-Tabelle)
+
+**Phase 2c: Cleanup**
+1. Supabase komplett entfernen
+2. LocalStorage-Fallback anpassen
+3. Dokumentation aktualisieren
+
+### 19.3 Neue API-Struktur
+
 ```
-GET    /api/lernplaene         # Alle Lernpläne abrufen
-GET    /api/lernplaene/:id     # Einzelnen Lernplan abrufen
-POST   /api/lernplaene         # Neuen Lernplan erstellen
-PUT    /api/lernplaene/:id     # Lernplan aktualisieren
-DELETE /api/lernplaene/:id     # Lernplan löschen
+/api/v1/
+├── auth/
+│   ├── login
+│   ├── register
+│   ├── logout
+│   └── refresh
+├── users/
+│   ├── me
+│   └── settings
+├── lernplaene/
+│   ├── [id]
+│   └── [id]/slots
+├── calendar/
+│   ├── slots
+│   ├── tasks
+│   └── private-blocks
+├── timer/
+│   ├── sessions
+│   └── logbuch
+├── leistungen/
+└── community/
+    └── themenlisten
 ```
 
-**Kalender/Slots:**
+---
+
+## 20. Phase 3: Mobile App (Q3-Q4 2026)
+
+### 20.1 Optionen
+
+| Option | Vorteile | Nachteile |
+|--------|----------|-----------|
+| React Native | Code-Sharing, bekanntes Ökosystem | Performance |
+| Expo | Schneller Start, OTA Updates | Limitierungen |
+| PWA | Kein App Store, Web-Codebase | Weniger native Features |
+| Flutter | Performance, eine Codebase | Neues Framework lernen |
+
+**Empfehlung:** Expo (React Native) für maximales Code-Sharing
+
+### 20.2 Mobile-First Features
+
+| Feature | Beschreibung |
+|---------|--------------|
+| Push Notifications | Timer-Erinnerungen, Check-In |
+| Offline-First | Vollständiger Offline-Modus |
+| Quick Actions | Widgets, App Shortcuts |
+| Biometric Auth | Face ID, Fingerprint |
+| Apple Watch/WearOS | Timer auf Smartwatch |
+
+---
+
+## 21. Phase 4: Community & Premium (Q4 2026)
+
+### 21.1 Community Features
+
+| Feature | Beschreibung | Aufwand |
+|---------|--------------|---------|
+| Lerngruppen | Gemeinsame Lernpläne | 40-60h |
+| Geteilte Themenlisten | Cloud-basierte Bibliothek | 20-30h |
+| Leaderboards | Gamification (opt-in) | 15-20h |
+| Chat/Nachrichten | Kommunikation in Gruppen | 30-40h |
+| Mentoring | Erfahrene helfen Anfängern | 20-30h |
+
+### 21.2 Premium Features (Monetarisierung)
+
+| Tier | Features | Preis |
+|------|----------|-------|
+| Free | Basis-Features, 1 Lernplan | 0€ |
+| Pro | Unbegrenzte Pläne, Statistiken | 5€/Monat |
+| Team | Lerngruppen, Shared Plans | 10€/Monat |
+
+**Premium-exklusive Features:**
+- Erweiterte Statistiken & Trends
+- KI-Lernplan-Generierung (unbegrenzt)
+- Cloud-Sync über Geräte
+- Prioritäts-Support
+- Früher Zugang zu neuen Features
+
+### 21.3 Rechtsdatenbank-Integration
+
+| Integration | Beschreibung |
+|-------------|--------------|
+| Beck Online | Direkte Links zu Kommentaren |
+| Juris | Rechtsprechungssuche |
+| Alpmann Schmidt | Lernmaterial-Verknüpfung |
+
+---
+
+## 22. Technische Roadmap
+
+### 22.1 Infrastruktur
+
 ```
-GET    /api/kalender/:lernplanId/slots       # Alle Slots eines Lernplans
-PUT    /api/kalender/:lernplanId/slots       # Alle Slots ersetzen
-POST   /api/kalender/:lernplanId/slots       # Einzelnen Slot hinzufügen/aktualisieren
-POST   /api/kalender/:lernplanId/slots/bulk  # Mehrere Slots in einer Anfrage
+Aktuell:
+[Vercel CDN] → [React SPA] → [Supabase]
+
+
+
+### 22.2 CI/CD Pipeline
+
+| Phase | Tool | Beschreibung |
+|-------|------|--------------|
+| Lint | ESLint | Code-Qualität |
+| Type Check | TypeScript | Typ-Sicherheit |
+| Unit Tests | Vitest | Komponenten-Tests |
+| E2E Tests | Playwright | User-Flow Tests |
+| Build | Vite | Production Build |
+| Deploy | Vercel/Railway | Automatisches Deployment |
+
+### 22.3 Monitoring & Analytics
+
+| Tool | Zweck |
+|------|-------|
+| Sentry | Error Tracking |
+| PostHog | Product Analytics |
+| Uptime Robot | Availability Monitoring |
+| Grafana | Backend Metrics |
+
+---
+
+## 23. Risiken & Mitigationen
+
+
+---
+
+# Teil 4: Architektur-Analyse (Januar 2026)
+
+---
+
+## 24. Analyse-Übersicht
+
+Diese Analyse wurde durchgeführt um die Ursachen für wiederkehrende Bugs zu identifizieren.
+Die meisten Bugs in der To-Do-Liste sind **Symptome tieferliegender Architektur-Probleme**.
+
+### Analysierte Bereiche
+
+| Bereich | Status | Kritische Probleme |
+|---------|--------|-------------------|
+| Slot/Block-Modell | ⚠️ Unklar | Konzepte vermischt |
+| Serientermine | 🔴 Kritisch | Datenverlust nach Reload |
+| Kalender-Views | 🟠 Inkonsistent | Monat ≠ Woche |
+| Examenmodus | ⚠️ Unvollständig | Keine manuelle Kontrolle |
+
+---
+
+## 25. Slot/Block/Content-Modell
+
+### 25.1 Aktuelle Struktur
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          DATENMODELL                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  calendar_slots (Supabase)          private_blocks (Supabase)       │
+│  ─────────────────────────          ────────────────────────        │
+│  • 4 Positionen pro Tag             • Freie Uhrzeiten               │
+│  • position: 1-4                    • start_time / end_time         │
+│  • block_type: lernblock|exam|rep   • block_type: immer 'private'   │
+│  • content_id → verweist auf        • Eigenständig (kein Content)   │
+│    Themenlisten-Inhalt              • Wiederholung möglich          │
+│  • Wiederholung möglich                                              │
+│           │                                    │                     │
+│           ▼                                    ▼                     │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │                   CalendarContext                            │    │
+│  │  • slotsByDate: { "2026-01-02": [slot1, slot2, ...] }       │    │
+│  │  • privateBlocksByDate: { "2026-01-02": [block1, ...] }     │    │
+│  │  • contentsById: { "content-123": { title, ... } }          │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                         │                                            │
+│                         ▼                                            │
+│               buildBlockFromSlot()                                   │
+│               ─────────────────────                                  │
+│               Slot + Content = Display-Block                         │
+│                         │                                            │
+│                         ▼                                            │
+│  ┌─────────────┐              ┌─────────────┐                       │
+│  │ Monatsansicht│              │ Wochenansicht│                       │
+│  │ (Positionen) │              │ (Uhrzeiten)  │                       │
+│  └─────────────┘              └─────────────┘                       │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Aufgaben:**
-```
-GET    /api/aufgaben           # Alle Aufgaben abrufen
-GET    /api/aufgaben/:id       # Einzelne Aufgabe abrufen
-POST   /api/aufgaben           # Neue Aufgabe erstellen
-PUT    /api/aufgaben/:id       # Aufgabe aktualisieren
-DELETE /api/aufgaben/:id       # Aufgabe löschen
-```
+### 25.2 Position → Uhrzeit Mapping
 
-**Leistungen/Klausuren:**
-```
-GET    /api/leistungen         # Alle Leistungen abrufen
-GET    /api/leistungen/:id     # Einzelne Leistung abrufen
-POST   /api/leistungen         # Neue Leistung erstellen
-PUT    /api/leistungen/:id     # Leistung aktualisieren
-DELETE /api/leistungen/:id     # Leistung löschen
-```
+| Position | Startzeit | Endzeit | Dauer |
+|----------|-----------|---------|-------|
+| 1 | 08:00 | 10:00 | 2h |
+| 2 | 10:00 | 12:00 | 2h |
+| 3 | 14:00 | 16:00 | 2h |
+| 4 | 16:00 | 18:00 | 2h |
 
-**Wizard (Zwischenspeicherung):**
-```
-GET    /api/wizard/draft       # Wizard-Entwurf abrufen
-PUT    /api/wizard/draft       # Wizard-Entwurf speichern
-DELETE /api/wizard/draft       # Wizard-Entwurf löschen
-POST   /api/wizard/complete    # Wizard abschließen & Lernplan erstellen
-```
+**Problem:** Wenn `hasTime: true`, können Slots benutzerdefinierte Zeiten haben, die von Positionen abweichen.
 
-**Unterrechtsgebiete:**
-```
-GET    /api/unterrechtsgebiete      # Alle Unterrechtsgebiete abrufen
-POST   /api/unterrechtsgebiete      # Neues Unterrechtsgebiet hinzufügen
-DELETE /api/unterrechtsgebiete/:id  # Unterrechtsgebiet löschen
-```
+### 25.3 Identifizierte Probleme
 
-**KI-Generierung:**
-```
-POST   /api/generate-plan      # KI-gestützten Lernplan generieren
-```
+| Problem | Schweregrad | Auswirkung |
+|---------|-------------|------------|
+| `topicId` vs `contentId` vs `id` | 🟠 Hoch | Inkonsistentes ID-Matching |
+| `title` vs `topicTitle` | 🟡 Mittel | Doppelte Felder |
+| Slot ≠ Block nicht klar definiert | 🟠 Hoch | Verwirrende Begriffe im Code |
+| Private Blocks haben kein `position` | 🟡 Mittel | Unterschiedliche Zeitlogik |
 
-### 7.3 Datenbank-Schema (Vercel KV)
+### 25.4 Empfohlene Lösung
 
-**Key-Struktur:**
-| Key-Pattern | Datentyp | Beschreibung |
-|-------------|----------|--------------|
-| `lernplaene` | Set | IDs aller Lernpläne |
-| `lernplan:{id}` | JSON | Einzelner Lernplan |
-| `slots:{lernplanId}` | JSON Array | Slots eines Lernplans |
-| `aufgaben` | Set | IDs aller Aufgaben |
-| `aufgabe:{id}` | JSON | Einzelne Aufgabe |
-| `leistungen` | Set | IDs aller Leistungen |
-| `leistung:{id}` | JSON | Einzelne Leistung |
-| `wizard:draft` | JSON | Aktueller Wizard-Entwurf |
-| `unterrechtsgebiete` | JSON Array | Alle Unterrechtsgebiete |
+**Einheitliches Block-Interface:**
 
-### 7.4 Response-Format
+```typescript
+interface CalendarBlock {
+  id: string;
+  type: 'lernblock' | 'repetition' | 'exam' | 'private';
 
-Alle Endpoints verwenden ein einheitliches Response-Format:
+  // Zeit
+  date: string;              // YYYY-MM-DD
+  startTime: string;         // HH:MM
+  endTime: string;           // HH:MM
+  position?: 1 | 2 | 3 | 4;  // Optional für Lernblöcke
 
-**Erfolg:**
-```json
-{
-  "success": true,
-  "data": { ... }
+  // Inhalt
+  title: string;
+  contentId?: string;        // Nur für Lernblöcke
+  rechtsgebiet?: string;
+  unterrechtsgebiet?: string;
+
+  // Serie
+  seriesId?: string;
+  repeatEnabled: boolean;
+  repeatType?: 'daily' | 'weekly' | 'monthly' | 'custom';
+  repeatCount?: number;
+  customDays?: number[];
+
+  // Meta
+  isLocked: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
-**Fehler:**
-```json
-{
-  "success": false,
-  "error": "Fehlermeldung"
-}
+---
+
+## 26. Serientermine - KRITISCH
+
+### 26.1 Aktueller Zustand
+
+**Implementierungsmodell:** "Explosions-Modell"
+- Jede Wiederholung wird als **separate Datenbankzeile** gespeichert
+- Alle Einträge einer Serie teilen sich eine `seriesId`
+- Original-Block hat `repeatEnabled: true`, Kopien haben `repeatEnabled: false`
+
+### 26.2 Kritische Datenlücken
+
+| Feld | Frontend | Supabase Schema | Status |
+|------|----------|-----------------|--------|
+| `series_id` | ✅ Verwendet | ❌ FEHLT | 🔴 Datenverlust |
+| `custom_days` | ✅ Verwendet | ❌ FEHLT | 🔴 Datenverlust |
+| `repeat_enabled` | ✅ | ✅ | OK |
+| `repeat_type` | ✅ | ✅ | OK |
+| `repeat_count` | ✅ | ✅ | OK |
+
+**Auswirkung:** Nach Browser-Reload sind Serien-Verbindungen verloren!
+
+### 26.3 Datenverlust-Szenarien
+
+```
+Szenario 1: Benutzer erstellt Serientermin
+├─ Frontend: Erstellt 20 Blöcke mit seriesId
+├─ Supabase-Sync: Speichert OHNE seriesId (Feld fehlt!)
+├─ Browser-Reload: Blöcke geladen, aber Serie-Info verloren
+└─ Ergebnis: 20 einzelne Blöcke statt 1 Serie ❌
+
+Szenario 2: Benutzer löscht einen Block
+├─ handleDelete() löscht nur DIESEN Block
+├─ Die anderen 19 Blöcke der Serie bleiben
+└─ Ergebnis: Verwaiste Blöcke ohne Zusammenhang ❌
 ```
 
-**HTTP Status Codes:**
-| Code | Bedeutung |
-|------|-----------|
-| 200 | Erfolg |
-| 201 | Erfolgreich erstellt |
-| 400 | Ungültige Anfrage |
-| 404 | Nicht gefunden |
-| 405 | Methode nicht erlaubt |
-| 500 | Serverfehler |
+### 26.4 Fehlende UI-Logik
 
----
+| Feature | Status | Impact |
+|---------|--------|--------|
+| "Nur diesen" vs. "Ganze Serie" Dialog | ❌ Fehlt | User kann Serie nicht steuern |
+| Visuelle Kennzeichnung von Serien | ❌ Fehlt | User erkennt Wiederholungen nicht |
+| `deleteSeriesPrivateBlocks()` | ⚠️ Dead Code | Existiert, wird nie aufgerufen |
+| Update-Logik für Serien | ❌ Fehlt | Keine Massen-Änderung möglich |
 
-## 8. Datenbank (Rechtsgebiete)
+### 26.5 Erforderliche Schema-Erweiterung
 
-Das System enthält 100+ vordefinierte deutsche Rechtsgebiete:
+```sql
+-- SOFORT erforderlich:
+ALTER TABLE private_blocks ADD COLUMN IF NOT EXISTS series_id UUID;
+ALTER TABLE private_blocks ADD COLUMN IF NOT EXISTS custom_days JSONB;
 
-### 8.1 Öffentliches Recht
-- Staatsorganisationsrecht
-- Grundrechte
-- Allgemeines Verwaltungsrecht
-- Besonderes Verwaltungsrecht
-- Polizei- und Ordnungsrecht
-- Kommunalrecht
-- Baurecht
-- Umweltrecht
-- Europarecht
-- Steuerrecht
-- Sozialrecht
+ALTER TABLE calendar_slots ADD COLUMN IF NOT EXISTS series_id UUID;
+ALTER TABLE calendar_slots ADD COLUMN IF NOT EXISTS custom_days JSONB;
 
-### 8.2 Zivilrecht
-- BGB Allgemeiner Teil
-- Schuldrecht Allgemeiner Teil
-- Schuldrecht Besonderer Teil
-- Sachenrecht
-- Familienrecht
-- Erbrecht
-- Handelsrecht
-- Gesellschaftsrecht
-- Arbeitsrecht
+-- Indizes für Performance:
+CREATE INDEX IF NOT EXISTS idx_private_blocks_series_id ON private_blocks(series_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_slots_series_id ON calendar_slots(series_id);
+```
 
-### 8.3 Strafrecht
-- StGB Allgemeiner Teil
-- StGB Besonderer Teil
-- Strafprozessrecht
-
-### 8.4 Querschnittsrecht
-- Zivilprozessrecht
-- Zwangsvollstreckungsrecht
-- Insolvenzrecht
-
----
-
-## 9. Implementierungsstatus
-
-### 9.1 Abgeschlossen (✅)
-- [x] Alle 9 Hauptseiten mit Navigation
-- [x] 10-Schritte Lernplan-Wizard
-- [x] Kalender Monats-/Wochenansicht
-- [x] Dashboard mit Lernblöcken
-- [x] Timer-Feature (3 Modi)
-- [x] Aufgabenverwaltung
-- [x] Themenlisten mit Hierarchie
-- [x] Aufgaben-Scheduling in Blöcke
-- [x] Context-basiertes State Management
-- [x] LocalStorage-Persistenz
-- [x] Responsive Routing
-- [x] Themenlistendatenbank mit Templates
-- [x] Themenlisten Export/Import (JSON)
-- [x] Community-Veröffentlichung von Themenlisten
-- [x] Mentor-Aktivierung mit Dialog
-- [x] Tägliches Check-In System
-- [x] Statistik-Dashboard mit Heatmaps
-- [x] Jahresansicht für Produktivität
-- [x] Timer-Historie für Statistiken
-- [x] App-Modus System (Examen vs Normal)
-- [x] Modus-basierte Navigation
-- [x] Leistungsübersicht (Normal-Modus)
-- [x] Duales Notensystem (Punkte/Noten)
-- [x] ECTS-gewichtete Durchschnitte
-- [x] Benutzerdefinierte Fächer
-- [x] Übungsklausuren (Examen-Modus)
-- [x] Auswertungs-Dialog mit Recharts
-- [x] Notenentwicklungs-Diagramm
-- [x] Rechtsgebiete-Verteilungs-Diagramm
-- [x] Backend-API (Vercel Serverless Functions)
-- [x] Vercel KV Datenbank-Integration
-- [x] OpenAI-Integration mit Fallback
-- [x] Lokaler Express-Server für Entwicklung
-- [x] Persistente JSON-Datenspeicherung (lokal)
-
-### 9.2 In Entwicklung (🔄)
-- [x] **Supabase-Integration (Backend)** - Schema, Services, Contexts umgestellt
-- [x] **Benutzerauthentifizierung** - Supabase Auth integriert
-- [x] **CalendarContext Supabase-Sync** - Vollständig integriert (slots, tasks, private blocks, archived plans, metadata, published themenlisten)
-- [ ] Mobile Optimierung
-
-### 9.3 Geplant (📋)
-- [ ] Echtzeit-Synchronisation (Supabase Realtime)
-- [ ] Offline-Modus mit Sync
-- [ ] Erweiterte Analytik
-- [ ] Lerngruppen-Feature
-- [ ] Integration mit Rechtsdatenbanken
-- [ ] Mobile App (React Native)
-- [ ] Migration auf TypeScript-Backend (ersetzt Supabase)
-
----
-
-## 10. Metriken & KPIs
-
-### 10.1 Engagement-Metriken
-- Täglich aktive Nutzer (DAU)
-- Durchschnittliche Sitzungsdauer
-- Wizard-Abschlussrate
-- Timer-Nutzungsrate
-
-### 10.2 Lern-Metriken
-- Abgeschlossene Lernblöcke pro Woche
-- Aufgaben-Erledigungsrate
-- Fortschritt pro Rechtsgebiet
-- Konsistenz (Streak-Tage)
-
-### 10.3 Technische Metriken
-- Seitenladezzeit
-- Fehlerrate
-- LocalStorage-Nutzung
-
----
-
-## 11. Risiken & Mitigationen
-
-| Risiko | Wahrscheinlichkeit | Auswirkung | Mitigation |
-|--------|-------------------|------------|------------|
-| LocalStorage-Limit erreicht | Niedrig | Hoch | Komprimierung, Backend-Migration |
-| Browser-Inkompatibilität | Niedrig | Mittel | Progressive Enhancement |
-| OpenAI-API Ausfälle | Mittel | Mittel | Fallback zu manueller Erstellung |
-| Datenverlust | Mittel | Hoch | Export-Funktion, Cloud-Backup |
-
----
-
-## 12. Glossar
-
-| Begriff | Definition |
-|---------|------------|
-| Lernplan | Strukturierter Zeitplan für die Examensvorbereitung |
-| Themenliste | Hierarchische Sammlung von Lerninhalten |
-| Themenlistendatenbank | Repository für vorgefertigte und geteilte Themenlisten |
-| Slot | Kompakte Kalenderansicht (Monatskalender) - Zeitfenster im Tag (1-4) |
-| Block | Detaillierte Kalenderansicht (Wochenkalender/Startseite) - interaktiv |
-| Fach | Hauptkategorie (= Rechtsgebiet: Öffentl. Recht, Zivilrecht, Strafrecht) |
-| Kapitel | Unterkategorie (= Unterrechtsgebiet: z.B. BGB AT, StGB BT) |
-| Themen | Spezifische Lerninhalte innerhalb eines Kapitels |
-| Aufgaben | Konkrete Lernaktivitäten (z.B. Fall lösen, Klausur) |
-| Pomodoro | Zeitmanagement-Methode (25 Min Arbeit, 5 Min Pause) |
-| SSOT | Single Source of Truth - zentrale Datenquelle |
-| Check-In | Tägliche Erfassung von Stimmung/Energie/Fokus |
-| Mentor | KI-gestütztes Statistik- und Auswertungs-Dashboard |
-| Community | Lokal gespeicherte, vom Nutzer geteilte Themenlisten |
-| Heatmap | Farbcodierte Visualisierung von Aktivität/Produktivität |
-| Examen-Modus | App-Modus bei aktivem Lernplan - voller Funktionsumfang |
-| Normal-Modus | App-Modus ohne Lernplan - reduzierte Navigation |
-| Übungsklausuren | Probeklausuren zur Examensvorbereitung (nur Examen-Modus) |
-| Leistungsübersicht | Semester-Klausuren und Noten (nur Normal-Modus) |
-| Punkte | Jura-Notensystem 0-18 (Staatsexamen) |
-| ECTS | European Credit Transfer System - Gewichtung für Durchschnitt |
-
----
-
-## 13. Anhänge
-
-### 13.1 Design-Ressourcen
-- **Figma:** [PrepWell WebApp Design](https://www.figma.com/design/vVbrqavbI9IKnC1KInXg3H/PrepWell-WebApp)
-
-### 13.2 Dokumentation
-- [README.md](README.md) - Schnellstart
-- [COMPONENTS.md](COMPONENTS.md) - Komponentendokumentation
-- [SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md) - Einrichtungsanleitung
-
-### 13.3 Kontakt
-- **Repository:** PrepWell_Frontend
-- **Deployment:** Vercel
-
----
-
-*Dieses Dokument wird kontinuierlich aktualisiert, um den aktuellen Entwicklungsstand widerzuspiegeln.*

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import { useCalendar } from './calendar-context';
+import { useAppModeSync } from '../hooks/use-supabase-sync';
 
 /**
  * App Mode Context
@@ -15,6 +16,8 @@ import { useCalendar } from './calendar-context';
  *   - Uses Themenlisten and Wochenansicht
  *   - Certain navigation options are disabled/grayed out
  *   - Shows current semester (1-10)
+ *
+ * Now syncs to Supabase via useAppModeSync hook
  */
 
 export const APP_MODES = {
@@ -27,9 +30,10 @@ export const SUBSCRIPTION_STATUS = {
   SUBSCRIBED: 'subscribed',
 };
 
-const STORAGE_KEY_SEMESTER = 'prepwell_current_semester';
+const STORAGE_KEY_SEMESTER = 'prepwell_semester';
 const STORAGE_KEY_SUBSCRIPTION = 'prepwell_subscription_status';
-const STORAGE_KEY_TRIAL_START = 'prepwell_trial_start_date';
+const STORAGE_KEY_TRIAL_START = 'prepwell_trial_start';
+const STORAGE_KEY_MODE_PREFERENCE = 'prepwell_mode_preference';
 
 const TRIAL_DURATION_DAYS = 30; // Trial period length
 
@@ -38,8 +42,17 @@ const AppModeContext = createContext(null);
 export const AppModeProvider = ({ children }) => {
   const { getContentPlansByType } = useCalendar();
 
+  // Use Supabase sync hook for app mode state
+  const {
+    appModeState,
+    updateAppModeState,
+    loading: syncLoading,
+    isAuthenticated,
+    isSupabaseEnabled,
+  } = useAppModeSync();
+
   // Semester state (1-10) for normal mode
-  const [currentSemester, setCurrentSemester] = useState(() => {
+  const [currentSemester, setCurrentSemesterState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_SEMESTER);
       return stored ? parseInt(stored, 10) : 3; // Default: 3. Semester
@@ -49,7 +62,7 @@ export const AppModeProvider = ({ children }) => {
   });
 
   // Subscription status (UI only, no real functionality yet)
-  const [subscriptionStatus, setSubscriptionStatus] = useState(() => {
+  const [subscriptionStatus, setSubscriptionStatusState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
       return stored || SUBSCRIPTION_STATUS.TRIAL;
@@ -59,7 +72,7 @@ export const AppModeProvider = ({ children }) => {
   });
 
   // Trial start date (for calculating remaining trial days)
-  const [trialStartDate] = useState(() => {
+  const [trialStartDate, setTrialStartDate] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_TRIAL_START);
       if (stored) {
@@ -74,6 +87,35 @@ export const AppModeProvider = ({ children }) => {
     }
   });
 
+  // User mode preference (null = automatic, 'normal' = force normal mode)
+  // Note: 'exam' preference only works if there's an active Lernplan
+  const [userModePreference, setUserModePreferenceState] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_MODE_PREFERENCE);
+      return stored || null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Sync state from hook when it loads from Supabase
+  useEffect(() => {
+    if (appModeState && isAuthenticated && isSupabaseEnabled) {
+      if (appModeState.currentSemester !== undefined && appModeState.currentSemester !== null) {
+        setCurrentSemesterState(appModeState.currentSemester);
+      }
+      if (appModeState.modePreference !== undefined) {
+        setUserModePreferenceState(appModeState.modePreference === 'auto' ? null : appModeState.modePreference);
+      }
+      if (appModeState.isSubscribed !== undefined) {
+        setSubscriptionStatusState(appModeState.isSubscribed ? SUBSCRIPTION_STATUS.SUBSCRIBED : SUBSCRIPTION_STATUS.TRIAL);
+      }
+      if (appModeState.trialStartDate !== undefined && appModeState.trialStartDate !== null) {
+        setTrialStartDate(new Date(appModeState.trialStartDate));
+      }
+    }
+  }, [appModeState, isAuthenticated, isSupabaseEnabled]);
+
   // Persist semester to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_SEMESTER, currentSemester.toString());
@@ -84,21 +126,62 @@ export const AppModeProvider = ({ children }) => {
     localStorage.setItem(STORAGE_KEY_SUBSCRIPTION, subscriptionStatus);
   }, [subscriptionStatus]);
 
-  // Update semester
+  // Persist mode preference to localStorage
+  useEffect(() => {
+    if (userModePreference) {
+      localStorage.setItem(STORAGE_KEY_MODE_PREFERENCE, userModePreference);
+    } else {
+      localStorage.removeItem(STORAGE_KEY_MODE_PREFERENCE);
+    }
+  }, [userModePreference]);
+
+  // Update semester with Supabase sync
   const setSemester = useCallback((semester) => {
     const value = Math.max(1, Math.min(10, semester));
-    setCurrentSemester(value);
-  }, []);
+    setCurrentSemesterState(value);
+    updateAppModeState({ currentSemester: value });
+  }, [updateAppModeState]);
+
+  // Update subscription status with Supabase sync
+  const setSubscriptionStatus = useCallback((status) => {
+    setSubscriptionStatusState(status);
+    updateAppModeState({ isSubscribed: status === SUBSCRIPTION_STATUS.SUBSCRIBED });
+  }, [updateAppModeState]);
 
   // Check if there's at least one active (non-archived) Lernplan
   const activeLernplaene = useMemo(() => {
     return getContentPlansByType('lernplan', false);
   }, [getContentPlansByType]);
 
-  // Determine current app mode
+  // Determine current app mode (respects user preference)
   const appMode = useMemo(() => {
-    return activeLernplaene.length > 0 ? APP_MODES.EXAM : APP_MODES.NORMAL;
-  }, [activeLernplaene]);
+    const hasActiveLernplan = activeLernplaene.length > 0;
+
+    // User can always switch to normal mode
+    if (userModePreference === 'normal') return APP_MODES.NORMAL;
+
+    // Exam mode only possible with active Lernplan
+    if (userModePreference === 'exam' && hasActiveLernplan) return APP_MODES.EXAM;
+
+    // Default: automatic based on Lernplan existence
+    return hasActiveLernplan ? APP_MODES.EXAM : APP_MODES.NORMAL;
+  }, [activeLernplaene, userModePreference]);
+
+  // Toggle between exam and normal mode (only works with active Lernplan)
+  const toggleMode = useCallback(() => {
+    const hasActiveLernplan = activeLernplaene.length > 0;
+    if (!hasActiveLernplan) return; // Can't toggle without Lernplan
+
+    const newPreference = userModePreference === 'normal' ? null : 'normal';
+    setUserModePreferenceState(newPreference);
+    updateAppModeState({ modePreference: newPreference || 'auto' });
+  }, [activeLernplaene, userModePreference, updateAppModeState]);
+
+  // Reset mode preference to automatic
+  const resetModePreference = useCallback(() => {
+    setUserModePreferenceState(null);
+    updateAppModeState({ modePreference: 'auto' });
+  }, [updateAppModeState]);
 
   // Convenience booleans
   const isExamMode = appMode === APP_MODES.EXAM;
@@ -142,6 +225,12 @@ export const AppModeProvider = ({ children }) => {
   // Get display text for current mode
   const modeDisplayText = isExamMode ? 'Examensmodus' : `${currentSemester}. Semester`;
 
+  // Check if mode toggle is available (requires active Lernplan)
+  const canToggleMode = activeLernplaene.length > 0;
+
+  // Check if user has manually overridden the mode
+  const isModeManuallySet = userModePreference !== null;
+
   const value = {
     appMode,
     isExamMode,
@@ -151,6 +240,12 @@ export const AppModeProvider = ({ children }) => {
     disabledInNormalMode,
     isNavItemDisabled,
     defaultCalendarView,
+    // Mode Toggle
+    toggleMode,
+    resetModePreference,
+    canToggleMode,
+    isModeManuallySet,
+    userModePreference,
     // Semester
     currentSemester,
     setSemester,
@@ -162,6 +257,9 @@ export const AppModeProvider = ({ children }) => {
     trialDaysRemaining,
     // Display
     modeDisplayText,
+    // Sync status
+    isSyncing: syncLoading,
+    isSupabaseEnabled,
   };
 
   return (

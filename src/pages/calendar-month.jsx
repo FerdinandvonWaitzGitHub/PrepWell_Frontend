@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Header } from '../components/layout';
 import { CalendarView } from '../features/calendar/components';
+import { useCalendar } from '../contexts/calendar-context';
 
 const daysData_OLD = [
   // Week 1
@@ -142,6 +144,36 @@ const DayCell = ({ day, isCurrentMonth = true, isOutOfRange = false, entries = [
 };
 
 const MonthCalendar = () => {
+  const [searchParams] = useSearchParams();
+  const { contentPlans } = useCalendar();
+
+  // Determine initial date:
+  // 1. From URL param ?date=YYYY-MM-DD
+  // 2. From active content plan's start date
+  // 3. Default to today
+  const initialDate = useMemo(() => {
+    // Check URL parameter first
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      const [year, month, day] = dateParam.split('-').map(Number);
+      if (year && month && day) {
+        return new Date(year, month - 1, day);
+      }
+    }
+
+    // Check for active content plan
+    const activePlan = contentPlans?.find(p => p.isActive);
+    if (activePlan?.startDate) {
+      const [year, month, day] = activePlan.startDate.split('-').map(Number);
+      if (year && month && day) {
+        return new Date(year, month - 1, day);
+      }
+    }
+
+    // Default to today
+    return new Date();
+  }, [searchParams, contentPlans]);
+
   return (
     <div className="relative min-h-screen bg-white flex flex-col">
       <Header userInitials="CN" currentPage="kalender-monat" />
@@ -149,7 +181,7 @@ const MonthCalendar = () => {
       <main className="px-8 pb-10 pt-4 flex-1">
         <div className="max-w-[1489px] mx-auto">
           {/* Use the new CalendarView component with day management dialog */}
-          <CalendarView initialDate={new Date(2025, 7, 1)} />
+          <CalendarView initialDate={initialDate} />
         </div>
       </main>
     </div>

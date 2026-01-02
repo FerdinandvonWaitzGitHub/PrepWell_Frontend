@@ -41,6 +41,8 @@ const WizardContent = () => {
     calendarCreationStatus,
     calendarCreationErrors,
     resetCalendarCreationStatus,
+    goToStep,
+    updateWizardData,
   } = useWizard();
 
   // Check for fresh=true query parameter to start fresh
@@ -64,11 +66,19 @@ const WizardContent = () => {
 
   // Show calendar creation error screen
   if (calendarCreationStatus === 'error') {
+    // Handler to go back to method selection (step 6)
+    const handleGoBackToMethodSelection = () => {
+      resetCalendarCreationStatus();
+      updateWizardData({ creationMethod: null }); // Reset method so user can choose again
+      goToStep(6);
+    };
+
     return (
       <CalendarCreationError
         problems={calendarCreationErrors}
         onRetry={resetCalendarCreationStatus}
         onCancel={discardAndExit}
+        onGoBackToMethodSelection={handleGoBackToMethodSelection}
       />
     );
   }
@@ -80,6 +90,13 @@ const WizardContent = () => {
 
   // Show error screen
   if (error) {
+    // Handler to go back to method selection (step 6)
+    const handleGoBackFromError = () => {
+      setError(null);
+      updateWizardData({ creationMethod: null });
+      goToStep(6);
+    };
+
     return (
       <ErrorScreen
         error={error}
@@ -88,6 +105,7 @@ const WizardContent = () => {
           completeWizard();
         }}
         onCancel={discardAndExit}
+        onGoBackToMethodSelection={handleGoBackFromError}
       />
     );
   }

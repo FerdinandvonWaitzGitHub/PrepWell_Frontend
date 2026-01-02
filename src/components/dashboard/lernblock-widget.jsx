@@ -40,7 +40,8 @@ const PlusIcon = () => (
   </svg>
 );
 
-const ListIcon = () => (
+// ListIcon - reserved for future use
+const _ListIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="8" y1="6" x2="21" y2="6" />
     <line x1="8" y1="12" x2="21" y2="12" />
@@ -50,6 +51,7 @@ const ListIcon = () => (
     <line x1="3" y1="18" x2="3.01" y2="18" />
   </svg>
 );
+void _ListIcon;
 
 const ChecklistIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -570,8 +572,9 @@ const ThemeListThemaRow = ({
 /**
  * ThemeListView - Ansicht für eine ausgewählte Themenliste (hierarchisch)
  * Hierarchie: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
+ * Reserved for future Themenliste feature
  */
-const ThemeListView = ({
+const _ThemeListView = ({
   themeList,
   expandedUnterrechtsgebietId,
   onToggleUnterrechtsgebiet,
@@ -631,6 +634,7 @@ const ThemeListView = ({
     </div>
   );
 };
+void _ThemeListView;
 
 /**
  * Helper function to get Rechtsgebiet color based on ID or name
@@ -801,7 +805,8 @@ const SingleTopicView = ({
 };
 
 /**
- * NoTopicsView - Ansicht ohne Topics (To-Dos oder Themenliste)
+ * NoTopicsView - Ansicht ohne Topics (nur To-Dos)
+ * BUG-018 FIX: Themenlisten-Toggle entfernt - Themenlisten nur auf Lernpläne-Seite
  */
 const NoTopicsView = ({
   tasks,
@@ -809,121 +814,24 @@ const NoTopicsView = ({
   onTogglePriority,
   onAddTask,
   onRemoveTask,
-  // Themenliste props
-  themeLists = [],
-  selectedThemeListId,
-  onSelectThemeList,
-  onToggleThemeListAufgabe,
 }) => {
-  const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themelist'
-  const [expandedUnterrechtsgebietId, setExpandedUnterrechtsgebietId] = useState(null);
-  const [expandedKapitelId, setExpandedKapitelId] = useState(null);
-  const [expandedThemaId, setExpandedThemaId] = useState(null);
-
-  const selectedThemeList = useMemo(() => {
-    return themeLists.find(list => list.id === selectedThemeListId) || null;
-  }, [themeLists, selectedThemeListId]);
-
-  const handleToggleUnterrechtsgebiet = useCallback((urgId) => {
-    setExpandedUnterrechtsgebietId(prev => prev === urgId ? null : urgId);
-    setExpandedKapitelId(null);
-    setExpandedThemaId(null);
-  }, []);
-
-  const handleToggleKapitel = useCallback((kapitelId) => {
-    setExpandedKapitelId(prev => prev === kapitelId ? null : kapitelId);
-    setExpandedThemaId(null);
-  }, []);
-
-  const handleToggleThema = useCallback((themaId) => {
-    setExpandedThemaId(prev => prev === themaId ? null : themaId);
-  }, []);
-
-  const hasThemeLists = themeLists.length > 0;
-
   return (
     <div className="flex flex-col gap-4">
-      {/* Header with Toggle Switch */}
+      {/* Header - simplified without toggle */}
       <div className="border-b border-neutral-200 pb-4">
-        {/* Toggle Switch - only show if there are theme lists */}
-        {hasThemeLists ? (
-          <div className="flex items-center justify-center mb-3">
-            <div className="inline-flex items-center bg-neutral-100 rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => setViewMode('todos')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  viewMode === 'todos'
-                    ? 'bg-white text-neutral-900 shadow-sm'
-                    : 'text-neutral-500 hover:text-neutral-700'
-                }`}
-              >
-                <ChecklistIcon />
-                <span>To-Dos</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('themelist')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  viewMode === 'themelist'
-                    ? 'bg-white text-neutral-900 shadow-sm'
-                    : 'text-neutral-500 hover:text-neutral-700'
-                }`}
-              >
-                <ListIcon />
-                <span>Themenliste</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <h2 className="text-xl font-semibold text-neutral-900 mb-2">Aufgaben</h2>
-        )}
-
-        <p className="text-sm text-neutral-500 text-center">
-          {viewMode === 'todos' ? 'Deine To-Dos' : 'Unterrechtsgebiete, Kapitel, Themen und Aufgaben'}
-        </p>
-
-        {/* Themenliste Dropdown - only show in themelist mode */}
-        {viewMode === 'themelist' && hasThemeLists && (
-          <div className="mt-3">
-            <select
-              value={selectedThemeListId || ''}
-              onChange={(e) => onSelectThemeList(e.target.value)}
-              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-700 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-500"
-            >
-              <option value="">Themenliste auswählen...</option>
-              {themeLists.map(list => (
-                <option key={list.id} value={list.id}>
-                  {list.name} ({list.progress?.total || 0} Aufgaben)
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <h2 className="text-xl font-semibold text-neutral-900 mb-2">Aufgaben</h2>
+        <p className="text-sm text-neutral-500">Deine To-Dos für heute</p>
       </div>
 
-      {/* Content */}
-      {viewMode === 'todos' ? (
-        <TaskList
-          tasks={tasks}
-          title="Deine To-Dos"
-          onToggleTask={onToggleTask}
-          onTogglePriority={onTogglePriority}
-          onAddTask={onAddTask}
-          onRemoveTask={onRemoveTask}
-        />
-      ) : (
-        <ThemeListView
-          themeList={selectedThemeList}
-          expandedUnterrechtsgebietId={expandedUnterrechtsgebietId}
-          onToggleUnterrechtsgebiet={handleToggleUnterrechtsgebiet}
-          expandedKapitelId={expandedKapitelId}
-          onToggleKapitel={handleToggleKapitel}
-          expandedThemaId={expandedThemaId}
-          onToggleThema={handleToggleThema}
-          onToggleAufgabe={onToggleThemeListAufgabe}
-        />
-      )}
+      {/* Content - only To-Dos */}
+      <TaskList
+        tasks={tasks}
+        title="Deine To-Dos"
+        onToggleTask={onToggleTask}
+        onTogglePriority={onTogglePriority}
+        onAddTask={onAddTask}
+        onRemoveTask={onRemoveTask}
+      />
     </div>
   );
 };
@@ -1048,14 +956,17 @@ const LernblockWidget = ({
   onTogglePriority,
   onAddTask,
   onRemoveTask,
-  // Themenliste props
-  themeLists = [],
-  selectedThemeListId,
-  onSelectThemeList,
-  onToggleThemeListAufgabe,
+  // Themenliste props (reserved for future use)
+  themeLists: _themeLists = [],
+  selectedThemeListId: _selectedThemeListId,
+  onSelectThemeList: _onSelectThemeList,
+  onToggleThemeListAufgabe: _onToggleThemeListAufgabe,
   // Mode prop
   isExamMode = false,
 }) => {
+  // Mark reserved props as intentionally unused
+  void _themeLists; void _selectedThemeListId; void _onSelectThemeList; void _onToggleThemeListAufgabe;
+
   // Accordion state - nur ein Topic auf einmal expanded
   const [expandedTopicId, setExpandedTopicId] = useState(() => {
     // Standardmäßig erstes Topic expanded
@@ -1083,17 +994,13 @@ const LernblockWidget = ({
             onRemoveTask={onRemoveTask}
           />
         ) : (
-          // Normal Mode: Themenliste/To-Dos toggle
+          // Normal Mode: Only To-Dos (BUG-018 FIX: Themenlisten-Toggle entfernt)
           <NoTopicsView
             tasks={tasks}
             onToggleTask={onToggleTask}
             onTogglePriority={onTogglePriority}
             onAddTask={onAddTask}
             onRemoveTask={onRemoveTask}
-            themeLists={themeLists}
-            selectedThemeListId={selectedThemeListId}
-            onSelectThemeList={onSelectThemeList}
-            onToggleThemeListAufgabe={onToggleThemeListAufgabe}
           />
         )}
       </div>

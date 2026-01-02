@@ -33,9 +33,19 @@ const ZeitplanWidget = ({
   const [dragOverBlockId, setDragOverBlockId] = useState(null);
   const timelineContainerRef = useRef(null);
 
-  // Current time
-  const currentHour = new Date().getHours();
-  const currentMinute = new Date().getMinutes();
+  // BUG-007 FIX: Current time state that updates every minute
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  // Update current time every minute
+  useEffect(() => {
+    const updateTime = () => setCurrentTime(new Date());
+    const intervalId = setInterval(updateTime, 60000); // Update every minute
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Current time values derived from state
+  const currentHour = currentTime.getHours();
+  const currentMinute = currentTime.getMinutes();
 
   // Always show full 24 hours (00:00 - 24:00), scrollable
   const baseStartHour = 0;
@@ -62,6 +72,7 @@ const ZeitplanWidget = ({
       const scrollPosition = scrollToHour * hourHeight;
       timelineContainerRef.current.scrollTop = scrollPosition;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const plannedDuration = blocks.reduce((sum, block) => sum + Number(block.duration || 0), 0);

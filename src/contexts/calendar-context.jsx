@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   useContentPlansSync,
   useUserSettingsSync,
@@ -118,6 +118,7 @@ export const CalendarProvider = ({ children }) => {
   const {
     privateBlocksByDate,
     saveDayBlocks,
+    saveDayBlocksBatch,
     loading: privateBlocksLoading,
   } = usePrivateBlocksSync();
 
@@ -200,6 +201,32 @@ export const CalendarProvider = ({ children }) => {
   const setPrivateBlocksByDate = useCallback((dateKey, blocks) => {
     saveDayBlocks(dateKey, blocks);
   }, [saveDayBlocks]);
+
+  // Compute archived content plan IDs for filtering
+  const archivedContentPlanIds = useMemo(() => {
+    return new Set(contentPlans.filter(p => p.archived).map(p => p.id));
+  }, [contentPlans]);
+
+  // Compute visible slots (excludes slots from archived content plans)
+  // BUG-010 FIX: Archived Lernpläne should not show in calendar
+  const visibleSlotsByDate = useMemo(() => {
+    if (archivedContentPlanIds.size === 0) {
+      return slotsByDate; // No archived plans, return all slots
+    }
+
+    const result = {};
+    Object.entries(slotsByDate).forEach(([dateKey, slots]) => {
+      const visibleSlots = slots.filter(slot => {
+        // Keep slot if it has no contentPlanId or if its contentPlanId is not archived
+        if (!slot.contentPlanId) return true;
+        return !archivedContentPlanIds.has(slot.contentPlanId);
+      });
+      if (visibleSlots.length > 0) {
+        result[dateKey] = visibleSlots;
+      }
+    });
+    return result;
+  }, [slotsByDate, archivedContentPlanIds]);
 
   // Wrapper to set tasksByDate (for compatibility)
   const setTasksByDate = useCallback((dateKey, tasks) => {
@@ -638,13 +665,14 @@ export const CalendarProvider = ({ children }) => {
 
   /**
    * Get blocks for a date (slots merged with content)
+   * BUG-010 FIX: Uses visibleSlotsByDate to exclude archived content plans
    * @param {string} dateKey - The date (YYYY-MM-DD)
    * @returns {Array} Array of display blocks
    */
   const getBlocksForDate = useCallback((dateKey) => {
-    const slots = slotsByDate[dateKey] || [];
+    const slots = visibleSlotsByDate[dateKey] || [];
     return slots.map(buildBlockFromSlot);
-  }, [slotsByDate, buildBlockFromSlot]);
+  }, [visibleSlotsByDate, buildBlockFromSlot]);
 
   // ============================================
   // PRIVATE BLOCKS CRUD
@@ -653,6 +681,7 @@ export const CalendarProvider = ({ children }) => {
   /**
    * Add a private block to a specific date
    * Now synced to Supabase with repeat support
+   * FIX BUG-005: Use batch update to avoid stale closure issues
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {Object} block - The private block data
    */
@@ -660,8 +689,10 @@ export const CalendarProvider = ({ children }) => {
     // Generate a series ID if this is a repeating appointment
     const seriesId = block.repeatEnabled ? `private-series-${Date.now()}` : null;
 
+    console.log('[addPrivateBlock] Called with:', { dateKey, repeatEnabled: block.repeatEnabled, repeatType: block.repeatType, repeatCount: block.repeatCount, seriesId });
+
     // Create the base block with ID
-    const createBlock = (forDateKey, isOriginal = true) => ({
+    const createBlock = (isOriginal = true) => ({
       ...block,
       id: `private-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       blockType: 'private',
@@ -676,11 +707,15 @@ export const CalendarProvider = ({ children }) => {
     });
 
     // Create the original block for the first date
-    const originalBlock = createBlock(dateKey, true);
-    const currentBlocks = privateBlocksByDate[dateKey] || [];
-    await saveDayBlocks(dateKey, [...currentBlocks, originalBlock]);
+    const originalBlock = createBlock(true);
 
-    // If repeat is enabled, create blocks for all repeat dates
+    // Collect all updates to avoid stale closure issues
+    // Each date gets its own array of blocks
+    const updatesToMake = {
+      [dateKey]: [...(privateBlocksByDate[dateKey] || []), originalBlock],
+    };
+
+    // If repeat is enabled, collect blocks for all repeat dates
     if (block.repeatEnabled && block.repeatType && block.repeatCount > 0) {
       const repeatDates = calculateRepeatDates(
         dateKey,
@@ -689,16 +724,25 @@ export const CalendarProvider = ({ children }) => {
         block.customDays || []
       );
 
-      // Create blocks for each repeat date
-      for (const repeatDateKey of repeatDates) {
-        const repeatBlock = createBlock(repeatDateKey, false);
-        const existingBlocks = privateBlocksByDate[repeatDateKey] || [];
-        await saveDayBlocks(repeatDateKey, [...existingBlocks, repeatBlock]);
-      }
+      console.log('[addPrivateBlock] Repeat dates calculated:', repeatDates);
+
+      // Add each repeat block to the updates map
+      repeatDates.forEach(repeatDateKey => {
+        const repeatBlock = createBlock(false);
+        const existingBlocks = updatesToMake[repeatDateKey] || privateBlocksByDate[repeatDateKey] || [];
+        updatesToMake[repeatDateKey] = [...existingBlocks, repeatBlock];
+      });
     }
 
+    console.log('[addPrivateBlock] Updates to make:', Object.keys(updatesToMake).length, 'dates');
+
+    // Use batch save to update all dates in one atomic operation
+    await saveDayBlocksBatch(updatesToMake);
+
+    console.log('[addPrivateBlock] Batch save completed');
+
     return originalBlock;
-  }, [privateBlocksByDate, saveDayBlocks, calculateRepeatDates]);
+  }, [privateBlocksByDate, saveDayBlocksBatch, calculateRepeatDates]);
 
   /**
    * Update a private block
@@ -734,22 +778,31 @@ export const CalendarProvider = ({ children }) => {
   /**
    * Delete all private blocks in a series (by seriesId)
    * Useful for deleting all recurring private appointments at once
+   * FIX BUG-005: Use batch update to avoid stale closure issues
    * @param {string} seriesId - The series ID
    */
   const deleteSeriesPrivateBlocks = useCallback(async (seriesId) => {
     if (!seriesId) return;
 
-    // Iterate through all dates and remove blocks with matching seriesId
+    // Collect all updates to make in one batch
+    const updatesToMake = {};
+
+    // Iterate through all dates and collect filtered blocks
     for (const dateKey of Object.keys(privateBlocksByDate)) {
       const dayBlocks = privateBlocksByDate[dateKey] || [];
       const hasSeriesBlocks = dayBlocks.some(block => block.seriesId === seriesId);
 
       if (hasSeriesBlocks) {
         const filteredBlocks = dayBlocks.filter(block => block.seriesId !== seriesId);
-        await saveDayBlocks(dateKey, filteredBlocks);
+        updatesToMake[dateKey] = filteredBlocks;
       }
     }
-  }, [privateBlocksByDate, saveDayBlocks]);
+
+    // Use batch save to update all dates in one atomic operation
+    if (Object.keys(updatesToMake).length > 0) {
+      await saveDayBlocksBatch(updatesToMake);
+    }
+  }, [privateBlocksByDate, saveDayBlocksBatch]);
 
   /**
    * Get private blocks for a specific date
@@ -2017,6 +2070,7 @@ export const CalendarProvider = ({ children }) => {
   const value = {
     // State
     slotsByDate,
+    visibleSlotsByDate, // BUG-010 FIX: Filtered slots (excludes archived plans)
     lernplanMetadata,
     archivedLernplaene,
     privateBlocksByDate,

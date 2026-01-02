@@ -9,7 +9,7 @@ import StepHeader from '../components/step-header';
  */
 
 // Block types that can be cycled through (English keys for code consistency)
-const BLOCK_TYPES = ['lernblock', 'exam', 'repetition', 'free'];
+const BLOCK_TYPES = ['lernblock', 'exam', 'repetition', 'free', 'private'];
 
 // Display names for block types (full and short versions - German UI labels)
 const BLOCK_TYPE_LABELS = {
@@ -17,6 +17,10 @@ const BLOCK_TYPE_LABELS = {
   exam: { full: 'Klausur', short: 'Klausur' },
   repetition: { full: 'Wiederholung', short: 'Wdh.' },
   free: { full: 'Frei', short: 'Frei' },
+  private: { full: 'Privat', short: 'Privat' },
+  // Fallback for any unknown types
+  buffer: { full: 'Puffer', short: 'Puffer' },
+  vacation: { full: 'Urlaub', short: 'Urlaub' },
 };
 
 // Days of the week (full and short versions)
@@ -110,6 +114,8 @@ const WarningIcon = () => (
  */
 const BlockSelector = ({ blockType, onPrev, onNext }) => {
   const isLernblock = blockType === 'lernblock';
+  // Fallback for unknown block types
+  const labels = BLOCK_TYPE_LABELS[blockType] || { full: blockType, short: blockType };
 
   return (
     <div
@@ -128,8 +134,8 @@ const BlockSelector = ({ blockType, onPrev, onNext }) => {
         <ChevronLeft />
       </button>
       <span className="flex-1 text-center text-[10px] sm:text-xs md:text-sm font-medium text-neutral-900 truncate min-w-0">
-        <span className="md:hidden">{BLOCK_TYPE_LABELS[blockType].short}</span>
-        <span className="hidden md:inline">{BLOCK_TYPE_LABELS[blockType].full}</span>
+        <span className="md:hidden">{labels.short}</span>
+        <span className="hidden md:inline">{labels.full}</span>
       </span>
       <button
         type="button"

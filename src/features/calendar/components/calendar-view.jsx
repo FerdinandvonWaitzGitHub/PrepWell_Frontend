@@ -41,19 +41,37 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
   // This data comes from the wizard Step 8 and persists in localStorage
   const {
     slotsByDate,
+    visibleSlotsByDate, // BUG-010 FIX: Use filtered slots for display
+    privateBlocksByDate,
     updateDaySlots: updateContextDaySlots,
     addPrivateBlock,
+    deletePrivateBlock,
   } = useCalendar();
 
-  // Update an existing learning block
+  // Update an existing learning block or private block
   const handleUpdateBlock = (date, updatedBlockData) => {
     const dateKey = formatDateKey(date);
-    const currentSlots = slotsByDate[dateKey];
 
+    // Check if this is a private block
+    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    const isPrivateBlock = updatedBlockData.isPrivate || dayPrivateBlocks.some(b => b.id === updatedBlockData.id);
+
+    if (isPrivateBlock) {
+      // Handle private block update - not implemented in this view
+      // Private blocks should be edited via the week view or a dedicated dialog
+      console.log('Private block update not implemented in month view');
+      return;
+    }
+
+    const currentSlots = slotsByDate[dateKey];
     if (!currentSlots) return;
 
-    // Find the slots belonging to this block
-    const blockSlots = currentSlots.filter(s => s.topicId === updatedBlockData.id);
+    // Find the slots belonging to this block - support multiple ID patterns
+    const blockSlots = currentSlots.filter(s =>
+      s.topicId === updatedBlockData.id ||
+      s.contentId === updatedBlockData.id ||
+      s.id === updatedBlockData.id
+    );
     if (blockSlots.length === 0) return;
 
     const oldBlockSize = blockSlots.length;
@@ -61,9 +79,11 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
 
     // If size changed, we need to recalculate slots
     if (newBlockSize !== oldBlockSize) {
-      // First, clear the old slots
+      // First, clear the old slots - match by multiple ID patterns
       let updatedSlots = currentSlots.map(slot => {
-        if (slot.topicId === updatedBlockData.id) {
+        if (slot.topicId === updatedBlockData.id ||
+            slot.contentId === updatedBlockData.id ||
+            slot.id === updatedBlockData.id) {
           return createEmptySlot(date, slot.position);
         }
         return slot;
@@ -97,11 +117,14 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
       // Save to CalendarContext (persists to localStorage)
       updateContextDaySlots(dateKey, updatedSlots);
     } else {
-      // Size unchanged, just update the data in existing slots
+      // Size unchanged, just update the data in existing slots - match by multiple ID patterns
       const updatedSlots = currentSlots.map(slot => {
-        if (slot.topicId === updatedBlockData.id) {
+        if (slot.topicId === updatedBlockData.id ||
+            slot.contentId === updatedBlockData.id ||
+            slot.id === updatedBlockData.id) {
           return {
             ...slot,
+            title: updatedBlockData.title,
             topicTitle: updatedBlockData.title,
             blockType: updatedBlockData.blockType,
             progress: updatedBlockData.progress,
@@ -117,16 +140,27 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     }
   };
 
-  // Delete a learning block
-  const handleDeleteBlock = (date, blockId) => {
+  // Delete a learning block or private block
+  const handleDeleteBlock = (date, blockId, isPrivate = false) => {
     const dateKey = formatDateKey(date);
-    const currentSlots = slotsByDate[dateKey];
 
+    // Check if this is a private block
+    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    const isPrivateBlock = isPrivate || dayPrivateBlocks.some(b => b.id === blockId);
+
+    if (isPrivateBlock) {
+      // Delete private block
+      deletePrivateBlock(dateKey, blockId);
+      return;
+    }
+
+    // Delete learning block (slot-based)
+    const currentSlots = slotsByDate[dateKey];
     if (!currentSlots) return;
 
     // Replace block slots with empty slots
     const updatedSlots = currentSlots.map(slot => {
-      if (slot.topicId === blockId) {
+      if (slot.topicId === blockId || slot.contentId === blockId || slot.id === blockId) {
         return createEmptySlot(date, slot.position);
       }
       return slot;
@@ -264,17 +298,36 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     return days;
   };
 
-  // Learning blocks - convert from slots
+  // Learning blocks - convert from slots and include private blocks
   const getSampleLearningBlocks = (day) => {
     // Create date for this day
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dateKey = formatDateKey(date);
 
     // Get slots for this date, or create empty ones
-    const slots = slotsByDate[dateKey] || createDaySlots(date);
+    // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
+    const slots = visibleSlotsByDate[dateKey] || createDaySlots(date);
 
     // Convert slots to learning blocks for display
     let blocks = slotsToLearningBlocks(slots);
+
+    // Add private blocks for this date
+    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    const privateBlocks = dayPrivateBlocks.map(block => ({
+      id: block.id,
+      title: block.title,
+      description: block.description,
+      blockType: 'private',
+      startTime: block.startTime,
+      endTime: block.endTime,
+      allDay: block.allDay,
+      seriesId: block.seriesId,
+      repeatEnabled: block.repeatEnabled,
+      isPrivate: true,
+    }));
+
+    // Combine learning blocks with private blocks
+    blocks = [...blocks, ...privateBlocks];
 
     // Count free slots to determine if plus button should be shown
     const freeSlots = slots.filter(s => s.status === 'empty').length;
@@ -345,12 +398,30 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     return slots.filter(s => s.status === 'empty').length;
   };
 
-  // Get learning blocks for a specific date (computed from slots)
+  // Get learning blocks for a specific date (computed from slots + private blocks)
   const getBlocksForDate = (date) => {
     if (!date) return [];
     const dateKey = formatDateKey(date);
-    const slots = slotsByDate[dateKey] || createDaySlots(date);
-    return slotsToLearningBlocks(slots);
+    // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
+    const slots = visibleSlotsByDate[dateKey] || createDaySlots(date);
+    let blocks = slotsToLearningBlocks(slots);
+
+    // Add private blocks
+    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    const privateBlocks = dayPrivateBlocks.map(block => ({
+      id: block.id,
+      title: block.title,
+      description: block.description,
+      blockType: 'private',
+      startTime: block.startTime,
+      endTime: block.endTime,
+      allDay: block.allDay,
+      seriesId: block.seriesId,
+      repeatEnabled: block.repeatEnabled,
+      isPrivate: true,
+    }));
+
+    return [...blocks, ...privateBlocks];
   };
 
   return (

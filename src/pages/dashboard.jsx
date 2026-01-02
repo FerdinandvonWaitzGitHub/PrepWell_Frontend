@@ -42,7 +42,16 @@ const DashboardPage = () => {
   const { isExamMode } = useAppMode();
 
   // Timer context for sub-header and learning progress
-  const { saveTimerConfig, pomodoroSettings, timerHistory, elapsedSeconds, isActive } = useTimer();
+  const {
+    saveTimerConfig,
+    pomodoroSettings,
+    timerHistory,
+    elapsedSeconds,
+    isActive,
+    startPomodoro,
+    startCountdown,
+    startCountup
+  } = useTimer();
 
   // Timer dialog states
   const [showTimerSelection, setShowTimerSelection] = useState(false);
@@ -95,6 +104,7 @@ const DashboardPage = () => {
     addPrivateBlock,
     updatePrivateBlock,
     deletePrivateBlock,
+    deleteSeriesPrivateBlocks,
     // NEW DATA MODEL: Content management
     addSlotWithContent,
     saveContent,
@@ -529,8 +539,23 @@ const DashboardPage = () => {
     return totalMinutes > 0 ? totalMinutes : 480;
   }, [todaySlots]);
 
+  // BUG-009 FIX: Force periodic re-calculation of learning minutes when timer is active
+  const [progressUpdateTick, setProgressUpdateTick] = useState(0);
+
+  // Update tick every 10 seconds when timer is active to force progress bar re-render
+  useEffect(() => {
+    if (!isActive) return;
+
+    const intervalId = setInterval(() => {
+      setProgressUpdateTick(t => t + 1);
+    }, 10000); // Update every 10 seconds
+
+    return () => clearInterval(intervalId);
+  }, [isActive]);
+
   // Calculate completed learning minutes from timer history (today's sessions)
   // Plus current active timer elapsed time
+  // BUG-009 FIX: Added progressUpdateTick to dependencies to ensure periodic updates
   const completedLearningMinutes = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
 
@@ -542,7 +567,7 @@ const DashboardPage = () => {
     const currentMinutes = isActive ? Math.floor(elapsedSeconds / 60) : 0;
 
     return Math.round(historyMinutes + currentMinutes);
-  }, [timerHistory, isActive, elapsedSeconds]);
+  }, [timerHistory, isActive, elapsedSeconds, progressUpdateTick]);
 
   const zeitplanData = {
     completedBlocks: todaySlots.filter(s => s.isBlocked).length,
@@ -656,6 +681,7 @@ const DashboardPage = () => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
+        onDeleteSeries={deleteSeriesPrivateBlocks}
       />
 
       {/* Add Block Type Selection Dialog */}
@@ -718,9 +744,9 @@ const DashboardPage = () => {
               setShowCountdownSettings(true);
               break;
             case 'countup':
-              // For countup, just save config and return to main dialog
-              // The startFromConfig will be called when user clicks "Starten"
+              // Start countup timer immediately
               saveTimerConfig({ timerType: TIMER_TYPES.COUNTUP });
+              startCountup();
               setShowTimerMain(true);
               break;
           }
@@ -737,6 +763,9 @@ const DashboardPage = () => {
             setShowTimerMain(true);
           }
         }}
+        onStart={(settings, sessions) => {
+          startPomodoro(settings, sessions);
+        }}
         initialSettings={pomodoroSettings}
       />
 
@@ -749,6 +778,9 @@ const DashboardPage = () => {
             // When closing settings, return to main dialog
             setShowTimerMain(true);
           }
+        }}
+        onStart={(durationMinutes) => {
+          startCountdown(durationMinutes);
         }}
       />
 

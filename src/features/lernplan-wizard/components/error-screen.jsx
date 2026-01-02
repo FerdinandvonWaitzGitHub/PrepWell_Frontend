@@ -5,7 +5,7 @@ import { Button } from '../../../components/ui';
  * ErrorScreen - Shown when creation fails
  * Based on Figma: Error_Screen
  */
-const ErrorScreen = ({ error, onRetry, onCancel }) => {
+const ErrorScreen = ({ error, onRetry, onCancel, onGoBackToMethodSelection }) => {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center max-w-md px-8">
@@ -59,7 +59,7 @@ const ErrorScreen = ({ error, onRetry, onCancel }) => {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-neutral-400">•</span>
-              Kontaktiere den Support, falls das Problem bestehen bleibt
+              Wähle eine andere Erstellungsmethode (z.B. manuell)
             </li>
           </ul>
         </div>
@@ -69,6 +69,11 @@ const ErrorScreen = ({ error, onRetry, onCancel }) => {
           <Button onClick={onRetry} className="w-full">
             Erneut versuchen
           </Button>
+          {onGoBackToMethodSelection && (
+            <Button variant="secondary" onClick={onGoBackToMethodSelection} className="w-full">
+              Andere Methode wählen
+            </Button>
+          )}
           <Button variant="outline" onClick={onCancel} className="w-full">
             Abbrechen
           </Button>

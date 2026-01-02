@@ -352,11 +352,10 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
 
 /**
  * Hook specifically for Content Plans (Lernpläne & Themenlisten)
- * NOTE: Supabase sync disabled - table does not exist yet
  */
 export function useContentPlansSync() {
   return useSupabaseSync('content_plans', STORAGE_KEYS.contentPlans, [], {
-    enabled: false, // Table does not exist in Supabase yet
+    enabled: true, // Supabase sync enabled
     orderBy: 'created_at',
     orderDirection: 'desc',
     transformToSupabase: (plan) => ({
@@ -391,11 +390,10 @@ export function useContentPlansSync() {
 
 /**
  * Hook for Published Themenlisten (Community)
- * NOTE: Supabase sync disabled - table does not exist yet
  */
 export function usePublishedThemenlistenSync() {
   return useSupabaseSync('published_themenlisten', STORAGE_KEYS.publishedThemenlisten, [], {
-    enabled: false, // Table does not exist in Supabase yet
+    enabled: true, // Supabase sync enabled
     orderBy: 'published_at',
     orderDirection: 'desc',
     transformToSupabase: (plan) => ({
@@ -923,13 +921,19 @@ export function useCalendarSlotsSync() {
     const result = [];
     Object.entries(slotsByDateObj).forEach(([dateKey, slots]) => {
       slots.forEach(slot => {
+        // Check if ID should be auto-generated: null, undefined, or local prefixes
+        const isLocalId = !slot.id || slot.id?.startsWith('slot-') || slot.id?.startsWith('local-') || slot.id?.startsWith('private-');
+        // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
+        const slotId = isLocalId ? crypto.randomUUID() : slot.id;
+        // Ensure position is an integer (database expects INTEGER, not DECIMAL)
+        const positionInt = slot.position != null ? Math.floor(Number(slot.position)) : null;
         result.push({
-          id: slot.id?.startsWith('slot-') || slot.id?.startsWith('local-') ? undefined : slot.id,
+          id: slotId,
           user_id: userId,
           slot_date: dateKey,
           content_id: slot.contentId,
           content_plan_id: slot.contentPlanId || null,
-          position: slot.position,
+          position: positionInt,
           title: slot.title,
           rechtsgebiet: slot.rechtsgebiet,
           unterrechtsgebiet: slot.unterrechtsgebiet,
@@ -1040,32 +1044,40 @@ export function useCalendarSlotsSync() {
         .eq('slot_date', dateKey);
 
       if (slots.length > 0) {
-        const dataToInsert = slots.map(slot => ({
-          id: slot.id?.startsWith('slot-') || slot.id?.startsWith('local-') ? undefined : slot.id,
-          user_id: user.id,
-          slot_date: dateKey,
-          content_id: slot.contentId,
-          content_plan_id: slot.contentPlanId || null,
-          position: slot.position,
-          title: slot.title,
-          rechtsgebiet: slot.rechtsgebiet,
-          unterrechtsgebiet: slot.unterrechtsgebiet,
-          block_type: slot.blockType || 'lernblock',
-          is_locked: slot.isLocked || false,
-          is_from_lernplan: slot.isFromLernplan || false,
-          has_time: slot.hasTime || false,
-          start_hour: slot.startHour,
-          duration: slot.duration,
-          start_time: slot.startTime,
-          end_time: slot.endTime,
-          repeat_enabled: slot.repeatEnabled || false,
-          repeat_type: slot.repeatType,
-          repeat_count: slot.repeatCount,
-          series_id: slot.seriesId,
-          custom_days: slot.customDays,
-          tasks: slot.tasks || [],
-          metadata: slot.metadata || {},
-        }));
+        const dataToInsert = slots.map(slot => {
+          // Check if ID should be auto-generated: null, undefined, or local prefixes
+          const isLocalId = !slot.id || slot.id?.startsWith('slot-') || slot.id?.startsWith('local-') || slot.id?.startsWith('private-');
+          // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
+          const slotId = isLocalId ? crypto.randomUUID() : slot.id;
+          // Ensure position is an integer (database expects INTEGER, not DECIMAL)
+          const positionInt = slot.position != null ? Math.floor(Number(slot.position)) : null;
+          return {
+            id: slotId,
+            user_id: user.id,
+            slot_date: dateKey,
+            content_id: slot.contentId,
+            content_plan_id: slot.contentPlanId || null,
+            position: positionInt,
+            title: slot.title,
+            rechtsgebiet: slot.rechtsgebiet,
+            unterrechtsgebiet: slot.unterrechtsgebiet,
+            block_type: slot.blockType || 'lernblock',
+            is_locked: slot.isLocked || false,
+            is_from_lernplan: slot.isFromLernplan || false,
+            has_time: slot.hasTime || false,
+            start_hour: slot.startHour,
+            duration: slot.duration,
+            start_time: slot.startTime,
+            end_time: slot.endTime,
+            repeat_enabled: slot.repeatEnabled || false,
+            repeat_type: slot.repeatType,
+            repeat_count: slot.repeatCount,
+            series_id: slot.seriesId,
+            custom_days: slot.customDays,
+            tasks: slot.tasks || [],
+            metadata: slot.metadata || {},
+          };
+        });
 
         const { error } = await supabase
           .from('calendar_slots')
@@ -1366,9 +1378,12 @@ export function usePrivateBlocksSync() {
         id: row.id,
         title: row.title,
         description: row.description,
+        startDate: row.block_date, // BUG-012 FIX: Include startDate
+        endDate: row.end_date || row.block_date, // BUG-012 FIX: Include endDate
         startTime: row.start_time,
         endTime: row.end_time,
         allDay: row.all_day,
+        isMultiDay: row.is_multi_day || false, // BUG-012 FIX: Include isMultiDay
         repeatEnabled: row.repeat_enabled,
         repeatType: row.repeat_type,
         repeatCount: row.repeat_count,
@@ -1431,11 +1446,13 @@ export function usePrivateBlocksSync() {
               dataToInsert.push({
                 user_id: user.id,
                 block_date: dateKey,
+                end_date: block.endDate || dateKey, // BUG-012 FIX
                 title: block.title,
                 description: block.description,
                 start_time: block.startTime,
                 end_time: block.endTime,
                 all_day: block.allDay || false,
+                is_multi_day: block.isMultiDay || false, // BUG-012 FIX
                 repeat_enabled: block.repeatEnabled || false,
                 repeat_type: block.repeatType,
                 repeat_count: block.repeatCount,
@@ -1485,22 +1502,30 @@ export function usePrivateBlocksSync() {
 
       // Insert new blocks
       if (blocks.length > 0) {
-        const dataToInsert = blocks.map(block => ({
-          id: block.id?.startsWith('private-') || block.id?.startsWith('local-') ? undefined : block.id,
-          user_id: user.id,
-          block_date: dateKey,
-          title: block.title,
-          description: block.description,
-          start_time: block.startTime,
-          end_time: block.endTime,
-          all_day: block.allDay || false,
-          repeat_enabled: block.repeatEnabled || false,
-          repeat_type: block.repeatType,
-          repeat_count: block.repeatCount,
-          series_id: block.seriesId,
-          custom_days: block.customDays,
-          metadata: block.metadata || {},
-        }));
+        const dataToInsert = blocks.map(block => {
+          // Check if ID should be auto-generated: null, undefined, or local prefixes
+          const isLocalId = !block.id || block.id?.startsWith('private-') || block.id?.startsWith('local-') || block.id?.startsWith('slot-');
+          // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
+          const blockId = isLocalId ? crypto.randomUUID() : block.id;
+          return {
+            id: blockId,
+            user_id: user.id,
+            block_date: dateKey,
+            end_date: block.endDate || dateKey, // BUG-012 FIX
+            title: block.title,
+            description: block.description,
+            start_time: block.startTime,
+            end_time: block.endTime,
+            all_day: block.allDay || false,
+            is_multi_day: block.isMultiDay || false, // BUG-012 FIX
+            repeat_enabled: block.repeatEnabled || false,
+            repeat_type: block.repeatType,
+            repeat_count: block.repeatCount,
+            series_id: block.seriesId,
+            custom_days: block.customDays,
+            metadata: block.metadata || {},
+          };
+        });
 
         const { error } = await supabase
           .from('private_blocks')
@@ -1516,10 +1541,89 @@ export function usePrivateBlocksSync() {
     }
   }, [privateBlocksByDate, isSupabaseEnabled, isAuthenticated, user]);
 
+  // FIX BUG-005: Batch save private blocks for multiple dates at once
+  // This avoids stale closure issues when creating series appointments
+  const saveDayBlocksBatch = useCallback(async (updatesMap) => {
+    console.log('[saveDayBlocksBatch] Called with', Object.keys(updatesMap).length, 'dates:', Object.keys(updatesMap));
+    console.log('[saveDayBlocksBatch] Current privateBlocksByDate has', Object.keys(privateBlocksByDate).length, 'dates');
+
+    // Merge all updates with current state
+    const updated = { ...privateBlocksByDate };
+    Object.entries(updatesMap).forEach(([dateKey, blocks]) => {
+      if (blocks.length === 0) {
+        delete updated[dateKey];
+      } else {
+        updated[dateKey] = blocks;
+      }
+    });
+
+    console.log('[saveDayBlocksBatch] After merge:', Object.keys(updated).length, 'dates total:', Object.keys(updated));
+    console.log('[saveDayBlocksBatch] Updated data:', JSON.stringify(updated, null, 2));
+
+    setPrivateBlocksByDate(updated);
+    saveToStorage(STORAGE_KEYS.privateBlocks, updated);
+    console.log('[saveDayBlocksBatch] State updated and saved to localStorage');
+
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+      return { success: true, source: 'localStorage' };
+    }
+
+    try {
+      // Process each date
+      for (const [dateKey, blocks] of Object.entries(updatesMap)) {
+        // Delete existing blocks for this date
+        await supabase
+          .from('private_blocks')
+          .delete()
+          .eq('block_date', dateKey);
+
+        // Insert new blocks
+        if (blocks.length > 0) {
+          const dataToInsert = blocks.map(block => {
+            // Check if ID should be auto-generated: null, undefined, or local prefixes
+            const isLocalId = !block.id || block.id?.startsWith('private-') || block.id?.startsWith('local-') || block.id?.startsWith('slot-');
+            // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
+            const blockId = isLocalId ? crypto.randomUUID() : block.id;
+            return {
+              id: blockId,
+              user_id: user.id,
+              block_date: dateKey,
+              end_date: block.endDate || dateKey, // BUG-012 FIX
+              title: block.title,
+              description: block.description,
+              start_time: block.startTime,
+              end_time: block.endTime,
+              all_day: block.allDay || false,
+              is_multi_day: block.isMultiDay || false, // BUG-012 FIX
+              repeat_enabled: block.repeatEnabled || false,
+              repeat_type: block.repeatType,
+              repeat_count: block.repeatCount,
+              series_id: block.seriesId,
+              custom_days: block.customDays,
+              metadata: block.metadata || {},
+            };
+          });
+
+          const { error } = await supabase
+            .from('private_blocks')
+            .insert(dataToInsert);
+
+          if (error) throw error;
+        }
+      }
+
+      return { success: true, source: 'supabase' };
+    } catch (err) {
+      console.error('Error batch saving private blocks:', err);
+      return { success: false, error: err, source: 'localStorage' };
+    }
+  }, [privateBlocksByDate, isSupabaseEnabled, isAuthenticated, user]);
+
   return {
     privateBlocksByDate,
     setPrivateBlocksByDate,
     saveDayBlocks,
+    saveDayBlocksBatch,
     loading,
     isAuthenticated,
     isSupabaseEnabled,
@@ -1850,6 +1954,304 @@ export function useLernplanMetadataSync() {
     lernplanMetadata,
     updateMetadata,
     clearMetadata,
+    loading,
+    isAuthenticated,
+    isSupabaseEnabled,
+  };
+}
+
+/**
+ * Hook for Custom Unterrechtsgebiete
+ * Syncs custom unterrechtsgebiete to Supabase
+ */
+export function useCustomUnterrechtsgebieteSync() {
+  return useSupabaseSync('custom_unterrechtsgebiete', STORAGE_KEYS.customUnterrechtsgebiete, [], {
+    orderBy: 'created_at',
+    orderDirection: 'desc',
+    transformToSupabase: (item) => ({
+      id: item.id?.startsWith('local-') || item.id?.startsWith('custom-') ? undefined : item.id,
+      name: item.name,
+      rechtsgebiet: item.rechtsgebiet,
+    }),
+    transformFromSupabase: (row) => ({
+      id: row.id,
+      name: row.name,
+      rechtsgebiet: row.rechtsgebiet,
+      createdAt: row.created_at,
+    }),
+  });
+}
+
+/**
+ * Hook for Onboarding Status
+ * Stores onboarding state in user_settings.timer_settings.onboarding
+ */
+export function useOnboardingSync() {
+  const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
+  const [onboardingState, setOnboardingState] = useState(() => ({
+    isCompleted: loadFromStorage('prepwell_onboarding_complete', false),
+    currentStep: loadFromStorage('prepwell_onboarding_step', 1),
+    selectedMode: loadFromStorage('prepwell_onboarding_mode', null),
+  }));
+  const [loading, setLoading] = useState(false);
+  const syncedRef = useRef(false);
+  const userIdRef = useRef(null);
+
+  // Reset syncedRef when user changes
+  useEffect(() => {
+    if (user?.id !== userIdRef.current) {
+      syncedRef.current = false;
+      userIdRef.current = user?.id || null;
+    }
+  }, [user?.id]);
+
+  // Initial sync from Supabase
+  useEffect(() => {
+    const initSync = async () => {
+      if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user || syncedRef.current) {
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('timer_settings')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching onboarding state:', error);
+          return;
+        }
+
+        if (data?.timer_settings?.onboarding) {
+          const onboarding = data.timer_settings.onboarding;
+          setOnboardingState(onboarding);
+          // Update localStorage
+          saveToStorage('prepwell_onboarding_complete', onboarding.isCompleted);
+          saveToStorage('prepwell_onboarding_step', onboarding.currentStep);
+          saveToStorage('prepwell_onboarding_mode', onboarding.selectedMode);
+        } else {
+          // Migrate from localStorage if exists
+          const localState = {
+            isCompleted: loadFromStorage('prepwell_onboarding_complete', false),
+            currentStep: loadFromStorage('prepwell_onboarding_step', 1),
+            selectedMode: loadFromStorage('prepwell_onboarding_mode', null),
+          };
+          if (localState.isCompleted || localState.currentStep > 1) {
+            await updateOnboardingState(localState);
+          }
+        }
+
+        syncedRef.current = true;
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSupabaseEnabled, isAuthenticated, user]);
+
+  // Update onboarding state
+  const updateOnboardingState = useCallback(async (updates) => {
+    const newState = { ...onboardingState, ...updates };
+    setOnboardingState(newState);
+
+    // Always update localStorage
+    if (updates.isCompleted !== undefined) {
+      saveToStorage('prepwell_onboarding_complete', updates.isCompleted);
+    }
+    if (updates.currentStep !== undefined) {
+      saveToStorage('prepwell_onboarding_step', updates.currentStep);
+    }
+    if (updates.selectedMode !== undefined) {
+      saveToStorage('prepwell_onboarding_mode', updates.selectedMode);
+    }
+
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+      return { success: true, source: 'localStorage' };
+    }
+
+    try {
+      // Get current settings to preserve other fields
+      const { data: currentSettings } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      const timerSettings = currentSettings?.timer_settings || {};
+
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: user.id,
+          mentor_activated: currentSettings?.mentor_activated ?? false,
+          preferred_grade_system: currentSettings?.preferred_grade_system ?? 'punkte',
+          custom_subjects: currentSettings?.custom_subjects ?? [],
+          timer_settings: {
+            ...timerSettings,
+            onboarding: newState,
+          },
+        }, { onConflict: 'user_id' });
+
+      if (error) throw error;
+      return { success: true, source: 'supabase' };
+    } catch (err) {
+      console.error('Error updating onboarding state:', err);
+      return { success: false, error: err, source: 'localStorage' };
+    }
+  }, [onboardingState, isSupabaseEnabled, isAuthenticated, user]);
+
+  return {
+    onboardingState,
+    updateOnboardingState,
+    loading,
+    isAuthenticated,
+    isSupabaseEnabled,
+  };
+}
+
+/**
+ * Hook for App Mode Preferences
+ * Stores app mode state in user_settings.timer_settings.appMode
+ */
+export function useAppModeSync() {
+  const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
+  const [appModeState, setAppModeState] = useState(() => ({
+    currentSemester: loadFromStorage('prepwell_semester', null),
+    modePreference: loadFromStorage('prepwell_mode_preference', 'auto'),
+    isSubscribed: loadFromStorage('prepwell_is_subscribed', false),
+    subscriptionPlan: loadFromStorage('prepwell_subscription_plan', null),
+    trialStartDate: loadFromStorage('prepwell_trial_start', null),
+  }));
+  const [loading, setLoading] = useState(false);
+  const syncedRef = useRef(false);
+  const userIdRef = useRef(null);
+
+  // Reset syncedRef when user changes
+  useEffect(() => {
+    if (user?.id !== userIdRef.current) {
+      syncedRef.current = false;
+      userIdRef.current = user?.id || null;
+    }
+  }, [user?.id]);
+
+  // Initial sync from Supabase
+  useEffect(() => {
+    const initSync = async () => {
+      if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user || syncedRef.current) {
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('timer_settings')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching app mode state:', error);
+          return;
+        }
+
+        if (data?.timer_settings?.appMode) {
+          const appMode = data.timer_settings.appMode;
+          setAppModeState(appMode);
+          // Update localStorage
+          saveToStorage('prepwell_semester', appMode.currentSemester);
+          saveToStorage('prepwell_mode_preference', appMode.modePreference);
+          saveToStorage('prepwell_is_subscribed', appMode.isSubscribed);
+          saveToStorage('prepwell_subscription_plan', appMode.subscriptionPlan);
+          saveToStorage('prepwell_trial_start', appMode.trialStartDate);
+        } else {
+          // Migrate from localStorage if exists
+          const localState = {
+            currentSemester: loadFromStorage('prepwell_semester', null),
+            modePreference: loadFromStorage('prepwell_mode_preference', 'auto'),
+            isSubscribed: loadFromStorage('prepwell_is_subscribed', false),
+            subscriptionPlan: loadFromStorage('prepwell_subscription_plan', null),
+            trialStartDate: loadFromStorage('prepwell_trial_start', null),
+          };
+          if (localState.currentSemester || localState.modePreference !== 'auto') {
+            await updateAppModeState(localState);
+          }
+        }
+
+        syncedRef.current = true;
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSupabaseEnabled, isAuthenticated, user]);
+
+  // Update app mode state
+  const updateAppModeState = useCallback(async (updates) => {
+    const newState = { ...appModeState, ...updates };
+    setAppModeState(newState);
+
+    // Always update localStorage
+    if (updates.currentSemester !== undefined) {
+      saveToStorage('prepwell_semester', updates.currentSemester);
+    }
+    if (updates.modePreference !== undefined) {
+      saveToStorage('prepwell_mode_preference', updates.modePreference);
+    }
+    if (updates.isSubscribed !== undefined) {
+      saveToStorage('prepwell_is_subscribed', updates.isSubscribed);
+    }
+    if (updates.subscriptionPlan !== undefined) {
+      saveToStorage('prepwell_subscription_plan', updates.subscriptionPlan);
+    }
+    if (updates.trialStartDate !== undefined) {
+      saveToStorage('prepwell_trial_start', updates.trialStartDate);
+    }
+
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+      return { success: true, source: 'localStorage' };
+    }
+
+    try {
+      // Get current settings to preserve other fields
+      const { data: currentSettings } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      const timerSettings = currentSettings?.timer_settings || {};
+
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: user.id,
+          mentor_activated: currentSettings?.mentor_activated ?? false,
+          preferred_grade_system: currentSettings?.preferred_grade_system ?? 'punkte',
+          custom_subjects: currentSettings?.custom_subjects ?? [],
+          timer_settings: {
+            ...timerSettings,
+            appMode: newState,
+          },
+        }, { onConflict: 'user_id' });
+
+      if (error) throw error;
+      return { success: true, source: 'supabase' };
+    } catch (err) {
+      console.error('Error updating app mode state:', err);
+      return { success: false, error: err, source: 'localStorage' };
+    }
+  }, [appModeState, isSupabaseEnabled, isAuthenticated, user]);
+
+  return {
+    appModeState,
+    updateAppModeState,
     loading,
     isAuthenticated,
     isSupabaseEnabled,

@@ -26,11 +26,13 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   // Get data from CalendarContext (Single Source of Truth)
   const {
     slotsByDate,
+    visibleSlotsByDate, // BUG-010 FIX: Use filtered slots for display
     privateBlocksByDate,
     updateDaySlots,
     addPrivateBlock,
     updatePrivateBlock,
     deletePrivateBlock,
+    deleteSeriesPrivateBlocks,
   } = useCalendar();
 
   // Dialog states
@@ -97,7 +99,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     // Iterate through each day of the week
     for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
       const dateKey = formatDateKey(d);
-      const daySlots = slotsByDate[dateKey] || [];
+      // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
+      const daySlots = visibleSlotsByDate[dateKey] || [];
 
       // Convert slots to learning blocks for this day
       const learningBlocks = slotsToLearningBlocks(daySlots);
@@ -144,33 +147,53 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
 
     return weekBlocks;
-  }, [currentDate, slotsByDate]);
+  }, [currentDate, visibleSlotsByDate]);
 
   // Transform CalendarContext private blocks to week view format
+  // BUG-012 FIX: Include multi-day blocks that span into the current week
   const privateBlocks = useMemo(() => {
     const { monday, sunday } = getWeekDateRange(currentDate);
     const weekPrivateBlocks = [];
+    const weekStartKey = formatDateKey(monday);
+    const weekEndKey = formatDateKey(sunday);
+    const processedIds = new Set(); // Avoid duplicates for multi-day blocks
 
-    // Iterate through each day of the week
-    for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
-      const dateKey = formatDateKey(d);
-      const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    console.log('[WeekView privateBlocks useMemo] Recalculating...');
+    console.log('[WeekView privateBlocks useMemo] privateBlocksByDate keys:', Object.keys(privateBlocksByDate));
+    console.log('[WeekView privateBlocks useMemo] Week range:', weekStartKey, 'to', weekEndKey);
 
-      dayPrivateBlocks.forEach(block => {
-        weekPrivateBlocks.push({
-          ...block,
-          startDate: dateKey,
-          blockType: 'private',
-          // Ensure time and repeat settings are included
-          hasTime: block.hasTime !== undefined ? block.hasTime : true,
-          repeatEnabled: block.repeatEnabled || false,
-          repeatType: block.repeatType,
-          repeatCount: block.repeatCount,
-          customDays: block.customDays,
-        });
+    // Check ALL private blocks (from any date) to see if they overlap with current week
+    Object.entries(privateBlocksByDate).forEach(([dateKey, dayBlocks]) => {
+      dayBlocks.forEach(block => {
+        // Skip if already processed (multi-day blocks could appear on multiple start dates)
+        if (processedIds.has(block.id)) return;
+
+        const blockStartDate = block.startDate || dateKey;
+        const blockEndDate = block.endDate || blockStartDate;
+
+        // Check if block overlaps with current week
+        // Block overlaps if: blockStart <= weekEnd AND blockEnd >= weekStart
+        if (blockStartDate <= weekEndKey && blockEndDate >= weekStartKey) {
+          weekPrivateBlocks.push({
+            ...block,
+            startDate: blockStartDate,
+            endDate: blockEndDate,
+            blockType: 'private',
+            // Ensure time and repeat settings are included
+            hasTime: block.hasTime !== undefined ? block.hasTime : true,
+            repeatEnabled: block.repeatEnabled || false,
+            repeatType: block.repeatType,
+            repeatCount: block.repeatCount,
+            customDays: block.customDays,
+            // Mark as multi-day if it spans more than one day
+            isMultiDay: block.isMultiDay || (blockStartDate !== blockEndDate),
+          });
+          processedIds.add(block.id);
+        }
       });
-    }
+    });
 
+    console.log('[WeekView] Total privateBlocks for week:', weekPrivateBlocks.length);
     return weekPrivateBlocks;
   }, [currentDate, privateBlocksByDate]);
 
@@ -256,23 +279,51 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
 
   // Update a block - uses CalendarContext
   // Supports both contentId and topicId patterns for cross-view compatibility
-  const handleUpdateBlock = (date, updatedBlock) => {
+  // FIX BUG-005: Handle series creation when editing private blocks
+  const handleUpdateBlock = async (date, updatedBlock) => {
     const dateKey = date ? formatDateKey(date) : updatedBlock.startDate;
 
     if (updatedBlock.blockType === 'private') {
-      // Update private block in CalendarContext
-      updatePrivateBlock(dateKey, updatedBlock.id, updatedBlock);
+      // Check if we need to create/update a series
+      const originalBlock = (privateBlocksByDate[dateKey] || []).find(b => b.id === updatedBlock.id);
+      const hadSeries = originalBlock?.seriesId != null;
+      const wantsSeries = updatedBlock.repeatEnabled && updatedBlock.repeatType && updatedBlock.repeatCount > 0;
+
+      console.log('[handleUpdateBlock] Private block update:', { hadSeries, wantsSeries, originalBlock, updatedBlock });
+
+      if (wantsSeries && !hadSeries) {
+        // User enabled repeat on an existing non-series block
+        // Delete old block and create new series
+        console.log('[handleUpdateBlock] Creating new series from existing block');
+        await deletePrivateBlock(dateKey, updatedBlock.id);
+        await addPrivateBlock(dateKey, updatedBlock);
+      } else if (!wantsSeries && hadSeries) {
+        // User disabled repeat on a series block
+        // Delete entire series and create single block
+        console.log('[handleUpdateBlock] Converting series block to single block');
+        await deleteSeriesPrivateBlocks(originalBlock.seriesId);
+        await addPrivateBlock(dateKey, { ...updatedBlock, repeatEnabled: false, repeatType: null, repeatCount: null });
+      } else if (wantsSeries && hadSeries) {
+        // User changed repeat settings on existing series
+        // Delete old series and create new one
+        console.log('[handleUpdateBlock] Updating series with new repeat settings');
+        await deleteSeriesPrivateBlocks(originalBlock.seriesId);
+        await addPrivateBlock(dateKey, updatedBlock);
+      } else {
+        // No series change, just update the single block
+        console.log('[handleUpdateBlock] Simple update, no series change');
+        updatePrivateBlock(dateKey, updatedBlock.id, updatedBlock);
+      }
     } else {
       // Update learning block in CalendarContext (update the slot)
       const daySlots = slotsByDate[dateKey] || [];
       const updatedSlots = daySlots.map(slot => {
         // Match by contentId, topicId, or id (supports both patterns)
+        // IMPORTANT: Only compare if values are truthy to avoid undefined === undefined matching all slots
         const isMatch =
-          slot.contentId === updatedBlock.id ||
-          slot.contentId === updatedBlock.contentId ||
-          slot.topicId === updatedBlock.id ||
-          slot.topicId === updatedBlock.topicId ||
-          slot.id === updatedBlock.id;
+          (updatedBlock.id && (slot.contentId === updatedBlock.id || slot.topicId === updatedBlock.id || slot.id === updatedBlock.id)) ||
+          (updatedBlock.contentId && slot.contentId && slot.contentId === updatedBlock.contentId) ||
+          (updatedBlock.topicId && slot.topicId && slot.topicId === updatedBlock.topicId);
 
         if (isMatch) {
           return {
@@ -477,9 +528,14 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   };
 
   // Add a new private block - uses CalendarContext
-  const handleAddPrivateBlock = (_date, blockData) => {
+  const handleAddPrivateBlock = async (_date, blockData) => {
     const dateKey = selectedDate ? formatDateKey(selectedDate) : new Date().toISOString().split('T')[0];
-    addPrivateBlock(dateKey, {
+    console.log('[handleAddPrivateBlock] Creating block for date:', dateKey, 'with repeat:', {
+      repeatEnabled: blockData.repeatEnabled,
+      repeatType: blockData.repeatType,
+      repeatCount: blockData.repeatCount,
+    });
+    const result = await addPrivateBlock(dateKey, {
       ...blockData,
       startTime: blockData.startTime || selectedTime || '09:00',
       endTime: blockData.endTime || calculateEndTime(selectedTime || '09:00', blockData.blockSize || 1),
@@ -493,6 +549,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       repeatCount: blockData.repeatCount,
       customDays: blockData.customDays,
     });
+    console.log('[handleAddPrivateBlock] Block created:', result);
   };
 
   return (
@@ -552,6 +609,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
+        onDeleteSeries={deleteSeriesPrivateBlocks}
       />
 
       {/* Add Block Type Selection Dialog */}

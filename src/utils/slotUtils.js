@@ -122,13 +122,24 @@ export const updateDaySlots = (currentSlots, newSlots) => {
 };
 
 /**
+ * Check if a slot has content (supports all content types including buffer/vacation)
+ */
+const slotHasContentForGrouping = (slot) => {
+  // Content slots: topic, buffer, vacation, or has contentId/topicId
+  const contentStatuses = ['topic', 'buffer', 'vacation'];
+  return contentStatuses.includes(slot.status) || slot.contentId || slot.topicId;
+};
+
+/**
  * Group slots by their groupId to render multi-slot topics
+ * Supports all content types: topic, buffer, vacation, etc.
  */
 export const groupSlotsByTopic = (slots) => {
   const groups = {};
 
   slots.forEach(slot => {
-    if (slot.status === 'topic' && slot.groupId) {
+    // Include all content slots (topic, buffer, vacation, etc.) that have a groupId
+    if (slotHasContentForGrouping(slot) && slot.groupId) {
       if (!groups[slot.groupId]) {
         groups[slot.groupId] = [];
       }
@@ -155,10 +166,12 @@ const getSlotId = (slot) => slot.contentId || slot.topicId || slot.id;
 const getSlotTitle = (slot) => slot.title || slot.topicTitle || '';
 
 /**
- * Check if a slot has content (topic, theme, etc.)
+ * Check if a slot has content (topic, buffer, vacation, etc.)
  */
 const slotHasContent = (slot) => {
-  return slot.status === 'topic' || slot.contentId || slot.topicId;
+  // Include all content statuses: topic, buffer, vacation
+  const contentStatuses = ['topic', 'buffer', 'vacation'];
+  return contentStatuses.includes(slot.status) || slot.contentId || slot.topicId;
 };
 
 /**

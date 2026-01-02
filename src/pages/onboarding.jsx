@@ -308,6 +308,7 @@ const FeatureTourStep = ({ onComplete, onBack }) => {
 
 /**
  * Main Onboarding Page Component
+ * BUG-017 FIX: Prevent showing already-seen steps and handle completed state properly
  */
 const OnboardingPage = () => {
   const navigate = useNavigate();
@@ -322,17 +323,26 @@ const OnboardingPage = () => {
     isCompleted,
   } = useOnboarding();
 
-  // Redirect if onboarding is completed
+  // BUG-017 FIX: Redirect immediately if onboarding is completed - using useLayoutEffect-like behavior
   useEffect(() => {
     if (isCompleted) {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [isCompleted, navigate]);
 
   const handleSkip = () => {
     skipOnboarding();
-    navigate('/');
+    navigate('/', { replace: true });
   };
+
+  // BUG-017 FIX: Don't render anything if onboarding is completed (prevents flash of content)
+  if (isCompleted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="text-neutral-500">Weiterleitung...</div>
+      </div>
+    );
+  }
 
   switch (currentStep) {
     case ONBOARDING_STEPS.WELCOME:

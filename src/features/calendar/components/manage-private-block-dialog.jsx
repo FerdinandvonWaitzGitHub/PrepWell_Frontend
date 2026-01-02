@@ -34,6 +34,7 @@ const weekdayOptions = [
 /**
  * Manage Private Block Dialog Component
  * Dialog for viewing and editing private appointments/events
+ * Supports series blocks with "Nur diesen" vs. "Gesamte Serie" options
  */
 const ManagePrivateBlockDialog = ({
   open,
@@ -42,6 +43,7 @@ const ManagePrivateBlockDialog = ({
   block,
   onSave,
   onDelete,
+  onDeleteSeries,
 }) => {
   // Form state
   const [title, setTitle] = useState('');
@@ -61,6 +63,10 @@ const ManagePrivateBlockDialog = ({
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Series action state
+  const [showSeriesChoice, setShowSeriesChoice] = useState(false);
+  const [seriesAction, setSeriesAction] = useState(null); // 'delete' or 'edit'
+
   // Load block data when dialog opens
   useEffect(() => {
     if (open && block) {
@@ -77,6 +83,8 @@ const ManagePrivateBlockDialog = ({
       setCustomDays(block.customDays || [1, 3, 5]);
       setIsRepeatTypeOpen(false);
       setShowDeleteConfirm(false);
+      setShowSeriesChoice(false);
+      setSeriesAction(null);
     } else if (open && date) {
       // New block
       setTitle('');
@@ -92,8 +100,13 @@ const ManagePrivateBlockDialog = ({
       setCustomDays([1, 3, 5]);
       setIsRepeatTypeOpen(false);
       setShowDeleteConfirm(false);
+      setShowSeriesChoice(false);
+      setSeriesAction(null);
     }
   }, [open, block, date]);
+
+  // Check if block is part of a series
+  const isSeriesBlock = block?.seriesId != null;
 
   // Format date for input field (YYYY-MM-DD)
   const formatDateForInput = (date) => {
@@ -188,12 +201,47 @@ const ManagePrivateBlockDialog = ({
     onOpenChange(false);
   };
 
-  // Delete handler
-  const handleDelete = () => {
+  // Delete handler - shows series choice if applicable
+  const handleDeleteClick = () => {
+    if (isSeriesBlock) {
+      setSeriesAction('delete');
+      setShowSeriesChoice(true);
+    } else {
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  // Delete single block
+  const handleDeleteSingle = () => {
     if (onDelete && block) {
       onDelete(date, block.id);
       onOpenChange(false);
     }
+  };
+
+  // Delete entire series
+  const handleDeleteEntireSeries = () => {
+    if (onDeleteSeries && block?.seriesId) {
+      onDeleteSeries(block.seriesId);
+      onOpenChange(false);
+    } else if (onDelete && block) {
+      // Fallback to single delete if series delete not available
+      onDelete(date, block.id);
+      onOpenChange(false);
+    }
+  };
+
+  // Handle series choice selection
+  const handleSeriesChoice = (choice) => {
+    if (seriesAction === 'delete') {
+      if (choice === 'single') {
+        handleDeleteSingle();
+      } else if (choice === 'series') {
+        handleDeleteEntireSeries();
+      }
+    }
+    setShowSeriesChoice(false);
+    setSeriesAction(null);
   };
 
   // Discard handler
@@ -364,6 +412,15 @@ const ManagePrivateBlockDialog = ({
               )}
             </div>
 
+            {/* Series indicator */}
+            {isSeriesBlock && (
+              <div className="p-3 bg-violet-50 rounded-lg border border-violet-100">
+                <p className="text-sm text-violet-700">
+                  🔄 Dieser Termin ist Teil einer Serie. Beim Löschen kannst du wählen, ob nur dieser Termin oder die gesamte Serie gelöscht werden soll.
+                </p>
+              </div>
+            )}
+
             {/* Multi-day indicator */}
             {isMultiDay() && (
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
@@ -381,12 +438,40 @@ const ManagePrivateBlockDialog = ({
               Änderungen verwerfen
             </Button>
             {block && (
-              showDeleteConfirm ? (
+              showSeriesChoice ? (
+                // Series choice dialog
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-neutral-600">
+                    {seriesAction === 'delete' ? 'Was möchtest du löschen?' : 'Was bearbeiten?'}
+                  </span>
+                  <Button
+                    variant="default"
+                    onClick={() => handleSeriesChoice('single')}
+                    className="rounded-3xl"
+                  >
+                    Nur diesen
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={() => handleSeriesChoice('series')}
+                    className="rounded-3xl text-red-600 hover:bg-red-50"
+                  >
+                    Gesamte Serie
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={() => { setShowSeriesChoice(false); setSeriesAction(null); }}
+                    className="rounded-3xl"
+                  >
+                    Abbrechen
+                  </Button>
+                </div>
+              ) : showDeleteConfirm ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-red-600">Wirklich löschen?</span>
                   <Button
                     variant="default"
-                    onClick={handleDelete}
+                    onClick={handleDeleteSingle}
                     className="rounded-3xl text-red-600 hover:bg-red-50"
                   >
                     Ja, löschen
@@ -402,10 +487,10 @@ const ManagePrivateBlockDialog = ({
               ) : (
                 <Button
                   variant="default"
-                  onClick={() => setShowDeleteConfirm(true)}
+                  onClick={handleDeleteClick}
                   className="rounded-3xl gap-2"
                 >
-                  Termin löschen
+                  {isSeriesBlock ? 'Termin löschen (Serie)' : 'Termin löschen'}
                   <TrashIcon size={16} />
                 </Button>
               )

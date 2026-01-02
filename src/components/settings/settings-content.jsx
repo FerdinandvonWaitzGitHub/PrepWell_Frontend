@@ -53,7 +53,11 @@ const SettingsContent = ({ className = '' }) => {
     currentSemester,
     setSemester,
     modeDisplayText,
+    toggleMode,
+    canToggleMode,
+    userModePreference: _userModePreference,
   } = useAppMode();
+  void _userModePreference; // Reserved for future display
 
   const {
     user,
@@ -189,13 +193,24 @@ const SettingsContent = ({ className = '' }) => {
                 <p className="text-xs text-neutral-500 mt-1">{modeDisplayText}</p>
               </div>
             </div>
-            <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-              isExamMode
-                ? 'bg-red-100 text-red-700'
-                : 'bg-blue-100 text-blue-700'
-            }`}>
-              {isExamMode ? 'Examen' : 'Normal'}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                isExamMode
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-blue-100 text-blue-700'
+              }`}>
+                {isExamMode ? 'Examen' : 'Normal'}
+              </span>
+              {/* BUG-014 FIX: Toggle button for switching modes */}
+              {canToggleMode && (
+                <button
+                  onClick={toggleMode}
+                  className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  Wechseln
+                </button>
+              )}
+            </div>
           </div>
 
           {isNormalMode && (

@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useWizard } from '../context/wizard-context';
-import { useCalendar } from '../../../contexts/calendar-context';
 import StepHeader from '../components/step-header';
 
 // Import calendar dialog components for editing blocks
@@ -207,8 +206,8 @@ const Step8Calendar = () => {
     updateWizardData
   } = useWizard();
 
-  // Calendar context for saving to main calendar
-  const { setCalendarData } = useCalendar();
+  // Note: Calendar data is now saved by completeManualCalendar in wizard-context
+  // We no longer need to save on unmount since wizard context handles it
 
   // Calendar state - start at the month of the learning start date
   const [currentDate, setCurrentDate] = useState(() => {
@@ -298,53 +297,8 @@ const Step8Calendar = () => {
     return fullSlots;
   }, [learningStart, learningEnd, slotsByDate, weekStructure]);
 
-  // Store latest values in refs for cleanup function (needed because cleanup captures stale closures)
-  const generateFullCalendarSlotsRef = useRef(generateFullCalendarSlots);
-  const setCalendarDataRef = useRef(setCalendarData);
-  const startDateRef = useRef(startDate);
-  const endDateRef = useRef(endDate);
-  const blocksPerDayRef = useRef(blocksPerDay);
-  const weekStructureRef = useRef(weekStructure);
-
-  // Keep refs updated with latest values
-  useEffect(() => {
-    generateFullCalendarSlotsRef.current = generateFullCalendarSlots;
-    setCalendarDataRef.current = setCalendarData;
-    startDateRef.current = startDate;
-    endDateRef.current = endDate;
-    blocksPerDayRef.current = blocksPerDay;
-    weekStructureRef.current = weekStructure;
-  });
-
-  /**
-   * Save calendar data to CalendarContext when component unmounts (leaving Step 8)
-   * Using cleanup function because the component unmounts before useEffect with
-   * new currentStep value can run
-   */
-  useEffect(() => {
-    console.log('Step8Calendar mounted');
-
-    // Cleanup function runs when component unmounts (when leaving Step 8)
-    return () => {
-      console.log('Step8Calendar: Unmounting, saving calendar data...');
-
-      const fullSlots = generateFullCalendarSlotsRef.current();
-      console.log('Step8Calendar: Generated slots for', Object.keys(fullSlots).length, 'days');
-
-      // Create metadata for this Lernplan
-      const metadata = {
-        name: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
-        startDate: startDateRef.current,
-        endDate: endDateRef.current,
-        blocksPerDay: blocksPerDayRef.current,
-        weekStructure: weekStructureRef.current,
-      };
-
-      // Save to CalendarContext (this will archive old data if exists)
-      setCalendarDataRef.current(fullSlots, metadata);
-      console.log('Step8Calendar: Calendar data saved to context');
-    };
-  }, []); // Empty dependency array - only runs on mount/unmount
+  // Note: We no longer save on unmount - wizard-context.completeManualCalendar
+  // now handles slot generation and saving directly, ensuring proper timing
 
   // Check if a date is within learning period (inclusive)
   const isInLearningPeriod = (year, month, day) => {

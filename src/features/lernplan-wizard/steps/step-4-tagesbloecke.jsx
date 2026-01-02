@@ -45,7 +45,7 @@ const Step4Tagesbloecke = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const blockOptions = [1, 2, 3, 4, 5, 6];
+  const blockOptions = [1, 2, 3, 4]; // Max 4 slots per day
 
   // Calculate learning days and blocks
   const calculateStats = () => {

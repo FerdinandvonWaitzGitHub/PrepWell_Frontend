@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTimer } from '../../../contexts/timer-context';
 import TimerDisplay from './timer-display';
 import TimerSelectionDialog from './timer-selection-dialog';
@@ -17,7 +17,8 @@ import TimerMainDialog from './timer-main-dialog';
  * - Unified timer control dialog with settings and logbuch access
  */
 const TimerButton = ({ className = '' }) => {
-  const { isActive, startPomodoro, startCountdown, startCountup, stopTimer, pomodoroSettings } = useTimer();
+  const { isActive, startPomodoro, startCountdown, startCountup, stopTimer: _stopTimer, pomodoroSettings } = useTimer();
+  void _stopTimer; // Reserved for future use
 
   // Dialog states
   const [showSelectionDialog, setShowSelectionDialog] = useState(false);
@@ -50,9 +51,10 @@ const TimerButton = ({ className = '' }) => {
     startCountdown(durationMinutes);
   };
 
-  // Handle settings click from main dialog - stop current timer and show selection
+  // Handle settings click from main dialog - show selection (don't stop timer)
   const handleSettingsClick = () => {
-    stopTimer();
+    // Don't stop the timer - let user reconfigure while timer runs
+    // User can explicitly stop via "Session beenden" button
     setShowTimerMain(false);
     setShowSelectionDialog(true);
   };

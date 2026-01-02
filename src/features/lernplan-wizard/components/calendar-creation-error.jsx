@@ -76,7 +76,7 @@ const AlertIcon = () => (
   </svg>
 );
 
-const CalendarCreationError = ({ problems = [], onRetry, onCancel }) => {
+const CalendarCreationError = ({ problems = [], onRetry, onCancel, onGoBackToMethodSelection }) => {
   return (
     <div className="min-h-[calc(100vh-200px)] flex flex-col justify-center items-center gap-5 px-12">
       {/* Warning Icon */}
@@ -116,14 +116,29 @@ const CalendarCreationError = ({ problems = [], onRetry, onCancel }) => {
         </div>
       </div>
 
+      {/* Hint for method selection */}
+      {onGoBackToMethodSelection && (
+        <p className="text-sm text-neutral-500 max-w-[500px] text-center">
+          Du kannst eine andere Erstellungsmethode wählen, z.B. den manuellen Modus.
+        </p>
+      )}
+
       {/* Action Buttons */}
-      <div className="flex gap-4 mt-4">
+      <div className="flex flex-wrap justify-center gap-4 mt-4">
         {onCancel && (
           <button
             onClick={onCancel}
             className="px-6 py-2.5 rounded-lg border border-neutral-200 text-neutral-700 text-sm font-medium hover:bg-neutral-50 transition-colors"
           >
             Abbrechen
+          </button>
+        )}
+        {onGoBackToMethodSelection && (
+          <button
+            onClick={onGoBackToMethodSelection}
+            className="px-6 py-2.5 rounded-lg border border-primary-300 text-primary-600 text-sm font-medium hover:bg-primary-50 transition-colors"
+          >
+            Andere Methode wählen
           </button>
         )}
         {onRetry && (

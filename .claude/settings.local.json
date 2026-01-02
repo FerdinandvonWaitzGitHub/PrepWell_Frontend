@@ -39,7 +39,11 @@
       "Bash(claude mcp list:*)",
       "Bash(rm:*)",
       "Bash(npx supabase:*)",
-      "Bash(supabase link:*)"
+      "Bash(supabase link:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git mv:*)",
+      "Bash(cd:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }
