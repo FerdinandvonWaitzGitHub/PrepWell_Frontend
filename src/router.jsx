@@ -1,7 +1,7 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
 // Context Providers
-import { AuthProvider } from './contexts/auth-context';
+import { AuthProvider, useAuth } from './contexts/auth-context';
 import { UnterrechtsgebieteProvider } from './contexts';
 import { CalendarProvider } from './contexts/calendar-context';
 import { AppModeProvider } from './contexts/appmode-context';
@@ -30,13 +30,55 @@ import OnboardingPage from './pages/onboarding';
 import { LernplanWizardPage } from './features/lernplan-wizard';
 
 /**
+ * Protected Route wrapper - redirects to auth if not logged in
+ */
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return children;
+}
+
+/**
+ * Home component - redirects to auth if not logged in
+ */
+function HomePage() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return <DashboardPage />;
+}
+
+/**
  * Router configuration for PrepWell WebApp
  * Based on Figma pages structure
  */
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <DashboardPage />,
+    element: <HomePage />,
   },
   {
     path: '/lernplan',
