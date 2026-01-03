@@ -9,10 +9,10 @@
 
 | Priorität | Anzahl | Gefixt | Offen |
 |-----------|--------|--------|-------|
-| 🔴 KRITISCH | 5 | 5 | 0 |
+| 🔴 KRITISCH | 6 | 6 | 0 |
 | 🟠 HOCH | 12 | 12 | 0 |
 | 🟡 MITTEL | 3 | 3 | 0 |
-| **Gesamt** | **20** | **20** | **0** |
+| **Gesamt** | **21** | **21** | **0** |
 
 ### ✅ ALLE BUGS GEFIXT!
 
@@ -246,6 +246,105 @@ const saveDayBlocksBatch = useCallback(async (updatesMap) => {
 - [x] `saveDayBlocksBatch()` implementiert
 - [x] `addPrivateBlock()` refactored
 - [x] `deleteSeriesPrivateBlocks()` refactored
+- [ ] Getestet
+
+---
+
+## ✅ BUG-021: Benutzerdaten "fließen" zwischen verschiedenen Accounts [GEFIXT]
+
+**Bereich:** Auth / LocalStorage / Datenisolation
+**Betrifft:** Alle Benutzerdaten (Lernpläne, Kalenderslots, Aufgaben, Private Blöcke)
+
+### Problem
+- User A erstellt Account und fügt Daten hinzu
+- User A loggt sich aus
+- User B erstellt neuen Account
+- User B sieht sofort die Daten von User A
+- **Sicherheitslücke:** Daten "lecken" vom älteren zum neueren Account
+
+### Ursache
+1. `signOut()` in `auth-context.jsx` hat **LocalStorage NICHT geleert**
+2. Beim Login eines neuen Users blieben alte LocalStorage-Daten erhalten
+3. Die Sync-Hooks luden diese alten Daten und zeigten sie dem neuen User
+4. Supabase RLS funktionierte korrekt, aber das Frontend-LocalStorage war das Problem
+
+### Betroffene Dateien
+- `src/contexts/auth-context.jsx`
+- `src/hooks/use-supabase-sync.js` (indirekt - las die falschen LocalStorage-Daten)
+
+### Lösung (03.01.2026)
+
+**1. Zentrale Liste aller LocalStorage-Keys:**
+```javascript
+const ALL_PREPWELL_STORAGE_KEYS = [
+  'prepwell_calendar_slots',
+  'prepwell_calendar_tasks',
+  'prepwell_tasks',
+  'prepwell_private_blocks',
+  'prepwell_content_plans',
+  'prepwell_contents',
+  'prepwell_published_themenlisten',
+  'prepwell_lernplan_metadata',
+  'prepwell_archived_lernplaene',
+  'prepwell_lernplan_wizard_draft',
+  'prepwell_exams',
+  'prepwell_uebungsklausuren',
+  'prepwell_timer_state',
+  'prepwell_timer_history',
+  'prepwell_timer_config',
+  'prepwell_checkin_data',
+  'prepwell_checkin_responses',
+  'prepwell_logbuch_entries',
+  'prepwell_settings',
+  'prepwell_user_settings',
+  'prepwell_grade_system',
+  'prepwell_custom_subjects',
+  'prepwell_custom_unterrechtsgebiete',
+  'prepwell_mentor_activated',
+  'prepwell_onboarding_complete',
+];
+```
+
+**2. `clearAllUserData()` Funktion hinzugefügt:**
+```javascript
+const clearAllUserData = () => {
+  ALL_PREPWELL_STORAGE_KEYS.forEach(key => {
+    localStorage.removeItem(key);
+  });
+};
+```
+
+**3. `signOut()` löscht jetzt LocalStorage:**
+```javascript
+const signOut = async () => {
+  if (!isSupabaseConfigured()) return;
+  clearAllUserData(); // <-- NEU: Löscht alle User-Daten
+  const { error } = await supabase.auth.signOut();
+  // ...
+};
+```
+
+**4. User-Wechsel-Erkennung bei Login:**
+```javascript
+// In onAuthStateChange:
+if (_event === 'SIGNED_IN' && session?.user?.id) {
+  const lastUserId = localStorage.getItem('prepwell_last_user_id');
+  if (lastUserId && lastUserId !== session.user.id) {
+    clearAllUserData(); // Anderen User erkannt → alte Daten löschen
+  }
+  localStorage.setItem('prepwell_last_user_id', session.user.id);
+}
+```
+
+### Sicherheitsimplikation
+Dies war eine **kritische Sicherheitslücke**, die Datenlecks zwischen Benutzern ermöglichte. Der Fix stellt sicher, dass:
+- Bei Logout werden alle Benutzerdaten gelöscht
+- Bei Login eines anderen Users werden alte Daten gelöscht
+- Nur die Daten des aktuell authentifizierten Users sind im LocalStorage
+
+### Status
+- [x] Analysiert
+- [x] Fix implementiert
 - [ ] Getestet
 
 ---
@@ -712,25 +811,26 @@ const isActiveOnDate = (block, date) => {
 3. [x] ~~BUG-002: Puffertage & Urlaubstage~~ ✅
 4. [x] ~~BUG-003: Leerer Kalender nach Wizard~~ ✅
 5. [x] ~~BUG-005: Serientermine~~ ✅
+6. [x] ~~BUG-021: Benutzerdaten-Leak zwischen Accounts~~ ✅
 
 ## Phase 2: Hohe Priorität ✅ KOMPLETT
-6. [x] ~~BUG-006: Protected Routes~~ ✅
-7. [x] ~~BUG-013: Aufgaben-Seite~~ ✅
-8. [x] ~~BUG-011: Slots ohne Uhrzeiten~~ ✅
-9. [x] ~~BUG-010: Archivierte Lernpläne im Kalender~~ ✅
-10. [x] ~~BUG-012: Wochenübergreifende Termine~~ ✅
-11. [x] ~~BUG-007: Zeitplan-Widget Dot~~ ✅
-12. [x] ~~BUG-008: Timer Reset Bug~~ ✅
-13. [x] ~~BUG-014: App-Modus~~ ✅
-14. [x] ~~BUG-015: Timer-Einstellungen~~ ✅
-15. [x] ~~BUG-016: Profil~~ ✅
-16. [x] ~~BUG-017: Onboarding~~ ✅
+7. [x] ~~BUG-006: Protected Routes~~ ✅
+8. [x] ~~BUG-013: Aufgaben-Seite~~ ✅
+9. [x] ~~BUG-011: Slots ohne Uhrzeiten~~ ✅
+10. [x] ~~BUG-010: Archivierte Lernpläne im Kalender~~ ✅
+11. [x] ~~BUG-012: Wochenübergreifende Termine~~ ✅
+12. [x] ~~BUG-007: Zeitplan-Widget Dot~~ ✅
+13. [x] ~~BUG-008: Timer Reset Bug~~ ✅
+14. [x] ~~BUG-014: App-Modus~~ ✅
+15. [x] ~~BUG-015: Timer-Einstellungen~~ ✅
+16. [x] ~~BUG-016: Profil~~ ✅
+17. [x] ~~BUG-017: Onboarding~~ ✅
 
 ## Phase 3: Mittlere Priorität ✅ KOMPLETT
-17. [x] ~~BUG-009: Fortschritts-Widget~~ ✅
-18. [x] ~~BUG-018: Themenlisten-Toggle~~ ✅
-19. [x] ~~BUG-019: Wizard Zurück-Navigation~~ ✅
-20. [x] ~~BUG-020: Logbuch Redirect~~ ✅
+18. [x] ~~BUG-009: Fortschritts-Widget~~ ✅
+19. [x] ~~BUG-018: Themenlisten-Toggle~~ ✅
+20. [x] ~~BUG-019: Wizard Zurück-Navigation~~ ✅
+21. [x] ~~BUG-020: Logbuch Redirect~~ ✅
 
 ---
 
@@ -760,7 +860,9 @@ const isActiveOnDate = (block, date) => {
 | 02.01.2026 | BUG-018 | Themenlisten-Toggle aus NoTopicsView entfernt (lernblock-widget.jsx) | ✅ Gefixt |
 | 02.01.2026 | BUG-019 | prevStep() mit State-Reset für jeden Schritt (wizard-context.jsx) | ✅ Gefixt |
 | 02.01.2026 | BUG-020 | Error-Handling und Loading-State für Logbuch-Save (timer-logbuch-dialog.jsx) | ✅ Gefixt |
+| 03.01.2026 | BUG-021 | LocalStorage bei signOut leeren (auth-context.jsx) | ✅ Gefixt |
+| 03.01.2026 | BUG-021 | User-Wechsel-Erkennung bei Login (auth-context.jsx) | ✅ Gefixt |
 
 ---
 
-*Zuletzt aktualisiert: 02.01.2026*
+*Zuletzt aktualisiert: 03.01.2026*

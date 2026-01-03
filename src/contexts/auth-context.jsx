@@ -3,6 +3,52 @@ import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 const AuthContext = createContext(null);
 
+// BUG-021 FIX: All localStorage keys used by PrepWell that contain user data
+// Must match all keys in use-supabase-sync.js STORAGE_KEYS plus other app keys
+const ALL_PREPWELL_STORAGE_KEYS = [
+  // Calendar & Content
+  'prepwell_calendar_slots',
+  'prepwell_calendar_tasks',
+  'prepwell_tasks',
+  'prepwell_private_blocks',
+  'prepwell_content_plans',
+  'prepwell_contents',
+  'prepwell_published_themenlisten',
+  // Lernplan
+  'prepwell_lernplan_metadata',
+  'prepwell_archived_lernplaene',
+  'prepwell_lernplan_wizard_draft',
+  // Exams
+  'prepwell_exams',
+  'prepwell_uebungsklausuren',
+  // Timer
+  'prepwell_timer_state',
+  'prepwell_timer_history',
+  'prepwell_timer_config',
+  // Check-in & Logbuch
+  'prepwell_checkin_data',
+  'prepwell_checkin_responses',
+  'prepwell_logbuch_entries',
+  // Settings
+  'prepwell_settings',
+  'prepwell_user_settings',
+  'prepwell_grade_system',
+  'prepwell_custom_subjects',
+  'prepwell_custom_unterrechtsgebiete',
+  'prepwell_mentor_activated',
+  // Onboarding
+  'prepwell_onboarding_complete',
+  // Note: prepwell_last_user_id is NOT cleared, it's used to detect user changes
+];
+
+// BUG-021 FIX: Clear all user data from localStorage
+const clearAllUserData = () => {
+  ALL_PREPWELL_STORAGE_KEYS.forEach(key => {
+    localStorage.removeItem(key);
+  });
+  console.log('Cleared all PrepWell user data from localStorage');
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
@@ -70,13 +116,21 @@ export function AuthProvider({ children }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        // Initialize user settings when user logs in
+        // BUG-021 FIX: Clear localStorage when a different user logs in
+        // This prevents data from a previous user from being shown to the new user
         if (_event === 'SIGNED_IN' && session?.user?.id) {
+          const lastUserId = localStorage.getItem('prepwell_last_user_id');
+          if (lastUserId && lastUserId !== session.user.id) {
+            console.log('Different user detected, clearing previous user data');
+            clearAllUserData();
+          }
+          // Store current user ID for future comparison
+          localStorage.setItem('prepwell_last_user_id', session.user.id);
           initializeUserSettings(session.user.id);
         }
+
+        setSession(session);
+        setUser(session?.user ?? null);
       }
     );
 
@@ -118,6 +172,10 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     if (!isSupabaseConfigured()) return;
+
+    // BUG-021 FIX: Clear all user data from localStorage BEFORE signing out
+    // This prevents data from "leaking" to the next user who logs in
+    clearAllUserData();
 
     const { error } = await supabase.auth.signOut();
     if (!error) {
@@ -204,22 +262,10 @@ export function AuthProvider({ children }) {
     // This would require a server-side function or admin action.
     // For now, we sign out and mark the request.
     try {
-      // Clear all local data
-      const keysToRemove = [
-        'prepwell_calendar_slots',
-        'prepwell_calendar_tasks',
-        'prepwell_private_blocks',
-        'prepwell_content_plans',
-        'prepwell_timer_state',
-        'prepwell_timer_history',
-        'prepwell_timer_config',
-        'prepwell_settings',
-        'prepwell_checkin_data',
-        'prepwell_onboarding_complete',
-      ];
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      // BUG-021 FIX: Use centralized clearAllUserData function
+      clearAllUserData();
 
-      // Sign out
+      // Sign out (this also calls clearAllUserData, but that's fine)
       await signOut();
 
       return { data: { message: 'Account-Daten gelöscht. Bitte kontaktiere den Support für vollständige Kontolöschung.' }, error: null };
