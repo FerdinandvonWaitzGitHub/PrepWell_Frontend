@@ -20,21 +20,27 @@ Vor Änderungen am Projekt bitte [PRD.md](PRD.md) lesen - die **Single Source of
 - Supabase (PostgreSQL + Auth)
 - Zod (Validierung)
 
-### Architektur: Content-Slot-Block Modell
+### Architektur: SlotAllocation vs. TimeBlock
+
+**Kernprinzip:** Slots und Blöcke sind zwei komplett getrennte Entitäten!
+
+| Entity | Ansicht | Felder | NIEMALS |
+|--------|---------|--------|---------|
+| **SlotAllocation** | Monatsansicht | `date`, `kind`, `size (1-4)` | Uhrzeiten |
+| **TimeBlock** | Woche/Startseite | `start_at`, `end_at`, `kind` | slot_size |
 
 ```
-Zeitliche Hierarchie: Lernplan → Monat → Woche → Tag
-
-Pro Tag: bis zu 4 Slots (08:00-10:00, 10:00-12:00, 14:00-16:00, 16:00-18:00)
-
-CONTENT ─────► SLOT ─────► BLOCK
-(Was)         (Wann)       (Wie anzeigen)
+┌─────────────────────┐     ┌─────────────────────┐
+│   SlotAllocation    │     │     TimeBlock       │
+│   (Kapazität)       │     │   (Zeiträume)       │
+├─────────────────────┤     ├─────────────────────┤
+│ Monatsansicht       │     │ Wochenansicht       │
+│ date + size (1-4)   │     │ start_at + end_at   │
+│ KEINE Uhrzeiten!    │     │ KEINE slot_size!    │
+└─────────────────────┘     └─────────────────────┘
 ```
 
-- **CONTENT**: Zeitlose Lerninhalte (Fach → Kapitel → Themen → Aufgaben)
-- **SLOT**: Wann gelernt wird (Datum + Position im Tag)
-- **BLOCK**: Visuelle Darstellung im Kalender mit Uhrzeiten
-- **1:n Beziehung**: 1 Content kann mehrere Slots belegen
+Siehe PRD.md §3.1 für vollständige Spezifikation inkl. Guard Rules und Edge Cases.
 
 ### State Management
 

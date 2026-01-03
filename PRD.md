@@ -43,72 +43,123 @@ PrepWell ist eine webbasierte Lernmanagement-Plattform für Jurastudierende zur 
 
 ## 3. Architektur
 
-### 3.1 Content-Slot-Block Modell
+### 3.1 SlotAllocation vs. TimeBlock - Strikte Trennung
+
+**Kernprinzip:** Slots und Blöcke sind zwei komplett getrennte Entitäten mit unterschiedlichen Datenmodellen. Sie werden NIEMALS gemischt.
+
+---
+
+#### Entity A: SlotAllocation (Monatsansicht)
+
+**Zweck:** Kapazitätsplanung auf Tagesebene - "Wie viel Zeit reserviere ich für welche Kategorie?"
 
 ```
-ZEITLICHE HIERARCHIE: Lernplan → Monat → Woche → Tag
-
-Pro Tag: bis zu 4 Slots
-08:00-10:00 │ 10:00-12:00 │ 14:00-16:00 │ 16:00-18:00
-
-CONTENT (Was)     →  SLOT (Wann)      →  BLOCK (Wie anzeigen)
-Zeitlose Inhalte     Datum + Position    UI-Komponente
+SlotAllocation {
+  id:           UUID
+  date:         DATE              // z.B. "2026-01-15"
+  kind:         ENUM              // theme | repetition | exam | private
+  size:         INT [1-4]         // Anzahl Slots an diesem Tag
+  content_id?:  UUID              // Optional: Verknüpfung zu Lerninhalt
+  source:       ENUM              // wizard | manual
+  // ❌ VERBOTEN: start_time, end_time, duration (NIEMALS Uhrzeiten!)
+}
 ```
 
-#### Slots vs. Blöcke: Ansichts-abhängige Unterscheidung
+**Anzeige:** Monatsansicht zeigt pro Tag farbige Balken/Segmente entsprechend der Slot-Größe.
 
-**Terminologie:**
-- **Slot** = Position-basierte Einheit (1-4 pro Tag), erstellt in Monatsansicht oder Wizard
-- **Block** = Zeit-basierte Einheit (mit Von-Bis Uhrzeiten), erstellt in Wochenansicht/Startseite
+---
 
-**Typen (gelten für beide):**
-| Typ | ID-Präfix | Beschreibung |
-|-----|-----------|--------------|
-| Lernblock/Lernslot | `lernblock`, `slot` | Thematisches Lernen |
-| Wiederholung | `repetition` | Wiederholungseinheiten |
-| Klausur | `exam` | Übungsklausuren |
-| Privat | `private` | Private Termine |
+#### Entity B: TimeBlock (Startseite/Wochenansicht)
 
-#### Datenfluss pro Ansicht
+**Zweck:** Zeitraum-basierte Planung - "Wann genau lerne ich was?"
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      MONATSANSICHT                              │
-│  ─────────────────────────────────────────────────────────────  │
-│  ZEIGT: Nur Slots (Position-basiert, keine Uhrzeiten)           │
-│  ERSTELLT: Slots mit Slot-Größe (1-4)                           │
-│  NICHT GEZEIGT: Private Blöcke, manuell erstellte Blöcke        │
-│                                                                  │
-│  Datenquelle: slotsByDate (CalendarContext)                     │
-│  Flag: isFromLernplan (true = aus Wizard, false = manuell)      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│               STARTSEITE / WOCHENANSICHT                        │
-│  ─────────────────────────────────────────────────────────────  │
-│  ZEIGT (Normal-Modus):                                          │
-│    - Private Blöcke (privateBlocksByDate)                       │
-│    - Manuell erstellte Blöcke (isFromLernplan !== true)         │
-│                                                                  │
-│  ZEIGT (Examen-Modus):                                          │
-│    - Private Blöcke im Zeitraster                               │
-│    - Manuell erstellte Blöcke im Zeitraster                     │
-│    - Lernplan-Slots in Header-Bar (blauer Balken oben)          │
-│                                                                  │
-│  ERSTELLT: Blöcke mit Uhrzeiten (Von-Bis)                       │
-│                                                                  │
-│  Datenquelle: slotsByDate + privateBlocksByDate                 │
-└─────────────────────────────────────────────────────────────────┘
+TimeBlock {
+  id:           UUID
+  start_at:     DATETIME          // z.B. "2026-01-15T09:00:00"
+  end_at:       DATETIME          // z.B. "2026-01-15T11:30:00"
+  kind:         ENUM              // theme | repetition | exam | private
+  title:        STRING
+  description?: STRING
+  repeat?:      RepeatConfig      // Für Serientermine
+  // ❌ VERBOTEN: slot_size, slot_position (NIEMALS Slot-Felder!)
+}
 ```
+
+**Anzeige:** Wochenansicht/Startseite zeigen Blöcke im Zeitraster mit exakten Uhrzeiten.
+
+---
+
+#### Entity C: SlotToBlockLink (Optional, für spätere Verbindungen)
+
+```
+SlotToBlockLink {
+  id:           UUID
+  slot_id:      UUID → SlotAllocation
+  block_id:     UUID → TimeBlock
+  created_at:   DATETIME
+}
+```
+
+**Hinweis:** Diese Verbindungstabelle ist optional und wird nur bei expliziter "Umwandlung" angelegt.
+
+---
+
+#### Guard Rules für KI und Validierung
+
+| # | Regel | Prüfung |
+|---|-------|---------|
+| 1 | View-Context prüfen | Vor Datenzugriff: "Bin ich in Monats- oder Wochenansicht?" |
+| 2 | Falsche Felder erkennen | Slot mit Uhrzeiten → STOP. Block mit slot_size → STOP. |
+| 3 | Eigene Aktionen validieren | Nach Code-Generierung: "Habe ich das richtige Entity verwendet?" |
+| 4 | Conversion = neue Objekt-Erstellung | Slot→Block erzeugt NEUEN Block, löscht NICHT den Slot |
+| 5 | Keine Live-Kopplung | Änderungen an Block aktualisieren NICHT den verlinkten Slot |
+
+**API-Validierung:**
+```javascript
+// Slot-Endpoint lehnt Uhrzeiten ab
+POST /slots { date, kind, size, start_time } → 400 Bad Request
+
+// Block-Endpoint lehnt slot_size ab
+POST /blocks { start_at, end_at, kind, slot_size } → 400 Bad Request
+```
+
+---
+
+#### Edge Cases und Workarounds
+
+| Case | Problem | Lösung |
+|------|---------|--------|
+| **EC-1** | User klickt Slot in Monatsansicht → will Uhrzeit eintragen | "Details bearbeiten" öffnet neues TimeBlock-Formular, Slot bleibt unverändert |
+| **EC-2** | Slot-Größe 2 = 4 Stunden → welche genau? | Default: 09:00-13:00 beim Umwandeln. User kann anpassen. |
+| **EC-3** | User löscht Block, der aus Slot entstanden ist | Block wird gelöscht. Link wird gelöscht. Slot bleibt bestehen. |
+| **EC-4** | User ändert Slot-Größe 2→3 nachträglich | Nur Slot-size ändern. Evtl. existierender Block bleibt unverändert (kein Auto-Resize). |
+| **EC-5** | Kalender-Export (iCal) | Nur TimeBlocks exportieren (haben echte Zeiten). Slots sind intern. |
+| **EC-6** | Statistik/Analytics | Beide separat auswerten: "Geplante Kapazität" (Slots) vs. "Tatsächlich geblockt" (Blocks) |
+| **EC-7** | Wizard erstellt "08:00-10:00" Vorgabe | Wizard erstellt primär Slots (size=1 pro 2h). Vorgabe-Zeiten sind Defaults für spätere Block-Erstellung. |
+| **EC-8** | Offline-Sync Konflikt Slot vs. Block | Getrennte Sync-Queues. Slot-Änderungen ≠ Block-Änderungen. Kein Cross-Entity-Merge. |
+
+---
 
 #### Dialog-Verhalten (mode-Prop)
 
-| Ansicht | Dialog-Mode | UI-Element | Gespeicherte Daten |
-|---------|-------------|------------|-------------------|
-| Monatsansicht | `mode="slot"` | Slot-Größe Selector (1-4) | `hasTime: false`, `blockSize: n` |
-| Wochenansicht | `mode="block"` | Uhrzeit-Inputs (Von-Bis) | `hasTime: true`, `startTime`, `endTime` |
-| Startseite | `mode="block"` | Uhrzeit-Inputs (Von-Bis) | `hasTime: true`, `startTime`, `endTime` |
+| Ansicht | Dialog-Mode | UI-Element | Entity | Gespeicherte Daten |
+|---------|-------------|------------|--------|-------------------|
+| Monatsansicht | `mode="slot"` | Slot-Größe Selector (1-4) | SlotAllocation | `date`, `kind`, `size` |
+| Wochenansicht | `mode="block"` | Uhrzeit-Inputs (Von-Bis) | TimeBlock | `start_at`, `end_at`, `kind` |
+| Startseite | `mode="block"` | Uhrzeit-Inputs (Von-Bis) | TimeBlock | `start_at`, `end_at`, `kind` |
+
+---
+
+#### Prompt-Pattern für KI-Aktionen
+
+```
+Vor jeder Kalender-Aktion prüfen:
+1. Welche View ist aktiv? → month | week | home
+2. month → SlotAllocation (date + kind + size, KEINE Uhrzeiten)
+3. week/home → TimeBlock (start_at + end_at, KEINE slot_size)
+4. Conversion explizit? → SlotToBlockLink + neuer Block
+```
 
 ### 3.2 State Management (React Context)
 
