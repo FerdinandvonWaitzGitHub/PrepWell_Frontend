@@ -55,6 +55,61 @@ CONTENT (Was)     →  SLOT (Wann)      →  BLOCK (Wie anzeigen)
 Zeitlose Inhalte     Datum + Position    UI-Komponente
 ```
 
+#### Slots vs. Blöcke: Ansichts-abhängige Unterscheidung
+
+**Terminologie:**
+- **Slot** = Position-basierte Einheit (1-4 pro Tag), erstellt in Monatsansicht oder Wizard
+- **Block** = Zeit-basierte Einheit (mit Von-Bis Uhrzeiten), erstellt in Wochenansicht/Startseite
+
+**Typen (gelten für beide):**
+| Typ | ID-Präfix | Beschreibung |
+|-----|-----------|--------------|
+| Lernblock/Lernslot | `lernblock`, `slot` | Thematisches Lernen |
+| Wiederholung | `repetition` | Wiederholungseinheiten |
+| Klausur | `exam` | Übungsklausuren |
+| Privat | `private` | Private Termine |
+
+#### Datenfluss pro Ansicht
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      MONATSANSICHT                              │
+│  ─────────────────────────────────────────────────────────────  │
+│  ZEIGT: Nur Slots (Position-basiert, keine Uhrzeiten)           │
+│  ERSTELLT: Slots mit Slot-Größe (1-4)                           │
+│  NICHT GEZEIGT: Private Blöcke, manuell erstellte Blöcke        │
+│                                                                  │
+│  Datenquelle: slotsByDate (CalendarContext)                     │
+│  Flag: isFromLernplan (true = aus Wizard, false = manuell)      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│               STARTSEITE / WOCHENANSICHT                        │
+│  ─────────────────────────────────────────────────────────────  │
+│  ZEIGT (Normal-Modus):                                          │
+│    - Private Blöcke (privateBlocksByDate)                       │
+│    - Manuell erstellte Blöcke (isFromLernplan !== true)         │
+│                                                                  │
+│  ZEIGT (Examen-Modus):                                          │
+│    - Private Blöcke im Zeitraster                               │
+│    - Manuell erstellte Blöcke im Zeitraster                     │
+│    - Lernplan-Slots in Header-Bar (blauer Balken oben)          │
+│                                                                  │
+│  ERSTELLT: Blöcke mit Uhrzeiten (Von-Bis)                       │
+│                                                                  │
+│  Datenquelle: slotsByDate + privateBlocksByDate                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Dialog-Verhalten (mode-Prop)
+
+| Ansicht | Dialog-Mode | UI-Element | Gespeicherte Daten |
+|---------|-------------|------------|-------------------|
+| Monatsansicht | `mode="slot"` | Slot-Größe Selector (1-4) | `hasTime: false`, `blockSize: n` |
+| Wochenansicht | `mode="block"` | Uhrzeit-Inputs (Von-Bis) | `hasTime: true`, `startTime`, `endTime` |
+| Startseite | `mode="block"` | Uhrzeit-Inputs (Von-Bis) | `hasTime: true`, `startTime`, `endTime` |
+
 ### 3.2 State Management (React Context)
 
 | Context | Beschreibung | Supabase-Sync |
