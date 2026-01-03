@@ -12,7 +12,7 @@
 
 ## 1. Produktbeschreibung
 
-PrepWell ist eine webbasierte Lernmanagement-Plattform für Jurastudierende zur strukturierten Vorbereitung auf das deutsche Staatsexamen.
+PrepWell ist eine webbasierte Lernmanagement-Plattform für Studierende zur strukturierten Prüfungsvorbereitung. Die App unterstützt 20 verschiedene Studiengänge mit dynamischen Bezeichnungen, wobei Jurastudierende zusätzliche Features für die Staatsexamensvorbereitung erhalten.
 
 ### Kernfunktionen
 - Personalisierte Lernpläne mit 10-Schritte-Wizard
@@ -21,6 +21,7 @@ PrepWell ist eine webbasierte Lernmanagement-Plattform für Jurastudierende zur 
 - Aufgabenverwaltung mit Block-Zuordnung
 - Statistik-Dashboard (Mentor)
 - Check-In System (Morgens/Abends)
+- **NEU:** Studiengang-Auswahl mit dynamischen Hierarchie-Bezeichnungen
 
 ---
 
@@ -168,6 +169,7 @@ Vor jeder Kalender-Aktion prüfen:
 | `CalendarProvider` | Slots, Tasks, Private Blocks, ContentPlans | Ja |
 | `TimerProvider` | Timer-Zustand, Sessions | Ja (History) |
 | `AuthProvider` | Authentifizierung | Ja |
+| `StudiengangProvider` | Studiengang & Hierarchie-Labels | Lokal |
 | `AppModeProvider` | Examen vs Normal Modus | Lokal |
 | `MentorProvider` | Mentor-Aktivierung | Ja |
 | `CheckInProvider` | Check-In Responses | Ja |
@@ -175,7 +177,74 @@ Vor jeder Kalender-Aktion prüfen:
 | `UebungsklausurenProvider` | Klausuren (Examen) | Ja |
 | `OnboardingProvider` | Onboarding-Status | Lokal |
 
-### 3.3 Persistenz-Strategie
+### 3.3 Studiengang-System & Dynamische Hierarchie-Bezeichnungen
+
+**Kernkonzept:** Die App-Bezeichnungen passen sich dynamisch an den gewählten Studiengang an.
+
+#### Unterstützte Studiengänge (20)
+
+| Kategorie | Studiengänge |
+|-----------|--------------|
+| Recht | Rechtswissenschaften (Jura) |
+| Medizin | Medizin, Zahnmedizin, Pharmazie |
+| Sozialwiss. | Psychologie, BWL, VWL |
+| Informatik | Informatik, Wirtschaftsinformatik |
+| Ingenieur | Maschinenbau, Elektrotechnik, Bauingenieurwesen, Architektur |
+| Naturwiss. | Physik, Chemie, Biologie, Mathematik |
+| Geisteswiss. | Germanistik, Geschichte |
+| Pädagogik | Lehramt |
+
+#### Hierarchie-Struktur
+
+| Ebene | Jura (5-stufig) | Andere Studiengänge (4-stufig) |
+|-------|-----------------|-------------------------------|
+| Level 1 | Rechtsgebiet | Fach |
+| Level 2 | Unterrechtsgebiet | Kapitel |
+| Level 3 | Kapitel (optional) | Thema |
+| Level 4 | Thema | Aufgabe |
+| Level 5 | Aufgabe | - |
+
+**Hinweis:** Die Kapitel-Ebene (Level 3) ist nur für Jura-Studierende verfügbar und kann in den Einstellungen aktiviert/deaktiviert werden.
+
+#### Implementierung
+
+```javascript
+// src/data/studiengaenge.js
+export const JURA_HIERARCHY = {
+  level1: 'Rechtsgebiet', level1Plural: 'Rechtsgebiete',
+  level2: 'Unterrechtsgebiet', level2Plural: 'Unterrechtsgebiete',
+  level3: 'Kapitel', level3Plural: 'Kapitel',
+  level4: 'Thema', level4Plural: 'Themen',
+  level5: 'Aufgabe', level5Plural: 'Aufgaben',
+};
+
+export const DEFAULT_HIERARCHY = {
+  level1: 'Fach', level1Plural: 'Fächer',
+  level2: 'Kapitel', level2Plural: 'Kapitel',
+  level3: 'Thema', level3Plural: 'Themen',
+  level4: 'Aufgabe', level4Plural: 'Aufgaben',
+};
+
+// Hook-Verwendung in Komponenten:
+const { level1, level2, level3, level4, isJura } = useHierarchyLabels();
+```
+
+#### Dateien
+
+| Datei | Zweck |
+|-------|-------|
+| `src/data/studiengaenge.js` | Studiengänge-Daten & Hierarchie-Definitionen |
+| `src/contexts/studiengang-context.jsx` | React Context für Studiengang-State |
+| `src/hooks/use-hierarchy-labels.js` | Hook für einfachen Label-Zugriff |
+
+#### Onboarding-Flow
+
+1. Neuer Benutzer startet Onboarding
+2. Nach Feature-Tour → Weiterleitung zu `/einstellungen?setup=studiengang`
+3. Info-Banner zeigt "Studiengang auswählen"
+4. Nach Auswahl: Normale App-Nutzung mit angepassten Labels
+
+### 3.4 Persistenz-Strategie
 
 ```
 Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
@@ -197,7 +266,7 @@ Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
 | `/kalender/monat` | Monatsansicht | Übersichtskalender |
 | `/verwaltung/leistungen` | Leistungen | Klausuren & Noten |
 | `/verwaltung/aufgaben` | Aufgaben | Aufgabenverwaltung |
-| `/einstellungen` | Einstellungen | App-Konfiguration |
+| `/einstellungen` | Einstellungen | App-Konfiguration (inkl. Studiengang-Auswahl) |
 | `/mentor` | Mentor | Statistik-Dashboard |
 | `/profil` | Profil | Benutzerprofil |
 
@@ -346,10 +415,18 @@ src/
 ├── features/           # Feature-Module
 │   ├── calendar/       # Kalender-Feature
 │   └── lernplan-wizard/# Wizard-Feature
-├── contexts/           # 10+ React Contexts
-├── hooks/              # Custom Hooks (inkl. Supabase-Sync)
+├── contexts/           # 11+ React Contexts
+│   ├── studiengang-context.jsx  # NEU: Studiengang & Labels
+│   └── ...
+├── hooks/              # Custom Hooks
+│   ├── use-supabase-sync.js     # Supabase-Sync
+│   ├── use-hierarchy-labels.js  # NEU: Dynamische Labels
+│   └── ...
 ├── services/           # API-Services
-├── data/               # Statische Daten (Rechtsgebiete)
+├── data/               # Statische Daten
+│   ├── unterrechtsgebiete-data.js  # Rechtsgebiete
+│   ├── studiengaenge.js            # NEU: 20 Studiengänge
+│   └── ...
 └── utils/              # Hilfsfunktionen
 ```
 
@@ -357,13 +434,29 @@ src/
 
 ## 8. Design System
 
-### Farben (Rechtsgebiete)
-| Rechtsgebiet | Farbe |
-|--------------|-------|
-| Öffentliches Recht | Grün (#10B981) |
-| Zivilrecht | Blau (#3B82F6) |
-| Strafrecht | Rot (#EF4444) |
-| Querschnittsrecht | Violett (#8B5CF6) |
+### Farben (Rechtsgebiete/Fächer)
+| Rechtsgebiet (Jura) / Fach (Andere) | Farbe |
+|-------------------------------------|-------|
+| Öffentliches Recht / Fach 1 | Grün (#10B981) |
+| Zivilrecht / Fach 2 | Blau (#3B82F6) |
+| Strafrecht / Fach 3 | Rot (#EF4444) |
+| Querschnittsrecht / Fach 4 | Violett (#8B5CF6) |
+
+### Dynamische Bezeichnungen
+
+Die UI-Texte werden über den `useHierarchyLabels()` Hook dynamisch generiert:
+
+```jsx
+// Beispiel: Button-Text
+<button>+ {level1}</button>
+// Jura: "+ Rechtsgebiet"
+// BWL:  "+ Fach"
+
+// Beispiel: Überschrift
+<h4>{level2Plural} & Inhalte</h4>
+// Jura: "Unterrechtsgebiete & Inhalte"
+// BWL:  "Kapitel & Inhalte"
+```
 
 ### Typografie
 - **Font:** DM Sans
