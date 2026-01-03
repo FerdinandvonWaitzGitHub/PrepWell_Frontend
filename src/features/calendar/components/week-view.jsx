@@ -11,6 +11,7 @@ import ManageRepetitionBlockDialog from './manage-repetition-block-dialog';
 import ManageExamBlockDialog from './manage-exam-block-dialog';
 import ManagePrivateBlockDialog from './manage-private-block-dialog';
 import { useCalendar } from '../../../contexts/calendar-context';
+import { useAppMode } from '../../../contexts/appmode-context';
 import { slotsToLearningBlocks } from '../../../utils/slotUtils';
 
 /**
@@ -22,6 +23,11 @@ import { slotsToLearningBlocks } from '../../../utils/slotUtils';
  */
 const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const [currentDate, setCurrentDate] = useState(initialDate);
+
+  // BUG-023 FIX: Get app mode to control slot visibility
+  // In Normal mode: Hide Lernplan slots (only show private blocks)
+  // In Exam mode: Show Lernplan slots in header bar
+  const { isExamMode } = useAppMode();
 
   // Get data from CalendarContext (Single Source of Truth)
   const {
@@ -92,9 +98,13 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   };
 
   // Transform CalendarContext slots to week view format
-  const blocks = useMemo(() => {
+  // BUG-023 FIX: Filter Lernplan slots based on app mode
+  // - Normal mode: Only show manually-created blocks (not isFromLernplan)
+  // - Exam mode: Show all blocks, with Lernplan slots going to header bar
+  const { blocks, lernplanSlots } = useMemo(() => {
     const { monday, sunday } = getWeekDateRange(currentDate);
     const weekBlocks = [];
+    const weekLernplanSlots = []; // For Exam mode header bar
 
     // Iterate through each day of the week
     for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
@@ -111,13 +121,22 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
 
         // Find the original slot to get position and other data (supports both contentId and topicId)
         const originalSlot = findSlotById(daySlots, block.id);
+
+        // BUG-023 FIX: Check if this slot is from Lernplan wizard
+        const isFromLernplan = originalSlot?.isFromLernplan === true;
+
+        // In Normal mode, skip Lernplan slots entirely
+        if (!isExamMode && isFromLernplan) {
+          return; // Don't show Lernplan slots in Normal mode
+        }
+
         const position = originalSlot?.position || 1;
         // Use slot's time settings if available, otherwise use position-based defaults
         const defaultTimes = getTimeForPosition(position);
         const startTime = originalSlot?.startTime || defaultTimes.startTime;
         const endTime = originalSlot?.endTime || defaultTimes.endTime;
 
-        weekBlocks.push({
+        const blockData = {
           id: block.id,
           contentId: block.contentId || originalSlot?.contentId,
           topicId: block.topicId || originalSlot?.topicId,
@@ -142,12 +161,22 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
           customDays: originalSlot?.customDays,
           // Tasks from slot
           tasks: originalSlot?.tasks || [],
-        });
+          // BUG-023 FIX: Track if from Lernplan
+          isFromLernplan,
+          position, // Include position for header bar display
+        };
+
+        // BUG-023 FIX: In Exam mode, Lernplan slots go to header bar, not time grid
+        if (isExamMode && isFromLernplan) {
+          weekLernplanSlots.push(blockData);
+        } else {
+          weekBlocks.push(blockData);
+        }
       });
     }
 
-    return weekBlocks;
-  }, [currentDate, visibleSlotsByDate]);
+    return { blocks: weekBlocks, lernplanSlots: weekLernplanSlots };
+  }, [currentDate, visibleSlotsByDate, isExamMode]);
 
   // Transform CalendarContext private blocks to week view format
   // BUG-012 FIX: Include multi-day blocks that span into the current week
@@ -564,6 +593,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         currentDate={currentDate}
         blocks={blocks}
         privateBlocks={privateBlocks}
+        lernplanSlots={lernplanSlots}
         onBlockClick={handleBlockClick}
         onSlotClick={handleSlotClick}
       />

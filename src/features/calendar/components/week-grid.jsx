@@ -44,6 +44,7 @@ const WeekGrid = ({
   currentDate = new Date(),
   blocks = [],
   privateBlocks = [],
+  lernplanSlots = [], // BUG-023 FIX: Lernplan slots for Exam mode header bar
   onBlockClick,
   onSlotClick,
   className = ''
@@ -195,6 +196,26 @@ const WeekGrid = ({
     const weekEndKey = formatDateKey(weekDates[6]);
     return block.startDate <= weekEndKey && block.endDate >= weekStartKey;
   });
+
+  // BUG-023 FIX: Group Lernplan slots by date for header bar display
+  const lernplanSlotsByDate = useMemo(() => {
+    const byDate = {};
+    lernplanSlots.forEach(slot => {
+      const dateKey = slot.startDate;
+      if (!byDate[dateKey]) {
+        byDate[dateKey] = [];
+      }
+      byDate[dateKey].push(slot);
+    });
+    // Sort slots within each date by position
+    Object.values(byDate).forEach(slots => {
+      slots.sort((a, b) => (a.position || 1) - (b.position || 1));
+    });
+    return byDate;
+  }, [lernplanSlots]);
+
+  // Check if there are any Lernplan slots in current week
+  const hasLernplanSlots = lernplanSlots.length > 0;
 
   // Group multi-day blocks by row (for stacking)
   const multiDayRows = useMemo(() => {
@@ -353,6 +374,47 @@ const WeekGrid = ({
                     className="border-r border-t border-neutral-200 last:border-r-0 font-normal bg-white"
                   />
                 ))}
+              </tr>
+            )}
+
+            {/* BUG-023 FIX: Lernplan slots header bar (Exam mode only) */}
+            {hasLernplanSlots && (
+              <tr className="h-10 bg-blue-50 border-b border-blue-200">
+                {/* Label cell */}
+                <th className="align-middle border-r border-blue-200 bg-blue-50 px-1">
+                  <span className="text-xs text-blue-600 font-medium">Lernplan</span>
+                </th>
+
+                {/* Lernplan slot cells for each day */}
+                {weekDates.map((date, dayIndex) => {
+                  const dateKey = formatDateKey(date);
+                  const slotsForDay = lernplanSlotsByDate[dateKey] || [];
+
+                  return (
+                    <th
+                      key={`lernplan-${dayIndex}`}
+                      className="border-r border-blue-100 last:border-r-0 p-1 font-normal bg-blue-50"
+                    >
+                      <div className="flex gap-1 flex-wrap">
+                        {slotsForDay.map((slot) => {
+                          const colorClass = BLOCK_COLORS[slot.blockType] || BLOCK_COLORS.lernblock;
+                          return (
+                            <button
+                              key={slot.id}
+                              onClick={() => onBlockClick && onBlockClick(slot, date)}
+                              className={`flex-1 min-w-0 h-7 rounded border px-1.5 text-left overflow-hidden cursor-pointer transition-colors ${colorClass}`}
+                              title={`${slot.title} (${slot.startTime}-${slot.endTime})`}
+                            >
+                              <div className="text-xs font-medium text-neutral-900 truncate">
+                                {slot.title}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             )}
           </thead>

@@ -72,6 +72,7 @@ const DashboardPage = () => {
     dateString,
     currentLernblock: _currentLernblock,
     todaySlots,
+    todayPrivateBlocks, // BUG-023 FIX: Private blocks only (for ZeitplanWidget)
     aufgaben,
     dayProgress,
     loading: _loading,
@@ -508,18 +509,10 @@ const DashboardPage = () => {
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);
 
-  // Transform todaySlots to topics for LernblockWidget
-  // Only include "real" Lernplan slots (isFromLernplan: true) for left side override
-  const topics = todaySlots
-    .filter(slot => slot.isFromLernplan === true)
-    .map(slot => ({
-      id: slot.id,
-      title: slot.title,
-      description: slot.description,
-      rechtsgebiet: slot.rechtsgebiet || slot.blockType,
-      unterrechtsgebiet: slot.unterrechtsgebiet,
-      blockType: slot.blockType,
-    }));
+  // BUG-023 FIX: Dashboard shows only Private Blocks, no Lernplan content
+  // Topics from Lernplan are not shown on Dashboard (only in Week view in Exam mode)
+  const topics = [];
+  void todaySlots; // todaySlots is no longer used on Dashboard
 
   // BUG-022 FIX: Calculate daily learning goal with proper priority:
   // 1. User-defined setting from Settings page (dailyGoalHours)
@@ -596,13 +589,43 @@ const DashboardPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerHistory, isActive, elapsedSeconds, progressUpdateTick]);
 
+  // BUG-023 FIX: Transform private blocks to ZeitplanWidget format
+  // Dashboard shows ONLY private blocks (not Lernplan slots)
+  const privateBlocksForWidget = useMemo(() => {
+    return todayPrivateBlocks.map(block => {
+      // Parse startTime and endTime (format: "HH:MM")
+      const [startH, startM] = (block.startTime || '08:00').split(':').map(Number);
+      const [endH, endM] = (block.endTime || '10:00').split(':').map(Number);
+      const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+      const durationHours = durationMinutes / 60;
+
+      return {
+        id: block.id,
+        startHour: startH + (startM / 60), // e.g., 9.5 for 9:30
+        duration: durationHours,
+        title: block.title || 'Privater Termin',
+        description: block.description || '',
+        blockType: 'private',
+        isBlocked: false,
+        startTime: block.startTime,
+        endTime: block.endTime,
+        // For multi-day detection
+        isMultiDay: block.isMultiDay || false,
+        startDate: block.startDate,
+        endDate: block.endDate,
+      };
+    });
+  }, [todayPrivateBlocks]);
+
   const zeitplanData = {
-    completedBlocks: todaySlots.filter(s => s.isBlocked).length,
-    totalBlocks: todaySlots.length,
+    completedBlocks: 0, // Private blocks don't have "completed" status
+    totalBlocks: privateBlocksForWidget.length,
     currentHour: new Date().getHours(),
     progress: dayProgress.percentage,
-    plannedLabel: `${todaySlots.length * 2}h geplant`,
-    blocks: todaySlots,
+    plannedLabel: privateBlocksForWidget.length > 0
+      ? `${privateBlocksForWidget.length} Termin${privateBlocksForWidget.length > 1 ? 'e' : ''}`
+      : '',
+    blocks: privateBlocksForWidget,
   };
 
   return (
