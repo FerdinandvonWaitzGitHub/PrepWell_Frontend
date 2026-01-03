@@ -351,7 +351,7 @@ const PomodoroTimerView = () => {
 /**
  * Countdown Timer View - Similar layout to Pomodoro
  */
-const CountdownTimerView = ({ dailyLearningGoalMinutes = 480 }) => {
+const CountdownTimerView = ({ dailyLearningGoalMinutes = 0 }) => {
   const {
     remainingSeconds,
     isPaused,
@@ -425,7 +425,7 @@ const CountdownTimerView = ({ dailyLearningGoalMinutes = 480 }) => {
 /**
  * Countup (Stoppuhr) Timer View
  */
-const CountupTimerView = ({ dailyLearningGoalMinutes = 480 }) => {
+const CountupTimerView = ({ dailyLearningGoalMinutes = 0 }) => {
   const {
     elapsedSeconds,
     isPaused,
@@ -568,7 +568,7 @@ const ConfiguredIdleState = ({ onStart, timerConfig }) => {
 /**
  * TimerMainDialog - Main unified timer dialog matching Figma design
  */
-const TimerMainDialog = ({ open, onOpenChange, onSettingsClick, dailyLearningGoalMinutes = 480 }) => {
+const TimerMainDialog = ({ open, onOpenChange, onSettingsClick, dailyLearningGoalMinutes = 0 }) => {
   const { timerType, isActive, stopTimer: _stopTimer, isConfigured, timerConfig, startFromConfig } = useTimer();
   void _stopTimer; // Reserved for future use
   const [showLogbuch, setShowLogbuch] = useState(false);

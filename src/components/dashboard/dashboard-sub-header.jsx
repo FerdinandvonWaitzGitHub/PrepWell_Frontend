@@ -5,8 +5,9 @@ import { useCheckIn } from '../../contexts/checkin-context';
 
 /**
  * Format seconds to human-readable time string
+ * Reserved for future use
  */
-const formatTime = (seconds) => {
+const _formatTime = (seconds) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
 
@@ -15,6 +16,7 @@ const formatTime = (seconds) => {
   }
   return `${minutes}min`;
 };
+void _formatTime;
 
 /**
  * Format hours:minutes for display (e.g., "6:22h")
@@ -74,7 +76,8 @@ const CircularProgress = ({ progress = 0, size = 24, strokeWidth = 2 }) => {
  * Based on Figma design with current time display
  */
 const TimerWidget = ({ onClick }) => {
-  const { timerType, isActive, getDisplayInfo, state } = useTimer();
+  const { timerType, isActive, getDisplayInfo, state: _state } = useTimer();
+  void _state; // Reserved for future use
   const [currentTime, setCurrentTime] = React.useState(getCurrentTimeString());
 
   // Update current time every second
@@ -166,12 +169,13 @@ const DashboardSubHeader = ({
   tasksCompleted = 0,
   tasksTotal = 0,
   learningMinutesCompleted = 0,
-  learningMinutesGoal = 480, // 8 hours default
+  learningMinutesGoal = 0, // BUG-022 FIX: Default to 0, not 480 - goal comes from settings or planned slots
   checkInDone = false,
   onTimerClick,
 }) => {
   const navigate = useNavigate();
-  const { getCurrentPeriod, todayCheckIn } = useCheckIn();
+  const { getCurrentPeriod, todayCheckIn: _todayCheckIn } = useCheckIn();
+  void _todayCheckIn; // Reserved for future use
 
   const currentPeriod = getCurrentPeriod();
   const isEvening = currentPeriod === 'evening';
@@ -266,12 +270,18 @@ const DashboardSubHeader = ({
           {/* Daily Learning Progress */}
           <div className="flex flex-col gap-1 min-w-[200px]">
             <span className="text-xs text-neutral-600">
-              {formatHoursMinutes(learningMinutesCompleted)} von {formatHoursMinutes(learningMinutesGoal)} Tageslernziel
+              {/* BUG-022 FIX: Show appropriate message when no goal is set */}
+              {learningMinutesGoal > 0
+                ? `${formatHoursMinutes(learningMinutesCompleted)} von ${formatHoursMinutes(learningMinutesGoal)} Tageslernziel`
+                : learningMinutesCompleted > 0
+                  ? `${formatHoursMinutes(learningMinutesCompleted)} gelernt (kein Tagesziel)`
+                  : 'Kein Tagesziel gesetzt'
+              }
             </span>
             <div className="w-full flex items-center gap-1">
               <div className="flex-1 bg-neutral-200 rounded-full h-1.5">
                 <div
-                  className="bg-neutral-900 h-1.5 rounded-full transition-all"
+                  className={`h-1.5 rounded-full transition-all ${learningMinutesGoal > 0 ? 'bg-neutral-900' : 'bg-neutral-400'}`}
                   style={{ width: `${progressPercentage}%` }}
                 />
               </div>

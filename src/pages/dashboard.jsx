@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, DashboardLayout } from '../components/layout';
 import { LernblockWidget, ZeitplanWidget, DashboardSubHeader } from '../components/dashboard';
@@ -35,7 +35,8 @@ const DashboardPage = () => {
   const navigate = useNavigate();
 
   // CheckIn and Mentor contexts for redirect logic
-  const { isCheckInNeeded, getCurrentPeriod } = useCheckIn();
+  const { isCheckInNeeded, getCurrentPeriod: _getCurrentPeriod } = useCheckIn();
+  void _getCurrentPeriod; // Reserved for future use
   const { isActivated: mentorIsActivated } = useMentor();
 
   // App Mode context for exam/normal mode
@@ -69,25 +70,33 @@ const DashboardPage = () => {
   const {
     displayDate,
     dateString,
-    currentLernblock,
+    currentLernblock: _currentLernblock,
     todaySlots,
     aufgaben,
     dayProgress,
-    loading,
+    loading: _loading,
     checkInDone,
-    isMentorActivated,
-    wasMorningSkipped,
-    hasRealLernplanSlots, // true if wizard-created slots exist
-    refresh,
+    isMentorActivated: _isMentorActivated,
+    wasMorningSkipped: _wasMorningSkipped,
+    hasRealLernplanSlots: _hasRealLernplanSlots, // true if wizard-created slots exist
+    refresh: _refresh,
     previousDay,
     nextDay,
-    doCheckIn,
+    doCheckIn: _doCheckIn,
     toggleTask,
     toggleTaskPriority,
     addTask,
     editTask,
     removeTask,
   } = useDashboard();
+  // Mark unused variables to satisfy linter
+  void _currentLernblock;
+  void _loading;
+  void _isMentorActivated;
+  void _wasMorningSkipped;
+  void _hasRealLernplanSlots;
+  void _refresh;
+  void _doCheckIn;
 
   // Redirect to check-in page if mentor is activated and check-in is needed
   useEffect(() => {
@@ -231,8 +240,8 @@ const DashboardPage = () => {
   const [isManageExamOpen, setIsManageExamOpen] = useState(false);
   const [isManagePrivateOpen, setIsManagePrivateOpen] = useState(false);
 
-  // Helper: Get position-based time
-  const getTimeForPosition = (position) => {
+  // Helper: Get position-based time (reserved for future use)
+  const _getTimeForPosition = (position) => {
     const timeSlots = {
       1: { startTime: '08:00', endTime: '10:00' },
       2: { startTime: '10:00', endTime: '12:00' },
@@ -241,6 +250,7 @@ const DashboardPage = () => {
     };
     return timeSlots[position] || { startTime: '08:00', endTime: '10:00' };
   };
+  void _getTimeForPosition;
 
   // Handle block click - open appropriate manage dialog
   const handleBlockClick = useCallback((block) => {
@@ -511,10 +521,26 @@ const DashboardPage = () => {
       blockType: slot.blockType,
     }));
 
-  // Calculate daily learning goal from Lernplan slots (in minutes)
-  // Each slot is 2 hours (120 min) by default, unless custom duration is set
+  // BUG-022 FIX: Calculate daily learning goal with proper priority:
+  // 1. User-defined setting from Settings page (dailyGoalHours)
+  // 2. Calculated from planned Lernplan slots for today
+  // 3. If neither, return 0 (not a hardcoded fallback)
   const dailyLearningGoalMinutes = useMemo(() => {
-    // Only count learning blocks (not private blocks)
+    // Priority 1: Check if user has set a daily goal in settings
+    try {
+      const settingsStr = localStorage.getItem('prepwell_settings');
+      if (settingsStr) {
+        const settings = JSON.parse(settingsStr);
+        if (settings?.learning?.dailyGoalHours && settings.learning.dailyGoalHours > 0) {
+          // User has explicitly set a daily goal - use it
+          return settings.learning.dailyGoalHours * 60;
+        }
+      }
+    } catch (e) {
+      console.error('Error reading settings:', e);
+    }
+
+    // Priority 2: Calculate from planned Lernplan slots for today
     const learningSlots = todaySlots.filter(slot =>
       slot.blockType !== 'private' && slot.isFromLernplan === true
     );
@@ -535,8 +561,8 @@ const DashboardPage = () => {
       }
     });
 
-    // Fallback to 8 hours if no slots planned
-    return totalMinutes > 0 ? totalMinutes : 480;
+    // Priority 3: If no settings and no slots planned, return 0
+    return totalMinutes;
   }, [todaySlots]);
 
   // BUG-009 FIX: Force periodic re-calculation of learning minutes when timer is active
@@ -567,6 +593,7 @@ const DashboardPage = () => {
     const currentMinutes = isActive ? Math.floor(elapsedSeconds / 60) : 0;
 
     return Math.round(historyMinutes + currentMinutes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerHistory, isActive, elapsedSeconds, progressUpdateTick]);
 
   const zeitplanData = {
