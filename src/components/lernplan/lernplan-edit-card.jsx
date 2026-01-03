@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDownIcon, PlusIcon } from '../ui';
 import { useUnterrechtsgebiete } from '../../contexts/unterrechtsgebiete-context';
+import { useHierarchyLabels } from '../../hooks/use-hierarchy-labels';
 
 // Rechtsgebiete options
 const RECHTSGEBIETE = [
@@ -35,6 +36,13 @@ const LernplanEditCard = ({
   isNew = false
 }) => {
   const { addUnterrechtsgebiet, getUnterrechtsgebieteByRechtsgebiet } = useUnterrechtsgebiete();
+  const { level1, level2, level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura } = useHierarchyLabels();
+
+  // Determine labels based on Jura vs non-Jura
+  const themaLabel = isJura ? level4 : level3;
+  const themaPluralLabel = isJura ? level4Plural : level3Plural;
+  const aufgabeLabel = isJura ? level5 : level4;
+  const aufgabePluralLabel = isJura ? level5Plural : level4Plural;
 
   // Local editing state
   const [localData, setLocalData] = useState(lernplan);
@@ -348,7 +356,7 @@ const LernplanEditCard = ({
 
             {/* Rechtsgebiet */}
             <div className="relative">
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Rechtsgebiet</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">{level1}</label>
               <button
                 onClick={() => setShowRechtsgebietDropdown(!showRechtsgebietDropdown)}
                 className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50"
@@ -422,7 +430,7 @@ const LernplanEditCard = ({
           {localData.rechtsgebiet && (
             <div className="grid grid-cols-4 gap-4 mb-4">
               <div className="relative col-span-2">
-                <label className="block text-xs font-medium text-neutral-500 mb-1">Unterrechtsgebiet (Fach)</label>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">{level2}</label>
                 <button
                   onClick={() => setShowUnterrechtsgebietDropdown(!showUnterrechtsgebietDropdown)}
                   className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50"
@@ -430,7 +438,7 @@ const LernplanEditCard = ({
                   <span className={localData.unterrechtsgebiet ? 'text-neutral-900' : 'text-neutral-400'}>
                     {localData.unterrechtsgebiet
                       ? availableUnterrechtsgebiete.find(u => u.id === localData.unterrechtsgebiet)?.name
-                      : 'Fach auswählen'
+                      : `${level2} auswählen`
                     }
                   </span>
                   <ChevronDownIcon size={14} className="text-neutral-400" />
@@ -452,7 +460,7 @@ const LernplanEditCard = ({
                       </button>
                     ))}
                     {availableUnterrechtsgebiete.length === 0 && (
-                      <div className="px-3 py-2 text-sm text-neutral-400">Keine Fächer</div>
+                      <div className="px-3 py-2 text-sm text-neutral-400">Keine verfügbar</div>
                     )}
                     <div className="border-t border-neutral-100">
                       <button
@@ -463,7 +471,7 @@ const LernplanEditCard = ({
                         className="w-full px-3 py-2 text-left text-sm text-primary-600 hover:bg-primary-50 flex items-center gap-2"
                       >
                         <PlusIcon size={12} />
-                        Neues Fach erstellen
+                        {level2} erstellen
                       </button>
                     </div>
                   </div>
@@ -488,24 +496,24 @@ const LernplanEditCard = ({
           {/* Chapters Section */}
           <div className="border-t border-neutral-200 pt-4 mt-2">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-neutral-700">Kapitel & Themen</h4>
+              <h4 className="text-sm font-medium text-neutral-700">{level3Plural} & {themaPluralLabel}</h4>
               <button
                 onClick={addChapter}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded transition-colors"
               >
                 <PlusIcon size={12} />
-                Kapitel
+                {level3}
               </button>
             </div>
 
             {(!localData.chapters || localData.chapters.length === 0) ? (
               <div className="text-center py-6 bg-white rounded-lg border border-dashed border-neutral-300">
-                <p className="text-sm text-neutral-400 mb-2">Noch keine Kapitel</p>
+                <p className="text-sm text-neutral-400 mb-2">Noch keine {level3Plural}</p>
                 <button
                   onClick={addChapter}
                   className="text-sm text-primary-600 hover:text-primary-700"
                 >
-                  Erstes Kapitel hinzufügen
+                  {level3} hinzufügen
                 </button>
               </div>
             ) : (
@@ -526,6 +534,7 @@ const LernplanEditCard = ({
                     onAddTask={(themeId) => addTask(chapter.id, themeId)}
                     onUpdateTask={(themeId, taskId, updates) => updateTask(chapter.id, themeId, taskId, updates)}
                     onDeleteTask={(themeId, taskId) => deleteTask(chapter.id, themeId, taskId)}
+                    hierarchyLabels={{ themaLabel, themaPluralLabel, aufgabeLabel, aufgabePluralLabel }}
                   />
                 ))}
               </div>
@@ -539,7 +548,7 @@ const LernplanEditCard = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/30" onClick={() => setShowNewUnterrechtsgebietPopup(false)} />
           <div className="relative z-10 bg-white rounded-lg shadow-xl p-4 w-80">
-            <h4 className="text-sm font-medium text-neutral-900 mb-3">Neues Unterrechtsgebiet</h4>
+            <h4 className="text-sm font-medium text-neutral-900 mb-3">{level2} erstellen</h4>
             <input
               type="text"
               value={newUnterrechtsgebietName}
@@ -590,8 +599,11 @@ const ChapterSection = ({
   onDeleteTheme,
   onAddTask,
   onUpdateTask,
-  onDeleteTask
+  onDeleteTask,
+  hierarchyLabels
 }) => {
+  const { themaLabel, themaPluralLabel, aufgabeLabel, aufgabePluralLabel } = hierarchyLabels;
+
   return (
     <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
       {/* Chapter Header */}
@@ -635,18 +647,19 @@ const ChapterSection = ({
                   onAddTask={() => onAddTask(theme.id)}
                   onUpdateTask={(taskId, updates) => onUpdateTask(theme.id, taskId, updates)}
                   onDeleteTask={(taskId) => onDeleteTask(theme.id, taskId)}
+                  hierarchyLabels={{ aufgabeLabel, aufgabePluralLabel }}
                 />
               ))}
             </div>
           ) : (
-            <p className="text-xs text-neutral-400 py-2 pl-4">Keine Themen</p>
+            <p className="text-xs text-neutral-400 py-2 pl-4">Keine {themaPluralLabel}</p>
           )}
           <button
             onClick={onAddTheme}
             className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded ml-4"
           >
             <PlusIcon size={10} />
-            Thema
+            {themaLabel}
           </button>
         </div>
       )}
@@ -665,8 +678,11 @@ const ThemeSection = ({
   onDelete,
   onAddTask,
   onUpdateTask,
-  onDeleteTask
+  onDeleteTask,
+  hierarchyLabels
 }) => {
+  const { aufgabeLabel, aufgabePluralLabel } = hierarchyLabels;
+
   return (
     <div className="ml-4 border-l-2 border-neutral-200 pl-3">
       {/* Theme Header */}
@@ -701,20 +717,21 @@ const ThemeSection = ({
                 <TaskItem
                   key={task.id}
                   task={task}
+                  aufgabeLabel={aufgabeLabel}
                   onUpdate={(updates) => onUpdateTask(task.id, updates)}
                   onDelete={() => onDeleteTask(task.id)}
                 />
               ))}
             </div>
           ) : (
-            <p className="text-xs text-neutral-400 py-1">Keine Aufgaben</p>
+            <p className="text-xs text-neutral-400 py-1">Keine {aufgabePluralLabel}</p>
           )}
           <button
             onClick={onAddTask}
             className="flex items-center gap-1 px-1.5 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded mt-1"
           >
             <PlusIcon size={10} />
-            Aufgabe
+            {aufgabeLabel}
           </button>
         </div>
       )}
@@ -725,7 +742,7 @@ const ThemeSection = ({
 /**
  * TaskItem - Single task with checkbox
  */
-const TaskItem = ({ task, onUpdate, onDelete }) => {
+const TaskItem = ({ task, aufgabeLabel, onUpdate, onDelete }) => {
   return (
     <div className="flex items-center gap-2 py-0.5 group">
       <input
@@ -738,7 +755,7 @@ const TaskItem = ({ task, onUpdate, onDelete }) => {
         type="text"
         value={task.title}
         onChange={(e) => onUpdate({ title: e.target.value })}
-        placeholder="Aufgabe eingeben..."
+        placeholder={`${aufgabeLabel} eingeben...`}
         className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
           task.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'
         }`}

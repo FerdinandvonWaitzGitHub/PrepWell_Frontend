@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronDownIcon, PlusIcon } from '../ui';
 import { useCalendar } from '../../contexts/calendar-context';
 import { useUnterrechtsgebiete } from '../../contexts/unterrechtsgebiete-context';
+import { useHierarchyLabels } from '../../hooks/use-hierarchy-labels';
 import UnterrechtsgebietPicker from './unterrechtsgebiet-picker';
 
 /**
@@ -38,7 +39,8 @@ const ContentPlanEditCard = ({
     unpublishThemenliste,
   } = useCalendar();
 
-  const { RECHTSGEBIET_LABELS, RECHTSGEBIET_COLORS } = useUnterrechtsgebiete();
+  const { RECHTSGEBIET_LABELS } = useUnterrechtsgebiete();
+  const { level1, level1Plural, level2, level2Plural, level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura } = useHierarchyLabels();
 
   // UI State
   const [expandedRechtsgebiete, setExpandedRechtsgebiete] = useState(new Set());
@@ -50,6 +52,50 @@ const ContentPlanEditCard = ({
   const [showRechtsgebietPicker, setShowRechtsgebietPicker] = useState(false);
   const [showUnterrechtsgebietPicker, setShowUnterrechtsgebietPicker] = useState(null); // { rechtsgebietId }
   const [showModeDropdown, setShowModeDropdown] = useState(false);
+
+  // Chapter level setting (from settings) - only relevant for Jura students
+  const [chapterLevelEnabledSetting, setChapterLevelEnabledSetting] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+      return settings.jura?.chapterLevelEnabled ?? false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Chapter level is only enabled for Jura students AND when setting is enabled
+  const chapterLevelEnabled = isJura && chapterLevelEnabledSetting;
+
+  // Listen for storage changes (when settings are updated)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+        setChapterLevelEnabledSetting(settings.jura?.chapterLevelEnabled ?? false);
+      } catch {
+        setChapterLevelEnabledSetting(false);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also check on mount in case settings changed while component was mounted
+    const checkSettings = () => {
+      try {
+        const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+        setChapterLevelEnabledSetting(settings.jura?.chapterLevelEnabled ?? false);
+      } catch {
+        setChapterLevelEnabledSetting(false);
+      }
+    };
+
+    // Check periodically for same-window changes (storage event only fires for other windows)
+    const interval = setInterval(checkSettings, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Calculate progress
   const progress = useMemo(() => {
@@ -305,24 +351,24 @@ const ContentPlanEditCard = ({
             </div>
           )}
 
-          {/* Rechtsgebiete Section */}
+          {/* Rechtsgebiete/Fächer Section */}
           <div className="border-t border-neutral-200 pt-4 mt-2">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-neutral-700">Rechtsgebiete & Inhalte</h4>
+              <h4 className="text-sm font-medium text-neutral-700">{level1Plural} & Inhalte</h4>
               <button
                 onClick={() => setShowRechtsgebietPicker(true)}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded transition-colors"
               >
                 <PlusIcon size={12} />
-                Rechtsgebiet
+                {level1}
               </button>
             </div>
 
-            {/* Rechtsgebiete List */}
+            {/* Rechtsgebiete/Fächer List */}
             {(!plan.rechtsgebiete || plan.rechtsgebiete.length === 0) ? (
               <EmptyState
-                message="Noch keine Rechtsgebiete hinzugefügt"
-                actionLabel="Erstes Rechtsgebiet hinzufügen"
+                message={`Noch keine ${level1Plural} hinzugefügt`}
+                actionLabel={`${level1} hinzufügen`}
                 onAction={() => setShowRechtsgebietPicker(true)}
               />
             ) : (
@@ -344,6 +390,10 @@ const ContentPlanEditCard = ({
                     toggleKapitel={toggleKapitel}
                     expandedThemen={expandedThemen}
                     toggleThema={toggleThema}
+                    // Chapter level setting
+                    chapterLevelEnabled={chapterLevelEnabled}
+                    // Hierarchy labels
+                    hierarchyLabels={{ level2, level2Plural, level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura }}
                     // Pass CRUD functions
                     removeUnterrechtsgebietFromPlan={removeUnterrechtsgebietFromPlan}
                     addKapitelToPlan={addKapitelToPlan}
@@ -364,13 +414,14 @@ const ContentPlanEditCard = ({
         </div>
       )}
 
-      {/* Rechtsgebiet Picker */}
+      {/* Rechtsgebiet/Fach Picker */}
       {showRechtsgebietPicker && (
         <RechtsgebietPickerModal
           onSelect={handleAddRechtsgebiet}
           onClose={() => setShowRechtsgebietPicker(false)}
           existingIds={plan.rechtsgebiete?.map(rg => rg.rechtsgebietId) || []}
           labels={RECHTSGEBIET_LABELS}
+          level1Label={level1}
         />
       )}
 
@@ -392,7 +443,7 @@ const ContentPlanEditCard = ({
 };
 
 /**
- * RechtsgebietSection - Collapsible Rechtsgebiet with Unterrechtsgebiete
+ * RechtsgebietSection - Collapsible Rechtsgebiet/Fach with Unterrechtsgebiete/Kapitel
  */
 const RechtsgebietSection = ({
   planId,
@@ -408,6 +459,8 @@ const RechtsgebietSection = ({
   toggleKapitel,
   expandedThemen,
   toggleThema,
+  chapterLevelEnabled,
+  hierarchyLabels,
   removeUnterrechtsgebietFromPlan,
   addKapitelToPlan,
   updateKapitelInPlan,
@@ -420,6 +473,8 @@ const RechtsgebietSection = ({
   toggleAufgabeInPlan,
   deleteAufgabeFromPlan,
 }) => {
+  const { level2, level2Plural, level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura } = hierarchyLabels;
+
   return (
     <div className={`rounded-lg border ${colors.border} overflow-hidden`}>
       {/* Header */}
@@ -429,7 +484,7 @@ const RechtsgebietSection = ({
         </button>
         <span className={`flex-1 font-medium ${colors.text}`}>{rechtsgebiet.name}</span>
         <span className="text-xs text-neutral-500 mr-2">
-          {rechtsgebiet.unterrechtsgebiete?.length || 0} Fächer
+          {rechtsgebiet.unterrechtsgebiete?.length || 0} {level2Plural}
         </span>
         <button
           onClick={onRemove}
@@ -458,6 +513,8 @@ const RechtsgebietSection = ({
                   toggleKapitel={toggleKapitel}
                   expandedThemen={expandedThemen}
                   toggleThema={toggleThema}
+                  chapterLevelEnabled={chapterLevelEnabled}
+                  hierarchyLabels={{ level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura }}
                   addKapitelToPlan={addKapitelToPlan}
                   updateKapitelInPlan={updateKapitelInPlan}
                   deleteKapitelFromPlan={deleteKapitelFromPlan}
@@ -472,14 +529,14 @@ const RechtsgebietSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-neutral-400 py-2">Keine Unterrechtsgebiete</p>
+            <p className="text-xs text-neutral-400 py-2">Keine {level2Plural}</p>
           )}
           <button
             onClick={onAddUnterrechtsgebiet}
             className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
           >
             <PlusIcon size={10} />
-            Unterrechtsgebiet
+            {level2}
           </button>
         </div>
       )}
@@ -488,7 +545,8 @@ const RechtsgebietSection = ({
 };
 
 /**
- * UnterrechtsgebietSection - Collapsible Unterrechtsgebiet with Kapitel
+ * UnterrechtsgebietSection - Collapsible Unterrechtsgebiet/Kapitel with nested content
+ * Shows Kapitel hierarchy when chapterLevelEnabled (Jura only), otherwise shows Themen directly
  */
 const UnterrechtsgebietSection = ({
   planId,
@@ -501,6 +559,8 @@ const UnterrechtsgebietSection = ({
   toggleKapitel,
   expandedThemen,
   toggleThema,
+  chapterLevelEnabled,
+  hierarchyLabels,
   addKapitelToPlan,
   updateKapitelInPlan,
   deleteKapitelFromPlan,
@@ -512,6 +572,44 @@ const UnterrechtsgebietSection = ({
   toggleAufgabeInPlan,
   deleteAufgabeFromPlan,
 }) => {
+  const { level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura } = hierarchyLabels;
+
+  // Determine labels based on whether Kapitel level is shown
+  // For Jura with chapterLevelEnabled: Kapitel (level3) → Thema (level4) → Aufgabe (level5)
+  // For Jura without chapterLevelEnabled or non-Jura: Thema (level4/level3) → Aufgabe (level5/level4)
+  const themaLabel = isJura ? level4 : level3;
+  const themaPluralLabel = isJura ? level4Plural : level3Plural;
+  const aufgabeLabel = isJura ? level5 : level4;
+  const aufgabePluralLabel = isJura ? level5Plural : level4Plural;
+
+  // Helper to get all Themen from all Kapitel (for flat view)
+  const getAllThemen = () => {
+    const themen = [];
+    unterrechtsgebiet.kapitel?.forEach(k => {
+      if (k.themen) {
+        themen.push(...k.themen.map(t => ({ ...t, kapitelId: k.id })));
+      }
+    });
+    return themen;
+  };
+
+  // Get the default kapitel for adding themen in flat mode
+  const getOrCreateDefaultKapitel = () => {
+    // Return first kapitel or null (the addThema will need to create one)
+    return unterrechtsgebiet.kapitel?.[0] || null;
+  };
+
+  // Handle adding thema in flat mode (uses first/default kapitel)
+  const handleAddThemaFlat = () => {
+    const defaultKapitel = getOrCreateDefaultKapitel();
+    if (defaultKapitel) {
+      addThemaToPlan(planId, rechtsgebietId, unterrechtsgebiet.id, defaultKapitel.id);
+    } else {
+      // Create a default kapitel first, then the thema will be added to it
+      addKapitelToPlan(planId, rechtsgebietId, unterrechtsgebiet.id, { title: '', isDefault: true });
+    }
+  };
+
   return (
     <div className="border border-neutral-200 rounded-lg overflow-hidden">
       {/* Header */}
@@ -537,41 +635,83 @@ const UnterrechtsgebietSection = ({
       {/* Content */}
       {isExpanded && (
         <div className="bg-white p-3">
-          {unterrechtsgebiet.kapitel?.length > 0 ? (
-            <div className="space-y-2">
-              {unterrechtsgebiet.kapitel.map((kapitel) => (
-                <KapitelSection
-                  key={kapitel.id}
-                  planId={planId}
-                  rechtsgebietId={rechtsgebietId}
-                  unterrechtsgebietId={unterrechtsgebiet.id}
-                  kapitel={kapitel}
-                  isExpanded={expandedKapitel.has(kapitel.id)}
-                  onToggle={() => toggleKapitel(kapitel.id)}
-                  expandedThemen={expandedThemen}
-                  toggleThema={toggleThema}
-                  updateKapitelInPlan={updateKapitelInPlan}
-                  deleteKapitelFromPlan={deleteKapitelFromPlan}
-                  addThemaToPlan={addThemaToPlan}
-                  updateThemaInPlan={updateThemaInPlan}
-                  deleteThemaFromPlan={deleteThemaFromPlan}
-                  addAufgabeToPlan={addAufgabeToPlan}
-                  updateAufgabeInPlan={updateAufgabeInPlan}
-                  toggleAufgabeInPlan={toggleAufgabeInPlan}
-                  deleteAufgabeFromPlan={deleteAufgabeFromPlan}
-                />
-              ))}
-            </div>
+          {chapterLevelEnabled ? (
+            // Kapitel-Ebene aktiviert (nur Jura): Zeige Kapitel → Themen Hierarchie
+            <>
+              {unterrechtsgebiet.kapitel?.length > 0 ? (
+                <div className="space-y-2">
+                  {unterrechtsgebiet.kapitel.map((kapitel) => (
+                    <KapitelSection
+                      key={kapitel.id}
+                      planId={planId}
+                      rechtsgebietId={rechtsgebietId}
+                      unterrechtsgebietId={unterrechtsgebiet.id}
+                      kapitel={kapitel}
+                      isExpanded={expandedKapitel.has(kapitel.id)}
+                      onToggle={() => toggleKapitel(kapitel.id)}
+                      expandedThemen={expandedThemen}
+                      toggleThema={toggleThema}
+                      hierarchyLabels={{ themaLabel, themaPluralLabel, aufgabeLabel, aufgabePluralLabel }}
+                      updateKapitelInPlan={updateKapitelInPlan}
+                      deleteKapitelFromPlan={deleteKapitelFromPlan}
+                      addThemaToPlan={addThemaToPlan}
+                      updateThemaInPlan={updateThemaInPlan}
+                      deleteThemaFromPlan={deleteThemaFromPlan}
+                      addAufgabeToPlan={addAufgabeToPlan}
+                      updateAufgabeInPlan={updateAufgabeInPlan}
+                      toggleAufgabeInPlan={toggleAufgabeInPlan}
+                      deleteAufgabeFromPlan={deleteAufgabeFromPlan}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-neutral-400 py-1">Keine {level3Plural}</p>
+              )}
+              <button
+                onClick={() => addKapitelToPlan(planId, rechtsgebietId, unterrechtsgebiet.id)}
+                className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
+              >
+                <PlusIcon size={10} />
+                {level3}
+              </button>
+            </>
           ) : (
-            <p className="text-xs text-neutral-400 py-1">Keine Kapitel</p>
+            // Kapitel-Ebene deaktiviert oder nicht-Jura: Zeige Themen direkt
+            <>
+              {getAllThemen().length > 0 ? (
+                <div className="space-y-1">
+                  {getAllThemen().map((thema) => (
+                    <ThemaSection
+                      key={thema.id}
+                      planId={planId}
+                      rechtsgebietId={rechtsgebietId}
+                      unterrechtsgebietId={unterrechtsgebiet.id}
+                      kapitelId={thema.kapitelId}
+                      thema={thema}
+                      isExpanded={expandedThemen.has(thema.id)}
+                      onToggle={() => toggleThema(thema.id)}
+                      hierarchyLabels={{ aufgabeLabel, aufgabePluralLabel }}
+                      updateThemaInPlan={updateThemaInPlan}
+                      deleteThemaFromPlan={deleteThemaFromPlan}
+                      addAufgabeToPlan={addAufgabeToPlan}
+                      updateAufgabeInPlan={updateAufgabeInPlan}
+                      toggleAufgabeInPlan={toggleAufgabeInPlan}
+                      deleteAufgabeFromPlan={deleteAufgabeFromPlan}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-neutral-400 py-1">Keine {themaPluralLabel}</p>
+              )}
+              <button
+                onClick={handleAddThemaFlat}
+                className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
+              >
+                <PlusIcon size={10} />
+                {themaLabel}
+              </button>
+            </>
           )}
-          <button
-            onClick={() => addKapitelToPlan(planId, rechtsgebietId, unterrechtsgebiet.id)}
-            className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
-          >
-            <PlusIcon size={10} />
-            Kapitel
-          </button>
         </div>
       )}
     </div>
@@ -590,6 +730,7 @@ const KapitelSection = ({
   onToggle,
   expandedThemen,
   toggleThema,
+  hierarchyLabels,
   updateKapitelInPlan,
   deleteKapitelFromPlan,
   addThemaToPlan,
@@ -600,6 +741,8 @@ const KapitelSection = ({
   toggleAufgabeInPlan,
   deleteAufgabeFromPlan,
 }) => {
+  const { themaLabel, themaPluralLabel, aufgabeLabel, aufgabePluralLabel } = hierarchyLabels;
+
   return (
     <div className="ml-3 border-l-2 border-neutral-200 pl-3">
       {/* Header */}
@@ -637,6 +780,7 @@ const KapitelSection = ({
                   thema={thema}
                   isExpanded={expandedThemen.has(thema.id)}
                   onToggle={() => toggleThema(thema.id)}
+                  hierarchyLabels={{ aufgabeLabel, aufgabePluralLabel }}
                   updateThemaInPlan={updateThemaInPlan}
                   deleteThemaFromPlan={deleteThemaFromPlan}
                   addAufgabeToPlan={addAufgabeToPlan}
@@ -647,14 +791,14 @@ const KapitelSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-neutral-400 py-1">Keine Themen</p>
+            <p className="text-xs text-neutral-400 py-1">Keine {themaPluralLabel}</p>
           )}
           <button
             onClick={() => addThemaToPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id)}
             className="flex items-center gap-1 px-1.5 py-1 mt-1 text-xs text-primary-600 hover:bg-primary-50 rounded"
           >
             <PlusIcon size={10} />
-            Thema
+            {themaLabel}
           </button>
         </div>
       )}
@@ -673,6 +817,7 @@ const ThemaSection = ({
   thema,
   isExpanded,
   onToggle,
+  hierarchyLabels,
   updateThemaInPlan,
   deleteThemaFromPlan,
   addAufgabeToPlan,
@@ -680,6 +825,8 @@ const ThemaSection = ({
   toggleAufgabeInPlan,
   deleteAufgabeFromPlan,
 }) => {
+  const { aufgabeLabel, aufgabePluralLabel } = hierarchyLabels;
+
   return (
     <div className="border-l border-neutral-200 pl-3">
       {/* Header */}
@@ -716,6 +863,7 @@ const ThemaSection = ({
                   kapitelId={kapitelId}
                   themaId={thema.id}
                   aufgabe={aufgabe}
+                  aufgabeLabel={aufgabeLabel}
                   updateAufgabeInPlan={updateAufgabeInPlan}
                   toggleAufgabeInPlan={toggleAufgabeInPlan}
                   deleteAufgabeFromPlan={deleteAufgabeFromPlan}
@@ -723,14 +871,14 @@ const ThemaSection = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-neutral-400">Keine Aufgaben</p>
+            <p className="text-xs text-neutral-400">Keine {aufgabePluralLabel}</p>
           )}
           <button
             onClick={() => addAufgabeToPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id)}
             className="flex items-center gap-1 px-1 py-0.5 mt-1 text-xs text-primary-600 hover:bg-primary-50 rounded"
           >
             <PlusIcon size={8} />
-            Aufgabe
+            {aufgabeLabel}
           </button>
         </div>
       )}
@@ -748,6 +896,7 @@ const AufgabeItem = ({
   kapitelId,
   themaId,
   aufgabe,
+  aufgabeLabel,
   updateAufgabeInPlan,
   toggleAufgabeInPlan,
   deleteAufgabeFromPlan,
@@ -764,7 +913,7 @@ const AufgabeItem = ({
         type="text"
         value={aufgabe.title}
         onChange={(e) => updateAufgabeInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id, { title: e.target.value })}
-        placeholder="Aufgabe eingeben..."
+        placeholder={`${aufgabeLabel} eingeben...`}
         className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
           aufgabe.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'
         }`}
@@ -781,9 +930,9 @@ const AufgabeItem = ({
 };
 
 /**
- * RechtsgebietPickerModal - Simple modal for picking a Rechtsgebiet
+ * RechtsgebietPickerModal - Simple modal for picking a Rechtsgebiet/Fach
  */
-const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels }) => {
+const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels, level1Label }) => {
   const rechtsgebiete = [
     { id: 'zivilrecht', color: 'bg-blue-500' },
     { id: 'oeffentliches-recht', color: 'bg-green-500' },
@@ -795,7 +944,7 @@ const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels }) => 
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
       <div className="relative z-10 bg-white rounded-lg shadow-xl p-4 w-80">
-        <h4 className="text-sm font-medium text-neutral-900 mb-3">Rechtsgebiet hinzufügen</h4>
+        <h4 className="text-sm font-medium text-neutral-900 mb-3">{level1Label} hinzufügen</h4>
         <div className="space-y-2">
           {rechtsgebiete.map(rg => {
             const isDisabled = existingIds.includes(rg.id);

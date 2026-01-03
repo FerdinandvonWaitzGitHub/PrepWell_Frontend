@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 
 // Context Providers
 import { AuthProvider, useAuth } from './contexts/auth-context';
+import { StudiengangProvider } from './contexts/studiengang-context';
 import { UnterrechtsgebieteProvider } from './contexts';
 import { CalendarProvider } from './contexts/calendar-context';
 import { AppModeProvider } from './contexts/appmode-context';
@@ -136,25 +137,27 @@ const router = createBrowserRouter([
 export default function AppRouter() {
   return (
     <AuthProvider>
-      <UnterrechtsgebieteProvider>
-        <CalendarProvider>
-          <AppModeProvider>
-            <OnboardingProvider>
-              <TimerProvider>
-                <ExamsProvider>
-                  <UebungsklausurenProvider>
-                    <MentorProvider>
-                      <CheckInProvider>
-                        <RouterProvider router={router} />
-                      </CheckInProvider>
-                    </MentorProvider>
-                  </UebungsklausurenProvider>
-                </ExamsProvider>
-              </TimerProvider>
-            </OnboardingProvider>
-          </AppModeProvider>
-        </CalendarProvider>
-      </UnterrechtsgebieteProvider>
+      <StudiengangProvider>
+        <UnterrechtsgebieteProvider>
+          <CalendarProvider>
+            <AppModeProvider>
+              <OnboardingProvider>
+                <TimerProvider>
+                  <ExamsProvider>
+                    <UebungsklausurenProvider>
+                      <MentorProvider>
+                        <CheckInProvider>
+                          <RouterProvider router={router} />
+                        </CheckInProvider>
+                      </MentorProvider>
+                    </UebungsklausurenProvider>
+                  </ExamsProvider>
+                </TimerProvider>
+              </OnboardingProvider>
+            </AppModeProvider>
+          </CalendarProvider>
+        </UnterrechtsgebieteProvider>
+      </StudiengangProvider>
     </AuthProvider>
   );
 }

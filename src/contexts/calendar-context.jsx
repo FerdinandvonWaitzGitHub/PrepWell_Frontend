@@ -1771,6 +1771,58 @@ export const CalendarProvider = ({ children }) => {
     saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
   }, [contentPlans]);
 
+  /**
+   * Flatten all Kapitel in all content plans
+   * Moves Themen into a single default Kapitel per Unterrechtsgebiet
+   * Called when chapter level setting is disabled
+   */
+  const flattenAllKapitel = useCallback(() => {
+    const updated = contentPlans.map(plan => {
+      let hasChanges = false;
+
+      const newRechtsgebiete = plan.rechtsgebiete?.map(rg => ({
+        ...rg,
+        unterrechtsgebiete: rg.unterrechtsgebiete?.map(urg => {
+          // Collect all themen from all kapitel
+          const allThemen = [];
+          urg.kapitel?.forEach(k => {
+            if (k.themen && k.themen.length > 0) {
+              allThemen.push(...k.themen);
+            }
+          });
+
+          // If there were kapitel with themen, we need to restructure
+          if (allThemen.length > 0 || (urg.kapitel && urg.kapitel.length > 0)) {
+            hasChanges = true;
+            // Create a single "default" kapitel to hold all themen
+            return {
+              ...urg,
+              kapitel: [{
+                id: generateId(),
+                title: '', // Empty/hidden kapitel
+                themen: allThemen,
+                isDefault: true, // Mark as default/hidden
+              }],
+            };
+          }
+          return urg;
+        }),
+      }));
+
+      if (hasChanges) {
+        return {
+          ...plan,
+          rechtsgebiete: newRechtsgebiete,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return plan;
+    });
+
+    setContentPlans(updated);
+    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+  }, [contentPlans]);
+
   // ============================================
   // NESTED CRUD: Themen
   // ============================================
@@ -2325,6 +2377,7 @@ export const CalendarProvider = ({ children }) => {
     addKapitelToPlan,
     updateKapitelInPlan,
     deleteKapitelFromPlan,
+    flattenAllKapitel,
 
     // Nested CRUD: Themen
     addThemaToPlan,

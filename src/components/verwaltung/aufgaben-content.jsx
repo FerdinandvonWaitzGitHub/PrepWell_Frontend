@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import AufgabenFilterDialog from './aufgaben-filter-dialog';
 import { useCalendar } from '../../contexts/calendar-context';
+import { useHierarchyLabels } from '../../hooks/use-hierarchy-labels';
 
 // Status colors
 const STATUS_COLORS = {
@@ -60,6 +61,11 @@ const DEFAULT_FILTERS = {
  */
 const AufgabenContent = ({ className = '' }) => {
   const { tasksByDate, addTask, updateTask, deleteTask, toggleTaskComplete } = useCalendar();
+  const { level1, level4, level5, isJura } = useHierarchyLabels();
+
+  // Determine the correct Aufgabe label based on hierarchy
+  const aufgabeLabel = isJura ? level5 : level4;
+  const aufgabePluralLabel = isJura ? 'Aufgaben' : 'Aufgaben'; // Both are same for Aufgaben
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -217,7 +223,7 @@ const AufgabenContent = ({ className = '' }) => {
     <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden ${className}`}>
       {/* Container Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200">
-        <h3 className="text-sm font-medium text-neutral-900">Aufgaben</h3>
+        <h3 className="text-sm font-medium text-neutral-900">{aufgabePluralLabel}</h3>
         <div className="flex items-center gap-2">
           {/* Add Task Button */}
           <button
@@ -225,7 +231,7 @@ const AufgabenContent = ({ className = '' }) => {
             className="flex items-center gap-1 px-2 py-1 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
           >
             <Plus size={14} />
-            Neue Aufgabe
+            Neue {aufgabeLabel}
           </button>
 
           {/* Search */}
@@ -321,10 +327,10 @@ const AufgabenContent = ({ className = '' }) => {
             <tr>
               <th className="w-[5%] px-2 py-2"></th>
               <th className="w-[12%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                Fach
+                {level1}
               </th>
               <th className="w-[22%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                Aufgabe
+                {aufgabeLabel}
               </th>
               <th className="w-[15%] px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Lernplanthema
@@ -437,7 +443,7 @@ const AufgabenContent = ({ className = '' }) => {
       {/* Footer with Total */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-50 border-t border-neutral-200">
         <span className="text-sm font-medium text-neutral-700">Total</span>
-        <span className="text-sm text-neutral-600">{filteredTasks.length} Aufgaben</span>
+        <span className="text-sm text-neutral-600">{filteredTasks.length} {aufgabePluralLabel}</span>
       </div>
 
       {/* Filter Dialog */}
@@ -453,7 +459,7 @@ const AufgabenContent = ({ className = '' }) => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-semibold text-neutral-900">Aufgabe bearbeiten</h3>
+              <h3 className="text-lg font-semibold text-neutral-900">{aufgabeLabel} bearbeiten</h3>
               <button
                 onClick={() => setEditingTask(null)}
                 className="text-neutral-400 hover:text-neutral-600"

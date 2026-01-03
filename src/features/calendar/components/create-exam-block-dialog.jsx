@@ -12,6 +12,7 @@ import {
 import Button from '../../../components/ui/button';
 import { PlusIcon, MinusIcon, ChevronDownIcon } from '../../../components/ui/icon';
 import { useUnterrechtsgebiete } from '../../../contexts';
+import { useHierarchyLabels } from '../../../hooks/use-hierarchy-labels';
 
 // Repeat type options
 const repeatTypeOptions = [
@@ -59,6 +60,9 @@ const CreateExamBlockDialog = ({
     getUnterrechtsgebieteByRechtsgebiet,
     addUnterrechtsgebiet
   } = useUnterrechtsgebiete();
+
+  // Hierarchy labels for dynamic naming
+  const { level1, level2 } = useHierarchyLabels();
 
   // Toggle state for showing details
   const [showDetails, setShowDetails] = useState(false);
@@ -437,7 +441,7 @@ const CreateExamBlockDialog = ({
               {/* Rechtsgebiet Dropdown */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-900">
-                  Rechtsgebiet <span className="text-red-500">*</span>
+                  {level1} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <button
@@ -449,7 +453,7 @@ const CreateExamBlockDialog = ({
                     className="w-full flex items-center justify-between px-4 py-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors text-left cursor-pointer"
                   >
                     <span className={`text-sm ${selectedRechtsgebiet ? 'text-neutral-900' : 'text-neutral-500'}`}>
-                      {selectedRechtsgebiet?.name || 'Rechtsgebiet auswählen'}
+                      {selectedRechtsgebiet?.name || `${level1} auswählen`}
                     </span>
                     <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isRechtsgebietOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -477,10 +481,10 @@ const CreateExamBlockDialog = ({
                 </div>
               </div>
 
-              {/* Unterrechtsgebiet Dropdown */}
+              {/* Unterrechtsgebiet/Kapitel Dropdown */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-900">
-                  Unterrechtsgebiet <span className="text-red-500">*</span>
+                  {level2} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <button
@@ -497,7 +501,7 @@ const CreateExamBlockDialog = ({
                     }`}
                   >
                     <span className={`text-sm ${selectedUnterrechtsgebiet ? 'text-neutral-900' : 'text-neutral-500'}`}>
-                      {selectedUnterrechtsgebiet?.name || (selectedRechtsgebiet ? 'Unterrechtsgebiet auswählen' : 'Erst Rechtsgebiet wählen')}
+                      {selectedUnterrechtsgebiet?.name || (selectedRechtsgebiet ? `${level2} auswählen` : `Erst ${level1} wählen`)}
                     </span>
                     <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isUnterrechtsgebietOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -506,7 +510,7 @@ const CreateExamBlockDialog = ({
                     <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {getCurrentUnterrechtsgebiete().length === 0 ? (
                         <div className="px-4 py-3 text-sm text-neutral-500 text-center">
-                          Noch keine Unterrechtsgebiete vorhanden
+                          Noch keine verfügbar
                         </div>
                       ) : (
                         getCurrentUnterrechtsgebiete().map(urg => (
@@ -559,7 +563,7 @@ const CreateExamBlockDialog = ({
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mt-2 bg-primary-100 border-2 border-primary-300 rounded-lg hover:bg-primary-200 transition-colors"
                     >
                       <PlusIcon size={16} className="text-neutral-900" />
-                      <span className="text-sm font-medium text-neutral-900">+ Neues Unterrechtsgebiet erstellen</span>
+                      <span className="text-sm font-medium text-neutral-900">+ {level2} erstellen</span>
                     </button>
                   )
                 )}

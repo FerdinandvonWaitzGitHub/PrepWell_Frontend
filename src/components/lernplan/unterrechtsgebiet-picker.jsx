@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useUnterrechtsgebiete } from '../../contexts/unterrechtsgebiete-context';
+import { useHierarchyLabels } from '../../hooks/use-hierarchy-labels';
 import { groupByKategorie } from '../../data/unterrechtsgebiete-data';
 
 /**
@@ -23,8 +24,9 @@ const UnterrechtsgebietPicker = ({
     getAllByRechtsgebiet,
     addUnterrechtsgebiet,
     RECHTSGEBIET_LABELS,
-    RECHTSGEBIET_COLORS,
   } = useUnterrechtsgebiete();
+
+  const { level2, level2Plural } = useHierarchyLabels();
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,10 +156,10 @@ const UnterrechtsgebietPicker = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-neutral-200">
           <h2 className="text-lg font-semibold text-neutral-900">
-            Unterrechtsgebiet auswählen
+            {level2} auswählen
           </h2>
           <p className="text-sm text-neutral-500 mt-1">
-            Wähle ein oder mehrere Unterrechtsgebiete aus der Datenbank
+            Wähle ein oder mehrere {level2Plural} aus der Datenbank
           </p>
         </div>
 
@@ -199,7 +201,7 @@ const UnterrechtsgebietPicker = ({
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {Object.keys(groupedItems).length === 0 ? (
             <div className="text-center py-8 text-neutral-500">
-              {searchQuery ? 'Keine Ergebnisse gefunden' : 'Keine Unterrechtsgebiete verfügbar'}
+              {searchQuery ? 'Keine Ergebnisse gefunden' : `Keine ${level2Plural} verfügbar`}
             </div>
           ) : (
             <div className="space-y-4">
@@ -251,11 +253,11 @@ const UnterrechtsgebietPicker = ({
                 className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700"
               >
                 <PlusIcon size={16} />
-                Neues Unterrechtsgebiet erstellen
+                {level2} erstellen
               </button>
             ) : (
               <div className="bg-neutral-50 rounded-lg p-4 space-y-3">
-                <h4 className="text-sm font-medium text-neutral-900">Neues Unterrechtsgebiet</h4>
+                <h4 className="text-sm font-medium text-neutral-900">{level2} erstellen</h4>
                 <input
                   type="text"
                   value={newItemName}

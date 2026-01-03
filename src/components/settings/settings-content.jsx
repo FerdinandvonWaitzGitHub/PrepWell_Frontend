@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAppMode } from '../../contexts/appmode-context';
 import { useAuth } from '../../contexts/auth-context';
+import { useStudiengang } from '../../contexts/studiengang-context';
 import {
   GraduationCap,
   BookOpen,
@@ -20,8 +22,12 @@ import {
   Check,
   X,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Layers,
+  Scale,
+  Info
 } from 'lucide-react';
+import { useCalendar } from '../../contexts/calendar-context';
 
 const STORAGE_KEY = 'prepwell_settings';
 
@@ -44,9 +50,15 @@ const defaultSettings = {
     language: 'de',
     timezone: 'Europe/Berlin',
   },
+  jura: {
+    chapterLevelEnabled: false, // Kapitel-Ebene zwischen Unterrechtsgebiet und Thema
+  },
 };
 
 const SettingsContent = ({ className = '' }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showStudiengangSetupHint = searchParams.get('setup') === 'studiengang';
+
   const {
     isExamMode,
     isNormalMode,
@@ -66,6 +78,16 @@ const SettingsContent = ({ className = '' }) => {
     updatePassword,
     isAuthenticated
   } = useAuth();
+
+  const { flattenAllKapitel } = useCalendar();
+  const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang } = useStudiengang();
+
+  // Clear setup hint after studiengang is selected
+  useEffect(() => {
+    if (hasStudiengang && showStudiengangSetupHint) {
+      setSearchParams({});
+    }
+  }, [hasStudiengang, showStudiengangSetupHint, setSearchParams]);
 
   // Profile state
   const [firstName, setFirstName] = useState('');
@@ -132,6 +154,21 @@ const SettingsContent = ({ className = '' }) => {
     setHasChanges(false);
   };
 
+  // Handler für Kapitel-Ebene Toggle mit Confirm-Dialog bei Deaktivierung
+  const handleChapterLevelToggle = (newValue) => {
+    if (!newValue && settings.jura?.chapterLevelEnabled) {
+      // Deaktivierung: Confirm-Dialog zeigen
+      const confirmed = window.confirm(
+        'Möchten Sie die Kapitel-Ebene deaktivieren? Bestehende Kapitel werden aufgelöst und Themen direkt unter Unterrechtsgebiete verschoben.'
+      );
+      if (!confirmed) return;
+
+      // Flatten-Funktion aus CalendarContext aufrufen
+      flattenAllKapitel?.();
+    }
+    handleSettingChange('jura', 'chapterLevelEnabled', newValue);
+  };
+
   const handlePasswordChange = async () => {
     setPasswordError('');
     setPasswordSuccess('');
@@ -173,6 +210,20 @@ const SettingsContent = ({ className = '' }) => {
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
           <CheckCircle className="w-5 h-5 text-green-600" />
           <span className="text-green-700">Einstellungen erfolgreich gespeichert</span>
+        </div>
+      )}
+
+      {/* Studiengang Setup Hint Banner */}
+      {(showStudiengangSetupHint || !hasStudiengang) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-blue-800 font-medium">Studiengang auswählen</p>
+            <p className="text-blue-700 text-sm mt-1">
+              Bitte wähle deinen Studiengang aus, um die App-Bezeichnungen anzupassen.
+              Du findest die Auswahl im Abschnitt &quot;Studium&quot; weiter unten.
+            </p>
+          </div>
         </div>
       )}
 
@@ -244,6 +295,74 @@ const SettingsContent = ({ className = '' }) => {
           )}
         </div>
       </div>
+
+      {/* Studium Section */}
+      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+          <GraduationCap className="w-5 h-5" />
+          Studium
+        </h3>
+
+        <div className="space-y-4">
+          {/* Studiengang Auswahl */}
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-5 h-5 text-neutral-400" />
+              <div>
+                <p className="text-sm font-medium text-neutral-900">Studiengang</p>
+                <p className="text-xs text-neutral-500">
+                  Bestimmt die Bezeichnungen in der App
+                </p>
+              </div>
+            </div>
+            <select
+              value={studiengang || ''}
+              onChange={(e) => setStudiengang(e.target.value || null)}
+              className="px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+            >
+              <option value="">Bitte wählen...</option>
+              {studiengaenge.map(sg => (
+                <option key={sg.id} value={sg.id}>{sg.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Jura Section - nur bei Jura-Studiengang anzeigen */}
+      {isJura && (
+        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+          <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+            <Scale className="w-5 h-5" />
+            Jura
+          </h3>
+
+          <div className="space-y-4">
+            {/* Kapitel-Ebene Toggle */}
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3">
+                <Layers className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Kapitel-Ebene</p>
+                  <p className="text-xs text-neutral-500">
+                    Zusätzliche Hierarchie: Unterrechtsgebiet → Kapitel → Thema
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleChapterLevelToggle(!settings.jura?.chapterLevelEnabled)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  settings.jura?.chapterLevelEnabled ? 'bg-blue-600' : 'bg-neutral-300'
+                }`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  settings.jura?.chapterLevelEnabled ? 'left-7' : 'left-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profil Section */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">

@@ -59,6 +59,7 @@ const ManageExamBlockDialog = ({
     addUnterrechtsgebiet
   } = useUnterrechtsgebiete();
 
+
   // Toggle state for showing details
   const [showDetails, setShowDetails] = useState(false);
 

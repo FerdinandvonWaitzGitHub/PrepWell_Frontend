@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOnboarding, ONBOARDING_STEPS } from '../contexts/onboarding-context';
 import { useAppMode } from '../contexts/appmode-context';
+import { useStudiengang } from '../contexts/studiengang-context';
 import { BookOpen, Calendar, Target, ArrowRight, Check } from 'lucide-react';
 
 /**
@@ -74,7 +75,7 @@ const WelcomeStep = ({ onNext, onSkip }) => {
           onClick={onNext}
           className="w-full bg-neutral-900 text-white py-3.5 rounded-xl font-medium hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2"
         >
-          Los geht's
+          Los geht&apos;s
           <ArrowRight className="w-5 h-5" />
         </button>
 
@@ -225,15 +226,25 @@ const ModeSelectionStep = ({ onNext, onBack, selectedMode, setSelectedMode }) =>
 // Step 3: Feature Tour
 const FeatureTourStep = ({ onComplete, onBack }) => {
   const navigate = useNavigate();
+  const { hasStudiengang } = useStudiengang();
+
+  // Helper: Navigate to settings if no studiengang, otherwise to target
+  const navigateWithStudiengangCheck = (targetPath) => {
+    onComplete();
+    if (!hasStudiengang) {
+      // Redirect to settings with hint to select studiengang first
+      navigate('/einstellungen?setup=studiengang');
+    } else {
+      navigate(targetPath);
+    }
+  };
 
   const handleStartLernplan = () => {
-    onComplete();
-    navigate('/lernplan/erstellen');
+    navigateWithStudiengangCheck('/lernplan/erstellen');
   };
 
   const handleGoToDashboard = () => {
-    onComplete();
-    navigate('/');
+    navigateWithStudiengangCheck('/');
   };
 
   return (
