@@ -298,7 +298,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     return days;
   };
 
-  // Learning blocks - convert from slots and include private blocks
+  // Learning blocks - convert from slots only (no private blocks in month view)
+  // BUG-023 FIX: Monatsansicht shows only Slots, no Blöcke (private, lernblock, etc.)
   const getSampleLearningBlocks = (day) => {
     // Create date for this day
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
@@ -309,25 +310,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     const slots = visibleSlotsByDate[dateKey] || createDaySlots(date);
 
     // Convert slots to learning blocks for display
+    // Note: Private blocks are NOT shown in month view (BUG-023)
     let blocks = slotsToLearningBlocks(slots);
-
-    // Add private blocks for this date
-    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
-    const privateBlocks = dayPrivateBlocks.map(block => ({
-      id: block.id,
-      title: block.title,
-      description: block.description,
-      blockType: 'private',
-      startTime: block.startTime,
-      endTime: block.endTime,
-      allDay: block.allDay,
-      seriesId: block.seriesId,
-      repeatEnabled: block.repeatEnabled,
-      isPrivate: true,
-    }));
-
-    // Combine learning blocks with private blocks
-    blocks = [...blocks, ...privateBlocks];
 
     // Count free slots to determine if plus button should be shown
     const freeSlots = slots.filter(s => s.status === 'empty').length;
@@ -398,30 +382,17 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     return slots.filter(s => s.status === 'empty').length;
   };
 
-  // Get learning blocks for a specific date (computed from slots + private blocks)
+  // Get learning blocks for a specific date (computed from slots only)
+  // BUG-023 FIX: Monatsansicht shows only Slots, no Blöcke
   const getBlocksForDate = (date) => {
     if (!date) return [];
     const dateKey = formatDateKey(date);
     // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
     const slots = visibleSlotsByDate[dateKey] || createDaySlots(date);
-    let blocks = slotsToLearningBlocks(slots);
+    const blocks = slotsToLearningBlocks(slots);
 
-    // Add private blocks
-    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
-    const privateBlocks = dayPrivateBlocks.map(block => ({
-      id: block.id,
-      title: block.title,
-      description: block.description,
-      blockType: 'private',
-      startTime: block.startTime,
-      endTime: block.endTime,
-      allDay: block.allDay,
-      seriesId: block.seriesId,
-      repeatEnabled: block.repeatEnabled,
-      isPrivate: true,
-    }));
-
-    return [...blocks, ...privateBlocks];
+    // Note: Private blocks are NOT shown in month view (BUG-023)
+    return blocks;
   };
 
   return (

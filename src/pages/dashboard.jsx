@@ -509,10 +509,15 @@ const DashboardPage = () => {
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);
 
-  // BUG-023 FIX: Dashboard shows only Private Blocks, no Lernplan content
-  // Topics from Lernplan are not shown on Dashboard (only in Week view in Exam mode)
+  // BUG-023 FIX: Dashboard shows manually-created blocks (not Lernplan wizard slots)
+  // - Private blocks: from todayPrivateBlocks
+  // - Lernblöcke, Wiederholungsblöcke, Klausurblöcke: from todaySlots where isFromLernplan !== true
   const topics = [];
-  void todaySlots; // todaySlots is no longer used on Dashboard
+
+  // Filter todaySlots to get only manually-created blocks (not from Wizard)
+  const manuallyCreatedSlots = useMemo(() => {
+    return todaySlots.filter(slot => slot.isFromLernplan !== true);
+  }, [todaySlots]);
 
   // BUG-022 FIX: Calculate daily learning goal with proper priority:
   // 1. User-defined setting from Settings page (dailyGoalHours)
@@ -589,19 +594,22 @@ const DashboardPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerHistory, isActive, elapsedSeconds, progressUpdateTick]);
 
-  // BUG-023 FIX: Transform private blocks to ZeitplanWidget format
-  // Dashboard shows ONLY private blocks (not Lernplan slots)
-  const privateBlocksForWidget = useMemo(() => {
-    return todayPrivateBlocks.map(block => {
-      // Parse startTime and endTime (format: "HH:MM")
+  // BUG-023 FIX: Transform blocks to ZeitplanWidget format
+  // Dashboard shows: Private blocks + manually-created blocks (Lernblock, Wiederholung, Klausur)
+  // NOT shown: Wizard-created slots (isFromLernplan: true)
+  const blocksForWidget = useMemo(() => {
+    const allBlocks = [];
+
+    // Add private blocks
+    todayPrivateBlocks.forEach(block => {
       const [startH, startM] = (block.startTime || '08:00').split(':').map(Number);
       const [endH, endM] = (block.endTime || '10:00').split(':').map(Number);
       const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
       const durationHours = durationMinutes / 60;
 
-      return {
+      allBlocks.push({
         id: block.id,
-        startHour: startH + (startM / 60), // e.g., 9.5 for 9:30
+        startHour: startH + (startM / 60),
         duration: durationHours,
         title: block.title || 'Privater Termin',
         description: block.description || '',
@@ -609,23 +617,62 @@ const DashboardPage = () => {
         isBlocked: false,
         startTime: block.startTime,
         endTime: block.endTime,
-        // For multi-day detection
         isMultiDay: block.isMultiDay || false,
         startDate: block.startDate,
         endDate: block.endDate,
-      };
+      });
     });
-  }, [todayPrivateBlocks]);
+
+    // Add manually-created slots (Lernblock, Wiederholung, Klausur - not from Wizard)
+    manuallyCreatedSlots.forEach(slot => {
+      // Use slot's time if available, otherwise use position-based defaults
+      const position = slot.position || 1;
+      const defaultTimes = {
+        1: { start: '08:00', end: '10:00' },
+        2: { start: '10:00', end: '12:00' },
+        3: { start: '14:00', end: '16:00' },
+        4: { start: '16:00', end: '18:00' },
+      };
+      const defaults = defaultTimes[position] || defaultTimes[1];
+      const startTime = slot.startTime || defaults.start;
+      const endTime = slot.endTime || defaults.end;
+
+      const [startH, startM] = startTime.split(':').map(Number);
+      const [endH, endM] = endTime.split(':').map(Number);
+      const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+      const durationHours = durationMinutes / 60;
+
+      allBlocks.push({
+        id: slot.id || slot.contentId || slot.topicId,
+        startHour: startH + (startM / 60),
+        duration: durationHours,
+        title: slot.title || slot.topicTitle || 'Lernblock',
+        description: slot.description || '',
+        blockType: slot.blockType || 'lernblock',
+        rechtsgebiet: slot.rechtsgebiet,
+        unterrechtsgebiet: slot.unterrechtsgebiet,
+        isBlocked: false,
+        startTime,
+        endTime,
+        tasks: slot.tasks || [],
+      });
+    });
+
+    // Sort by start time
+    allBlocks.sort((a, b) => a.startHour - b.startHour);
+
+    return allBlocks;
+  }, [todayPrivateBlocks, manuallyCreatedSlots]);
 
   const zeitplanData = {
-    completedBlocks: 0, // Private blocks don't have "completed" status
-    totalBlocks: privateBlocksForWidget.length,
+    completedBlocks: 0,
+    totalBlocks: blocksForWidget.length,
     currentHour: new Date().getHours(),
     progress: dayProgress.percentage,
-    plannedLabel: privateBlocksForWidget.length > 0
-      ? `${privateBlocksForWidget.length} Termin${privateBlocksForWidget.length > 1 ? 'e' : ''}`
+    plannedLabel: blocksForWidget.length > 0
+      ? `${blocksForWidget.length} Termin${blocksForWidget.length > 1 ? 'e' : ''}`
       : '',
-    blocks: privateBlocksForWidget,
+    blocks: blocksForWidget,
   };
 
   return (
