@@ -14,6 +14,7 @@ const ALL_PREPWELL_STORAGE_KEYS = [
   'prepwell_content_plans',
   'prepwell_contents',
   'prepwell_published_themenlisten',
+  'prepwell_theme_lists',
   // Lernplan
   'prepwell_lernplan_metadata',
   'prepwell_archived_lernplaene',
@@ -28,6 +29,8 @@ const ALL_PREPWELL_STORAGE_KEYS = [
   // Check-in & Logbuch
   'prepwell_checkin_data',
   'prepwell_checkin_responses',
+  'prepwell_checkin_settings',
+  'prepwell_last_checkin',
   'prepwell_logbuch_entries',
   // Settings
   'prepwell_settings',
@@ -36,8 +39,20 @@ const ALL_PREPWELL_STORAGE_KEYS = [
   'prepwell_custom_subjects',
   'prepwell_custom_unterrechtsgebiete',
   'prepwell_mentor_activated',
+  // Mentor
+  'prepwell_mentor_selected_sidebar_stats',
+  'prepwell_mentor_selected_charts',
   // Onboarding
   'prepwell_onboarding_complete',
+  'prepwell_onboarding_step',
+  'prepwell_onboarding_mode',
+  // App Mode / Subscription
+  'prepwell_semester',
+  'prepwell_mode_preference',
+  'prepwell_is_subscribed',
+  'prepwell_subscription_plan',
+  'prepwell_subscription_status',
+  'prepwell_trial_start',
   // Note: prepwell_last_user_id is NOT cleared, it's used to detect user changes
 ];
 
