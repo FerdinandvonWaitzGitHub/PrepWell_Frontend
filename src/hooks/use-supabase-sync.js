@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
   contents: 'prepwell_contents',
   tasks: 'prepwell_tasks',
   privateBlocks: 'prepwell_private_blocks',
+  timeBlocks: 'prepwell_time_blocks', // BUG-023: Separate time-based blocks
   lernplanMetadata: 'prepwell_lernplan_metadata',
   archivedLernplaene: 'prepwell_archived_lernplaene',
   exams: 'prepwell_exams',
@@ -1624,6 +1625,303 @@ export function usePrivateBlocksSync() {
     setPrivateBlocksByDate,
     saveDayBlocks,
     saveDayBlocksBatch,
+    loading,
+    isAuthenticated,
+    isSupabaseEnabled,
+  };
+}
+
+/**
+ * Hook for Time Blocks (timeBlocksByDate)
+ * BUG-023 FIX: Strictly separated from calendar_slots (Month view)
+ * Time blocks are time-based (start_time, end_time) for Week/Dashboard views
+ */
+export function useTimeBlocksSync() {
+  const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
+  const [timeBlocksByDate, setTimeBlocksByDate] = useState(() =>
+    loadFromStorage(STORAGE_KEYS.timeBlocks, {})
+  );
+  const [loading, setLoading] = useState(false);
+  const syncedRef = useRef(false);
+  const userIdRef = useRef(null);
+
+  // Reset syncedRef when user changes (logout/login)
+  useEffect(() => {
+    if (user?.id !== userIdRef.current) {
+      syncedRef.current = false;
+      userIdRef.current = user?.id || null;
+    }
+  }, [user?.id]);
+
+  // Transform flat array from Supabase to date-keyed object
+  const transformFromSupabase = useCallback((rows) => {
+    const result = {};
+    rows.forEach(row => {
+      const dateKey = row.block_date;
+      if (!result[dateKey]) {
+        result[dateKey] = [];
+      }
+      result[dateKey].push({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        blockType: row.block_type || 'lernblock',
+        startTime: row.start_time,
+        endTime: row.end_time,
+        rechtsgebiet: row.rechtsgebiet,
+        unterrechtsgebiet: row.unterrechtsgebiet,
+        repeatEnabled: row.repeat_enabled,
+        repeatType: row.repeat_type,
+        repeatCount: row.repeat_count,
+        seriesId: row.series_id,
+        customDays: row.custom_days,
+        tasks: row.tasks || [],
+        metadata: row.metadata || {},
+        createdAt: row.created_at,
+      });
+    });
+    return result;
+  }, []);
+
+  // Fetch from Supabase
+  const fetchFromSupabase = useCallback(async () => {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('time_blocks')
+        .select('*')
+        .order('block_date', { ascending: true });
+
+      if (error) throw error;
+      return transformFromSupabase(data || []);
+    } catch (err) {
+      console.error('Error fetching time blocks:', err);
+      return null;
+    }
+  }, [isSupabaseEnabled, isAuthenticated, user, transformFromSupabase]);
+
+  // Initial sync on login
+  useEffect(() => {
+    const initSync = async () => {
+      if (!isSupabaseEnabled || !isAuthenticated || syncedRef.current) {
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const { data: existingData } = await supabase
+          .from('time_blocks')
+          .select('id')
+          .limit(1);
+
+        if (existingData && existingData.length > 0) {
+          const supabaseData = await fetchFromSupabase();
+          if (supabaseData) {
+            setTimeBlocksByDate(supabaseData);
+            saveToStorage(STORAGE_KEYS.timeBlocks, supabaseData);
+          }
+        } else {
+          // Migrate from localStorage
+          const localData = loadFromStorage(STORAGE_KEYS.timeBlocks, {});
+          const dataToInsert = [];
+          Object.entries(localData).forEach(([dateKey, blocks]) => {
+            blocks.forEach(block => {
+              dataToInsert.push({
+                user_id: user.id,
+                block_date: dateKey,
+                title: block.title,
+                description: block.description,
+                block_type: block.blockType || 'lernblock',
+                start_time: block.startTime,
+                end_time: block.endTime,
+                rechtsgebiet: block.rechtsgebiet,
+                unterrechtsgebiet: block.unterrechtsgebiet,
+                repeat_enabled: block.repeatEnabled || false,
+                repeat_type: block.repeatType,
+                repeat_count: block.repeatCount,
+                series_id: block.seriesId,
+                custom_days: block.customDays,
+                tasks: block.tasks || [],
+                metadata: block.metadata || {},
+              });
+            });
+          });
+
+          if (dataToInsert.length > 0) {
+            await supabase.from('time_blocks').insert(dataToInsert);
+            console.log(`Migrated ${dataToInsert.length} time blocks to Supabase`);
+          }
+        }
+
+        syncedRef.current = true;
+      } catch (err) {
+        console.error('Error syncing time blocks:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initSync();
+  }, [isSupabaseEnabled, isAuthenticated, user, fetchFromSupabase]);
+
+  // Save time blocks for a specific date
+  const saveDayBlocks = useCallback(async (dateKey, blocks) => {
+    const updated = { ...timeBlocksByDate, [dateKey]: blocks };
+    if (blocks.length === 0) {
+      delete updated[dateKey];
+    }
+    setTimeBlocksByDate(updated);
+    saveToStorage(STORAGE_KEYS.timeBlocks, updated);
+
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+      return { success: true, source: 'localStorage' };
+    }
+
+    try {
+      // Delete existing blocks for this date
+      await supabase
+        .from('time_blocks')
+        .delete()
+        .eq('block_date', dateKey);
+
+      // Insert new blocks
+      if (blocks.length > 0) {
+        const dataToInsert = blocks.map(block => {
+          const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('local-') || block.id?.startsWith('timeblock-');
+          const blockId = isLocalId ? crypto.randomUUID() : block.id;
+          return {
+            id: blockId,
+            user_id: user.id,
+            block_date: dateKey,
+            title: block.title,
+            description: block.description,
+            block_type: block.blockType || 'lernblock',
+            start_time: block.startTime,
+            end_time: block.endTime,
+            rechtsgebiet: block.rechtsgebiet,
+            unterrechtsgebiet: block.unterrechtsgebiet,
+            repeat_enabled: block.repeatEnabled || false,
+            repeat_type: block.repeatType,
+            repeat_count: block.repeatCount,
+            series_id: block.seriesId,
+            custom_days: block.customDays,
+            tasks: block.tasks || [],
+            metadata: block.metadata || {},
+          };
+        });
+
+        const { error } = await supabase
+          .from('time_blocks')
+          .insert(dataToInsert);
+
+        if (error) throw error;
+      }
+
+      return { success: true, source: 'supabase' };
+    } catch (err) {
+      console.error('Error saving time blocks:', err);
+      return { success: false, error: err, source: 'localStorage' };
+    }
+  }, [timeBlocksByDate, isSupabaseEnabled, isAuthenticated, user]);
+
+  // Batch save time blocks for multiple dates at once
+  const saveDayBlocksBatch = useCallback(async (updatesMap) => {
+    console.log('[saveTimeBlocksBatch] Called with', Object.keys(updatesMap).length, 'dates');
+
+    const updated = { ...timeBlocksByDate };
+    Object.entries(updatesMap).forEach(([dateKey, blocks]) => {
+      if (blocks.length === 0) {
+        delete updated[dateKey];
+      } else {
+        updated[dateKey] = blocks;
+      }
+    });
+
+    setTimeBlocksByDate(updated);
+    saveToStorage(STORAGE_KEYS.timeBlocks, updated);
+
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+      return { success: true, source: 'localStorage' };
+    }
+
+    try {
+      for (const [dateKey, blocks] of Object.entries(updatesMap)) {
+        await supabase
+          .from('time_blocks')
+          .delete()
+          .eq('block_date', dateKey);
+
+        if (blocks.length > 0) {
+          const dataToInsert = blocks.map(block => {
+            const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('local-') || block.id?.startsWith('timeblock-');
+            const blockId = isLocalId ? crypto.randomUUID() : block.id;
+            return {
+              id: blockId,
+              user_id: user.id,
+              block_date: dateKey,
+              title: block.title,
+              description: block.description,
+              block_type: block.blockType || 'lernblock',
+              start_time: block.startTime,
+              end_time: block.endTime,
+              rechtsgebiet: block.rechtsgebiet,
+              unterrechtsgebiet: block.unterrechtsgebiet,
+              repeat_enabled: block.repeatEnabled || false,
+              repeat_type: block.repeatType,
+              repeat_count: block.repeatCount,
+              series_id: block.seriesId,
+              custom_days: block.customDays,
+              tasks: block.tasks || [],
+              metadata: block.metadata || {},
+            };
+          });
+
+          const { error } = await supabase
+            .from('time_blocks')
+            .insert(dataToInsert);
+
+          if (error) throw error;
+        }
+      }
+
+      return { success: true, source: 'supabase' };
+    } catch (err) {
+      console.error('Error batch saving time blocks:', err);
+      return { success: false, error: err, source: 'localStorage' };
+    }
+  }, [timeBlocksByDate, isSupabaseEnabled, isAuthenticated, user]);
+
+  // Clear all time blocks
+  const clearAllBlocks = useCallback(async () => {
+    setTimeBlocksByDate({});
+    saveToStorage(STORAGE_KEYS.timeBlocks, {});
+
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
+      return { success: true, source: 'localStorage' };
+    }
+
+    try {
+      await supabase
+        .from('time_blocks')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      return { success: true, source: 'supabase' };
+    } catch (err) {
+      console.error('Error clearing time blocks:', err);
+      return { success: false, error: err, source: 'localStorage' };
+    }
+  }, [isSupabaseEnabled, isAuthenticated]);
+
+  return {
+    timeBlocksByDate,
+    setTimeBlocksByDate,
+    saveDayBlocks,
+    saveDayBlocksBatch,
+    clearAllBlocks,
     loading,
     isAuthenticated,
     isSupabaseEnabled,

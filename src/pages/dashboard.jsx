@@ -107,16 +107,20 @@ const DashboardPage = () => {
   }, [mentorIsActivated, isCheckInNeeded, navigate]);
 
   // CalendarContext for CRUD operations
+  // BUG-023 FIX: Use timeBlocksByDate and addTimeBlock for user-created blocks
   const {
     slotsByDate,
     privateBlocksByDate,
+    timeBlocksByDate, // BUG-023 FIX: Time-based blocks
     updateDaySlots,
     addPrivateBlock,
     updatePrivateBlock,
     deletePrivateBlock,
     deleteSeriesPrivateBlocks,
+    addTimeBlock, // BUG-023 FIX: Use this instead of addSlotWithContent
+    updateTimeBlock,
+    deleteTimeBlock,
     // NEW DATA MODEL: Content management
-    addSlotWithContent,
     saveContent,
     // Content Plans (Themenlisten)
     contentPlans,
@@ -303,133 +307,146 @@ const DashboardPage = () => {
     }
   }, []);
 
-  // Add a new learning block (uses new Content → Slot model)
-  const handleAddBlock = useCallback((_date, blockData) => {
-    const daySlots = slotsByDate[dateString] || [];
+  // BUG-023 FIX: Add a new learning block - uses timeBlocksByDate
+  // Creates time blocks (NOT slots) for Dashboard/Week views
+  // This ensures blocks created here are NEVER shown in Month view
+  const handleAddBlock = useCallback(async (_date, blockData) => {
+    console.log('[Dashboard handleAddBlock] BUG-023 FIX: Creating time block');
 
-    // Find next available position (1, 2, 3, or 4)
-    const usedPositions = daySlots.filter(s => s.contentId).map(s => s.position);
-    let position = 1;
-    while (usedPositions.includes(position) && position <= 4) {
-      position++;
-    }
-
-    if (position > 4) {
-      console.warn('Alle Slots für diesen Tag sind belegt');
-      return;
-    }
-
-    // Use addSlotWithContent from context (creates Content + Slot)
-    addSlotWithContent(dateString, {
-      position,
-      blockType: blockData.blockType || 'lernblock',
-      // Content data
+    // Create time block data (time-based, NOT position-based)
+    const timeBlockData = {
       title: blockData.title,
       description: blockData.description || '',
+      blockType: blockData.blockType || 'lernblock',
       rechtsgebiet: blockData.rechtsgebiet,
       unterrechtsgebiet: blockData.unterrechtsgebiet,
-      // Time data (optional)
-      hasTime: blockData.hasTime || false,
-      startTime: blockData.startTime,
-      endTime: blockData.endTime,
-      startHour: blockData.startHour,
-      duration: blockData.duration,
-      // Repeat data
+      startTime: blockData.startTime || '09:00',
+      endTime: blockData.endTime || '10:00',
+      // Repeat settings (handled by addTimeBlock)
       repeatEnabled: blockData.repeatEnabled || false,
       repeatType: blockData.repeatType,
       repeatCount: blockData.repeatCount,
       customDays: blockData.customDays,
-      // Tasks
       tasks: blockData.tasks || [],
-    });
+    };
 
-    // TODO: Handle repeat logic - create additional slots for repeated days
-  }, [dateString, slotsByDate, addSlotWithContent]);
+    // Use addTimeBlock which stores in timeBlocksByDate (NOT slotsByDate)
+    await addTimeBlock(dateString, timeBlockData);
+
+    console.log('[Dashboard handleAddBlock] Time block created successfully');
+  }, [dateString, addTimeBlock]);
 
   // Update a block (updates both Slot and Content)
-  // Supports both contentId and topicId patterns for cross-view compatibility
-  const handleUpdateBlock = useCallback((_date, updatedBlock) => {
+  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan slots
+  const handleUpdateBlock = useCallback(async (_date, updatedBlock) => {
     if (updatedBlock.blockType === 'private') {
       updatePrivateBlock(dateString, updatedBlock.id, updatedBlock);
-    } else {
-      const daySlots = slotsByDate[dateString] || [];
+      return;
+    }
 
-      // Find the slot by contentId, topicId, or id (supports both patterns)
-      const updatedSlots = daySlots.map(slot => {
-        const isMatch =
-          slot.contentId === updatedBlock.id ||
-          slot.contentId === updatedBlock.contentId ||
-          slot.topicId === updatedBlock.id ||
-          slot.topicId === updatedBlock.topicId ||
-          slot.id === updatedBlock.id;
+    // BUG-023 FIX: Check if this is a time block
+    const dayTimeBlocks = timeBlocksByDate[dateString] || [];
+    const isTimeBlock = dayTimeBlocks.some(block => block.id === updatedBlock.id) || updatedBlock.isTimeBlock;
 
-        if (isMatch) {
-          // Update Content separately if using contentId pattern
-          if (slot.contentId) {
-            saveContent({
-              id: slot.contentId,
-              title: updatedBlock.title,
-              description: updatedBlock.description,
-              rechtsgebiet: updatedBlock.rechtsgebiet,
-              unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
-              blockType: updatedBlock.blockType,
-            });
-          }
+    if (isTimeBlock) {
+      // Update time block (user-created in Dashboard/Week)
+      console.log('[Dashboard handleUpdateBlock] BUG-023 FIX: Updating time block');
+      await updateTimeBlock(dateString, updatedBlock.id, {
+        title: updatedBlock.title,
+        description: updatedBlock.description,
+        blockType: updatedBlock.blockType,
+        rechtsgebiet: updatedBlock.rechtsgebiet,
+        unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
+        startTime: updatedBlock.startTime,
+        endTime: updatedBlock.endTime,
+        tasks: updatedBlock.tasks || [],
+      });
+      return;
+    }
 
-          // Update Slot data (supports both patterns)
-          return {
-            ...slot,
-            // Update title in both patterns
+    // Legacy: Update Lernplan slot (for backwards compatibility)
+    const daySlots = slotsByDate[dateString] || [];
+    const updatedSlots = daySlots.map(slot => {
+      const isMatch =
+        slot.contentId === updatedBlock.id ||
+        slot.contentId === updatedBlock.contentId ||
+        slot.topicId === updatedBlock.id ||
+        slot.topicId === updatedBlock.topicId ||
+        slot.id === updatedBlock.id;
+
+      if (isMatch) {
+        // Update Content separately if using contentId pattern
+        if (slot.contentId) {
+          saveContent({
+            id: slot.contentId,
             title: updatedBlock.title,
-            topicTitle: updatedBlock.title,
-            blockType: updatedBlock.blockType,
             description: updatedBlock.description,
             rechtsgebiet: updatedBlock.rechtsgebiet,
             unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
-            // Time data
-            hasTime: updatedBlock.hasTime || false,
-            startTime: updatedBlock.startTime,
-            endTime: updatedBlock.endTime,
-            startHour: updatedBlock.startHour,
-            duration: updatedBlock.duration,
-            // Repeat data
-            repeatEnabled: updatedBlock.repeatEnabled || false,
-            repeatType: updatedBlock.repeatType,
-            repeatCount: updatedBlock.repeatCount,
-            customDays: updatedBlock.customDays,
-            // Tasks
-            tasks: updatedBlock.tasks || [],
-            updatedAt: new Date().toISOString(),
-          };
+            blockType: updatedBlock.blockType,
+          });
         }
-        return slot;
-      });
-      updateDaySlots(dateString, updatedSlots);
-    }
-  }, [dateString, slotsByDate, updateDaySlots, updatePrivateBlock, saveContent]);
+
+        // Update Slot data
+        return {
+          ...slot,
+          title: updatedBlock.title,
+          topicTitle: updatedBlock.title,
+          blockType: updatedBlock.blockType,
+          description: updatedBlock.description,
+          rechtsgebiet: updatedBlock.rechtsgebiet,
+          unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
+          hasTime: updatedBlock.hasTime || false,
+          startTime: updatedBlock.startTime,
+          endTime: updatedBlock.endTime,
+          startHour: updatedBlock.startHour,
+          duration: updatedBlock.duration,
+          repeatEnabled: updatedBlock.repeatEnabled || false,
+          repeatType: updatedBlock.repeatType,
+          repeatCount: updatedBlock.repeatCount,
+          customDays: updatedBlock.customDays,
+          tasks: updatedBlock.tasks || [],
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return slot;
+    });
+    updateDaySlots(dateString, updatedSlots);
+  }, [dateString, slotsByDate, timeBlocksByDate, updateDaySlots, updatePrivateBlock, updateTimeBlock, saveContent]);
 
   // Delete a block (removes Slot, Content remains for potential reuse)
-  // Supports both contentId and topicId patterns for cross-view compatibility
-  const handleDeleteBlock = useCallback((_date, blockId) => {
+  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan slots
+  const handleDeleteBlock = useCallback(async (_date, blockId) => {
     const dayPrivateBlocks = privateBlocksByDate[dateString] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
 
     if (isPrivate) {
       deletePrivateBlock(dateString, blockId);
-    } else {
-      const daySlots = slotsByDate[dateString] || [];
-      // Filter out the slot with matching contentId, topicId, or id (supports both patterns)
-      const updatedSlots = daySlots.filter(slot => {
-        const isMatch =
-          slot.contentId === blockId ||
-          slot.topicId === blockId ||
-          slot.id === blockId;
-        return !isMatch;
-      });
-      updateDaySlots(dateString, updatedSlots);
-      // Note: Content is NOT deleted - it can be reused later
+      return;
     }
-  }, [dateString, slotsByDate, privateBlocksByDate, updateDaySlots, deletePrivateBlock]);
+
+    // BUG-023 FIX: Check if it's a time block
+    const dayTimeBlocks = timeBlocksByDate[dateString] || [];
+    const isTimeBlock = dayTimeBlocks.some(b => b.id === blockId);
+
+    if (isTimeBlock) {
+      console.log('[Dashboard handleDeleteBlock] BUG-023 FIX: Deleting time block');
+      await deleteTimeBlock(dateString, blockId);
+      return;
+    }
+
+    // Legacy: Delete Lernplan slot (for backwards compatibility)
+    const daySlots = slotsByDate[dateString] || [];
+    const updatedSlots = daySlots.filter(slot => {
+      const isMatch =
+        slot.contentId === blockId ||
+        slot.topicId === blockId ||
+        slot.id === blockId;
+      return !isMatch;
+    });
+    updateDaySlots(dateString, updatedSlots);
+    // Note: Content is NOT deleted - it can be reused later
+  }, [dateString, slotsByDate, timeBlocksByDate, privateBlocksByDate, updateDaySlots, deletePrivateBlock, deleteTimeBlock]);
 
   // Add a new private block
   const handleAddPrivateBlock = useCallback((_date, blockData) => {

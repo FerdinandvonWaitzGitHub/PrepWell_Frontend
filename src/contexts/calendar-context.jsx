@@ -5,6 +5,7 @@ import {
   useCalendarSlotsSync,
   useCalendarTasksSync,
   usePrivateBlocksSync,
+  useTimeBlocksSync,
   useArchivedLernplaeneSync,
   useLernplanMetadataSync,
   usePublishedThemenlistenSync,
@@ -121,6 +122,16 @@ export const CalendarProvider = ({ children }) => {
     saveDayBlocksBatch,
     loading: privateBlocksLoading,
   } = usePrivateBlocksSync();
+
+  // Time Blocks - synced with Supabase (BUG-023 FIX: Separate from calendar_slots)
+  // Time blocks are time-based (Week/Dashboard), NOT position-based (Month)
+  const {
+    timeBlocksByDate,
+    saveDayBlocks: saveTimeBlocksDayBlocks,
+    saveDayBlocksBatch: saveTimeBlocksDayBlocksBatch,
+    clearAllBlocks: clearAllTimeBlocks,
+    loading: timeBlocksLoading,
+  } = useTimeBlocksSync();
 
   // Archived Lernpläne - synced with Supabase
   const {
@@ -812,6 +823,144 @@ export const CalendarProvider = ({ children }) => {
   const getPrivateBlocks = useCallback((dateKey) => {
     return privateBlocksByDate[dateKey] || [];
   }, [privateBlocksByDate]);
+
+  // ============================================
+  // TIME BLOCKS CRUD (BUG-023 FIX)
+  // Time-based blocks for Week/Dashboard views
+  // NEVER use slotsByDate for Week/Dashboard - use timeBlocksByDate
+  // ============================================
+
+  /**
+   * Add a time block to a specific date
+   * Now synced to Supabase
+   * Handles repeat/series appointments
+   * @param {string} dateKey - The date key (YYYY-MM-DD)
+   * @param {Object} block - The time block data (must have startTime, endTime)
+   */
+  const addTimeBlock = useCallback(async (dateKey, block) => {
+    // Generate a series ID if this is a repeating block
+    const seriesId = block.repeatEnabled ? `timeblock-series-${Date.now()}` : null;
+
+    console.log('[addTimeBlock] Called with:', { dateKey, repeatEnabled: block.repeatEnabled, repeatType: block.repeatType, repeatCount: block.repeatCount, seriesId });
+
+    // Create the base block with ID
+    const createBlock = (isOriginal = true) => ({
+      ...block,
+      id: `timeblock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      blockType: block.blockType || 'lernblock',
+      createdAt: new Date().toISOString(),
+      // Series linking
+      seriesId: seriesId,
+      // Only store repeat settings on the original block
+      repeatEnabled: isOriginal ? (block.repeatEnabled || false) : false,
+      repeatType: isOriginal ? block.repeatType : null,
+      repeatCount: isOriginal ? block.repeatCount : null,
+      customDays: isOriginal ? block.customDays : null,
+    });
+
+    // Create the original block for the first date
+    const originalBlock = createBlock(true);
+
+    // Collect all updates to avoid stale closure issues
+    const updatesToMake = {
+      [dateKey]: [...(timeBlocksByDate[dateKey] || []), originalBlock],
+    };
+
+    // If repeat is enabled, collect blocks for all repeat dates
+    if (block.repeatEnabled && block.repeatType && block.repeatCount > 0) {
+      const repeatDates = calculateRepeatDates(
+        dateKey,
+        block.repeatType,
+        block.repeatCount,
+        block.customDays || []
+      );
+
+      console.log('[addTimeBlock] Repeat dates calculated:', repeatDates);
+
+      repeatDates.forEach(repeatDateKey => {
+        const repeatBlock = createBlock(false);
+        const existingBlocks = updatesToMake[repeatDateKey] || timeBlocksByDate[repeatDateKey] || [];
+        updatesToMake[repeatDateKey] = [...existingBlocks, repeatBlock];
+      });
+    }
+
+    console.log('[addTimeBlock] Updates to make:', Object.keys(updatesToMake).length, 'dates');
+
+    // Use batch save to update all dates in one atomic operation
+    await saveTimeBlocksDayBlocksBatch(updatesToMake);
+
+    console.log('[addTimeBlock] Batch save completed');
+
+    return originalBlock;
+  }, [timeBlocksByDate, saveTimeBlocksDayBlocksBatch, calculateRepeatDates]);
+
+  /**
+   * Update a time block
+   * Now synced to Supabase
+   * @param {string} dateKey - The date key (YYYY-MM-DD)
+   * @param {string} blockId - The block ID to update
+   * @param {Object} updates - Partial updates to apply
+   */
+  const updateTimeBlock = useCallback(async (dateKey, blockId, updates) => {
+    const currentBlocks = timeBlocksByDate[dateKey] || [];
+    const updatedBlocks = currentBlocks.map(block =>
+      block.id === blockId
+        ? { ...block, ...updates, updatedAt: new Date().toISOString() }
+        : block
+    );
+
+    await saveTimeBlocksDayBlocks(dateKey, updatedBlocks);
+  }, [timeBlocksByDate, saveTimeBlocksDayBlocks]);
+
+  /**
+   * Delete a time block
+   * Now synced to Supabase
+   * @param {string} dateKey - The date key (YYYY-MM-DD)
+   * @param {string} blockId - The block ID to delete
+   */
+  const deleteTimeBlock = useCallback(async (dateKey, blockId) => {
+    const currentBlocks = timeBlocksByDate[dateKey] || [];
+    const filteredBlocks = currentBlocks.filter(block => block.id !== blockId);
+
+    await saveTimeBlocksDayBlocks(dateKey, filteredBlocks);
+  }, [timeBlocksByDate, saveTimeBlocksDayBlocks]);
+
+  /**
+   * Delete all time blocks in a series (by seriesId)
+   * Useful for deleting all recurring time blocks at once
+   * @param {string} seriesId - The series ID
+   */
+  const deleteSeriesTimeBlocks = useCallback(async (seriesId) => {
+    if (!seriesId) return;
+
+    // Collect all updates to make in one batch
+    const updatesToMake = {};
+
+    // Iterate through all dates and collect filtered blocks
+    for (const dateKey of Object.keys(timeBlocksByDate)) {
+      const dayBlocks = timeBlocksByDate[dateKey] || [];
+      const hasSeriesBlocks = dayBlocks.some(block => block.seriesId === seriesId);
+
+      if (hasSeriesBlocks) {
+        const filteredBlocks = dayBlocks.filter(block => block.seriesId !== seriesId);
+        updatesToMake[dateKey] = filteredBlocks;
+      }
+    }
+
+    // Use batch save to update all dates in one atomic operation
+    if (Object.keys(updatesToMake).length > 0) {
+      await saveTimeBlocksDayBlocksBatch(updatesToMake);
+    }
+  }, [timeBlocksByDate, saveTimeBlocksDayBlocksBatch]);
+
+  /**
+   * Get time blocks for a specific date
+   * @param {string} dateKey - The date key (YYYY-MM-DD)
+   * @returns {Array} The time blocks for that day
+   */
+  const getTimeBlocks = useCallback((dateKey) => {
+    return timeBlocksByDate[dateKey] || [];
+  }, [timeBlocksByDate]);
 
   // ============================================
   // SLOT DELETE OPERATIONS
@@ -2074,6 +2223,7 @@ export const CalendarProvider = ({ children }) => {
     lernplanMetadata,
     archivedLernplaene,
     privateBlocksByDate,
+    timeBlocksByDate, // BUG-023 FIX: Separate time-based blocks for Week/Dashboard
     tasksByDate,
     themeLists,
     contentPlans,
@@ -2085,6 +2235,7 @@ export const CalendarProvider = ({ children }) => {
     slotsLoading,
     tasksLoading,
     privateBlocksLoading,
+    timeBlocksLoading, // BUG-023 FIX
     archivedLoading,
     metadataLoading,
     publishedThemenlistenLoading,
@@ -2119,6 +2270,14 @@ export const CalendarProvider = ({ children }) => {
     deletePrivateBlock,
     deleteSeriesPrivateBlocks,
     getPrivateBlocks,
+
+    // Time Block Actions (BUG-023 FIX: Separate from slots)
+    addTimeBlock,
+    updateTimeBlock,
+    deleteTimeBlock,
+    deleteSeriesTimeBlocks,
+    getTimeBlocks,
+    clearAllTimeBlocks,
 
     // Task Actions
     addTask,

@@ -307,6 +307,30 @@ CREATE TABLE IF NOT EXISTS calendar_tasks (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Time Blocks (Time-based blocks for Week/Dashboard - BUG-023 FIX)
+-- Strictly separated from calendar_slots (position-based, Month view)
+CREATE TABLE IF NOT EXISTS time_blocks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  block_date DATE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  block_type TEXT DEFAULT 'lernblock' CHECK (block_type IN ('lernblock', 'repetition', 'exam', 'private')),
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  rechtsgebiet TEXT,
+  unterrechtsgebiet TEXT,
+  repeat_enabled BOOLEAN DEFAULT FALSE,
+  repeat_type TEXT,
+  repeat_count INT,
+  series_id UUID,
+  custom_days JSONB,
+  tasks JSONB DEFAULT '[]',
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Archived Lernpläne
 CREATE TABLE IF NOT EXISTS archived_lernplaene (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -592,6 +616,17 @@ CREATE POLICY "Users can update own private_blocks" ON private_blocks FOR UPDATE
 DROP POLICY IF EXISTS "Users can delete own private_blocks" ON private_blocks;
 CREATE POLICY "Users can delete own private_blocks" ON private_blocks FOR DELETE USING (auth.uid() = user_id);
 
+-- Time Blocks Policies (BUG-023 FIX: Separate from calendar_slots)
+ALTER TABLE time_blocks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own time_blocks" ON time_blocks;
+CREATE POLICY "Users can view own time_blocks" ON time_blocks FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own time_blocks" ON time_blocks;
+CREATE POLICY "Users can create own time_blocks" ON time_blocks FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own time_blocks" ON time_blocks;
+CREATE POLICY "Users can update own time_blocks" ON time_blocks FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own time_blocks" ON time_blocks;
+CREATE POLICY "Users can delete own time_blocks" ON time_blocks FOR DELETE USING (auth.uid() = user_id);
+
 -- Calendar Slots Policies
 DROP POLICY IF EXISTS "Users can view own calendar_slots" ON calendar_slots;
 CREATE POLICY "Users can view own calendar_slots" ON calendar_slots FOR SELECT USING (auth.uid() = user_id);
@@ -679,6 +714,10 @@ CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings
 
 DROP TRIGGER IF EXISTS update_private_blocks_updated_at ON private_blocks;
 CREATE TRIGGER update_private_blocks_updated_at BEFORE UPDATE ON private_blocks
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_time_blocks_updated_at ON time_blocks;
+CREATE TRIGGER update_time_blocks_updated_at BEFORE UPDATE ON time_blocks
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 DROP TRIGGER IF EXISTS update_calendar_slots_updated_at ON calendar_slots;

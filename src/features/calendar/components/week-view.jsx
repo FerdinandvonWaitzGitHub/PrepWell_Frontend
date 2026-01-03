@@ -30,15 +30,21 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const { isExamMode } = useAppMode();
 
   // Get data from CalendarContext (Single Source of Truth)
+  // BUG-023 FIX: Use timeBlocksByDate for user-created blocks (time-based)
+  // Use visibleSlotsByDate only for Lernplan-generated slots (position-based, header only)
   const {
     slotsByDate,
-    visibleSlotsByDate, // BUG-010 FIX: Use filtered slots for display
+    visibleSlotsByDate, // BUG-010 FIX: Filtered Lernplan slots for header display
     privateBlocksByDate,
+    timeBlocksByDate, // BUG-023 FIX: Time-based blocks for Week/Dashboard
     updateDaySlots,
     addPrivateBlock,
     updatePrivateBlock,
     deletePrivateBlock,
     deleteSeriesPrivateBlocks,
+    addTimeBlock,
+    updateTimeBlock,
+    deleteTimeBlock,
   } = useCalendar();
 
   // Dialog states
@@ -98,9 +104,11 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   };
 
   // Transform CalendarContext slots to week view format
-  // BUG-023 FIX: Filter Lernplan slots based on app mode
-  // - Normal mode: Only show manually-created blocks (not isFromLernplan)
-  // - Exam mode: Show all blocks, with Lernplan slots going to header bar
+  // BUG-023 FIX: Combine time blocks (user-created) with Lernplan slots
+  // - Time blocks: Stored in timeBlocksByDate, always shown in time grid
+  // - Lernplan slots: Stored in visibleSlotsByDate
+  //   - Normal mode: Hidden
+  //   - Exam mode: Shown in header bar (not time grid)
   const { blocks, lernplanSlots } = useMemo(() => {
     const { monday, sunday } = getWeekDateRange(currentDate);
     const weekBlocks = [];
@@ -109,74 +117,90 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     // Iterate through each day of the week
     for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
       const dateKey = formatDateKey(d);
-      // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
-      const daySlots = visibleSlotsByDate[dateKey] || [];
 
-      // Convert slots to learning blocks for this day
-      const learningBlocks = slotsToLearningBlocks(daySlots);
-
-      // Transform to week view format with times
-      learningBlocks.forEach(block => {
-        if (block.isAddButton) return; // Skip add buttons
-
-        // Find the original slot to get position and other data (supports both contentId and topicId)
-        const originalSlot = findSlotById(daySlots, block.id);
-
-        // BUG-023 FIX: Check if this slot is from Lernplan wizard
-        const isFromLernplan = originalSlot?.isFromLernplan === true;
-
-        // In Normal mode, skip Lernplan slots entirely
-        if (!isExamMode && isFromLernplan) {
-          return; // Don't show Lernplan slots in Normal mode
-        }
-
-        const position = originalSlot?.position || 1;
-        // Use slot's time settings if available, otherwise use position-based defaults
-        const defaultTimes = getTimeForPosition(position);
-        const startTime = originalSlot?.startTime || defaultTimes.startTime;
-        const endTime = originalSlot?.endTime || defaultTimes.endTime;
-
-        const blockData = {
+      // BUG-023 FIX: Add time blocks (user-created in Week/Dashboard)
+      const dayTimeBlocks = timeBlocksByDate[dateKey] || [];
+      dayTimeBlocks.forEach(block => {
+        weekBlocks.push({
           id: block.id,
-          contentId: block.contentId || originalSlot?.contentId,
-          topicId: block.topicId || originalSlot?.topicId,
           title: block.title,
           blockType: block.blockType || 'lernblock',
-          blockSize: block.blockSize || 1,
+          blockSize: 1,
           startDate: dateKey,
-          startTime,
-          endTime,
+          startTime: block.startTime || '09:00',
+          endTime: block.endTime || '10:00',
           isMultiDay: false,
           description: block.description || '',
           rechtsgebiet: block.rechtsgebiet,
           unterrechtsgebiet: block.unterrechtsgebiet,
-          // Time settings from slot
-          hasTime: originalSlot?.hasTime || false,
-          startHour: originalSlot?.startHour,
-          duration: originalSlot?.duration,
-          // Repeat settings from slot
-          repeatEnabled: originalSlot?.repeatEnabled || false,
-          repeatType: originalSlot?.repeatType,
-          repeatCount: originalSlot?.repeatCount,
-          customDays: originalSlot?.customDays,
-          // Tasks from slot
-          tasks: originalSlot?.tasks || [],
-          // BUG-023 FIX: Track if from Lernplan
-          isFromLernplan,
-          position, // Include position for header bar display
-        };
-
-        // BUG-023 FIX: In Exam mode, Lernplan slots go to header bar, not time grid
-        if (isExamMode && isFromLernplan) {
-          weekLernplanSlots.push(blockData);
-        } else {
-          weekBlocks.push(blockData);
-        }
+          hasTime: true,
+          repeatEnabled: block.repeatEnabled || false,
+          repeatType: block.repeatType,
+          repeatCount: block.repeatCount,
+          customDays: block.customDays,
+          tasks: block.tasks || [],
+          isFromLernplan: false, // Always false for time blocks
+          isTimeBlock: true, // Mark as time block for identification
+        });
       });
+
+      // Process Lernplan slots (only in Exam mode, for header bar)
+      if (isExamMode) {
+        // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
+        const daySlots = visibleSlotsByDate[dateKey] || [];
+
+        // Convert slots to learning blocks for this day
+        const learningBlocks = slotsToLearningBlocks(daySlots);
+
+        // Transform to week view format with times
+        learningBlocks.forEach(block => {
+          if (block.isAddButton) return; // Skip add buttons
+
+          // Find the original slot to get position and other data
+          const originalSlot = findSlotById(daySlots, block.id);
+
+          // Check if this slot is from Lernplan wizard
+          const isFromLernplan = originalSlot?.isFromLernplan === true;
+
+          // Only Lernplan slots go to header bar in Exam mode
+          if (isFromLernplan) {
+            const position = originalSlot?.position || 1;
+            const defaultTimes = getTimeForPosition(position);
+            const startTime = originalSlot?.startTime || defaultTimes.startTime;
+            const endTime = originalSlot?.endTime || defaultTimes.endTime;
+
+            weekLernplanSlots.push({
+              id: block.id,
+              contentId: block.contentId || originalSlot?.contentId,
+              topicId: block.topicId || originalSlot?.topicId,
+              title: block.title,
+              blockType: block.blockType || 'lernblock',
+              blockSize: block.blockSize || 1,
+              startDate: dateKey,
+              startTime,
+              endTime,
+              isMultiDay: false,
+              description: block.description || '',
+              rechtsgebiet: block.rechtsgebiet,
+              unterrechtsgebiet: block.unterrechtsgebiet,
+              hasTime: originalSlot?.hasTime || false,
+              startHour: originalSlot?.startHour,
+              duration: originalSlot?.duration,
+              repeatEnabled: originalSlot?.repeatEnabled || false,
+              repeatType: originalSlot?.repeatType,
+              repeatCount: originalSlot?.repeatCount,
+              customDays: originalSlot?.customDays,
+              tasks: originalSlot?.tasks || [],
+              isFromLernplan: true,
+              position, // Include position for header bar display
+            });
+          }
+        });
+      }
     }
 
     return { blocks: weekBlocks, lernplanSlots: weekLernplanSlots };
-  }, [currentDate, visibleSlotsByDate, isExamMode]);
+  }, [currentDate, timeBlocksByDate, visibleSlotsByDate, isExamMode]);
 
   // Transform CalendarContext private blocks to week view format
   // BUG-012 FIX: Include multi-day blocks that span into the current week
@@ -344,51 +368,64 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         updatePrivateBlock(dateKey, updatedBlock.id, updatedBlock);
       }
     } else {
-      // Update learning block in CalendarContext (update the slot)
-      const daySlots = slotsByDate[dateKey] || [];
-      const updatedSlots = daySlots.map(slot => {
-        // Match by contentId, topicId, or id (supports both patterns)
-        // IMPORTANT: Only compare if values are truthy to avoid undefined === undefined matching all slots
-        const isMatch =
-          (updatedBlock.id && (slot.contentId === updatedBlock.id || slot.topicId === updatedBlock.id || slot.id === updatedBlock.id)) ||
-          (updatedBlock.contentId && slot.contentId && slot.contentId === updatedBlock.contentId) ||
-          (updatedBlock.topicId && slot.topicId && slot.topicId === updatedBlock.topicId);
+      // BUG-023 FIX: Check if this is a time block or a Lernplan slot
+      const dayTimeBlocks = timeBlocksByDate[dateKey] || [];
+      const isTimeBlock = dayTimeBlocks.some(block => block.id === updatedBlock.id);
 
-        if (isMatch) {
-          return {
-            ...slot,
-            // Update title in both patterns
-            title: updatedBlock.title,
-            topicTitle: updatedBlock.title,
-            blockType: updatedBlock.blockType,
-            description: updatedBlock.description,
-            rechtsgebiet: updatedBlock.rechtsgebiet,
-            unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
-            // Time settings
-            hasTime: updatedBlock.hasTime || false,
-            startTime: updatedBlock.startTime,
-            endTime: updatedBlock.endTime,
-            startHour: updatedBlock.startHour,
-            duration: updatedBlock.duration,
-            // Repeat settings
-            repeatEnabled: updatedBlock.repeatEnabled || false,
-            repeatType: updatedBlock.repeatType,
-            repeatCount: updatedBlock.repeatCount,
-            customDays: updatedBlock.customDays,
-            // Tasks
-            tasks: updatedBlock.tasks || [],
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return slot;
-      });
-      updateDaySlots(dateKey, updatedSlots);
+      if (isTimeBlock) {
+        // Update time block (user-created in Week/Dashboard)
+        console.log('[handleUpdateBlock] BUG-023 FIX: Updating time block');
+        await updateTimeBlock(dateKey, updatedBlock.id, {
+          title: updatedBlock.title,
+          description: updatedBlock.description,
+          blockType: updatedBlock.blockType,
+          rechtsgebiet: updatedBlock.rechtsgebiet,
+          unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
+          startTime: updatedBlock.startTime,
+          endTime: updatedBlock.endTime,
+          tasks: updatedBlock.tasks || [],
+        });
+      } else {
+        // Legacy: Update Lernplan slot (for backwards compatibility)
+        const daySlots = slotsByDate[dateKey] || [];
+        const updatedSlots = daySlots.map(slot => {
+          const isMatch =
+            (updatedBlock.id && (slot.contentId === updatedBlock.id || slot.topicId === updatedBlock.id || slot.id === updatedBlock.id)) ||
+            (updatedBlock.contentId && slot.contentId && slot.contentId === updatedBlock.contentId) ||
+            (updatedBlock.topicId && slot.topicId && slot.topicId === updatedBlock.topicId);
+
+          if (isMatch) {
+            return {
+              ...slot,
+              title: updatedBlock.title,
+              topicTitle: updatedBlock.title,
+              blockType: updatedBlock.blockType,
+              description: updatedBlock.description,
+              rechtsgebiet: updatedBlock.rechtsgebiet,
+              unterrechtsgebiet: updatedBlock.unterrechtsgebiet,
+              hasTime: updatedBlock.hasTime || false,
+              startTime: updatedBlock.startTime,
+              endTime: updatedBlock.endTime,
+              startHour: updatedBlock.startHour,
+              duration: updatedBlock.duration,
+              repeatEnabled: updatedBlock.repeatEnabled || false,
+              repeatType: updatedBlock.repeatType,
+              repeatCount: updatedBlock.repeatCount,
+              customDays: updatedBlock.customDays,
+              tasks: updatedBlock.tasks || [],
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return slot;
+        });
+        updateDaySlots(dateKey, updatedSlots);
+      }
     }
   };
 
   // Delete a block - uses CalendarContext
-  // Supports both contentId and topicId patterns for cross-view compatibility
-  const handleDeleteBlock = (date, blockId) => {
+  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan slots
+  const handleDeleteBlock = async (date, blockId) => {
     const dateKey = date ? formatDateKey(date) : null;
     if (!dateKey) return;
 
@@ -398,153 +435,61 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
 
     if (isPrivate) {
       deletePrivateBlock(dateKey, blockId);
-    } else {
-      // Delete learning block by removing the slot entirely
-      // This is more compatible with Dashboard's delete behavior
-      const daySlots = slotsByDate[dateKey] || [];
-      const updatedSlots = daySlots.filter(slot => {
-        // Match by contentId, topicId, or id (supports both patterns)
-        const isMatch =
-          slot.contentId === blockId ||
-          slot.topicId === blockId ||
-          slot.id === blockId;
-        return !isMatch;
-      });
-      updateDaySlots(dateKey, updatedSlots);
+      return;
     }
-  };
 
-  // Generate repeat dates based on repeat settings
-  const generateRepeatDates = (startDate, repeatType, repeatCount, customDays) => {
-    const dates = [startDate];
-    const currentDate = new Date(startDate);
+    // BUG-023 FIX: Check if it's a time block
+    const dayTimeBlocks = timeBlocksByDate[dateKey] || [];
+    const isTimeBlock = dayTimeBlocks.some(b => b.id === blockId);
 
-    for (let i = 1; i < repeatCount; i++) {
-      if (repeatType === 'daily') {
-        currentDate.setDate(currentDate.getDate() + 1);
-        dates.push(new Date(currentDate));
-      } else if (repeatType === 'weekly') {
-        currentDate.setDate(currentDate.getDate() + 7);
-        dates.push(new Date(currentDate));
-      } else if (repeatType === 'monthly') {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-        dates.push(new Date(currentDate));
-      } else if (repeatType === 'custom' && customDays && customDays.length > 0) {
-        // Find next matching day
-        let found = false;
-        let attempts = 0;
-        while (!found && attempts < 365) {
-          currentDate.setDate(currentDate.getDate() + 1);
-          attempts++;
-          if (customDays.includes(currentDate.getDay())) {
-            dates.push(new Date(currentDate));
-            found = true;
-          }
-        }
-      }
+    if (isTimeBlock) {
+      console.log('[handleDeleteBlock] BUG-023 FIX: Deleting time block');
+      await deleteTimeBlock(dateKey, blockId);
+      return;
     }
-    return dates;
-  };
 
-  // Add a slot for a single date (helper function)
-  const addSlotForDate = (date, blockData, blockId) => {
-    const dateKey = formatDateKey(date);
+    // Legacy: Delete Lernplan slot (for backwards compatibility)
     const daySlots = slotsByDate[dateKey] || [];
+    const updatedSlots = daySlots.filter(slot => {
+      const isMatch =
+        slot.contentId === blockId ||
+        slot.topicId === blockId ||
+        slot.id === blockId;
+      return !isMatch;
+    });
+    updateDaySlots(dateKey, updatedSlots);
+  };
 
-    // Find next available position
-    const usedPositions = daySlots
-      .filter(s => s.status === 'topic' || s.contentId || s.topicId)
-      .map(s => s.position);
-    let nextPosition = 1;
-    while (usedPositions.includes(nextPosition) && nextPosition <= 4) {
-      nextPosition++;
-    }
+  // BUG-023 FIX: Add a new learning block - uses timeBlocksByDate
+  // Creates time blocks (NOT slots) for Week/Dashboard views
+  // This ensures blocks created here are NEVER shown in Month view
+  const handleAddBlock = async (_date, blockData) => {
+    const startDate = selectedDate || new Date();
+    const dateKey = formatDateKey(startDate);
 
-    if (nextPosition > 4) {
-      console.warn('No available slots for date:', dateKey);
-      return null;
-    }
+    console.log('[handleAddBlock] BUG-023 FIX: Creating time block for date:', dateKey);
 
-    const newSlot = {
-      id: `slot-${dateKey}-${nextPosition}-${Date.now()}`,
-      date: dateKey,
-      position: nextPosition,
-      status: 'topic',
-      contentId: blockId,
-      topicId: blockId,
+    // Create time block data (time-based, NOT position-based)
+    const timeBlockData = {
       title: blockData.title,
-      topicTitle: blockData.title,
-      blockType: blockData.blockType || 'lernblock',
       description: blockData.description || '',
+      blockType: blockData.blockType || 'lernblock',
       rechtsgebiet: blockData.rechtsgebiet,
       unterrechtsgebiet: blockData.unterrechtsgebiet,
-      hasTime: blockData.hasTime || false,
-      startTime: blockData.startTime,
-      endTime: blockData.endTime,
-      startHour: blockData.startHour,
-      duration: blockData.duration,
-      repeatEnabled: false, // Individual slots don't need repeat flag
+      startTime: blockData.startTime || '09:00',
+      endTime: blockData.endTime || '10:00',
+      // Repeat settings (handled by addTimeBlock)
+      repeatEnabled: blockData.repeatEnabled || false,
+      repeatType: blockData.repeatType,
+      repeatCount: blockData.repeatCount,
+      customDays: blockData.customDays,
       tasks: blockData.tasks || [],
-      isFromLernplan: false,
-      createdAt: new Date().toISOString(),
     };
 
-    const existingSlotIndex = daySlots.findIndex(s => s.position === nextPosition);
-    let updatedSlots;
-    if (existingSlotIndex >= 0) {
-      updatedSlots = [...daySlots];
-      updatedSlots[existingSlotIndex] = newSlot;
-    } else {
-      updatedSlots = [...daySlots, newSlot];
-    }
+    // Use addTimeBlock which stores in timeBlocksByDate (NOT slotsByDate)
+    await addTimeBlock(dateKey, timeBlockData);
 
-    return { dateKey, updatedSlots };
-  };
-
-  // Add a new learning block - uses CalendarContext
-  // Creates slots compatible with both contentId and topicId patterns
-  // Supports creating multiple slots when repeat is enabled
-  const handleAddBlock = (_date, blockData) => {
-    const startDate = selectedDate || new Date();
-    const blockId = blockData.id || `content-${Date.now()}`;
-
-    // Check if repeat is enabled
-    if (blockData.repeatEnabled && blockData.repeatCount > 1) {
-      // Generate all dates for the repeat
-      const repeatDates = generateRepeatDates(
-        startDate,
-        blockData.repeatType,
-        blockData.repeatCount,
-        blockData.customDays
-      );
-
-      // Create slots for each date
-      const updates = {};
-      repeatDates.forEach((date, index) => {
-        const result = addSlotForDate(date, blockData, `${blockId}-${index}`);
-        if (result) {
-          // Merge with any existing updates for this date
-          if (updates[result.dateKey]) {
-            updates[result.dateKey] = [...updates[result.dateKey], ...result.updatedSlots.filter(s =>
-              !updates[result.dateKey].some(existing => existing.id === s.id)
-            )];
-          } else {
-            updates[result.dateKey] = result.updatedSlots;
-          }
-        }
-      });
-
-      // Apply all updates
-      Object.entries(updates).forEach(([dateKey, slots]) => {
-        updateDaySlots(dateKey, slots);
-      });
-    } else {
-      // Single slot creation (original behavior)
-      const result = addSlotForDate(startDate, blockData, blockId);
-      if (result) {
-        updateDaySlots(result.dateKey, result.updatedSlots);
-      }
-    }
+    console.log('[handleAddBlock] Time block created successfully');
   };
 
   // Calculate end time based on start time and block size (1 slot = 2 hours)
