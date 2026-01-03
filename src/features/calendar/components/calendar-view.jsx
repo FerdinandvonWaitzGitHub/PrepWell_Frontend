@@ -453,38 +453,44 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         }}
       />
 
-      {/* Create Theme Block Dialog */}
+      {/* Create Theme Block Dialog - BUG-023: Use slot mode for Month view */}
       <CreateThemeBlockDialog
         open={isCreateThemeDialogOpen}
         onOpenChange={setIsCreateThemeDialogOpen}
         date={selectedThemeDay}
         onSave={handleAddBlock}
         availableSlots={getAvailableSlotsForDate(selectedThemeDay)}
+        mode="slot"
       />
 
-      {/* Create Repetition Block Dialog */}
+      {/* Create Repetition Block Dialog - BUG-023: Use slot mode for Month view */}
       <CreateRepetitionBlockDialog
         open={isCreateRepetitionDialogOpen}
         onOpenChange={setIsCreateRepetitionDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
         availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
+        mode="slot"
       />
 
-      {/* Create Exam Block Dialog */}
+      {/* Create Exam Block Dialog - BUG-023: Use slot mode for Month view */}
       <CreateExamBlockDialog
         open={isCreateExamDialogOpen}
         onOpenChange={setIsCreateExamDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
+        availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
+        mode="slot"
       />
 
-      {/* Create Private Block Dialog */}
+      {/* Create Private Block Dialog - BUG-023: Use slot mode for Month view */}
       <CreatePrivateBlockDialog
         open={isCreatePrivateDialogOpen}
         onOpenChange={setIsCreatePrivateDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddPrivateBlock}
+        availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
+        mode="slot"
       />
     </div>
   );

@@ -14,13 +14,17 @@ import { ChevronDownIcon, PlusIcon, TrashIcon } from '../../../components/ui/ico
 
 /**
  * Create Theme Block Dialog Component
- * Form for creating a new learning block with tasks
+ * Form for creating a new learning block/slot with tasks
  *
  * Features:
  * - Title and description
- * - Time selection (required)
+ * - Time selection (Block mode - Week/Dashboard) OR Slot size (Slot mode - Month)
  * - Repeat options
  * - Task creation and assignment from existing lists
+ *
+ * BUG-023 FIX: Two modes:
+ * - mode="block" (default): For Week/Dashboard - uses start/end time
+ * - mode="slot": For Month view - uses slot size (1-4 positions)
  */
 const CreateThemeBlockDialog = ({
   open,
@@ -28,18 +32,21 @@ const CreateThemeBlockDialog = ({
   date,
   onSave,
   availableSlots = 4,
+  mode = 'block', // BUG-023: 'block' = Uhrzeiten, 'slot' = Slot-Größe
   // Task sources
   availableTasks = [],      // To-Dos
   themeLists = [],          // Themenlisten
-  lernplaene = [],          // Lernpläne
 }) => {
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
-  // Time settings (always required)
+  // Time settings (Block mode - Week/Dashboard)
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:00');
+
+  // Slot size (Slot mode - Month view)
+  const [slotSize, setSlotSize] = useState(1);
 
   // Repeat settings
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -51,9 +58,8 @@ const CreateThemeBlockDialog = ({
   const [tasks, setTasks] = useState([]);
   const [newTaskText, setNewTaskText] = useState('');
   const [showTaskSource, setShowTaskSource] = useState(false);
-  const [selectedSource, setSelectedSource] = useState(null); // 'todos', 'themenliste', 'lernplan'
+  const [selectedSource, setSelectedSource] = useState(null); // 'todos', 'themenliste'
   const [selectedThemeListId, setSelectedThemeListId] = useState(null);
-  const [selectedLernplanId, setSelectedLernplanId] = useState(null);
 
   // Dropdown states
   const [isRepeatTypeOpen, setIsRepeatTypeOpen] = useState(false);
@@ -65,6 +71,7 @@ const CreateThemeBlockDialog = ({
       setDescription('');
       setStartTime('09:00');
       setEndTime('11:00');
+      setSlotSize(1); // BUG-023: Reset slot size
       setRepeatEnabled(false);
       setRepeatType('weekly');
       setRepeatCount(20);
@@ -74,7 +81,6 @@ const CreateThemeBlockDialog = ({
       setShowTaskSource(false);
       setSelectedSource(null);
       setSelectedThemeListId(null);
-      setSelectedLernplanId(null);
       setIsRepeatTypeOpen(false);
     }
   }, [open]);
@@ -208,19 +214,15 @@ const CreateThemeBlockDialog = ({
   };
 
   // Save handler
+  // BUG-023: Different data based on mode (block vs slot)
   const handleSave = () => {
     if (!isFormValid() || !date || !onSave) return;
 
-    const blockData = {
-      id: `block-${Date.now()}`,
+    const baseData = {
+      id: `${mode === 'slot' ? 'slot' : 'block'}-${Date.now()}`,
       title: title.trim(),
       blockType: 'lernblock',
       description: description.trim(),
-      hasTime: true,
-      startTime,
-      endTime,
-      startHour: calculateStartHour(),
-      duration: calculateDuration(),
       repeatEnabled,
       repeatType: repeatEnabled ? repeatType : null,
       repeatCount: repeatEnabled ? repeatCount : null,
@@ -234,7 +236,26 @@ const CreateThemeBlockDialog = ({
       })),
     };
 
-    onSave(date, blockData);
+    if (mode === 'block') {
+      // Block mode: Include time data (for Week/Dashboard)
+      Object.assign(baseData, {
+        hasTime: true,
+        startTime,
+        endTime,
+        startHour: calculateStartHour(),
+        duration: calculateDuration(),
+        isFromLernplan: false, // Manually created in Week/Dashboard
+      });
+    } else {
+      // Slot mode: Include slot size (for Month view)
+      Object.assign(baseData, {
+        hasTime: false, // No specific time, just position-based
+        blockSize: slotSize,
+        isFromLernplan: false, // Manually created in Month view
+      });
+    }
+
+    onSave(date, baseData);
     onOpenChange(false);
   };
 
@@ -280,32 +301,69 @@ const CreateThemeBlockDialog = ({
             />
           </div>
 
-          {/* Uhrzeit */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-900">
-              Uhrzeit <span className="text-red-500">*</span>
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-neutral-600">Von</label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-neutral-600">Bis</label>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                />
+          {/* BUG-023: Time (Block mode) OR Slot Size (Slot mode) */}
+          {mode === 'block' ? (
+            /* Block mode: Time selection for Week/Dashboard */
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-900">
+                Uhrzeit <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-neutral-600">Von</label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-neutral-600">Bis</label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Slot mode: Slot size selection for Month view */
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-900">
+                Slot-Größe <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-3">
+                {[1, 2, 3, 4].map(size => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setSlotSize(size)}
+                    disabled={size > availableSlots}
+                    className={`w-12 h-12 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      slotSize === size
+                        ? 'bg-neutral-900 text-white border-neutral-900'
+                        : size > availableSlots
+                          ? 'bg-neutral-100 text-neutral-300 border-neutral-200 cursor-not-allowed'
+                          : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+                <span className="text-sm text-neutral-500">
+                  {slotSize === 1 ? '(2 Stunden)' : `(${slotSize * 2} Stunden)`}
+                </span>
+              </div>
+              {availableSlots < 4 && (
+                <p className="text-xs text-neutral-500">
+                  Nur {availableSlots} Slot{availableSlots > 1 ? 's' : ''} verfügbar an diesem Tag
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Wiederholung */}
           <div className="space-y-3">

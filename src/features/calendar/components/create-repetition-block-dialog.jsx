@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogClose
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
-import { PlusIcon, MinusIcon, TrashIcon, ChevronDownIcon } from '../../../components/ui/icon';
+import { PlusIcon, TrashIcon, ChevronDownIcon } from '../../../components/ui/icon';
 
 // Repeat type options
 const repeatTypeOptions = [
@@ -34,8 +34,18 @@ const weekdayOptions = [
 /**
  * Create Repetition Block Dialog Component
  * Form for creating a new repetition learning block
+ *
+ * @param {string} mode - 'block' for time-based (Week/Dashboard), 'slot' for position-based (Month)
  */
-const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availableSlots = 4 }) => {
+const CreateRepetitionBlockDialog = ({
+  open,
+  onOpenChange,
+  date,
+  onSave,
+  availableSlots = 4,
+  mode = 'block' // 'block' = Uhrzeiten (Week/Dashboard), 'slot' = Slot-Größe (Month)
+}) => {
+  const [slotSize, setSlotSize] = useState(1); // For slot mode
   const [blockSize, setBlockSize] = useState(2);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -74,6 +84,7 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
+      setSlotSize(Math.min(1, availableSlots)); // Reset slot size for slot mode
       setBlockSize(Math.min(2, availableSlots));
       setTitle('');
       setDescription('');
@@ -177,25 +188,40 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
 
   const handleSave = () => {
     if (date && onSave) {
-      onSave(date, {
+      const baseData = {
         title: title || 'Wiederholung',
         blockType: 'repetition',
-        blockSize,
         description,
         tasks,
         progress: '0/1',
-        // Time settings
-        hasTime: true,
-        startTime,
-        endTime,
-        startHour: calculateStartHour(),
-        duration: calculateDuration(),
         // Repeat settings
         repeatEnabled,
         repeatType: repeatEnabled ? repeatType : null,
         repeatCount: repeatEnabled ? repeatCount : null,
         customDays: repeatEnabled && repeatType === 'custom' ? customDays : null,
-      });
+      };
+
+      // Add mode-specific data
+      if (mode === 'block') {
+        // Block mode: time-based (Week/Dashboard)
+        Object.assign(baseData, {
+          blockSize,
+          hasTime: true,
+          startTime,
+          endTime,
+          startHour: calculateStartHour(),
+          duration: calculateDuration(),
+        });
+      } else {
+        // Slot mode: position-based (Month)
+        Object.assign(baseData, {
+          blockSize: slotSize,
+          hasTime: false,
+          isFromLernplan: false, // Manually created slot
+        });
+      }
+
+      onSave(date, baseData);
     }
     onOpenChange(false);
   };
@@ -216,31 +242,33 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
         </DialogHeader>
 
         <DialogBody className="space-y-6">
-          {/* Blockgröße Field - Limited by available slots */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-900">
-              Blockgröße <span className="text-xs text-neutral-500">({availableSlots} Slot{availableSlots !== 1 ? 's' : ''} verfügbar)</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setBlockSize(Math.max(1, blockSize - 1))}
-                disabled={blockSize <= 1}
-                className="p-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <MinusIcon size={16} className="text-neutral-600" />
-              </button>
-              <span className="flex-1 text-center text-lg font-medium text-neutral-900">{blockSize}</span>
-              <button
-                type="button"
-                onClick={() => setBlockSize(Math.min(availableSlots, blockSize + 1))}
-                disabled={blockSize >= availableSlots}
-                className="p-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <PlusIcon size={16} className="text-neutral-600" />
-              </button>
+          {/* Slot-Größe Field - Only in slot mode (Month view) */}
+          {mode === 'slot' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-900">
+                Slot-Größe <span className="text-xs text-neutral-500">({availableSlots} Slot{availableSlots !== 1 ? 's' : ''} verfügbar)</span>
+              </label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setSlotSize(size)}
+                    disabled={size > availableSlots}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                      slotSize === size
+                        ? 'bg-neutral-900 text-white'
+                        : size > availableSlots
+                          ? 'bg-neutral-100 text-neutral-300 cursor-not-allowed'
+                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                    }`}
+                  >
+                    {size} Slot{size !== 1 ? 's' : ''}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Titel Field */}
           <div className="space-y-2">
@@ -266,32 +294,34 @@ const CreateRepetitionBlockDialog = ({ open, onOpenChange, date, onSave, availab
             />
           </div>
 
-          {/* Uhrzeit */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-900">
-              Uhrzeit <span className="text-red-500">*</span>
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-neutral-600">Von</label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-neutral-600">Bis</label>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                />
+          {/* Uhrzeit - Only in block mode (Week/Dashboard) */}
+          {mode === 'block' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-900">
+                Uhrzeit <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-neutral-600">Von</label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-neutral-600">Bis</label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Wiederholung */}
           <div className="space-y-3">

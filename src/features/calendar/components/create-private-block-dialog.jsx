@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,8 @@ const weekdayOptions = [
 /**
  * Create Private Block Dialog Component
  * Dialog for creating new private appointments/events
+ *
+ * @param {string} mode - 'block' for time-based (Week/Dashboard), 'slot' for position-based (Month)
  */
 const CreatePrivateBlockDialog = ({
   open,
@@ -41,8 +43,11 @@ const CreatePrivateBlockDialog = ({
   date,
   onSave,
   initialTime = null, // Optional: wenn vom Wochenansicht-Klick
+  availableSlots = 4,
+  mode = 'block' // 'block' = Uhrzeiten (Week/Dashboard), 'slot' = Slot-Größe (Month)
 }) => {
   // Form state
+  const [slotSize, setSlotSize] = useState(1); // For slot mode
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -60,6 +65,7 @@ const CreatePrivateBlockDialog = ({
   // Reset form when dialog opens
   useEffect(() => {
     if (open && date) {
+      setSlotSize(1); // Reset slot size for slot mode
       setTitle('');
       setDescription('');
       setStartDate(formatDateForInput(date));
@@ -146,27 +152,43 @@ const CreatePrivateBlockDialog = ({
   // Save handler
   const handleSave = () => {
     if (!date || !onSave) return;
-    onSave(date, {
+
+    const baseData = {
       id: `private-${Date.now()}`,
       title: title || 'Privater Termin',
       blockType: 'private',
-      blockSize: 1,
       description,
-      startDate,
-      startTime,
-      endDate,
-      endTime,
-      isMultiDay: isMultiDay(),
-      // Time calculation
-      hasTime: true,
-      startHour: calculateStartHour(),
-      duration: calculateDuration(),
       // Repeat settings
       repeatEnabled,
       repeatType: repeatEnabled ? repeatType : null,
       repeatCount: repeatEnabled ? repeatCount : null,
       customDays: repeatEnabled && repeatType === 'custom' ? customDays : null,
-    });
+    };
+
+    // Add mode-specific data
+    if (mode === 'block') {
+      // Block mode: time-based (Week/Dashboard)
+      Object.assign(baseData, {
+        blockSize: 1,
+        startDate,
+        startTime,
+        endDate,
+        endTime,
+        isMultiDay: isMultiDay(),
+        hasTime: true,
+        startHour: calculateStartHour(),
+        duration: calculateDuration(),
+      });
+    } else {
+      // Slot mode: position-based (Month)
+      Object.assign(baseData, {
+        blockSize: slotSize,
+        hasTime: false,
+        isFromLernplan: false, // Manually created slot
+      });
+    }
+
+    onSave(date, baseData);
     onOpenChange(false);
   };
 
@@ -187,6 +209,34 @@ const CreatePrivateBlockDialog = ({
 
         <DialogBody>
           <div className="space-y-4">
+            {/* Slot-Größe Field - Only in slot mode (Month view) */}
+            {mode === 'slot' && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-neutral-900">
+                  Slot-Größe <span className="text-xs text-neutral-500">({availableSlots} Slot{availableSlots !== 1 ? 's' : ''} verfügbar)</span>
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setSlotSize(size)}
+                      disabled={size > availableSlots}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                        slotSize === size
+                          ? 'bg-neutral-900 text-white'
+                          : size > availableSlots
+                            ? 'bg-neutral-100 text-neutral-300 cursor-not-allowed'
+                            : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {size} Slot{size !== 1 ? 's' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Titel */}
             <div className="space-y-3">
               <label className="text-sm font-medium text-neutral-900">Titel</label>
@@ -200,56 +250,60 @@ const CreatePrivateBlockDialog = ({
               />
             </div>
 
-            {/* Start Date & Time */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-neutral-900">Beginn</label>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    // Wenn Enddatum vor Startdatum, anpassen
-                    if (e.target.value > endDate) {
-                      setEndDate(e.target.value);
-                    }
-                  }}
-                  className="flex-1 h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
-                />
-                <select
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-24 h-9 px-2 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
-                >
-                  {timeOptions.map(time => (
-                    <option key={time} value={time}>{time}</option>
-                  ))}
-                </select>
+            {/* Start Date & Time - Only in block mode (Week/Dashboard) */}
+            {mode === 'block' && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-neutral-900">Beginn</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      // Wenn Enddatum vor Startdatum, anpassen
+                      if (e.target.value > endDate) {
+                        setEndDate(e.target.value);
+                      }
+                    }}
+                    className="flex-1 h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
+                  />
+                  <select
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-24 h-9 px-2 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
+                  >
+                    {timeOptions.map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* End Date & Time */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-neutral-900">Ende</label>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
-                  className="flex-1 h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
-                />
-                <select
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-24 h-9 px-2 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
-                >
-                  {timeOptions.map(time => (
-                    <option key={time} value={time}>{time}</option>
-                  ))}
-                </select>
+            {/* End Date & Time - Only in block mode (Week/Dashboard) */}
+            {mode === 'block' && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-neutral-900">Ende</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate}
+                    className="flex-1 h-9 px-3 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
+                  />
+                  <select
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-24 h-9 px-2 py-1 bg-white rounded-lg shadow-sm border border-neutral-200 text-sm"
+                  >
+                    {timeOptions.map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Beschreibung */}
             <div className="space-y-3">
@@ -345,8 +399,8 @@ const CreatePrivateBlockDialog = ({
               )}
             </div>
 
-            {/* Multi-day indicator */}
-            {isMultiDay() && (
+            {/* Multi-day indicator - Only in block mode */}
+            {mode === 'block' && isMultiDay() && (
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                 <p className="text-sm text-blue-700">
                   Dieser Termin erstreckt sich über mehrere Tage und wird in der Wochenansicht oben angezeigt.
