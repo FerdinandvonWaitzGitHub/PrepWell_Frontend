@@ -160,22 +160,20 @@ export const AppModeProvider = ({ children }) => {
     // User can always switch to normal mode
     if (userModePreference === 'normal') return APP_MODES.NORMAL;
 
-    // Exam mode only possible with active Lernplan
-    if (userModePreference === 'exam' && hasActiveLernplan) return APP_MODES.EXAM;
+    // User can manually switch to exam mode (even without Lernplan)
+    if (userModePreference === 'exam') return APP_MODES.EXAM;
 
     // Default: automatic based on Lernplan existence
     return hasActiveLernplan ? APP_MODES.EXAM : APP_MODES.NORMAL;
   }, [activeLernplaene, userModePreference]);
 
-  // Toggle between exam and normal mode (only works with active Lernplan)
+  // Toggle between exam and normal mode (always available)
   const toggleMode = useCallback(() => {
-    const hasActiveLernplan = activeLernplaene.length > 0;
-    if (!hasActiveLernplan) return; // Can't toggle without Lernplan
-
-    const newPreference = userModePreference === 'normal' ? null : 'normal';
+    // Toggle: if currently exam → normal, if currently normal → exam
+    const newPreference = appMode === APP_MODES.EXAM ? 'normal' : 'exam';
     setUserModePreferenceState(newPreference);
-    updateAppModeState({ modePreference: newPreference || 'auto' });
-  }, [activeLernplaene, userModePreference, updateAppModeState]);
+    updateAppModeState({ modePreference: newPreference });
+  }, [appMode, updateAppModeState]);
 
   // Reset mode preference to automatic
   const resetModePreference = useCallback(() => {
@@ -246,8 +244,8 @@ export const AppModeProvider = ({ children }) => {
   // Get display text for current mode
   const modeDisplayText = isExamMode ? 'Examensmodus' : `${currentSemester}. Semester`;
 
-  // Check if mode toggle is available (requires active Lernplan)
-  const canToggleMode = activeLernplaene.length > 0;
+  // Check if mode toggle is available (always available)
+  const canToggleMode = true;
 
   // Check if user has manually overridden the mode
   const isModeManuallySet = userModePreference !== null;
