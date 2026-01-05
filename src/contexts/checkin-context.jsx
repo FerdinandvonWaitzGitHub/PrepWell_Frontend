@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from './auth-context';
-import { supabase, isSupabaseConfigured } from '../services/supabase';
+import { useMentor } from './mentor-context';
+import { supabase } from '../services/supabase';
 
 const CheckInContext = createContext(null);
 
@@ -136,6 +137,8 @@ const getCurrentPeriod = (settings) => {
  */
 export const CheckInProvider = ({ children }) => {
   const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
+  // BUG-003 FIX: Get mentor activation status to control check-in visibility
+  const { isActivated: isMentorActivated } = useMentor();
   const syncedRef = useRef(false);
   const userIdRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -376,8 +379,12 @@ export const CheckInProvider = ({ children }) => {
 
   /**
    * Check if check-in is needed now
+   * BUG-003 FIX: Only show check-in if mentor is activated
    */
   const isCheckInNeeded = useMemo(() => {
+    // BUG-003 FIX: Check-in requires mentor to be activated
+    if (!isMentorActivated) return false;
+
     const today = getTodayKey();
     const todayResponses = responses[today] || {};
     const currentPeriod = getCurrentPeriod(settings);
@@ -400,7 +407,7 @@ export const CheckInProvider = ({ children }) => {
     }
 
     return true;
-  }, [responses, settings]);
+  }, [responses, settings, isMentorActivated]);
 
   /**
    * Check if morning check-in was skipped (for Check-in button state)
@@ -414,13 +421,16 @@ export const CheckInProvider = ({ children }) => {
   /**
    * Check if check-in button should be enabled
    * Button is enabled if:
-   * 1. Check-in is needed (not done yet for current period), OR
-   * 2. Morning was skipped and we can still do it
+   * 1. Mentor is activated, AND
+   * 2. Check-in is needed (not done yet for current period), OR morning was skipped
+   * BUG-003 FIX: Also check mentor activation status
    */
   const isCheckInButtonEnabled = useMemo(() => {
+    // BUG-003 FIX: Button disabled if mentor is not activated
+    if (!isMentorActivated) return false;
     // Button is enabled if check-in is still needed
     return isCheckInNeeded || wasMorningSkipped;
-  }, [isCheckInNeeded, wasMorningSkipped]);
+  }, [isCheckInNeeded, wasMorningSkipped, isMentorActivated]);
 
   /**
    * Get today's check-in data
@@ -534,6 +544,7 @@ export const CheckInProvider = ({ children }) => {
     isCheckInNeeded,
     wasMorningSkipped,
     isCheckInButtonEnabled,
+    isMentorActivated, // BUG-003 FIX: Expose mentor status
     loading,
     isAuthenticated,
 

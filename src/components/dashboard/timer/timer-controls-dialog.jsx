@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +7,7 @@ import {
   DialogFooter,
 } from '../../ui/dialog';
 import { Button } from '../../ui';
-import { useTimer, TIMER_TYPES, formatTime } from '../../../contexts/timer-context';
+import { useTimer, TIMER_TYPES } from '../../../contexts/timer-context';
 
 /**
  * CircularProgress - Larger version for dialog
@@ -60,12 +59,10 @@ const CircularProgress = ({ progress, size = 120, strokeWidth = 8, isBreak = fal
 const TimerControlsDialog = ({ open, onOpenChange }) => {
   const {
     timerType,
-    timerState,
     remainingSeconds,
     elapsedSeconds,
     isBreak,
     isPaused,
-    isRunning,
     currentSession,
     totalSessions,
     togglePause,

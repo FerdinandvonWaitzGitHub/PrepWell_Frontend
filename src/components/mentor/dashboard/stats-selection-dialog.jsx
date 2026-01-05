@@ -21,7 +21,6 @@ import { CHART_STATISTICS } from './chart-selection-dialog';
 const StatsSelectionDialog = ({
   open,
   onOpenChange,
-  allStats = [], // Legacy prop, now uses CHART_STATISTICS
   selectedStats = [],
   onSelectionChange
 }) => {

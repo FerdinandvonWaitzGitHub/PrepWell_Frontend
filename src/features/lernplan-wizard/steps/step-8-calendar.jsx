@@ -1,12 +1,12 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
 
-// Import calendar dialog components for editing blocks
-import CreateThemeBlockDialog from '../../calendar/components/create-theme-block-dialog';
-import CreateRepetitionBlockDialog from '../../calendar/components/create-repetition-block-dialog';
-import CreateExamBlockDialog from '../../calendar/components/create-exam-block-dialog';
-import CreatePrivateBlockDialog from '../../calendar/components/create-private-block-dialog';
+// Import calendar dialog components for editing sessions
+import CreateThemeSessionDialog from '../../calendar/components/create-theme-session-dialog';
+import CreateRepetitionSessionDialog from '../../calendar/components/create-repetition-session-dialog';
+import CreateExamSessionDialog from '../../calendar/components/create-exam-session-dialog';
+import CreatePrivateSessionDialog from '../../calendar/components/create-private-session-dialog';
 
 // Import slot utilities
 import {
@@ -718,13 +718,13 @@ const Step8Calendar = () => {
             <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
           <p className="text-sm text-blue-700">
-            Klicke auf "Weiter", wenn du fertig bist. Du kannst den Lernplan später jederzeit anpassen.
+            Klicke auf &bdquo;Weiter&ldquo;, wenn du fertig bist. Du kannst den Lernplan später jederzeit anpassen.
           </p>
         </div>
       </div>
 
-      {/* Edit Theme Block Dialog (for Lernblock) */}
-      <CreateThemeBlockDialog
+      {/* Edit Theme Session Dialog (for Lernblock) */}
+      <CreateThemeSessionDialog
         open={isCreateThemeDialogOpen}
         onOpenChange={setIsCreateThemeDialogOpen}
         date={selectedBlockDay}
@@ -732,8 +732,8 @@ const Step8Calendar = () => {
         availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
       />
 
-      {/* Edit Repetition Block Dialog (for Wiederholung) */}
-      <CreateRepetitionBlockDialog
+      {/* Edit Repetition Session Dialog (for Wiederholung) */}
+      <CreateRepetitionSessionDialog
         open={isCreateRepetitionDialogOpen}
         onOpenChange={setIsCreateRepetitionDialogOpen}
         date={selectedBlockDay}
@@ -741,16 +741,16 @@ const Step8Calendar = () => {
         availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
       />
 
-      {/* Edit Exam Block Dialog (for Klausur) */}
-      <CreateExamBlockDialog
+      {/* Edit Exam Session Dialog (for Klausur) */}
+      <CreateExamSessionDialog
         open={isCreateExamDialogOpen}
         onOpenChange={setIsCreateExamDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
       />
 
-      {/* Edit Private Block Dialog (for Frei) */}
-      <CreatePrivateBlockDialog
+      {/* Edit Private Session Dialog (for Frei) */}
+      <CreatePrivateSessionDialog
         open={isCreatePrivateDialogOpen}
         onOpenChange={setIsCreatePrivateDialogOpen}
         date={selectedBlockDay}

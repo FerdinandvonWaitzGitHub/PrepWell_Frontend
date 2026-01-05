@@ -20,23 +20,23 @@ Vor Änderungen am Projekt bitte [PRD.md](PRD.md) lesen - die **Single Source of
 - Supabase (PostgreSQL + Auth)
 - Zod (Validierung)
 
-### Architektur: SlotAllocation vs. TimeBlock
+### Architektur: BlockAllocation vs. Session
 
-**Kernprinzip:** Slots und Blöcke sind zwei komplett getrennte Entitäten!
+**Kernprinzip:** Blöcke und Sessions sind zwei komplett getrennte Entitäten!
 
 | Entity | Ansicht | Felder | NIEMALS |
 |--------|---------|--------|---------|
-| **SlotAllocation** | Monatsansicht | `date`, `kind`, `size (1-4)` | Uhrzeiten |
-| **TimeBlock** | Woche/Startseite | `start_at`, `end_at`, `kind` | slot_size |
+| **BlockAllocation** | Monatsansicht | `date`, `kind`, `size (1-4)` | Uhrzeiten |
+| **Session** | Woche/Startseite | `start_at`, `end_at`, `kind` | block_size |
 
 ```
 ┌─────────────────────┐     ┌─────────────────────┐
-│   SlotAllocation    │     │     TimeBlock       │
+│   BlockAllocation   │     │      Session        │
 │   (Kapazität)       │     │   (Zeiträume)       │
 ├─────────────────────┤     ├─────────────────────┤
 │ Monatsansicht       │     │ Wochenansicht       │
 │ date + size (1-4)   │     │ start_at + end_at   │
-│ KEINE Uhrzeiten!    │     │ KEINE slot_size!    │
+│ KEINE Uhrzeiten!    │     │ KEINE block_size!   │
 └─────────────────────┘     └─────────────────────┘
 ```
 
@@ -45,7 +45,7 @@ Siehe PRD.md §3.1 für vollständige Spezifikation inkl. Guard Rules und Edge C
 ### State Management
 
 10+ React Context Provider (wichtigste):
-1. `CalendarProvider` - SSOT für Kalender, Slots, Aufgaben, ContentPlans
+1. `CalendarProvider` - SSOT für Kalender, Blöcke, Aufgaben, ContentPlans
 2. `TimerProvider` - Timer-Zustand (Pomodoro/Countdown/Countup)
 3. `AuthProvider` - Supabase Authentifizierung
 4. `AppModeProvider` - Examen vs Normal Modus
@@ -84,9 +84,10 @@ src/
 
 | Tabelle | Beschreibung |
 |---------|--------------|
-| `calendar_slots` | Kalender-Slots |
+| `calendar_blocks` | Kalender-Blöcke (ehem. calendar_slots) |
 | `calendar_tasks` | Aufgaben |
-| `private_blocks` | Private Termine (mit Serientermine) |
+| `private_sessions` | Private Sessions (ehem. private_blocks) |
+| `time_sessions` | Zeit-Sessions (ehem. time_blocks) |
 | `content_plans` | Lernpläne & Themenlisten |
 | `timer_sessions` | Timer-History |
 | `logbuch_entries` | Manuelle Zeiterfassung |

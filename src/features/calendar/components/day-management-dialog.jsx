@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,10 +22,10 @@ import {
   MoveRightIcon,
   MoveLeftIcon
 } from '../../../components/ui/icon';
-import ManageThemeBlockDialog from './manage-theme-block-dialog';
-import ManageRepetitionBlockDialog from './manage-repetition-block-dialog';
-import ManageFreetimeBlockDialog from './manage-freetime-block-dialog';
-import ManageExamBlockDialog from './manage-exam-block-dialog';
+import ManageThemeSessionDialog from './manage-theme-session-dialog';
+import ManageRepetitionSessionDialog from './manage-repetition-session-dialog';
+import ManageFreetimeSessionDialog from './manage-freetime-session-dialog';
+import ManageExamSessionDialog from './manage-exam-session-dialog';
 
 /**
  * Day Management Dialog Component
@@ -72,7 +72,7 @@ const DayManagementDialog = ({
     }
   };
 
-  // Handle save from ManageThemeBlockDialog
+  // Handle save from ManageThemeSessionDialog
   const handleBlockSave = (date, updatedBlock) => {
     if (onUpdateBlock) {
       onUpdateBlock(date, updatedBlock);
@@ -307,8 +307,8 @@ const DayManagementDialog = ({
         </DialogFooter>
       </DialogContent>
 
-      {/* Manage Theme Block Dialog */}
-      <ManageThemeBlockDialog
+      {/* Manage Theme Session Dialog */}
+      <ManageThemeSessionDialog
         open={isManageThemeBlockOpen}
         onOpenChange={setIsManageThemeBlockOpen}
         date={date}
@@ -318,8 +318,8 @@ const DayManagementDialog = ({
         availableSlots={availableSlots}
       />
 
-      {/* Manage Repetition Block Dialog */}
-      <ManageRepetitionBlockDialog
+      {/* Manage Repetition Session Dialog */}
+      <ManageRepetitionSessionDialog
         open={isManageRepetitionBlockOpen}
         onOpenChange={setIsManageRepetitionBlockOpen}
         date={date}
@@ -329,8 +329,8 @@ const DayManagementDialog = ({
         availableSlots={availableSlots}
       />
 
-      {/* Manage Freetime Block Dialog */}
-      <ManageFreetimeBlockDialog
+      {/* Manage Freetime Session Dialog */}
+      <ManageFreetimeSessionDialog
         open={isManageFreetimeBlockOpen}
         onOpenChange={setIsManageFreetimeBlockOpen}
         date={date}
@@ -340,8 +340,8 @@ const DayManagementDialog = ({
         availableSlots={availableSlots}
       />
 
-      {/* Manage Exam Block Dialog */}
-      <ManageExamBlockDialog
+      {/* Manage Exam Session Dialog */}
+      <ManageExamSessionDialog
         open={isManageExamBlockOpen}
         onOpenChange={setIsManageExamBlockOpen}
         date={date}

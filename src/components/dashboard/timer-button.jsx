@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTimer } from '../../contexts/timer-context';
 import TimerDisplay from './timer/timer-display';
 import TimerSelectionDialog from './timer/timer-selection-dialog';

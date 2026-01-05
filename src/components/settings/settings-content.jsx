@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAppMode } from '../../contexts/appmode-context';
 import { useAuth } from '../../contexts/auth-context';
 import { useStudiengang } from '../../contexts/studiengang-context';
+import { useMentor } from '../../contexts/mentor-context';
 import {
   GraduationCap,
   BookOpen,
@@ -25,7 +26,8 @@ import {
   CheckCircle,
   Layers,
   Scale,
-  Info
+  Info,
+  Brain
 } from 'lucide-react';
 import { useCalendar } from '../../contexts/calendar-context';
 
@@ -81,6 +83,8 @@ const SettingsContent = ({ className = '' }) => {
 
   const { flattenAllKapitel } = useCalendar();
   const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang } = useStudiengang();
+  // FEAT-001: Get mentor activation status and functions
+  const { isActivated: isMentorActivated, activateMentor, deactivateMentor } = useMentor();
 
   // Clear setup hint after studiengang is selected
   useEffect(() => {
@@ -636,6 +640,57 @@ const SettingsContent = ({ className = '' }) => {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* FEAT-001: Mentor Section */}
+      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+          <Brain className="w-5 h-5" />
+          Mentor
+        </h3>
+
+        <div className="space-y-4">
+          {/* Mentor Toggle */}
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              <Brain className="w-5 h-5 text-neutral-400" />
+              <div>
+                <p className="text-sm font-medium text-neutral-900">Mentor aktivieren</p>
+                <p className="text-xs text-neutral-500">
+                  Check-Ins, Statistiken und Wohlbefinden-Tracking
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => isMentorActivated ? deactivateMentor() : activateMentor()}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                isMentorActivated ? 'bg-blue-600' : 'bg-neutral-300'
+              }`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                isMentorActivated ? 'left-7' : 'left-1'
+              }`} />
+            </button>
+          </div>
+
+          {isMentorActivated && (
+            <div className="py-3 bg-blue-50 rounded-lg p-4">
+              <p className="text-sm text-blue-700">
+                Der Mentor ist aktiv. Du erhältst morgens und abends Check-In Fragen
+                und kannst deine Statistiken im Mentor-Bereich einsehen.
+              </p>
+            </div>
+          )}
+
+          {!isMentorActivated && (
+            <div className="py-3 bg-neutral-50 rounded-lg p-4">
+              <p className="text-sm text-neutral-600">
+                Aktiviere den Mentor, um tägliche Check-Ins durchzuführen und
+                detaillierte Statistiken über dein Lernverhalten zu erhalten.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

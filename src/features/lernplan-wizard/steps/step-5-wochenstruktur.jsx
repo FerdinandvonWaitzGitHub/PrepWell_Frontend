@@ -286,7 +286,7 @@ const Step5Wochenstruktur = () => {
               Feste und flexible Blöcke
             </h4>
             <p className="text-sm font-normal text-neutral-500 leading-5 mt-1">
-              Mit dem intelligenten Lernplan-Manager kannst du einzelne Termine oder ganze Lerntage verschieben. Sobald ein Tag einen festen Termin enthält, wird dieser fixiert und bleibt von Verschiebungen in der Umgebung unbeeinflusst. Feste Blöcke sind "Klausur" und "Frei".
+              Mit dem intelligenten Lernplan-Manager kannst du einzelne Termine oder ganze Lerntage verschieben. Sobald ein Tag einen festen Termin enthält, wird dieser fixiert und bleibt von Verschiebungen in der Umgebung unbeeinflusst. Feste Blöcke sind &bdquo;Klausur&ldquo; und &bdquo;Frei&ldquo;.
             </p>
           </div>
         </div>

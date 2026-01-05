@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useWizard, WizardProvider } from './context/wizard-context';
 import WizardLayout from './components/wizard-layout';

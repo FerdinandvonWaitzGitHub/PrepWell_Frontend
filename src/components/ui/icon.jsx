@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Base Icon component wrapper
  */

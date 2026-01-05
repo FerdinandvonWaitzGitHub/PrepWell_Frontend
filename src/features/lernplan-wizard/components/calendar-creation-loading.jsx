@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * CalendarCreationLoading - Shown while creating the calendar learning plan
  * Based on Figma: Loading screen with square icon

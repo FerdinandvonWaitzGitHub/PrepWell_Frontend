@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
 import { agentApi } from '../../../services/api';

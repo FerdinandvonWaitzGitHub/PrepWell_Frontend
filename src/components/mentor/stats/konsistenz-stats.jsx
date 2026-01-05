@@ -1,12 +1,3 @@
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
 import StatCard from './stat-card';
 import StatCategory from './stat-category';
 

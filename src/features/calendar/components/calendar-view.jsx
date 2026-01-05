@@ -3,10 +3,10 @@ import CalendarHeader from './calendar-header';
 import CalendarGrid from './calendar-grid';
 import DayManagementDialog from './day-management-dialog';
 import AddThemeDialog from './add-theme-dialog';
-import CreateThemeBlockDialog from './create-theme-block-dialog';
-import CreateRepetitionBlockDialog from './create-repetition-block-dialog';
-import CreateExamBlockDialog from './create-exam-block-dialog';
-import CreatePrivateBlockDialog from './create-private-block-dialog';
+import CreateThemeSessionDialog from './create-theme-session-dialog';
+import CreateRepetitionSessionDialog from './create-repetition-session-dialog';
+import CreateExamSessionDialog from './create-exam-session-dialog';
+import CreatePrivateSessionDialog from './create-private-session-dialog';
 import { useCalendar } from '../../../contexts/calendar-context';
 import {
   createDaySlots,
@@ -453,8 +453,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         }}
       />
 
-      {/* Create Theme Block Dialog - BUG-023: Use slot mode for Month view */}
-      <CreateThemeBlockDialog
+      {/* Create Theme Session Dialog - BUG-023: Use slot mode for Month view */}
+      <CreateThemeSessionDialog
         open={isCreateThemeDialogOpen}
         onOpenChange={setIsCreateThemeDialogOpen}
         date={selectedThemeDay}
@@ -463,8 +463,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         mode="slot"
       />
 
-      {/* Create Repetition Block Dialog - BUG-023: Use slot mode for Month view */}
-      <CreateRepetitionBlockDialog
+      {/* Create Repetition Session Dialog - BUG-023: Use slot mode for Month view */}
+      <CreateRepetitionSessionDialog
         open={isCreateRepetitionDialogOpen}
         onOpenChange={setIsCreateRepetitionDialogOpen}
         date={selectedBlockDay}
@@ -473,8 +473,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         mode="slot"
       />
 
-      {/* Create Exam Block Dialog - BUG-023: Use slot mode for Month view */}
-      <CreateExamBlockDialog
+      {/* Create Exam Session Dialog - BUG-023: Use slot mode for Month view */}
+      <CreateExamSessionDialog
         open={isCreateExamDialogOpen}
         onOpenChange={setIsCreateExamDialogOpen}
         date={selectedBlockDay}
@@ -483,8 +483,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         mode="slot"
       />
 
-      {/* Create Private Block Dialog - BUG-023: Use slot mode for Month view */}
-      <CreatePrivateBlockDialog
+      {/* Create Private Session Dialog - BUG-023: Use slot mode for Month view */}
+      <CreatePrivateSessionDialog
         open={isCreatePrivateDialogOpen}
         onOpenChange={setIsCreatePrivateDialogOpen}
         date={selectedBlockDay}

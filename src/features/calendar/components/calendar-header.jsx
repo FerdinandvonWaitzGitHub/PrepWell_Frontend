@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button, ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from '../../../components/ui';
 
 /**

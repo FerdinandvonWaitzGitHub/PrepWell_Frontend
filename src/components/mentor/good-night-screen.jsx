@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { Header } from '../layout';
 
 /**
  * GoodNightScreen - Shown after completing evening Check-Out

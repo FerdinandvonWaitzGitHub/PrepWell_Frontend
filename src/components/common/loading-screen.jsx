@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * LoadingScreen - Full-page loading indicator
  *

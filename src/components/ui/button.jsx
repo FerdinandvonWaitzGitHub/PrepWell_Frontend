@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Button component with multiple variants and sizes
  * Used for navigation, actions, and calendar controls

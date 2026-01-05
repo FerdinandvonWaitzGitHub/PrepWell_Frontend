@@ -1,4 +1,3 @@
-import React from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
 
@@ -217,7 +216,7 @@ const Step10Anpassungen = () => {
               Alles bereit!
             </p>
             <p className="text-sm text-green-700 mt-0.5">
-              Klicke auf "Lernplan erstellen", um deinen personalisierten Lernplan zu generieren.
+              Klicke auf &bdquo;Lernplan erstellen&ldquo;, um deinen personalisierten Lernplan zu generieren.
             </p>
           </div>
         </div>

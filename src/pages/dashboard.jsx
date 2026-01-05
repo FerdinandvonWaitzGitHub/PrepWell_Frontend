@@ -15,14 +15,14 @@ import { useAppMode } from '../contexts/appmode-context';
 
 // Dialog components (same as WeekView)
 import AddThemeDialog from '../features/calendar/components/add-theme-dialog';
-import CreateThemeBlockDialog from '../features/calendar/components/create-theme-block-dialog';
-import CreateRepetitionBlockDialog from '../features/calendar/components/create-repetition-block-dialog';
-import CreateExamBlockDialog from '../features/calendar/components/create-exam-block-dialog';
-import CreatePrivateBlockDialog from '../features/calendar/components/create-private-block-dialog';
-import ManageThemeBlockDialog from '../features/calendar/components/manage-theme-block-dialog';
-import ManageRepetitionBlockDialog from '../features/calendar/components/manage-repetition-block-dialog';
-import ManageExamBlockDialog from '../features/calendar/components/manage-exam-block-dialog';
-import ManagePrivateBlockDialog from '../features/calendar/components/manage-private-block-dialog';
+import CreateThemeSessionDialog from '../features/calendar/components/create-theme-session-dialog';
+import CreateRepetitionSessionDialog from '../features/calendar/components/create-repetition-session-dialog';
+import CreateExamSessionDialog from '../features/calendar/components/create-exam-session-dialog';
+import CreatePrivateSessionDialog from '../features/calendar/components/create-private-session-dialog';
+import ManageThemeSessionDialog from '../features/calendar/components/manage-theme-session-dialog';
+import ManageRepetitionSessionDialog from '../features/calendar/components/manage-repetition-session-dialog';
+import ManageExamSessionDialog from '../features/calendar/components/manage-exam-session-dialog';
+import ManagePrivateSessionDialog from '../features/calendar/components/manage-private-session-dialog';
 
 /**
  * DashboardPage - Startseite
@@ -752,8 +752,8 @@ const DashboardPage = () => {
         </div>
       </main>
 
-      {/* Manage Theme Block Dialog */}
-      <ManageThemeBlockDialog
+      {/* Manage Theme Session Dialog */}
+      <ManageThemeSessionDialog
         open={isManageThemeOpen}
         onOpenChange={setIsManageThemeOpen}
         date={currentDateObj}
@@ -765,8 +765,8 @@ const DashboardPage = () => {
         themeLists={themeLists}
       />
 
-      {/* Manage Repetition Block Dialog */}
-      <ManageRepetitionBlockDialog
+      {/* Manage Repetition Session Dialog */}
+      <ManageRepetitionSessionDialog
         open={isManageRepetitionOpen}
         onOpenChange={setIsManageRepetitionOpen}
         date={currentDateObj}
@@ -776,8 +776,8 @@ const DashboardPage = () => {
         availableSlots={4}
       />
 
-      {/* Manage Exam Block Dialog */}
-      <ManageExamBlockDialog
+      {/* Manage Exam Session Dialog */}
+      <ManageExamSessionDialog
         open={isManageExamOpen}
         onOpenChange={setIsManageExamOpen}
         date={currentDateObj}
@@ -787,8 +787,8 @@ const DashboardPage = () => {
         availableSlots={4}
       />
 
-      {/* Manage Private Block Dialog */}
-      <ManagePrivateBlockDialog
+      {/* Manage Private Session Dialog */}
+      <ManagePrivateSessionDialog
         open={isManagePrivateOpen}
         onOpenChange={setIsManagePrivateOpen}
         date={currentDateObj}
@@ -806,8 +806,8 @@ const DashboardPage = () => {
         onSelectType={handleSelectBlockType}
       />
 
-      {/* Create Theme Block Dialog */}
-      <CreateThemeBlockDialog
+      {/* Create Theme Session Dialog */}
+      <CreateThemeSessionDialog
         open={isCreateThemeOpen}
         onOpenChange={setIsCreateThemeOpen}
         date={currentDateObj}
@@ -817,8 +817,8 @@ const DashboardPage = () => {
         themeLists={themeLists}
       />
 
-      {/* Create Repetition Block Dialog */}
-      <CreateRepetitionBlockDialog
+      {/* Create Repetition Session Dialog */}
+      <CreateRepetitionSessionDialog
         open={isCreateRepetitionOpen}
         onOpenChange={setIsCreateRepetitionOpen}
         date={currentDateObj}
@@ -826,8 +826,8 @@ const DashboardPage = () => {
         availableSlots={4}
       />
 
-      {/* Create Exam Block Dialog */}
-      <CreateExamBlockDialog
+      {/* Create Exam Session Dialog */}
+      <CreateExamSessionDialog
         open={isCreateExamOpen}
         onOpenChange={setIsCreateExamOpen}
         date={currentDateObj}
@@ -835,8 +835,8 @@ const DashboardPage = () => {
         availableSlots={4}
       />
 
-      {/* Create Private Block Dialog */}
-      <CreatePrivateBlockDialog
+      {/* Create Private Session Dialog */}
+      <CreatePrivateSessionDialog
         open={isCreatePrivateOpen}
         onOpenChange={setIsCreatePrivateOpen}
         date={currentDateObj}

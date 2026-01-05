@@ -1,4 +1,3 @@
-import React from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
 

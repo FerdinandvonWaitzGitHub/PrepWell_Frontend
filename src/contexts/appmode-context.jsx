@@ -204,6 +204,27 @@ export const AppModeProvider = ({ children }) => {
     return disabledInNormalMode.includes(navKey);
   };
 
+  // FEAT-002: Navigation items that should be hidden in normal mode
+  // These are completely hidden, not just disabled
+  const hiddenInNormalMode = useMemo(() => {
+    return ['uebungsklausuren']; // Übungsklausuren only in Exam mode
+  }, []);
+
+  // FEAT-002: Navigation items that should be hidden in exam mode
+  const hiddenInExamMode = useMemo(() => {
+    return ['leistungen-noten']; // Semester-Noten only in Normal mode (coming soon)
+  }, []);
+
+  // FEAT-002: Check if a specific nav item should be hidden
+  const isNavItemHidden = useCallback((navKey) => {
+    if (isNormalMode && hiddenInNormalMode.includes(navKey)) return true;
+    if (isExamMode && hiddenInExamMode.includes(navKey)) return true;
+    return false;
+  }, [isNormalMode, isExamMode, hiddenInNormalMode, hiddenInExamMode]);
+
+  // FEAT-002: Check if Lernplan Wizard should be available (only in Exam mode)
+  const isWizardAvailable = isExamMode;
+
   // Default calendar view based on mode
   const defaultCalendarView = isExamMode ? 'monat' : 'woche';
 
@@ -239,6 +260,9 @@ export const AppModeProvider = ({ children }) => {
     activeLernplaene,
     disabledInNormalMode,
     isNavItemDisabled,
+    // FEAT-002: Dynamic navigation based on mode
+    isNavItemHidden,
+    isWizardAvailable,
     defaultCalendarView,
     // Mode Toggle
     toggleMode,

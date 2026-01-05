@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * DashboardLayout component
  * 2-column grid layout for dashboard content

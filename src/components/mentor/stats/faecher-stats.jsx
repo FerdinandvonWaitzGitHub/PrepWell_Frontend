@@ -4,12 +4,7 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid
+  Legend
 } from 'recharts';
 import StatCard from './stat-card';
 import StatCategory from './stat-category';

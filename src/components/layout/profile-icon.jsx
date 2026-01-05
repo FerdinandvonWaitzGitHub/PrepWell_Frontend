@@ -21,7 +21,6 @@ const ProfileIcon = ({ className = '' }) => {
   const navigate = useNavigate();
   const {
     isExamMode,
-    isNormalMode,
     modeDisplayText,
     isTrialMode,
     isSubscribed,

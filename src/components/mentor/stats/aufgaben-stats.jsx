@@ -1,12 +1,3 @@
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
 import StatCard from './stat-card';
 import StatCategory from './stat-category';
 
@@ -31,13 +22,6 @@ const AufgabenStats = ({ stats, formatPercentage }) => {
     completedThemen,
     themenRate
   } = stats;
-
-  // Kapitel progress data
-  const kapitelData = [
-    { name: 'Abgeschlossen', value: completedKapitel, color: '#10B981' },
-    { name: 'In Bearbeitung', value: inProgressKapitel, color: '#F59E0B' },
-    { name: 'Nicht begonnen', value: notStartedKapitel, color: '#E5E7EB' }
-  ];
 
   return (
     <StatCategory title="Aufgaben & Themen" icon="✅">

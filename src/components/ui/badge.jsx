@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Badge component for displaying tags, categories, and status indicators
  * Used throughout the calendar for learning blocks, topics, and counts

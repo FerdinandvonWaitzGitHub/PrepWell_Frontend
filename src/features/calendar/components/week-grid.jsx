@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo, useCallback } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
 /**
@@ -7,9 +7,14 @@ import { AlertTriangle } from 'lucide-react';
  * - Weekday header stays fixed at top (sticky)
  * - Multi-day events row between header and time grid
  * - Time labels scroll with content
+ *
+ * Performance optimizations:
+ * - Memoized component to prevent re-renders when parent state changes
+ * - useMemo for expensive date calculations and block filtering
+ * - useCallback for event handlers
  */
 
-// Block type colors - visually distinct for each type
+// Block type colors - visually distinct for each type (static, no re-creation)
 const BLOCK_COLORS = {
   // Learning blocks (theme/lernblock) - primary color
   theme: 'bg-primary-100 border-primary-200 hover:bg-primary-150',
@@ -40,7 +45,11 @@ const BLOCK_TYPE_NAMES = {
   vacation: 'Urlaubstag'
 };
 
-const WeekGrid = ({
+// Static arrays moved outside component to prevent re-creation
+const WEEK_DAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+
+const WeekGrid = memo(function WeekGrid({
   currentDate = new Date(),
   blocks = [],
   privateBlocks = [],
@@ -48,9 +57,7 @@ const WeekGrid = ({
   onBlockClick,
   onSlotClick,
   className = ''
-}) => {
-  const weekDays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-  const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+}) {
 
   // Calculate the dates for the week starting from Monday
   const weekDates = useMemo(() => {
@@ -122,7 +129,7 @@ const WeekGrid = ({
 
   // Format date for display (e.g., "13. Dez")
   const formatDateDisplay = (date) => {
-    return `${date.getDate()}. ${months[date.getMonth()].slice(0, 3)}`;
+    return `${date.getDate()}. ${MONTHS[date.getMonth()].slice(0, 3)}`;
   };
 
   // Get blocks for a specific date and hour
@@ -169,12 +176,12 @@ const WeekGrid = ({
     return formatDateKey(date) === formatDateKey(today);
   };
 
-  // Handle slot click
-  const handleSlotClick = (date, hour) => {
+  // Handle slot click - memoized to prevent child re-renders
+  const handleSlotClick = useCallback((date, hour) => {
     if (onSlotClick) {
       onSlotClick(date, `${hour.toString().padStart(2, '0')}:00`);
     }
-  };
+  }, [onSlotClick]);
 
   // Calculate row height based on blocks
   const getRowHeight = (hour) => {
@@ -270,7 +277,7 @@ const WeekGrid = ({
               <th className="w-10 border-b border-r border-neutral-200 bg-white" />
 
               {/* Weekday headers */}
-              {weekDays.map((day, index) => {
+              {WEEK_DAYS.map((day, index) => {
                 const date = weekDates[index];
                 const today = isToday(date);
                 const isFull = isDayFull(date);
@@ -489,7 +496,9 @@ const WeekGrid = ({
                             key={block.id}
                             onClick={(e) => {
                               e.stopPropagation();
-                              onBlockClick && onBlockClick(block, date);
+                              if (onBlockClick) {
+                                onBlockClick(block, date);
+                              }
                             }}
                             style={{ height: `${blockHeight}px` }}
                             className={`w-full rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-colors absolute top-1 left-1 right-1 z-10 ${colorClass}`}
@@ -518,6 +527,6 @@ const WeekGrid = ({
       </div>
     </div>
   );
-};
+});
 
 export default WeekGrid;

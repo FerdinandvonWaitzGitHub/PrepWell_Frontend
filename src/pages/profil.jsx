@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, SubHeader } from '../components/layout';
 import { useAuth } from '../contexts/auth-context';
@@ -14,7 +14,7 @@ import { User, Mail, Calendar, Shield, Pencil, Check, X, ToggleLeft, ToggleRight
  */
 const ProfilPage = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated, getInitials, updateProfile, deleteAccount, signOut } = useAuth();
+  const { user, getInitials, updateProfile, deleteAccount, signOut } = useAuth();
   const {
     isExamMode,
     modeDisplayText,

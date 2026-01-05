@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * LoadingScreen - Shown while creating the learning plan
  * Based on Figma: Loading_Screen

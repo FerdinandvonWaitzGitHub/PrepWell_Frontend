@@ -1,88 +1,8 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Header } from '../components/layout';
 import { CalendarView } from '../features/calendar/components';
 import { useCalendar } from '../contexts/calendar-context';
-
-const daysData_OLD = [
-  // Week 1
-  { day: 1, isCurrentMonth: true, isOutOfRange: true },
-  {
-    day: 2,
-    entries: [
-      { label: 'Vertragsrecht', variant: 'primary', progress: '3/3', title: 'Tagesthema' },
-    ],
-  },
-  {
-    day: 3,
-    entries: [
-      { label: 'Vertragsrecht', variant: 'primary', progress: '1/3', title: 'Tagesthema' },
-      { isAdd: true },
-    ],
-  },
-  { day: 4, entries: [{ isAdd: true }] },
-  {
-    day: 5,
-    entries: [
-      { label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' },
-      { label: 'Wiederholung', variant: 'gray', progress: '1/3' },
-    ],
-  },
-  { day: 6, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  { day: 7, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  // Week 2
-  { day: 8, entries: [{ isAdd: true }] },
-  { day: 9, entries: [{ isAdd: true }] },
-  { day: 10, entries: [{ isAdd: true }] },
-  { day: 11, entries: [{ isAdd: true }] },
-  {
-    day: 12,
-    entries: [
-      { label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' },
-      { label: 'Wiederholung', variant: 'gray', progress: '1/3' },
-    ],
-  },
-  { day: 13, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  { day: 14, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  // Week 3
-  { day: 15, entries: [{ isAdd: true }] },
-  { day: 16, entries: [{ isAdd: true }] },
-  { day: 17, entries: [{ isAdd: true }] },
-  { day: 18, entries: [{ isAdd: true }] },
-  {
-    day: 19,
-    entries: [
-      { label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' },
-      { label: 'Wiederholung', variant: 'gray', progress: '1/3' },
-    ],
-  },
-  { day: 20, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  { day: 21, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  // Week 4
-  { day: 22, entries: [{ isAdd: true }] },
-  { day: 23, entries: [{ isAdd: true }] },
-  { day: 24, entries: [{ isAdd: true }] },
-  { day: 25, entries: [{ isAdd: true }] },
-  {
-    day: 26,
-    entries: [
-      { label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' },
-      { label: 'Wiederholung', variant: 'gray', progress: '1/3' },
-    ],
-  },
-  { day: 27, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  { day: 28, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  // Week 5 (spillover)
-  { day: 29, entries: [{ isAdd: true }] },
-  { day: 30, entries: [{ isAdd: true }] },
-  { day: 1, isCurrentMonth: false, entries: [{ isAdd: true }] },
-  { day: 2, isCurrentMonth: false, entries: [{ isAdd: true }] },
-  { day: 3, isCurrentMonth: false, entries: [{ label: 'Klausur', variant: 'gray', progress: '2/3', title: 'Titel' }] },
-  { day: 4, isCurrentMonth: false, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-  { day: 5, isCurrentMonth: false, entries: [{ label: 'Frei', variant: 'gray', progress: '3/3' }] },
-];
-
-const weekDays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
 const Badge = ({ label, variant = 'neutral' }) => {
   const styles = {
@@ -96,7 +16,8 @@ const Badge = ({ label, variant = 'neutral' }) => {
   );
 };
 
-const DayCell = ({ day, isCurrentMonth = true, isOutOfRange = false, entries = [] }) => {
+// Legacy DayCell component - kept for reference but currently unused
+const _DayCell = ({ day, isCurrentMonth = true, isOutOfRange = false, entries = [] }) => {
   const muted = !isCurrentMonth || isOutOfRange;
   return (
     <div className={`min-h-28 p-2.5 border border-neutral-200 border-t-0 ${muted ? 'opacity-50' : ''}`}>

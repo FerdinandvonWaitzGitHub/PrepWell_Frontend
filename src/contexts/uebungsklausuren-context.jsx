@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { createContext, useContext, useMemo, useCallback } from 'react';
 import { useUebungsklausurenSync } from '../hooks/use-supabase-sync';
 
 const STORAGE_KEY = 'prepwell_uebungsklausuren';
@@ -140,9 +140,9 @@ const DEFAULT_UEBUNGSKLAUSUREN = [
 ];
 
 /**
- * Load from localStorage
+ * Load from localStorage (legacy - kept for offline fallback)
  */
-const loadUebungsklausuren = () => {
+const _loadUebungsklausuren = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -155,9 +155,9 @@ const loadUebungsklausuren = () => {
 };
 
 /**
- * Save to localStorage
+ * Save to localStorage (legacy - kept for offline fallback)
  */
-const saveUebungsklausuren = (data) => {
+const _saveUebungsklausuren = (data) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (error) {

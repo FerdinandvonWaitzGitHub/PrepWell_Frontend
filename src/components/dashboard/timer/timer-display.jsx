@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTimer, TIMER_TYPES } from '../../../contexts/timer-context';
 
 /**

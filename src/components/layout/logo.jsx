@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Logo component
  * PrepWell logo displayed in the header

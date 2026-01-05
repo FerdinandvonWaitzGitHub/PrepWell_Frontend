@@ -17,8 +17,7 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
 
   const {
     avgDuration = '0h 0min',
-    avgDurationChange = 0,
-    activeDays = 0
+    avgDurationChange = 0
   } = stats;
 
   // Generate colors for each day

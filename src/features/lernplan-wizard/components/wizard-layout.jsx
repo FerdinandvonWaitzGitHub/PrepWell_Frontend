@@ -1,4 +1,3 @@
-import React from 'react';
 import { useWizard } from '../context/wizard-context';
 import { Button } from '../../../components/ui';
 import ExitDialog from './exit-dialog';

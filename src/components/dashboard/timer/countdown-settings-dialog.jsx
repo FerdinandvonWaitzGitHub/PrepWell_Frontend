@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTimer, TIMER_TYPES } from '../../../contexts/timer-context';
 
 /**

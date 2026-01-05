@@ -151,9 +151,9 @@ const loadHistoryFromStorage = () => {
 };
 
 /**
- * Save timer session to history
+ * Save timer session to history (legacy - kept for offline fallback)
  */
-const saveSessionToHistory = (session) => {
+const _saveSessionToHistory = (session) => {
   try {
     const history = loadHistoryFromStorage();
     history.push({
@@ -221,7 +221,6 @@ const playNotificationSound = () => {
 export const formatTime = (seconds, includeHours = false) => {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
 
   if (includeHours || hrs > 0) {
     return `${hrs}h ${mins}min`;
@@ -281,12 +280,11 @@ export const TimerProvider = ({ children }) => {
   const {
     data: supabaseHistory,
     saveItem: saveSessionToSupabase,
-    loading: historyLoading,
     isAuthenticated,
   } = useTimerHistorySync();
 
-  // Use Supabase sync for timer config (via user_settings)
-  const { settings: userSettings, updateSettings: updateUserSettings } = useUserSettingsSync();
+  // User settings sync hook (config managed via timerConfig state)
+  useUserSettingsSync();
 
   const [timerType, setTimerType] = useState(savedState?.timerType || null);
   const [timerState, setTimerState] = useState(savedState?.state || TIMER_STATES.IDLE);
@@ -398,6 +396,11 @@ export const TimerProvider = ({ children }) => {
       }
     };
   }, [timerState, timerType]);
+
+  // Note: Timer continues running in background when tab is hidden
+  // This is intentional - the app should work well in the background
+  // When the tab is CLOSED, the user is logged out (via sessionStorage)
+  // and the timer state is naturally reset on next login
 
   // Handle timer completion
   const handleTimerComplete = useCallback(() => {

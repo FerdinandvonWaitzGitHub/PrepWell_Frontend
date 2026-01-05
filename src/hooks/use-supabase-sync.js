@@ -17,11 +17,11 @@ import { supabase } from '../services/supabase';
 const STORAGE_KEYS = {
   contentPlans: 'prepwell_content_plans',
   publishedThemenlisten: 'prepwell_published_themenlisten',
-  slots: 'prepwell_calendar_slots',
+  blocks: 'prepwell_calendar_blocks', // formerly slots: prepwell_calendar_slots
   contents: 'prepwell_contents',
   tasks: 'prepwell_tasks',
-  privateBlocks: 'prepwell_private_blocks',
-  timeBlocks: 'prepwell_time_blocks', // BUG-023: Separate time-based blocks
+  privateSessions: 'prepwell_private_sessions', // formerly privateBlocks: prepwell_private_blocks
+  timeSessions: 'prepwell_time_sessions', // formerly timeBlocks: prepwell_time_blocks (BUG-023)
   lernplanMetadata: 'prepwell_lernplan_metadata',
   archivedLernplaene: 'prepwell_archived_lernplaene',
   exams: 'prepwell_exams',
@@ -36,6 +36,10 @@ const STORAGE_KEYS = {
   gradeSystem: 'prepwell_grade_system',
   customSubjects: 'prepwell_custom_subjects',
   logbuchEntries: 'prepwell_logbuch_entries',
+  // Legacy keys for migration
+  slots: 'prepwell_calendar_slots', // deprecated, use blocks
+  privateBlocks: 'prepwell_private_blocks', // deprecated, use privateSessions
+  timeBlocks: 'prepwell_time_blocks', // deprecated, use timeSessions
 };
 
 /**
@@ -860,13 +864,13 @@ export function useWizardDraftSync() {
 }
 
 /**
- * Hook for Calendar Slots (slotsByDate)
+ * Hook for Calendar Slots (blocksByDate)
  * Transforms between date-keyed object format and flat array
  */
-export function useCalendarSlotsSync() {
+export function useCalendarBlocksSync() {
   const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
-  const [slotsByDate, setSlotsByDate] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.slots, {})
+  const [blocksByDate, setBlocksByDate] = useState(() =>
+    loadFromStorage(STORAGE_KEYS.blocks, {})
   );
   const [loading, setLoading] = useState(false);
   const syncedRef = useRef(false);
@@ -918,41 +922,41 @@ export function useCalendarSlotsSync() {
   }, []);
 
   // Transform date-keyed object to flat array for Supabase
-  const transformToSupabase = useCallback((slotsByDateObj, userId) => {
+  const transformToSupabase = useCallback((blocksByDateObj, userId) => {
     const result = [];
-    Object.entries(slotsByDateObj).forEach(([dateKey, slots]) => {
-      slots.forEach(slot => {
+    Object.entries(blocksByDateObj).forEach(([dateKey, blocks]) => {
+      blocks.forEach(block => {
         // Check if ID should be auto-generated: null, undefined, or local prefixes
-        const isLocalId = !slot.id || slot.id?.startsWith('slot-') || slot.id?.startsWith('local-') || slot.id?.startsWith('private-');
+        const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('slot-') || block.id?.startsWith('local-') || block.id?.startsWith('private-');
         // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
-        const slotId = isLocalId ? crypto.randomUUID() : slot.id;
+        const blockId = isLocalId ? crypto.randomUUID() : block.id;
         // Ensure position is an integer (database expects INTEGER, not DECIMAL)
-        const positionInt = slot.position != null ? Math.floor(Number(slot.position)) : null;
+        const positionInt = block.position != null ? Math.floor(Number(block.position)) : null;
         result.push({
-          id: slotId,
+          id: blockId,
           user_id: userId,
-          slot_date: dateKey,
-          content_id: slot.contentId,
-          content_plan_id: slot.contentPlanId || null,
+          block_date: dateKey,
+          content_id: block.contentId,
+          content_plan_id: block.contentPlanId || null,
           position: positionInt,
-          title: slot.title,
-          rechtsgebiet: slot.rechtsgebiet,
-          unterrechtsgebiet: slot.unterrechtsgebiet,
-          block_type: slot.blockType || 'lernblock',
-          is_locked: slot.isLocked || false,
-          is_from_lernplan: slot.isFromLernplan || false,
-          has_time: slot.hasTime || false,
-          start_hour: slot.startHour,
-          duration: slot.duration,
-          start_time: slot.startTime,
-          end_time: slot.endTime,
-          repeat_enabled: slot.repeatEnabled || false,
-          repeat_type: slot.repeatType,
-          repeat_count: slot.repeatCount,
-          series_id: slot.seriesId,
-          custom_days: slot.customDays,
-          tasks: slot.tasks || [],
-          metadata: slot.metadata || {},
+          title: block.title,
+          rechtsgebiet: block.rechtsgebiet,
+          unterrechtsgebiet: block.unterrechtsgebiet,
+          block_type: block.blockType || 'lernblock',
+          is_locked: block.isLocked || false,
+          is_from_lernplan: block.isFromLernplan || false,
+          has_time: block.hasTime || false,
+          start_hour: block.startHour,
+          duration: block.duration,
+          start_time: block.startTime,
+          end_time: block.endTime,
+          repeat_enabled: block.repeatEnabled || false,
+          repeat_type: block.repeatType,
+          repeat_count: block.repeatCount,
+          series_id: block.seriesId,
+          custom_days: block.customDays,
+          tasks: block.tasks || [],
+          metadata: block.metadata || {},
         });
       });
     });
@@ -967,14 +971,14 @@ export function useCalendarSlotsSync() {
 
     try {
       const { data, error } = await supabase
-        .from('calendar_slots')
+        .from('calendar_blocks')
         .select('*')
-        .order('slot_date', { ascending: true });
+        .order('block_date', { ascending: true });
 
       if (error) throw error;
       return transformFromSupabase(data || []);
     } catch (err) {
-      console.error('Error fetching calendar slots:', err);
+      console.error('Error fetching calendar blocks:', err);
       return null;
     }
   }, [isSupabaseEnabled, isAuthenticated, user, transformFromSupabase]);
@@ -990,7 +994,7 @@ export function useCalendarSlotsSync() {
       try {
         // Check if user has Supabase data
         const { data: existingData } = await supabase
-          .from('calendar_slots')
+          .from('calendar_blocks')
           .select('id')
           .limit(1);
 
@@ -998,17 +1002,17 @@ export function useCalendarSlotsSync() {
           // User has Supabase data - use it
           const supabaseData = await fetchFromSupabase();
           if (supabaseData) {
-            setSlotsByDate(supabaseData);
-            saveToStorage(STORAGE_KEYS.slots, supabaseData);
+            setBlocksByDate(supabaseData);
+            saveToStorage(STORAGE_KEYS.blocks, supabaseData);
           }
         } else {
           // No Supabase data - migrate from localStorage
-          const localData = loadFromStorage(STORAGE_KEYS.slots, {});
+          const localData = loadFromStorage(STORAGE_KEYS.blocks, {});
           if (Object.keys(localData).length > 0) {
             const dataToInsert = transformToSupabase(localData, user.id);
             if (dataToInsert.length > 0) {
-              await supabase.from('calendar_slots').insert(dataToInsert);
-              console.log(`Migrated ${dataToInsert.length} slots to Supabase`);
+              await supabase.from('calendar_blocks').insert(dataToInsert);
+              console.log(`Migrated ${dataToInsert.length} blocks to Supabase`);
             }
           }
         }
@@ -1026,12 +1030,12 @@ export function useCalendarSlotsSync() {
 
   // Save slots for a specific date
   const saveDaySlots = useCallback(async (dateKey, slots) => {
-    const updated = { ...slotsByDate, [dateKey]: slots };
+    const updated = { ...blocksByDate, [dateKey]: slots };
     if (slots.length === 0) {
       delete updated[dateKey];
     }
-    setSlotsByDate(updated);
-    saveToStorage(STORAGE_KEYS.slots, updated);
+    setBlocksByDate(updated);
+    saveToStorage(STORAGE_KEYS.blocks, updated);
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
       return { success: true, source: 'localStorage' };
@@ -1040,7 +1044,7 @@ export function useCalendarSlotsSync() {
     try {
       // Delete existing slots for this date, then insert new ones
       await supabase
-        .from('calendar_slots')
+        .from('calendar_blocks')
         .delete()
         .eq('slot_date', dateKey);
 
@@ -1081,7 +1085,7 @@ export function useCalendarSlotsSync() {
         });
 
         const { error } = await supabase
-          .from('calendar_slots')
+          .from('calendar_blocks')
           .insert(dataToInsert);
 
         if (error) throw error;
@@ -1092,12 +1096,12 @@ export function useCalendarSlotsSync() {
       console.error('Error saving calendar slots:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [slotsByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [blocksByDate, isSupabaseEnabled, isAuthenticated, user]);
 
   // Save all slots (for bulk operations like wizard)
   const saveAllSlots = useCallback(async (newSlotsByDate) => {
-    setSlotsByDate(newSlotsByDate);
-    saveToStorage(STORAGE_KEYS.slots, newSlotsByDate);
+    setBlocksByDate(newSlotsByDate);
+    saveToStorage(STORAGE_KEYS.blocks, newSlotsByDate);
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
       return { success: true, source: 'localStorage' };
@@ -1106,7 +1110,7 @@ export function useCalendarSlotsSync() {
     try {
       // Delete all existing slots
       await supabase
-        .from('calendar_slots')
+        .from('calendar_blocks')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
 
@@ -1114,7 +1118,7 @@ export function useCalendarSlotsSync() {
       const dataToInsert = transformToSupabase(newSlotsByDate, user.id);
       if (dataToInsert.length > 0) {
         const { error } = await supabase
-          .from('calendar_slots')
+          .from('calendar_blocks')
           .insert(dataToInsert);
 
         if (error) throw error;
@@ -1129,8 +1133,8 @@ export function useCalendarSlotsSync() {
 
   // Clear all slots
   const clearAllSlots = useCallback(async () => {
-    setSlotsByDate({});
-    saveToStorage(STORAGE_KEYS.slots, {});
+    setBlocksByDate({});
+    saveToStorage(STORAGE_KEYS.blocks, {});
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
       return { success: true, source: 'localStorage' };
@@ -1138,7 +1142,7 @@ export function useCalendarSlotsSync() {
 
     try {
       await supabase
-        .from('calendar_slots')
+        .from('calendar_blocks')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000');
 
@@ -1150,8 +1154,8 @@ export function useCalendarSlotsSync() {
   }, [isSupabaseEnabled, isAuthenticated]);
 
   return {
-    slotsByDate,
-    setSlotsByDate: saveAllSlots,
+    blocksByDate,
+    setBlocksByDate: saveAllSlots,
     saveDaySlots,
     clearAllSlots,
     loading,
@@ -1348,12 +1352,12 @@ export function useCalendarTasksSync() {
 }
 
 /**
- * Hook for Private Blocks (privateBlocksByDate)
+ * Hook for Private Blocks (privateSessionsByDate)
  */
-export function usePrivateBlocksSync() {
+export function usePrivateSessionsSync() {
   const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
-  const [privateBlocksByDate, setPrivateBlocksByDate] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.privateBlocks, {})
+  const [privateSessionsByDate, setPrivateSessionsByDate] = useState(() =>
+    loadFromStorage(STORAGE_KEYS.privateSessions, {})
   );
   const [loading, setLoading] = useState(false);
   const syncedRef = useRef(false);
@@ -1371,7 +1375,7 @@ export function usePrivateBlocksSync() {
   const transformFromSupabase = useCallback((rows) => {
     const result = {};
     rows.forEach(row => {
-      const dateKey = row.block_date;
+      const dateKey = row.session_date;
       if (!result[dateKey]) {
         result[dateKey] = [];
       }
@@ -1379,8 +1383,8 @@ export function usePrivateBlocksSync() {
         id: row.id,
         title: row.title,
         description: row.description,
-        startDate: row.block_date, // BUG-012 FIX: Include startDate
-        endDate: row.end_date || row.block_date, // BUG-012 FIX: Include endDate
+        startDate: row.session_date, // BUG-012 FIX: Include startDate
+        endDate: row.end_date || row.session_date, // BUG-012 FIX: Include endDate
         startTime: row.start_time,
         endTime: row.end_time,
         allDay: row.all_day,
@@ -1406,9 +1410,9 @@ export function usePrivateBlocksSync() {
 
     try {
       const { data, error } = await supabase
-        .from('private_blocks')
+        .from('private_sessions')
         .select('*')
-        .order('block_date', { ascending: true });
+        .order('session_date', { ascending: true });
 
       if (error) throw error;
       return transformFromSupabase(data || []);
@@ -1428,19 +1432,19 @@ export function usePrivateBlocksSync() {
       setLoading(true);
       try {
         const { data: existingData } = await supabase
-          .from('private_blocks')
+          .from('private_sessions')
           .select('id')
           .limit(1);
 
         if (existingData && existingData.length > 0) {
           const supabaseData = await fetchFromSupabase();
           if (supabaseData) {
-            setPrivateBlocksByDate(supabaseData);
-            saveToStorage(STORAGE_KEYS.privateBlocks, supabaseData);
+            setPrivateSessionsByDate(supabaseData);
+            saveToStorage(STORAGE_KEYS.privateSessions, supabaseData);
           }
         } else {
           // Migrate from localStorage
-          const localData = loadFromStorage(STORAGE_KEYS.privateBlocks, {});
+          const localData = loadFromStorage(STORAGE_KEYS.privateSessions, {});
           const dataToInsert = [];
           Object.entries(localData).forEach(([dateKey, blocks]) => {
             blocks.forEach(block => {
@@ -1465,7 +1469,7 @@ export function usePrivateBlocksSync() {
           });
 
           if (dataToInsert.length > 0) {
-            await supabase.from('private_blocks').insert(dataToInsert);
+            await supabase.from('private_sessions').insert(dataToInsert);
             console.log(`Migrated ${dataToInsert.length} private blocks to Supabase`);
           }
         }
@@ -1483,12 +1487,12 @@ export function usePrivateBlocksSync() {
 
   // Save private blocks for a specific date
   const saveDayBlocks = useCallback(async (dateKey, blocks) => {
-    const updated = { ...privateBlocksByDate, [dateKey]: blocks };
+    const updated = { ...privateSessionsByDate, [dateKey]: blocks };
     if (blocks.length === 0) {
       delete updated[dateKey];
     }
-    setPrivateBlocksByDate(updated);
-    saveToStorage(STORAGE_KEYS.privateBlocks, updated);
+    setPrivateSessionsByDate(updated);
+    saveToStorage(STORAGE_KEYS.privateSessions, updated);
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
       return { success: true, source: 'localStorage' };
@@ -1497,7 +1501,7 @@ export function usePrivateBlocksSync() {
     try {
       // Delete existing blocks for this date
       await supabase
-        .from('private_blocks')
+        .from('private_sessions')
         .delete()
         .eq('block_date', dateKey);
 
@@ -1529,7 +1533,7 @@ export function usePrivateBlocksSync() {
         });
 
         const { error } = await supabase
-          .from('private_blocks')
+          .from('private_sessions')
           .insert(dataToInsert);
 
         if (error) throw error;
@@ -1540,16 +1544,16 @@ export function usePrivateBlocksSync() {
       console.error('Error saving private blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [privateBlocksByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [privateSessionsByDate, isSupabaseEnabled, isAuthenticated, user]);
 
   // FIX BUG-005: Batch save private blocks for multiple dates at once
   // This avoids stale closure issues when creating series appointments
   const saveDayBlocksBatch = useCallback(async (updatesMap) => {
     console.log('[saveDayBlocksBatch] Called with', Object.keys(updatesMap).length, 'dates:', Object.keys(updatesMap));
-    console.log('[saveDayBlocksBatch] Current privateBlocksByDate has', Object.keys(privateBlocksByDate).length, 'dates');
+    console.log('[saveDayBlocksBatch] Current privateSessionsByDate has', Object.keys(privateSessionsByDate).length, 'dates');
 
     // Merge all updates with current state
-    const updated = { ...privateBlocksByDate };
+    const updated = { ...privateSessionsByDate };
     Object.entries(updatesMap).forEach(([dateKey, blocks]) => {
       if (blocks.length === 0) {
         delete updated[dateKey];
@@ -1561,8 +1565,8 @@ export function usePrivateBlocksSync() {
     console.log('[saveDayBlocksBatch] After merge:', Object.keys(updated).length, 'dates total:', Object.keys(updated));
     console.log('[saveDayBlocksBatch] Updated data:', JSON.stringify(updated, null, 2));
 
-    setPrivateBlocksByDate(updated);
-    saveToStorage(STORAGE_KEYS.privateBlocks, updated);
+    setPrivateSessionsByDate(updated);
+    saveToStorage(STORAGE_KEYS.privateSessions, updated);
     console.log('[saveDayBlocksBatch] State updated and saved to localStorage');
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
@@ -1574,7 +1578,7 @@ export function usePrivateBlocksSync() {
       for (const [dateKey, blocks] of Object.entries(updatesMap)) {
         // Delete existing blocks for this date
         await supabase
-          .from('private_blocks')
+          .from('private_sessions')
           .delete()
           .eq('block_date', dateKey);
 
@@ -1606,7 +1610,7 @@ export function usePrivateBlocksSync() {
           });
 
           const { error } = await supabase
-            .from('private_blocks')
+            .from('private_sessions')
             .insert(dataToInsert);
 
           if (error) throw error;
@@ -1618,11 +1622,11 @@ export function usePrivateBlocksSync() {
       console.error('Error batch saving private blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [privateBlocksByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [privateSessionsByDate, isSupabaseEnabled, isAuthenticated, user]);
 
   return {
-    privateBlocksByDate,
-    setPrivateBlocksByDate,
+    privateSessionsByDate,
+    setPrivateSessionsByDate,
     saveDayBlocks,
     saveDayBlocksBatch,
     loading,
@@ -1632,14 +1636,14 @@ export function usePrivateBlocksSync() {
 }
 
 /**
- * Hook for Time Blocks (timeBlocksByDate)
+ * Hook for Time Blocks (timeSessionsByDate)
  * BUG-023 FIX: Strictly separated from calendar_slots (Month view)
  * Time blocks are time-based (start_time, end_time) for Week/Dashboard views
  */
-export function useTimeBlocksSync() {
+export function useTimeSessionsSync() {
   const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
-  const [timeBlocksByDate, setTimeBlocksByDate] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.timeBlocks, {})
+  const [timeSessionsByDate, setTimeSessionsByDate] = useState(() =>
+    loadFromStorage(STORAGE_KEYS.timeSessions, {})
   );
   const [loading, setLoading] = useState(false);
   const syncedRef = useRef(false);
@@ -1691,7 +1695,7 @@ export function useTimeBlocksSync() {
 
     try {
       const { data, error } = await supabase
-        .from('time_blocks')
+        .from('time_sessions')
         .select('*')
         .order('block_date', { ascending: true });
 
@@ -1713,19 +1717,19 @@ export function useTimeBlocksSync() {
       setLoading(true);
       try {
         const { data: existingData } = await supabase
-          .from('time_blocks')
+          .from('time_sessions')
           .select('id')
           .limit(1);
 
         if (existingData && existingData.length > 0) {
           const supabaseData = await fetchFromSupabase();
           if (supabaseData) {
-            setTimeBlocksByDate(supabaseData);
-            saveToStorage(STORAGE_KEYS.timeBlocks, supabaseData);
+            setTimeSessionsByDate(supabaseData);
+            saveToStorage(STORAGE_KEYS.timeSessions, supabaseData);
           }
         } else {
           // Migrate from localStorage
-          const localData = loadFromStorage(STORAGE_KEYS.timeBlocks, {});
+          const localData = loadFromStorage(STORAGE_KEYS.timeSessions, {});
           const dataToInsert = [];
           Object.entries(localData).forEach(([dateKey, blocks]) => {
             blocks.forEach(block => {
@@ -1751,7 +1755,7 @@ export function useTimeBlocksSync() {
           });
 
           if (dataToInsert.length > 0) {
-            await supabase.from('time_blocks').insert(dataToInsert);
+            await supabase.from('time_sessions').insert(dataToInsert);
             console.log(`Migrated ${dataToInsert.length} time blocks to Supabase`);
           }
         }
@@ -1769,12 +1773,12 @@ export function useTimeBlocksSync() {
 
   // Save time blocks for a specific date
   const saveDayBlocks = useCallback(async (dateKey, blocks) => {
-    const updated = { ...timeBlocksByDate, [dateKey]: blocks };
+    const updated = { ...timeSessionsByDate, [dateKey]: blocks };
     if (blocks.length === 0) {
       delete updated[dateKey];
     }
-    setTimeBlocksByDate(updated);
-    saveToStorage(STORAGE_KEYS.timeBlocks, updated);
+    setTimeSessionsByDate(updated);
+    saveToStorage(STORAGE_KEYS.timeSessions, updated);
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
       return { success: true, source: 'localStorage' };
@@ -1783,7 +1787,7 @@ export function useTimeBlocksSync() {
     try {
       // Delete existing blocks for this date
       await supabase
-        .from('time_blocks')
+        .from('time_sessions')
         .delete()
         .eq('block_date', dateKey);
 
@@ -1814,7 +1818,7 @@ export function useTimeBlocksSync() {
         });
 
         const { error } = await supabase
-          .from('time_blocks')
+          .from('time_sessions')
           .insert(dataToInsert);
 
         if (error) throw error;
@@ -1825,13 +1829,13 @@ export function useTimeBlocksSync() {
       console.error('Error saving time blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [timeBlocksByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [timeSessionsByDate, isSupabaseEnabled, isAuthenticated, user]);
 
   // Batch save time blocks for multiple dates at once
   const saveDayBlocksBatch = useCallback(async (updatesMap) => {
     console.log('[saveTimeBlocksBatch] Called with', Object.keys(updatesMap).length, 'dates');
 
-    const updated = { ...timeBlocksByDate };
+    const updated = { ...timeSessionsByDate };
     Object.entries(updatesMap).forEach(([dateKey, blocks]) => {
       if (blocks.length === 0) {
         delete updated[dateKey];
@@ -1840,8 +1844,8 @@ export function useTimeBlocksSync() {
       }
     });
 
-    setTimeBlocksByDate(updated);
-    saveToStorage(STORAGE_KEYS.timeBlocks, updated);
+    setTimeSessionsByDate(updated);
+    saveToStorage(STORAGE_KEYS.timeSessions, updated);
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
       return { success: true, source: 'localStorage' };
@@ -1850,7 +1854,7 @@ export function useTimeBlocksSync() {
     try {
       for (const [dateKey, blocks] of Object.entries(updatesMap)) {
         await supabase
-          .from('time_blocks')
+          .from('time_sessions')
           .delete()
           .eq('block_date', dateKey);
 
@@ -1880,7 +1884,7 @@ export function useTimeBlocksSync() {
           });
 
           const { error } = await supabase
-            .from('time_blocks')
+            .from('time_sessions')
             .insert(dataToInsert);
 
           if (error) throw error;
@@ -1892,12 +1896,12 @@ export function useTimeBlocksSync() {
       console.error('Error batch saving time blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [timeBlocksByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [timeSessionsByDate, isSupabaseEnabled, isAuthenticated, user]);
 
   // Clear all time blocks
   const clearAllBlocks = useCallback(async () => {
-    setTimeBlocksByDate({});
-    saveToStorage(STORAGE_KEYS.timeBlocks, {});
+    setTimeSessionsByDate({});
+    saveToStorage(STORAGE_KEYS.timeSessions, {});
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
       return { success: true, source: 'localStorage' };
@@ -1905,7 +1909,7 @@ export function useTimeBlocksSync() {
 
     try {
       await supabase
-        .from('time_blocks')
+        .from('time_sessions')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000');
 
@@ -1917,8 +1921,8 @@ export function useTimeBlocksSync() {
   }, [isSupabaseEnabled, isAuthenticated]);
 
   return {
-    timeBlocksByDate,
-    setTimeBlocksByDate,
+    timeSessionsByDate,
+    setTimeSessionsByDate,
     saveDayBlocks,
     saveDayBlocksBatch,
     clearAllBlocks,

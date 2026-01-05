@@ -44,38 +44,38 @@ PrepWell ist eine webbasierte Lernmanagement-Plattform für Studierende zur stru
 
 ## 3. Architektur
 
-### 3.1 SlotAllocation vs. TimeBlock - Strikte Trennung
+### 3.1 BlockAllocation vs. Session - Strikte Trennung
 
-**Kernprinzip:** Slots und Blöcke sind zwei komplett getrennte Entitäten mit unterschiedlichen Datenmodellen. Sie werden NIEMALS gemischt.
+**Kernprinzip:** Blöcke und Sessions sind zwei komplett getrennte Entitäten mit unterschiedlichen Datenmodellen. Sie werden NIEMALS gemischt.
 
 ---
 
-#### Entity A: SlotAllocation (Monatsansicht)
+#### Entity A: BlockAllocation (Monatsansicht)
 
 **Zweck:** Kapazitätsplanung auf Tagesebene - "Wie viel Zeit reserviere ich für welche Kategorie?"
 
 ```
-SlotAllocation {
+BlockAllocation {
   id:           UUID
   date:         DATE              // z.B. "2026-01-15"
   kind:         ENUM              // theme | repetition | exam | private
-  size:         INT [1-4]         // Anzahl Slots an diesem Tag
+  size:         INT [1-4]         // Anzahl Blöcke an diesem Tag
   content_id?:  UUID              // Optional: Verknüpfung zu Lerninhalt
   source:       ENUM              // wizard | manual
   // ❌ VERBOTEN: start_time, end_time, duration (NIEMALS Uhrzeiten!)
 }
 ```
 
-**Anzeige:** Monatsansicht zeigt pro Tag farbige Balken/Segmente entsprechend der Slot-Größe.
+**Anzeige:** Monatsansicht zeigt pro Tag farbige Balken/Segmente entsprechend der Block-Größe.
 
 ---
 
-#### Entity B: TimeBlock (Startseite/Wochenansicht)
+#### Entity B: Session (Startseite/Wochenansicht)
 
 **Zweck:** Zeitraum-basierte Planung - "Wann genau lerne ich was?"
 
 ```
-TimeBlock {
+Session {
   id:           UUID
   start_at:     DATETIME          // z.B. "2026-01-15T09:00:00"
   end_at:       DATETIME          // z.B. "2026-01-15T11:30:00"
@@ -83,21 +83,21 @@ TimeBlock {
   title:        STRING
   description?: STRING
   repeat?:      RepeatConfig      // Für Serientermine
-  // ❌ VERBOTEN: slot_size, slot_position (NIEMALS Slot-Felder!)
+  // ❌ VERBOTEN: block_size, block_position (NIEMALS Block-Felder!)
 }
 ```
 
-**Anzeige:** Wochenansicht/Startseite zeigen Blöcke im Zeitraster mit exakten Uhrzeiten.
+**Anzeige:** Wochenansicht/Startseite zeigen Sessions im Zeitraster mit exakten Uhrzeiten.
 
 ---
 
-#### Entity C: SlotToBlockLink (Optional, für spätere Verbindungen)
+#### Entity C: BlockToSessionLink (Optional, für spätere Verbindungen)
 
 ```
-SlotToBlockLink {
+BlockToSessionLink {
   id:           UUID
-  slot_id:      UUID → SlotAllocation
-  block_id:     UUID → TimeBlock
+  block_id:     UUID → BlockAllocation
+  session_id:   UUID → Session
   created_at:   DATETIME
 }
 ```
@@ -111,18 +111,18 @@ SlotToBlockLink {
 | # | Regel | Prüfung |
 |---|-------|---------|
 | 1 | View-Context prüfen | Vor Datenzugriff: "Bin ich in Monats- oder Wochenansicht?" |
-| 2 | Falsche Felder erkennen | Slot mit Uhrzeiten → STOP. Block mit slot_size → STOP. |
+| 2 | Falsche Felder erkennen | Block mit Uhrzeiten → STOP. Session mit block_size → STOP. |
 | 3 | Eigene Aktionen validieren | Nach Code-Generierung: "Habe ich das richtige Entity verwendet?" |
-| 4 | Conversion = neue Objekt-Erstellung | Slot→Block erzeugt NEUEN Block, löscht NICHT den Slot |
-| 5 | Keine Live-Kopplung | Änderungen an Block aktualisieren NICHT den verlinkten Slot |
+| 4 | Conversion = neue Objekt-Erstellung | Block→Session erzeugt NEUE Session, löscht NICHT den Block |
+| 5 | Keine Live-Kopplung | Änderungen an Session aktualisieren NICHT den verlinkten Block |
 
 **API-Validierung:**
 ```javascript
-// Slot-Endpoint lehnt Uhrzeiten ab
-POST /slots { date, kind, size, start_time } → 400 Bad Request
+// Block-Endpoint lehnt Uhrzeiten ab
+POST /blocks { date, kind, size, start_time } → 400 Bad Request
 
-// Block-Endpoint lehnt slot_size ab
-POST /blocks { start_at, end_at, kind, slot_size } → 400 Bad Request
+// Session-Endpoint lehnt block_size ab
+POST /sessions { start_at, end_at, kind, block_size } → 400 Bad Request
 ```
 
 ---
@@ -131,14 +131,14 @@ POST /blocks { start_at, end_at, kind, slot_size } → 400 Bad Request
 
 | Case | Problem | Lösung |
 |------|---------|--------|
-| **EC-1** | User klickt Slot in Monatsansicht → will Uhrzeit eintragen | "Details bearbeiten" öffnet neues TimeBlock-Formular, Slot bleibt unverändert |
-| **EC-2** | Slot-Größe 2 = 4 Stunden → welche genau? | Default: 09:00-13:00 beim Umwandeln. User kann anpassen. |
-| **EC-3** | User löscht Block, der aus Slot entstanden ist | Block wird gelöscht. Link wird gelöscht. Slot bleibt bestehen. |
-| **EC-4** | User ändert Slot-Größe 2→3 nachträglich | Nur Slot-size ändern. Evtl. existierender Block bleibt unverändert (kein Auto-Resize). |
-| **EC-5** | Kalender-Export (iCal) | Nur TimeBlocks exportieren (haben echte Zeiten). Slots sind intern. |
-| **EC-6** | Statistik/Analytics | Beide separat auswerten: "Geplante Kapazität" (Slots) vs. "Tatsächlich geblockt" (Blocks) |
-| **EC-7** | Wizard erstellt "08:00-10:00" Vorgabe | Wizard erstellt primär Slots (size=1 pro 2h). Vorgabe-Zeiten sind Defaults für spätere Block-Erstellung. |
-| **EC-8** | Offline-Sync Konflikt Slot vs. Block | Getrennte Sync-Queues. Slot-Änderungen ≠ Block-Änderungen. Kein Cross-Entity-Merge. |
+| **EC-1** | User klickt Block in Monatsansicht → will Uhrzeit eintragen | "Details bearbeiten" öffnet neues Session-Formular, Block bleibt unverändert |
+| **EC-2** | Block-Größe 2 = 4 Stunden → welche genau? | Default: 09:00-13:00 beim Umwandeln. User kann anpassen. |
+| **EC-3** | User löscht Session, die aus Block entstanden ist | Session wird gelöscht. Link wird gelöscht. Block bleibt bestehen. |
+| **EC-4** | User ändert Block-Größe 2→3 nachträglich | Nur Block-size ändern. Evtl. existierende Session bleibt unverändert (kein Auto-Resize). |
+| **EC-5** | Kalender-Export (iCal) | Nur Sessions exportieren (haben echte Zeiten). Blöcke sind intern. |
+| **EC-6** | Statistik/Analytics | Beide separat auswerten: "Geplante Kapazität" (Blöcke) vs. "Tatsächlich geblockt" (Sessions) |
+| **EC-7** | Wizard erstellt "08:00-10:00" Vorgabe | Wizard erstellt primär Blöcke (size=1 pro 2h). Vorgabe-Zeiten sind Defaults für spätere Session-Erstellung. |
+| **EC-8** | Offline-Sync Konflikt Block vs. Session | Getrennte Sync-Queues. Block-Änderungen ≠ Session-Änderungen. Kein Cross-Entity-Merge. |
 
 ---
 
@@ -146,9 +146,9 @@ POST /blocks { start_at, end_at, kind, slot_size } → 400 Bad Request
 
 | Ansicht | Dialog-Mode | UI-Element | Entity | Gespeicherte Daten |
 |---------|-------------|------------|--------|-------------------|
-| Monatsansicht | `mode="slot"` | Slot-Größe Selector (1-4) | SlotAllocation | `date`, `kind`, `size` |
-| Wochenansicht | `mode="block"` | Uhrzeit-Inputs (Von-Bis) | TimeBlock | `start_at`, `end_at`, `kind` |
-| Startseite | `mode="block"` | Uhrzeit-Inputs (Von-Bis) | TimeBlock | `start_at`, `end_at`, `kind` |
+| Monatsansicht | `mode="block"` | Block-Größe Selector (1-4) | BlockAllocation | `date`, `kind`, `size` |
+| Wochenansicht | `mode="session"` | Uhrzeit-Inputs (Von-Bis) | Session | `start_at`, `end_at`, `kind` |
+| Startseite | `mode="session"` | Uhrzeit-Inputs (Von-Bis) | Session | `start_at`, `end_at`, `kind` |
 
 ---
 
@@ -157,16 +157,16 @@ POST /blocks { start_at, end_at, kind, slot_size } → 400 Bad Request
 ```
 Vor jeder Kalender-Aktion prüfen:
 1. Welche View ist aktiv? → month | week | home
-2. month → SlotAllocation (date + kind + size, KEINE Uhrzeiten)
-3. week/home → TimeBlock (start_at + end_at, KEINE slot_size)
-4. Conversion explizit? → SlotToBlockLink + neuer Block
+2. month → BlockAllocation (date + kind + size, KEINE Uhrzeiten)
+3. week/home → Session (start_at + end_at, KEINE block_size)
+4. Conversion explizit? → BlockToSessionLink + neue Session
 ```
 
 ### 3.2 State Management (React Context)
 
 | Context | Beschreibung | Supabase-Sync |
 |---------|--------------|---------------|
-| `CalendarProvider` | Slots, Tasks, Private Blocks, ContentPlans | Ja |
+| `CalendarProvider` | Blöcke, Tasks, Private Sessions, ContentPlans | Ja |
 | `TimerProvider` | Timer-Zustand, Sessions | Ja (History) |
 | `AuthProvider` | Authentifizierung | Ja |
 | `StudiengangProvider` | Studiengang & Hierarchie-Labels | Lokal |
@@ -316,7 +316,7 @@ Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
 
 ### 5.4 Dashboard Widgets
 
-- **Lernblock-Widget:** Aktueller/nächster Block
+- **Session-Widget:** Aktuelle/nächste Session
 - **Zeitplan-Widget:** Stunden-Übersicht mit rotem Zeitpunkt-Dot
 - **Aufgaben-Widget:** Tagesaufgaben mit Prioritäten
 - **Timer-Widget:** Schnellzugriff auf Timer
@@ -365,9 +365,10 @@ Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
 | `users` | AuthContext | Aktiv |
 | `user_settings` | Mehrere | Aktiv |
 | `content_plans` | CalendarContext | Aktiv |
-| `calendar_slots` | CalendarContext | Aktiv |
+| `calendar_blocks` | CalendarContext | Aktiv |
 | `calendar_tasks` | CalendarContext | Aktiv |
-| `private_blocks` | CalendarContext | Aktiv |
+| `private_sessions` | CalendarContext | Aktiv |
+| `time_sessions` | CalendarContext | Aktiv |
 | `archived_lernplaene` | CalendarContext | Aktiv |
 | `published_themenlisten` | CalendarContext | Aktiv |
 | `wizard_drafts` | WizardContext | Aktiv |
@@ -382,9 +383,10 @@ Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
 Alle in `src/hooks/use-supabase-sync.js`:
 - `useSupabaseSync` - Generischer Hook
 - `useContentPlansSync`
-- `useCalendarSlotsSync`
+- `useCalendarBlocksSync`
 - `useCalendarTasksSync`
-- `usePrivateBlocksSync`
+- `usePrivateSessionsSync`
+- `useTimeSessionsSync`
 - `useTimerHistorySync`
 - `useCheckInSync`
 - `useLogbuchSync`
@@ -538,11 +540,11 @@ Die UI-Texte werden über den `useHierarchyLabels()` Hook dynamisch generiert:
 
 | Test | Erwartung | Getestet | Status |
 |------|-----------|----------|--------|
-| Lernblock-Widget zeigt aktuellen Block | Korrekter Block für aktuelle Zeit | [ ] | - |
+| Session-Widget zeigt aktuelle Session | Korrekte Session für aktuelle Zeit | [ ] | - |
 | Zeitplan-Widget mit rotem Dot | Dot bewegt sich mit Uhrzeit | [ ] | - |
 | Aufgaben-Widget zeigt Tagesaufgaben | Aufgaben für heute sichtbar | [ ] | - |
 | Timer-Widget funktioniert | Alle 3 Modi starten | [ ] | - |
-| Tagesziel berechnet korrekt | Basiert auf Slots des Tages | [ ] | - |
+| Tagesziel berechnet korrekt | Basiert auf Blöcken des Tages | [ ] | - |
 
 ### 12.3 Lernplan-Wizard
 
@@ -811,11 +813,11 @@ Q4 2026: Community & Premium Features
 │   └── settings
 ├── lernplaene/
 │   ├── [id]
-│   └── [id]/slots
+│   └── [id]/blocks
 ├── calendar/
-│   ├── slots
+│   ├── blocks
 │   ├── tasks
-│   └── private-blocks
+│   └── private-sessions
 ├── timer/
 │   ├── sessions
 │   └── logbuch
@@ -945,7 +947,7 @@ Die meisten Bugs in der To-Do-Liste sind **Symptome tieferliegender Architektur-
 
 ---
 
-## 25. Slot/Block/Content-Modell
+## 25. Block/Session/Content-Modell
 
 ### 25.1 Aktuelle Struktur
 
@@ -954,11 +956,11 @@ Die meisten Bugs in der To-Do-Liste sind **Symptome tieferliegender Architektur-
 │                          DATENMODELL                                 │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
-│  calendar_slots (Supabase)          private_blocks (Supabase)       │
+│  calendar_blocks (Supabase)         private_sessions (Supabase)     │
 │  ─────────────────────────          ────────────────────────        │
 │  • 4 Positionen pro Tag             • Freie Uhrzeiten               │
 │  • position: 1-4                    • start_time / end_time         │
-│  • block_type: lernblock|exam|rep   • block_type: immer 'private'   │
+│  • session_type: lernblock|exam|rep • session_type: immer 'private' │
 │  • content_id → verweist auf        • Eigenständig (kein Content)   │
 │    Themenlisten-Inhalt              • Wiederholung möglich          │
 │  • Wiederholung möglich                                              │
@@ -966,15 +968,15 @@ Die meisten Bugs in der To-Do-Liste sind **Symptome tieferliegender Architektur-
 │           ▼                                    ▼                     │
 │  ┌─────────────────────────────────────────────────────────────┐    │
 │  │                   CalendarContext                            │    │
-│  │  • slotsByDate: { "2026-01-02": [slot1, slot2, ...] }       │    │
-│  │  • privateBlocksByDate: { "2026-01-02": [block1, ...] }     │    │
+│  │  • blocksByDate: { "2026-01-02": [block1, block2, ...] }    │    │
+│  │  • privateSessionsByDate: { "2026-01-02": [session1, ...] } │    │
 │  │  • contentsById: { "content-123": { title, ... } }          │    │
 │  └─────────────────────────────────────────────────────────────┘    │
 │                         │                                            │
 │                         ▼                                            │
-│               buildBlockFromSlot()                                   │
+│               buildSessionFromBlock()                                │
 │               ─────────────────────                                  │
-│               Slot + Content = Display-Block                         │
+│               Block + Content = Display-Session                      │
 │                         │                                            │
 │                         ▼                                            │
 │  ┌─────────────┐              ┌─────────────┐                       │
@@ -993,7 +995,7 @@ Die meisten Bugs in der To-Do-Liste sind **Symptome tieferliegender Architektur-
 | 3 | 14:00 | 16:00 | 2h |
 | 4 | 16:00 | 18:00 | 2h |
 
-**Problem:** Wenn `hasTime: true`, können Slots benutzerdefinierte Zeiten haben, die von Positionen abweichen.
+**Problem:** Wenn `hasTime: true`, können Blöcke benutzerdefinierte Zeiten haben, die von Positionen abweichen.
 
 ### 25.3 Identifizierte Probleme
 
@@ -1001,15 +1003,15 @@ Die meisten Bugs in der To-Do-Liste sind **Symptome tieferliegender Architektur-
 |---------|-------------|------------|
 | `topicId` vs `contentId` vs `id` | 🟠 Hoch | Inkonsistentes ID-Matching |
 | `title` vs `topicTitle` | 🟡 Mittel | Doppelte Felder |
-| Slot ≠ Block nicht klar definiert | 🟠 Hoch | Verwirrende Begriffe im Code |
-| Private Blocks haben kein `position` | 🟡 Mittel | Unterschiedliche Zeitlogik |
+| Block ≠ Session nicht klar definiert | 🟠 Hoch | Verwirrende Begriffe im Code |
+| Private Sessions haben kein `position` | 🟡 Mittel | Unterschiedliche Zeitlogik |
 
 ### 25.4 Empfohlene Lösung
 
-**Einheitliches Block-Interface:**
+**Einheitliches Session-Interface:**
 
 ```typescript
-interface CalendarBlock {
+interface CalendarSession {
   id: string;
   type: 'lernblock' | 'repetition' | 'exam' | 'private';
 
@@ -1017,11 +1019,11 @@ interface CalendarBlock {
   date: string;              // YYYY-MM-DD
   startTime: string;         // HH:MM
   endTime: string;           // HH:MM
-  position?: 1 | 2 | 3 | 4;  // Optional für Lernblöcke
+  position?: 1 | 2 | 3 | 4;  // Optional für Lern-Sessions
 
   // Inhalt
   title: string;
-  contentId?: string;        // Nur für Lernblöcke
+  contentId?: string;        // Nur für Lern-Sessions
   rechtsgebiet?: string;
   unterrechtsgebiet?: string;
 
@@ -1066,38 +1068,37 @@ interface CalendarBlock {
 
 ```
 Szenario 1: Benutzer erstellt Serientermin
-├─ Frontend: Erstellt 20 Blöcke mit seriesId
+├─ Frontend: Erstellt 20 Sessions mit seriesId
 ├─ Supabase-Sync: Speichert OHNE seriesId (Feld fehlt!)
-├─ Browser-Reload: Blöcke geladen, aber Serie-Info verloren
-└─ Ergebnis: 20 einzelne Blöcke statt 1 Serie ❌
+├─ Browser-Reload: Sessions geladen, aber Serie-Info verloren
+└─ Ergebnis: 20 einzelne Sessions statt 1 Serie ❌
 
-Szenario 2: Benutzer löscht einen Block
-├─ handleDelete() löscht nur DIESEN Block
-├─ Die anderen 19 Blöcke der Serie bleiben
-└─ Ergebnis: Verwaiste Blöcke ohne Zusammenhang ❌
+Szenario 2: Benutzer löscht eine Session
+├─ handleDelete() löscht nur DIESE Session
+├─ Die anderen 19 Sessions der Serie bleiben
+└─ Ergebnis: Verwaiste Sessions ohne Zusammenhang ❌
 ```
 
 ### 26.4 Fehlende UI-Logik
 
 | Feature | Status | Impact |
 |---------|--------|--------|
-| "Nur diesen" vs. "Ganze Serie" Dialog | ❌ Fehlt | User kann Serie nicht steuern |
+| "Nur diese" vs. "Ganze Serie" Dialog | ❌ Fehlt | User kann Serie nicht steuern |
 | Visuelle Kennzeichnung von Serien | ❌ Fehlt | User erkennt Wiederholungen nicht |
-| `deleteSeriesPrivateBlocks()` | ⚠️ Dead Code | Existiert, wird nie aufgerufen |
+| `deleteSeriesPrivateSessions()` | ⚠️ Dead Code | Existiert, wird nie aufgerufen |
 | Update-Logik für Serien | ❌ Fehlt | Keine Massen-Änderung möglich |
 
 ### 26.5 Erforderliche Schema-Erweiterung
 
 ```sql
 -- SOFORT erforderlich:
-ALTER TABLE private_blocks ADD COLUMN IF NOT EXISTS series_id UUID;
-ALTER TABLE private_blocks ADD COLUMN IF NOT EXISTS custom_days JSONB;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS series_id UUID;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS custom_days JSONB;
 
-ALTER TABLE calendar_slots ADD COLUMN IF NOT EXISTS series_id UUID;
-ALTER TABLE calendar_slots ADD COLUMN IF NOT EXISTS custom_days JSONB;
+ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS series_id UUID;
+ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS custom_days JSONB;
 
 -- Indizes für Performance:
-CREATE INDEX IF NOT EXISTS idx_private_blocks_series_id ON private_blocks(series_id);
-CREATE INDEX IF NOT EXISTS idx_calendar_slots_series_id ON calendar_slots(series_id);
+CREATE INDEX IF NOT EXISTS idx_private_sessions_series_id ON private_sessions(series_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_blocks_series_id ON calendar_blocks(series_id);
 ```
-

@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * StepHeader - Consistent header for each wizard step
  * Based on Figma: Schritt_X_header pattern

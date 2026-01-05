@@ -1,6 +1,4 @@
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -24,7 +22,6 @@ const LernzeitStats = ({ stats, formatDuration }) => {
     shortestSession,
     totalTime,
     thisWeekTime,
-    lastWeekTime,
     weekComparison,
     weeks4Trend,
     trendDirection

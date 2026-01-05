@@ -1,17 +1,21 @@
+import { memo, useCallback } from 'react';
 import { PlusIcon } from '../../../components/ui';
 
 /**
- * LearningBlock component
- * Displays a learning block with unterrechtsgebiet and optional title
+ * LearningSession component (formerly LearningBlock)
+ * Displays a learning session with unterrechtsgebiet and optional title
+ *
+ * Memoized for performance - prevents unnecessary re-renders in calendar grids
+ * where this component is rendered many times per view.
  *
  * @param {string} title - Optional custom title
- * @param {string} blockType - Type of block (theme, repetition, exam, free)
+ * @param {string} blockType - Type of session (theme, repetition, exam, free)
  * @param {object} unterrechtsgebiet - Unterrechtsgebiet object with name
- * @param {boolean} isAddButton - Whether this is an add button block
+ * @param {boolean} isAddButton - Whether this is an add button session
  * @param {boolean} isOutOfRange - Whether the date is outside learning period
  * @param {Function} onAddClick - Callback when the add button is clicked
  */
-const LearningBlock = ({
+const LearningSession = memo(function LearningSession({
   title = '',
   blockType = '',
   unterrechtsgebiet = null,
@@ -19,7 +23,7 @@ const LearningBlock = ({
   isOutOfRange = false,
   onAddClick,
   className = ''
-}) => {
+}) {
   // Render add button variant
   if (isAddButton) {
     return (
@@ -100,6 +104,9 @@ const LearningBlock = ({
       )}
     </div>
   );
-};
+});
 
-export default LearningBlock;
+// Legacy alias for backwards compatibility
+export const LearningBlock = LearningSession;
+
+export default LearningSession;

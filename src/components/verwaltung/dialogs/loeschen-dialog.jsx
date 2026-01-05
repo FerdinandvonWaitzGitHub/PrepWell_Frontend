@@ -18,7 +18,7 @@ const LoeschenDialog = ({ open, onOpenChange, exam, onConfirm }) => {
         <DialogHeader>
           <DialogTitle>Klausur endgültig löschen?</DialogTitle>
           <DialogDescription>
-            Die Klausur "{exam?.title}" wird endgültig gelöscht und kann nicht mehr wiederhergestellt werden.
+            Die Klausur &quot;{exam?.title}&quot; wird endgültig gelöscht und kann nicht mehr wiederhergestellt werden.
           </DialogDescription>
         </DialogHeader>
 

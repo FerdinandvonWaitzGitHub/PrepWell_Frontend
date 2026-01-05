@@ -240,12 +240,12 @@ CREATE TABLE IF NOT EXISTS wizard_drafts (
   UNIQUE(user_id)
 );
 
--- Private Blocks (Personal calendar entries)
-CREATE TABLE IF NOT EXISTS private_blocks (
+-- Private Sessions (Personal calendar entries, formerly private_blocks)
+CREATE TABLE IF NOT EXISTS private_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  block_date DATE NOT NULL,
-  end_date DATE, -- BUG-012 FIX: End date for multi-day blocks
+  session_date DATE NOT NULL,
+  end_date DATE, -- BUG-012 FIX: End date for multi-day sessions
   title TEXT NOT NULL,
   description TEXT,
   start_time TIME,
@@ -262,12 +262,12 @@ CREATE TABLE IF NOT EXISTS private_blocks (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Calendar Slots (User's learning slots)
-CREATE TABLE IF NOT EXISTS calendar_slots (
+-- Calendar Blocks (User's learning blocks, formerly calendar_slots)
+CREATE TABLE IF NOT EXISTS calendar_blocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   content_plan_id UUID REFERENCES content_plans(id) ON DELETE SET NULL,
-  slot_date DATE NOT NULL,
+  block_date DATE NOT NULL,
   position INT CHECK (position >= 1 AND position <= 4),
   content_id TEXT,
   title TEXT,
@@ -301,18 +301,18 @@ CREATE TABLE IF NOT EXISTS calendar_tasks (
   description TEXT,
   priority TEXT CHECK (priority IN ('low', 'medium', 'high')) DEFAULT 'medium',
   completed BOOLEAN DEFAULT FALSE,
-  linked_slot_id UUID REFERENCES calendar_slots(id) ON DELETE SET NULL,
+  linked_block_id UUID REFERENCES calendar_blocks(id) ON DELETE SET NULL,
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Time Blocks (Time-based blocks for Week/Dashboard - BUG-023 FIX)
--- Strictly separated from calendar_slots (position-based, Month view)
-CREATE TABLE IF NOT EXISTS time_blocks (
+-- Time Sessions (Time-based sessions for Week/Dashboard - BUG-023 FIX, formerly time_blocks)
+-- Strictly separated from calendar_blocks (position-based, Month view)
+CREATE TABLE IF NOT EXISTS time_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  block_date DATE NOT NULL,
+  session_date DATE NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
   block_type TEXT DEFAULT 'lernblock' CHECK (block_type IN ('lernblock', 'repetition', 'exam', 'private')),
@@ -362,31 +362,31 @@ CREATE TABLE IF NOT EXISTS user_settings (
 -- Must run BEFORE indexes to ensure columns exist
 -- ============================================
 
--- Migration: Add series_id and custom_days to private_blocks
+-- Migration: Add series_id and custom_days to private_sessions
 DO $$ BEGIN
-  ALTER TABLE private_blocks ADD COLUMN series_id UUID;
+  ALTER TABLE private_sessions ADD COLUMN series_id UUID;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 DO $$ BEGIN
-  ALTER TABLE private_blocks ADD COLUMN custom_days JSONB;
+  ALTER TABLE private_sessions ADD COLUMN custom_days JSONB;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
--- Migration: Add series_id and custom_days to calendar_slots
+-- Migration: Add series_id and custom_days to calendar_blocks
 DO $$ BEGIN
-  ALTER TABLE calendar_slots ADD COLUMN series_id UUID;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-
-DO $$ BEGIN
-  ALTER TABLE calendar_slots ADD COLUMN custom_days JSONB;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-
--- Migration: Add end_date and is_multi_day to private_blocks (BUG-012 FIX)
-DO $$ BEGIN
-  ALTER TABLE private_blocks ADD COLUMN end_date DATE;
+  ALTER TABLE calendar_blocks ADD COLUMN series_id UUID;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 DO $$ BEGIN
-  ALTER TABLE private_blocks ADD COLUMN is_multi_day BOOLEAN DEFAULT FALSE;
+  ALTER TABLE calendar_blocks ADD COLUMN custom_days JSONB;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- Migration: Add end_date and is_multi_day to private_sessions (BUG-012 FIX)
+DO $$ BEGIN
+  ALTER TABLE private_sessions ADD COLUMN end_date DATE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE private_sessions ADD COLUMN is_multi_day BOOLEAN DEFAULT FALSE;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 -- ============================================
@@ -414,14 +414,18 @@ CREATE INDEX IF NOT EXISTS idx_content_plans_user_id ON content_plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_content_plans_type ON content_plans(type);
 CREATE INDEX IF NOT EXISTS idx_content_plans_archived ON content_plans(archived);
 CREATE INDEX IF NOT EXISTS idx_published_themenlisten_user_id ON published_themenlisten(user_id);
-CREATE INDEX IF NOT EXISTS idx_private_blocks_user_id ON private_blocks(user_id);
-CREATE INDEX IF NOT EXISTS idx_private_blocks_date ON private_blocks(block_date);
-CREATE INDEX IF NOT EXISTS idx_private_blocks_user_date ON private_blocks(user_id, block_date);
-CREATE INDEX IF NOT EXISTS idx_private_blocks_series_id ON private_blocks(series_id);
-CREATE INDEX IF NOT EXISTS idx_calendar_slots_user_id ON calendar_slots(user_id);
-CREATE INDEX IF NOT EXISTS idx_calendar_slots_date ON calendar_slots(slot_date);
-CREATE INDEX IF NOT EXISTS idx_calendar_slots_user_date ON calendar_slots(user_id, slot_date);
-CREATE INDEX IF NOT EXISTS idx_calendar_slots_series_id ON calendar_slots(series_id);
+CREATE INDEX IF NOT EXISTS idx_private_sessions_user_id ON private_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_private_sessions_date ON private_sessions(session_date);
+CREATE INDEX IF NOT EXISTS idx_private_sessions_user_date ON private_sessions(user_id, session_date);
+CREATE INDEX IF NOT EXISTS idx_private_sessions_series_id ON private_sessions(series_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_blocks_user_id ON calendar_blocks(user_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_blocks_date ON calendar_blocks(block_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_blocks_user_date ON calendar_blocks(user_id, block_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_blocks_series_id ON calendar_blocks(series_id);
+CREATE INDEX IF NOT EXISTS idx_time_sessions_user_id ON time_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_time_sessions_date ON time_sessions(session_date);
+CREATE INDEX IF NOT EXISTS idx_time_sessions_user_date ON time_sessions(user_id, session_date);
+CREATE INDEX IF NOT EXISTS idx_time_sessions_series_id ON time_sessions(series_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_tasks_user_id ON calendar_tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_tasks_date ON calendar_tasks(task_date);
 CREATE INDEX IF NOT EXISTS idx_calendar_tasks_user_date ON calendar_tasks(user_id, task_date);
@@ -447,9 +451,10 @@ ALTER TABLE timer_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE logbuch_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wizard_drafts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE private_blocks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE calendar_slots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE private_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE calendar_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE time_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE archived_lernplaene ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
@@ -606,36 +611,35 @@ CREATE POLICY "Users can create own settings" ON user_settings FOR INSERT WITH C
 DROP POLICY IF EXISTS "Users can update own settings" ON user_settings;
 CREATE POLICY "Users can update own settings" ON user_settings FOR UPDATE USING (auth.uid() = user_id);
 
--- Private Blocks Policies
-DROP POLICY IF EXISTS "Users can view own private_blocks" ON private_blocks;
-CREATE POLICY "Users can view own private_blocks" ON private_blocks FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own private_blocks" ON private_blocks;
-CREATE POLICY "Users can create own private_blocks" ON private_blocks FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own private_blocks" ON private_blocks;
-CREATE POLICY "Users can update own private_blocks" ON private_blocks FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own private_blocks" ON private_blocks;
-CREATE POLICY "Users can delete own private_blocks" ON private_blocks FOR DELETE USING (auth.uid() = user_id);
+-- Private Sessions Policies (formerly private_blocks)
+DROP POLICY IF EXISTS "Users can view own private_sessions" ON private_sessions;
+CREATE POLICY "Users can view own private_sessions" ON private_sessions FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own private_sessions" ON private_sessions;
+CREATE POLICY "Users can create own private_sessions" ON private_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own private_sessions" ON private_sessions;
+CREATE POLICY "Users can update own private_sessions" ON private_sessions FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own private_sessions" ON private_sessions;
+CREATE POLICY "Users can delete own private_sessions" ON private_sessions FOR DELETE USING (auth.uid() = user_id);
 
--- Time Blocks Policies (BUG-023 FIX: Separate from calendar_slots)
-ALTER TABLE time_blocks ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can view own time_blocks" ON time_blocks;
-CREATE POLICY "Users can view own time_blocks" ON time_blocks FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own time_blocks" ON time_blocks;
-CREATE POLICY "Users can create own time_blocks" ON time_blocks FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own time_blocks" ON time_blocks;
-CREATE POLICY "Users can update own time_blocks" ON time_blocks FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own time_blocks" ON time_blocks;
-CREATE POLICY "Users can delete own time_blocks" ON time_blocks FOR DELETE USING (auth.uid() = user_id);
+-- Time Sessions Policies (BUG-023 FIX: Separate from calendar_blocks, formerly time_blocks)
+DROP POLICY IF EXISTS "Users can view own time_sessions" ON time_sessions;
+CREATE POLICY "Users can view own time_sessions" ON time_sessions FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own time_sessions" ON time_sessions;
+CREATE POLICY "Users can create own time_sessions" ON time_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own time_sessions" ON time_sessions;
+CREATE POLICY "Users can update own time_sessions" ON time_sessions FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own time_sessions" ON time_sessions;
+CREATE POLICY "Users can delete own time_sessions" ON time_sessions FOR DELETE USING (auth.uid() = user_id);
 
--- Calendar Slots Policies
-DROP POLICY IF EXISTS "Users can view own calendar_slots" ON calendar_slots;
-CREATE POLICY "Users can view own calendar_slots" ON calendar_slots FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own calendar_slots" ON calendar_slots;
-CREATE POLICY "Users can create own calendar_slots" ON calendar_slots FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own calendar_slots" ON calendar_slots;
-CREATE POLICY "Users can update own calendar_slots" ON calendar_slots FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own calendar_slots" ON calendar_slots;
-CREATE POLICY "Users can delete own calendar_slots" ON calendar_slots FOR DELETE USING (auth.uid() = user_id);
+-- Calendar Blocks Policies (formerly calendar_slots)
+DROP POLICY IF EXISTS "Users can view own calendar_blocks" ON calendar_blocks;
+CREATE POLICY "Users can view own calendar_blocks" ON calendar_blocks FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own calendar_blocks" ON calendar_blocks;
+CREATE POLICY "Users can create own calendar_blocks" ON calendar_blocks FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own calendar_blocks" ON calendar_blocks;
+CREATE POLICY "Users can update own calendar_blocks" ON calendar_blocks FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own calendar_blocks" ON calendar_blocks;
+CREATE POLICY "Users can delete own calendar_blocks" ON calendar_blocks FOR DELETE USING (auth.uid() = user_id);
 
 -- Calendar Tasks Policies
 DROP POLICY IF EXISTS "Users can view own calendar_tasks" ON calendar_tasks;
@@ -712,16 +716,16 @@ DROP TRIGGER IF EXISTS update_user_settings_updated_at ON user_settings;
 CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-DROP TRIGGER IF EXISTS update_private_blocks_updated_at ON private_blocks;
-CREATE TRIGGER update_private_blocks_updated_at BEFORE UPDATE ON private_blocks
+DROP TRIGGER IF EXISTS update_private_sessions_updated_at ON private_sessions;
+CREATE TRIGGER update_private_sessions_updated_at BEFORE UPDATE ON private_sessions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-DROP TRIGGER IF EXISTS update_time_blocks_updated_at ON time_blocks;
-CREATE TRIGGER update_time_blocks_updated_at BEFORE UPDATE ON time_blocks
+DROP TRIGGER IF EXISTS update_time_sessions_updated_at ON time_sessions;
+CREATE TRIGGER update_time_sessions_updated_at BEFORE UPDATE ON time_sessions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-DROP TRIGGER IF EXISTS update_calendar_slots_updated_at ON calendar_slots;
-CREATE TRIGGER update_calendar_slots_updated_at BEFORE UPDATE ON calendar_slots
+DROP TRIGGER IF EXISTS update_calendar_blocks_updated_at ON calendar_blocks;
+CREATE TRIGGER update_calendar_blocks_updated_at BEFORE UPDATE ON calendar_blocks
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 DROP TRIGGER IF EXISTS update_calendar_tasks_updated_at ON calendar_tasks;

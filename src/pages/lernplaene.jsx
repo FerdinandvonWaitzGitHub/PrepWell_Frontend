@@ -4,6 +4,7 @@ import { Header, SubHeader } from '../components/layout';
 import { LernplanContent, ThemenlistenDatabaseDialog } from '../components/lernplan';
 import { Button, PlusIcon } from '../components/ui';
 import { useCalendar } from '../contexts/calendar-context';
+import { useAppMode } from '../contexts/appmode-context';
 
 /**
  * LernplanPage - Lernpläne Übersicht
@@ -18,6 +19,8 @@ const LernplanPage = () => {
   const contentRef = useRef(null);
   const [isDatabaseOpen, setIsDatabaseOpen] = useState(false);
   const { importThemenlisteTemplate } = useCalendar();
+  // FEAT-002: Check if wizard is available (only in Exam mode)
+  const { isWizardAvailable } = useAppMode();
 
   const handleCreateNew = () => {
     // Navigate to wizard instead of inline creation
@@ -56,10 +59,13 @@ const LernplanPage = () => {
               <PlusIcon size={14} />
               Neue Themenliste
             </Button>
-            <Button onClick={handleCreateNew} variant="primary" className="flex items-center gap-2">
-              <PlusIcon size={14} />
-              Neuen Lernplan erstellen
-            </Button>
+            {/* FEAT-002: Only show Wizard button in Exam mode */}
+            {isWizardAvailable && (
+              <Button onClick={handleCreateNew} variant="primary" className="flex items-center gap-2">
+                <PlusIcon size={14} />
+                Neuen Lernplan erstellen
+              </Button>
+            )}
           </div>
         }
       />

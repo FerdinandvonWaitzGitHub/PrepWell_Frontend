@@ -1,34 +1,58 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
-// Context Providers
-import { AuthProvider, useAuth } from './contexts/auth-context';
-import { StudiengangProvider } from './contexts/studiengang-context';
-import { UnterrechtsgebieteProvider } from './contexts';
-import { CalendarProvider } from './contexts/calendar-context';
-import { AppModeProvider } from './contexts/appmode-context';
-import { TimerProvider } from './contexts/timer-context';
-import { MentorProvider } from './contexts/mentor-context';
-import { ExamsProvider } from './contexts/exams-context';
-import { UebungsklausurenProvider } from './contexts/uebungsklausuren-context';
-import { CheckInProvider } from './contexts/checkin-context';
-import { OnboardingProvider } from './contexts/onboarding-context';
+// Centralized Providers
+import { AppProviders } from './providers';
 
-// Pages
+// Auth hook for protected routes
+import { useAuth } from './contexts/auth-context';
+
+// Error Boundary for route-level errors
+import { ErrorBoundary } from './components/error';
+
+// Eagerly loaded pages (critical path)
 import DashboardPage from './pages/dashboard';
-import LernplanPage from './pages/lernplaene';
-import CalendarWeekPage from './pages/calendar-week';
-import CalendarMonthPage from './pages/calendar-month';
-import VerwaltungLeistungenPage from './pages/verwaltung-leistungen';
-import VerwaltungAufgabenPage from './pages/verwaltung-aufgaben';
-import EinstellungenPage from './pages/einstellungen';
-import ProfilPage from './pages/profil';
-import MentorPage from './pages/mentor';
-import CheckInPage from './pages/checkin';
 import AuthPage from './pages/Auth';
-import OnboardingPage from './pages/onboarding';
 
-// Lernplan Wizard
-import { LernplanWizardPage } from './features/lernplan-wizard';
+// Lazily loaded pages (code-splitting)
+const LernplanPage = lazy(() => import('./pages/lernplaene'));
+const CalendarWeekPage = lazy(() => import('./pages/calendar-week'));
+const CalendarMonthPage = lazy(() => import('./pages/calendar-month'));
+const VerwaltungLeistungenPage = lazy(() => import('./pages/verwaltung-leistungen'));
+const VerwaltungAufgabenPage = lazy(() => import('./pages/verwaltung-aufgaben'));
+const EinstellungenPage = lazy(() => import('./pages/einstellungen'));
+const ProfilPage = lazy(() => import('./pages/profil'));
+const MentorPage = lazy(() => import('./pages/mentor'));
+const CheckInPage = lazy(() => import('./pages/checkin'));
+const OnboardingPage = lazy(() => import('./pages/onboarding'));
+
+// Lernplan Wizard (large, code-split)
+const LernplanWizardPage = lazy(() => import('./features/lernplan-wizard').then(m => ({ default: m.LernplanWizardPage })));
+
+/**
+ * Loading fallback for lazy-loaded components
+ */
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm text-neutral-500">Laden...</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Wrapper for lazy-loaded routes with Suspense and Error Boundary
+ */
+function LazyRoute({ children }) {
+  return (
+    <ErrorBoundary title="Seitenfehler" showHomeButton={true}>
+      <Suspense fallback={<PageLoader />}>{children}</Suspense>
+    </ErrorBoundary>
+  );
+}
 
 /**
  * Protected Route wrapper - redirects to auth if not logged in
@@ -83,43 +107,43 @@ const router = createBrowserRouter([
   },
   {
     path: '/lernplan',
-    element: <ProtectedRoute><LernplanPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><LernplanPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/lernplan/erstellen',
-    element: <ProtectedRoute><LernplanWizardPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><LernplanWizardPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/kalender/woche',
-    element: <ProtectedRoute><CalendarWeekPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><CalendarWeekPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/kalender/monat',
-    element: <ProtectedRoute><CalendarMonthPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><CalendarMonthPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/verwaltung/leistungen',
-    element: <ProtectedRoute><VerwaltungLeistungenPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><VerwaltungLeistungenPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/verwaltung/aufgaben',
-    element: <ProtectedRoute><VerwaltungAufgabenPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><VerwaltungAufgabenPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/einstellungen',
-    element: <ProtectedRoute><EinstellungenPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><EinstellungenPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/profil',
-    element: <ProtectedRoute><ProfilPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><ProfilPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/mentor',
-    element: <ProtectedRoute><MentorPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><MentorPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/checkin',
-    element: <ProtectedRoute><CheckInPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><CheckInPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/auth',
@@ -127,37 +151,20 @@ const router = createBrowserRouter([
   },
   {
     path: '/onboarding',
-    element: <ProtectedRoute><OnboardingPage /></ProtectedRoute>,
+    element: <ProtectedRoute><LazyRoute><OnboardingPage /></LazyRoute></ProtectedRoute>,
   },
 ]);
 
 /**
  * AppRouter component
+ *
+ * Uses centralized AppProviders for cleaner provider composition.
+ * Error boundaries are included at both app and route levels.
  */
 export default function AppRouter() {
   return (
-    <AuthProvider>
-      <StudiengangProvider>
-        <UnterrechtsgebieteProvider>
-          <CalendarProvider>
-            <AppModeProvider>
-              <OnboardingProvider>
-                <TimerProvider>
-                  <ExamsProvider>
-                    <UebungsklausurenProvider>
-                      <MentorProvider>
-                        <CheckInProvider>
-                          <RouterProvider router={router} />
-                        </CheckInProvider>
-                      </MentorProvider>
-                    </UebungsklausurenProvider>
-                  </ExamsProvider>
-                </TimerProvider>
-              </OnboardingProvider>
-            </AppModeProvider>
-          </CalendarProvider>
-        </UnterrechtsgebieteProvider>
-      </StudiengangProvider>
-    </AuthProvider>
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>
   );
 }

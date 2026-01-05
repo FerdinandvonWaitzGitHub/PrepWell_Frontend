@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAppMode } from '../../contexts/appmode-context';
 
@@ -13,7 +13,35 @@ import { useAppMode } from '../../contexts/appmode-context';
 const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
   const location = useLocation();
   const [openDropdown, setOpenDropdown] = useState(null);
-  const { isNavItemDisabled, isExamMode } = useAppMode();
+  // FEAT-002: Use both disabled and hidden for dynamic navigation
+  const { isNavItemDisabled, isNavItemHidden, isExamMode } = useAppMode();
+
+  // FEAT-002: Build Verwaltung submenu dynamically based on mode
+  const verwaltungSubmenu = [];
+
+  // Übungsklausuren only in Exam mode
+  if (isExamMode) {
+    verwaltungSubmenu.push({
+      label: 'Übungsklausuren',
+      to: '/verwaltung/leistungen',
+      key: 'verwaltung-leistungen'
+    });
+  } else {
+    // Leistungen (Noten) in Normal mode - Coming Soon
+    verwaltungSubmenu.push({
+      label: 'Leistungen',
+      to: '/verwaltung/leistungen',
+      key: 'verwaltung-leistungen',
+      comingSoon: true
+    });
+  }
+
+  // Aufgaben in both modes
+  verwaltungSubmenu.push({
+    label: 'Aufgaben',
+    to: '/verwaltung/aufgaben',
+    key: 'verwaltung-aufgaben'
+  });
 
   const navItems = [
     {
@@ -37,10 +65,7 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
     {
       label: 'Verwaltung',
       key: 'verwaltung',
-      submenu: [
-        { label: 'Leistungen', to: '/verwaltung/leistungen', key: 'verwaltung-leistungen' },
-        { label: 'Aufgaben', to: '/verwaltung/aufgaben', key: 'verwaltung-aufgaben' },
-      ]
+      submenu: verwaltungSubmenu
     },
     {
       label: 'Einstellungen',
@@ -134,20 +159,37 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
             {/* Dropdown Menu */}
             {hasSubmenu && openDropdown === item.key && !disabled && (
               <div className="absolute top-full left-0 mt-2 bg-white border border-neutral-200 rounded-lg shadow-sm py-2 min-w-[180px] z-50">
-                {item.submenu.map((subItem, subIndex) => (
-                  <Link
-                    key={subIndex}
-                    to={subItem.to}
-                    onClick={() => setOpenDropdown(null)}
-                    className={`block px-4 py-2 text-sm transition-colors ${
-                      subItem.key === currentPage
-                        ? 'bg-neutral-100 text-neutral-900 font-medium'
-                        : 'text-neutral-500 font-light hover:bg-neutral-50 hover:text-neutral-900'
-                    }`}
-                  >
-                    {subItem.label}
-                  </Link>
-                ))}
+                {item.submenu.map((subItem, subIndex) => {
+                  // FEAT-002: Handle Coming Soon items
+                  if (subItem.comingSoon) {
+                    return (
+                      <span
+                        key={subIndex}
+                        className="block px-4 py-2 text-sm text-neutral-400 cursor-not-allowed"
+                      >
+                        {subItem.label}
+                        <span className="ml-2 text-xs bg-neutral-100 px-1.5 py-0.5 rounded">
+                          Coming Soon
+                        </span>
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={subIndex}
+                      to={subItem.to}
+                      onClick={() => setOpenDropdown(null)}
+                      className={`block px-4 py-2 text-sm transition-colors ${
+                        subItem.key === currentPage
+                          ? 'bg-neutral-100 text-neutral-900 font-medium'
+                          : 'text-neutral-500 font-light hover:bg-neutral-50 hover:text-neutral-900'
+                      }`}
+                    >
+                      {subItem.label}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>

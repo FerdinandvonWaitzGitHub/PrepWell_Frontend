@@ -13,7 +13,6 @@ import Button from '../../ui/button';
 import { TrendingUpIcon, TrendingDownIcon } from '../../ui/icon';
 import {
   useUebungsklausuren,
-  RECHTSGEBIETE,
   RECHTSGEBIET_COLORS,
   formatPunkte,
   getGradeLabel,
@@ -29,7 +28,6 @@ import {
   BarChart,
   Bar,
   Cell,
-  Legend,
 } from 'recharts';
 
 /**
@@ -37,7 +35,7 @@ import {
  * Uses Recharts for visualization
  */
 const UebungsklausurenAuswertungDialog = ({ open, onOpenChange }) => {
-  const { stats, klausuren } = useUebungsklausuren();
+  const { stats } = useUebungsklausuren();
   const [activeTab, setActiveTab] = useState('entwicklung'); // 'entwicklung' | 'verteilung'
 
   // Prepare line chart data - all grades over time

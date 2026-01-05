@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { createContext, useContext, useMemo, useCallback } from 'react';
 import { useExamsSync, useUserSettingsSync } from '../hooks/use-supabase-sync';
 
 const STORAGE_KEY = 'prepwell_exams';
@@ -160,9 +160,9 @@ const DEFAULT_EXAMS = [
 ];
 
 /**
- * Load exams from localStorage
+ * Load exams from localStorage (legacy - kept for offline fallback)
  */
-const loadExams = () => {
+const _loadExams = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -175,9 +175,9 @@ const loadExams = () => {
 };
 
 /**
- * Save exams to localStorage
+ * Save exams to localStorage (legacy - kept for offline fallback)
  */
-const saveExams = (exams) => {
+const _saveExams = (exams) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(exams));
   } catch (error) {

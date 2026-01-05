@@ -1,4 +1,3 @@
-import React from 'react';
 import { Header, SubHeader } from '../components/layout';
 import { SettingsContent } from '../components/settings';
 

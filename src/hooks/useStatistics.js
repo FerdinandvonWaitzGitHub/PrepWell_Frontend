@@ -12,7 +12,6 @@ import { useCheckIn } from '../contexts/checkin-context';
 export const useStatistics = () => {
   const {
     slotsByDate,
-    contentsById,
     tasksByDate,
     contentPlans,
     lernplanMetadata,
@@ -37,8 +36,6 @@ export const useStatistics = () => {
 
   const weekAgoKey = getDaysAgo(7);
   const twoWeeksAgoKey = getDaysAgo(14);
-  const monthAgoKey = getDaysAgo(30);
-  const fourWeeksAgoKey = getDaysAgo(28);
 
   /**
    * LERNZEIT STATISTIKEN
@@ -407,11 +404,12 @@ export const useStatistics = () => {
     const allSessions = timerHistory || [];
     const learningDates = [...new Set(allSessions.map(s => s.date))].sort();
 
-    // Calculate current streak
+    // Calculate current streak (check up to 365 days back)
     let currentStreak = 0;
     let checkDate = new Date(today);
+    let maxDays = 365;
 
-    while (true) {
+    while (maxDays > 0) {
       const dateKey = getDateKey(checkDate);
       if (learningDates.includes(dateKey)) {
         currentStreak++;
@@ -422,6 +420,7 @@ export const useStatistics = () => {
       } else {
         break;
       }
+      maxDays--;
     }
 
     // Calculate longest streak
@@ -604,7 +603,7 @@ export const useStatistics = () => {
 
       // Get planned slots for this day
       const daySlots = allSlots[dateKey] || [];
-      const plannedMinutes = daySlots.reduce((sum, slot) => {
+      const plannedMinutes = daySlots.reduce((sum) => {
         // Estimate 25 minutes per slot block
         return sum + 25;
       }, 0);

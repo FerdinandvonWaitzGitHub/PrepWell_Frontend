@@ -34,7 +34,6 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     // New Content Plans (Lernpläne & Themenlisten)
     contentPlans,
     createContentPlan,
-    getContentPlansByType,
   } = useCalendar();
 
   // State for editing calendar plan name
@@ -122,25 +121,6 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     if (confirm('Möchtest du diesen Kalender-Lernplan dauerhaft löschen? Dies kann nicht rückgängig gemacht werden.')) {
       deleteCurrentPlan();
     }
-  };
-
-  // Calculate progress for old-style plans (for LernplanCard)
-  const calculateLegacyProgress = (plan) => {
-    let completed = 0;
-    let total = 0;
-    plan.rechtsgebiete?.forEach(rg => {
-      rg.unterrechtsgebiete?.forEach(urg => {
-        urg.kapitel?.forEach(k => {
-          k.themen?.forEach(t => {
-            t.aufgaben?.forEach(a => {
-              total++;
-              if (a.completed) completed++;
-            });
-          });
-        });
-      });
-    });
-    return { completed, total };
   };
 
   return (

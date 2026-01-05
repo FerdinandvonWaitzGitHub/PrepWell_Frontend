@@ -1,13 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
 
 /**
- * LernblockWidget component
- * Displays learning blocks and tasks on dashboard
+ * SessionWidget component (formerly LernblockWidget)
+ * Displays learning sessions and tasks on dashboard
  *
  * 4 States:
  * 1. No topics for today - shows "Aufgaben" with "Deine To-Dos" OR Themenliste (toggle)
  * 2. One topic - shows topic info + "Aufgaben zum Tagesthema"
- * 3. Multiple topics - accordion-style collapsible blocks
+ * 3. Multiple topics - accordion-style collapsible sessions
  * 4. Themenliste view - when no topics, user can view a dateless theme list
  *
  * Status: Backend-connected via CalendarContext
@@ -699,7 +699,7 @@ const TopicBlock = ({
 
             {/* Title - Figma: text-2xl font-extralight */}
             <h3 className={`text-2xl font-extralight text-neutral-900 leading-snug ${isExpanded ? '' : 'line-clamp-2'}`}>
-              {topic.title || 'Lernblock'}
+              {topic.title || 'Session'}
             </h3>
 
             {/* Description preview when collapsed - Figma: text-neutral-400 */}
@@ -777,7 +777,7 @@ const SingleTopicView = ({
 
           {/* Title - Figma: text-2xl font-extralight */}
           <h3 className="text-2xl font-extralight text-neutral-900 leading-snug mb-3">
-            {topic.title || 'Lernblock'}
+            {topic.title || 'Session'}
           </h3>
 
           {/* Description - Figma: text-neutral-400 */}
@@ -887,7 +887,7 @@ const ExamModeView = ({
 
         <p className="text-sm text-neutral-500 text-center">
           {viewMode === 'lernplan'
-            ? `${topics.length} Lernblöcke für heute geplant`
+            ? `${topics.length} Sessions für heute geplant`
             : 'Deine To-Dos'
           }
         </p>
@@ -898,7 +898,7 @@ const ExamModeView = ({
         <div className="flex flex-col gap-3">
           {topics.length === 0 ? (
             <p className="text-sm text-neutral-500 py-4 text-center">
-              Keine Lernblöcke für heute geplant.
+              Keine Sessions für heute geplant.
             </p>
           ) : topics.length === 1 ? (
             <SingleTopicView
@@ -942,13 +942,13 @@ const ExamModeView = ({
 };
 
 /**
- * Main LernblockWidget Component
+ * Main SessionWidget Component (formerly LernblockWidget)
  *
  * Behavior based on mode:
  * - Exam Mode: Shows Lernplan/To-Dos toggle (with topics from Lernplan)
  * - Normal Mode: Shows Themenliste/To-Dos toggle (without topics)
  */
-const LernblockWidget = ({
+const SessionWidget = ({
   className = '',
   topics = [],
   tasks = [],
@@ -1008,4 +1008,7 @@ const LernblockWidget = ({
   );
 };
 
-export default LernblockWidget;
+// Legacy alias for backwards compatibility
+export const LernblockWidget = SessionWidget;
+
+export default SessionWidget;

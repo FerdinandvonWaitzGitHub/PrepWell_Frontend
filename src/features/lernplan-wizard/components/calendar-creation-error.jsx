@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * CalendarCreationError - Shown when there are problems with the learning plan
  * Based on Figma: Error screen with warning icon and problem list

@@ -2,14 +2,14 @@ import { useState, useMemo } from 'react';
 import WeekViewHeader from './week-view-header';
 import WeekGrid from './week-grid';
 import AddThemeDialog from './add-theme-dialog';
-import CreateThemeBlockDialog from './create-theme-block-dialog';
-import CreateRepetitionBlockDialog from './create-repetition-block-dialog';
-import CreateExamBlockDialog from './create-exam-block-dialog';
-import CreatePrivateBlockDialog from './create-private-block-dialog';
-import ManageThemeBlockDialog from './manage-theme-block-dialog';
-import ManageRepetitionBlockDialog from './manage-repetition-block-dialog';
-import ManageExamBlockDialog from './manage-exam-block-dialog';
-import ManagePrivateBlockDialog from './manage-private-block-dialog';
+import CreateThemeSessionDialog from './create-theme-session-dialog';
+import CreateRepetitionSessionDialog from './create-repetition-session-dialog';
+import CreateExamSessionDialog from './create-exam-session-dialog';
+import CreatePrivateSessionDialog from './create-private-session-dialog';
+import ManageThemeSessionDialog from './manage-theme-session-dialog';
+import ManageRepetitionSessionDialog from './manage-repetition-session-dialog';
+import ManageExamSessionDialog from './manage-exam-session-dialog';
+import ManagePrivateSessionDialog from './manage-private-session-dialog';
 import { useCalendar } from '../../../contexts/calendar-context';
 import { useAppMode } from '../../../contexts/appmode-context';
 import { slotsToLearningBlocks } from '../../../utils/slotUtils';
@@ -543,8 +543,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onSlotClick={handleSlotClick}
       />
 
-      {/* Manage Theme Block Dialog */}
-      <ManageThemeBlockDialog
+      {/* Manage Theme Session Dialog */}
+      <ManageThemeSessionDialog
         open={isManageThemeOpen}
         onOpenChange={setIsManageThemeOpen}
         date={selectedDate}
@@ -554,8 +554,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         availableSlots={4}
       />
 
-      {/* Manage Repetition Block Dialog */}
-      <ManageRepetitionBlockDialog
+      {/* Manage Repetition Session Dialog */}
+      <ManageRepetitionSessionDialog
         open={isManageRepetitionOpen}
         onOpenChange={setIsManageRepetitionOpen}
         date={selectedDate}
@@ -565,8 +565,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         availableSlots={4}
       />
 
-      {/* Manage Exam Block Dialog */}
-      <ManageExamBlockDialog
+      {/* Manage Exam Session Dialog */}
+      <ManageExamSessionDialog
         open={isManageExamOpen}
         onOpenChange={setIsManageExamOpen}
         date={selectedDate}
@@ -576,8 +576,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         availableSlots={4}
       />
 
-      {/* Manage Private Block Dialog */}
-      <ManagePrivateBlockDialog
+      {/* Manage Private Session Dialog */}
+      <ManagePrivateSessionDialog
         open={isManagePrivateOpen}
         onOpenChange={setIsManagePrivateOpen}
         date={selectedDate}
@@ -595,8 +595,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onSelectType={handleSelectBlockType}
       />
 
-      {/* Create Theme Block Dialog */}
-      <CreateThemeBlockDialog
+      {/* Create Theme Session Dialog */}
+      <CreateThemeSessionDialog
         open={isCreateThemeOpen}
         onOpenChange={setIsCreateThemeOpen}
         date={selectedDate}
@@ -604,8 +604,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         availableSlots={4}
       />
 
-      {/* Create Repetition Block Dialog */}
-      <CreateRepetitionBlockDialog
+      {/* Create Repetition Session Dialog */}
+      <CreateRepetitionSessionDialog
         open={isCreateRepetitionOpen}
         onOpenChange={setIsCreateRepetitionOpen}
         date={selectedDate}
@@ -613,8 +613,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         availableSlots={4}
       />
 
-      {/* Create Exam Block Dialog */}
-      <CreateExamBlockDialog
+      {/* Create Exam Session Dialog */}
+      <CreateExamSessionDialog
         open={isCreateExamOpen}
         onOpenChange={setIsCreateExamOpen}
         date={selectedDate}
@@ -622,8 +622,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         availableSlots={4}
       />
 
-      {/* Create Private Block Dialog */}
-      <CreatePrivateBlockDialog
+      {/* Create Private Session Dialog */}
+      <CreatePrivateSessionDialog
         open={isCreatePrivateOpen}
         onOpenChange={setIsCreatePrivateOpen}
         date={selectedDate}

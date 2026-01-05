@@ -38,3 +38,6 @@ data/*.json
 
 # Temporarily disabled API
 api/
+
+# Test coverage
+coverage/

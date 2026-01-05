@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/layout';
 import { MentorContent, MentorNotActivated } from '../components/mentor';
@@ -12,18 +11,9 @@ import { useStatistics } from '../hooks/useStatistics';
  */
 const MentorPage = () => {
   const navigate = useNavigate();
-  const { isActivated, activatedAt, deactivateMentor } = useMentor();
-  const { isCheckInNeeded, todayCheckIn, getCurrentPeriod } = useCheckIn();
+  const { isActivated, activatedAt } = useMentor();
+  const { todayCheckIn, getCurrentPeriod } = useCheckIn();
   const { scores } = useStatistics();
-
-  // Format activation date
-  const activatedDate = activatedAt
-    ? new Date(activatedAt).toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      })
-    : null;
 
   // Current date display
   const today = new Date();

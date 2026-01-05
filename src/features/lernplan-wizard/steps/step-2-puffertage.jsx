@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
 

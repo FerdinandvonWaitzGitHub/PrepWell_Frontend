@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useWizard } from '../context/wizard-context';
 import { useUnterrechtsgebiete } from '../../../contexts/unterrechtsgebiete-context';
 import StepHeader from '../components/step-header';

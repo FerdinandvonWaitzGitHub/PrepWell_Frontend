@@ -131,7 +131,11 @@ const ContentPlanEditCard = ({
   const toggleRechtsgebiet = (id) => {
     setExpandedRechtsgebiete(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -139,7 +143,11 @@ const ContentPlanEditCard = ({
   const toggleUnterrechtsgebiet = (id) => {
     setExpandedUnterrechtsgebiete(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -147,7 +155,11 @@ const ContentPlanEditCard = ({
   const toggleKapitel = (id) => {
     setExpandedKapitel(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -155,7 +167,11 @@ const ContentPlanEditCard = ({
   const toggleThema = (id) => {
     setExpandedThemen(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };

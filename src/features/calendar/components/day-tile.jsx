@@ -1,9 +1,12 @@
-import React from 'react';
-import LearningBlock from './learning-block';
+import { memo } from 'react';
+import LearningBlock from './learning-session';
 
 /**
  * DayTile component
  * Represents a single day in the calendar grid
+ *
+ * Memoized for performance - prevents unnecessary re-renders when other days
+ * in the calendar grid change. This component is rendered 35+ times per month view.
  *
  * @param {number} day - Day number (1-31)
  * @param {Array} learningBlocks - Array of learning blocks for this day
@@ -11,7 +14,7 @@ import LearningBlock from './learning-block';
  * @param {boolean} isCurrentMonth - Whether this day belongs to the current month
  * @param {Function} onClick - Callback when the day is clicked
  */
-const DayTile = ({
+const DayTile = memo(function DayTile({
   day,
   learningBlocks = [],
   isToday = false,
@@ -19,7 +22,7 @@ const DayTile = ({
   onClick,
   onAddClick,
   className = ''
-}) => {
+}) {
   return (
     <div
       className={`flex flex-col gap-2.5 p-2 bg-white h-full min-h-[143px] ${!isCurrentMonth ? 'opacity-50' : ''} ${isCurrentMonth ? 'cursor-pointer hover:bg-neutral-50 transition-colors' : 'cursor-default'} ${className}`}
@@ -42,7 +45,7 @@ const DayTile = ({
       <div className="flex flex-col gap-2.5">
         {learningBlocks.map((block, index) => (
           <LearningBlock
-            key={index}
+            key={block.id || index}
             title={block.title}
             blockType={block.blockType}
             unterrechtsgebiet={block.unterrechtsgebiet}
@@ -54,6 +57,6 @@ const DayTile = ({
       </div>
     </div>
   );
-};
+});
 
 export default DayTile;
