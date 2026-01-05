@@ -2248,7 +2248,9 @@ export const CalendarProvider = ({ children }) => {
     lernplanMetadata,
     archivedLernplaene,
     privateSessionsByDate,
+    privateBlocksByDate: privateSessionsByDate, // Alias for backward compatibility
     timeSessionsByDate, // BUG-023 FIX: Separate time-based blocks for Week/Dashboard
+    timeBlocksByDate: timeSessionsByDate, // Alias for backward compatibility
     tasksByDate,
     themeLists,
     contentPlans,
