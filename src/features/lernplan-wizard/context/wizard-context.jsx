@@ -514,14 +514,18 @@ export const WizardProvider = ({ children }) => {
         return true;
 
       case 12: {
-        // Step 12: Current RG must have themes for at least one URG
-        const currentRgForThemen = selectedRechtsgebiete[currentRechtsgebietIndex];
-        const urgsForThemen = unterrechtsgebieteDraft[currentRgForThemen] || [];
-        // Check if at least one URG has themes
-        return urgsForThemen.some(urg => {
-          const themes = themenDraft[urg.id] || [];
-          return themes.length > 0;
-        });
+        // Step 12: At least one URG (across ALL RGs) must have at least one theme
+        // Step 12 is a unified editor with tabs, so we check all RGs
+        for (const rgId of selectedRechtsgebiete) {
+          const urgsForRg = unterrechtsgebieteDraft[rgId] || [];
+          for (const urg of urgsForRg) {
+            const themes = themenDraft[urg.id] || [];
+            if (themes.length > 0) {
+              return true; // Found at least one URG with themes
+            }
+          }
+        }
+        return false; // No URG has any themes
       }
 
       case 13:

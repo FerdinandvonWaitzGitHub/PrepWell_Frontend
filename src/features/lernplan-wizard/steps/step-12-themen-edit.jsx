@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
-import { Plus, Minus, GripVertical } from 'lucide-react';
+import { Plus, Minus, GripVertical, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { RECHTSGEBIET_LABELS, RECHTSGEBIET_COLORS } from '../../../data/unterrechtsgebiete-data';
 
 /**
@@ -125,6 +125,21 @@ const Step12ThemenEdit = () => {
   const activeRg = selectedRechtsgebiete[activeRgIndex];
   const activeUrgs = unterrechtsgebieteDraft[activeRg] || [];
 
+  // Calculate total themes across all URGs
+  const totalThemenCount = useMemo(() => {
+    let count = 0;
+    for (const rgId of selectedRechtsgebiete) {
+      const urgs = unterrechtsgebieteDraft[rgId] || [];
+      for (const urg of urgs) {
+        const themes = themenDraft[urg.id] || [];
+        count += themes.length;
+      }
+    }
+    return count;
+  }, [selectedRechtsgebiete, unterrechtsgebieteDraft, themenDraft]);
+
+  const hasAnyThemes = totalThemenCount > 0;
+
   const handleAddThema = (urgId, thema) => {
     const currentThemen = themenDraft[urgId] || [];
     updateWizardData({
@@ -183,6 +198,39 @@ const Step12ThemenEdit = () => {
               Keine Unterrechtsgebiete für dieses Rechtsgebiet vorhanden.
             </p>
           </div>
+        )}
+      </div>
+
+      {/* Validation Feedback */}
+      <div className={`mt-6 p-4 rounded-lg flex items-start gap-3 ${
+        hasAnyThemes
+          ? 'bg-green-50 border border-green-200'
+          : 'bg-amber-50 border border-amber-200'
+      }`}>
+        {hasAnyThemes ? (
+          <>
+            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-green-900">
+                {totalThemenCount} {totalThemenCount === 1 ? 'Thema' : 'Themen'} hinzugefügt
+              </p>
+              <p className="text-sm text-green-700">
+                Du kannst jetzt fortfahren oder weitere Themen hinzufügen.
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-900">
+                Mindestens ein Thema erforderlich
+              </p>
+              <p className="text-sm text-amber-700">
+                Füge mindestens einem Unterrechtsgebiet ein Thema hinzu, um fortzufahren.
+              </p>
+            </div>
+          </>
         )}
       </div>
     </div>
