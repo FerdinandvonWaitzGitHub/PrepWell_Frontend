@@ -29,7 +29,7 @@ const WarningIcon = () => (
 );
 
 const Step4Tagesbloecke = () => {
-  const { blocksPerDay, startDate, endDate, bufferDays, vacationDays, weekStructure, updateWizardData } = useWizard();
+  const { blocksPerDay, startDate, endDate, bufferDays, vacationDays, updateWizardData } = useWizard();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -47,40 +47,24 @@ const Step4Tagesbloecke = () => {
 
   const blockOptions = [1, 2, 3, 4]; // Max 4 slots per day
 
-  // Calculate learning days and blocks
+  // Calculate blocks based on calendar days (weekStructure is configured in Step 5)
+  // Using 5-day week assumption for the estimate
   const calculateStats = () => {
     if (!startDate || !endDate) return { blocksPerWeek: 0, totalBlocks: 0 };
 
     const start = new Date(startDate);
     const end = new Date(endDate);
+    const calendarDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
 
-    // Count learning days based on week structure
-    const weekdayMap = {
-      0: 'sonntag', 1: 'montag', 2: 'dienstag', 3: 'mittwoch',
-      4: 'donnerstag', 5: 'freitag', 6: 'samstag'
-    };
+    // Estimate based on 5 learning days per week (before Step 5 configuration)
+    const estimatedLearningDaysPerWeek = 5;
+    const blocksPerWeek = estimatedLearningDaysPerWeek * blocksPerDay;
 
-    // Count learning days per week
-    const learningDaysPerWeek = Object.values(weekStructure).filter(blocks =>
-      Array.isArray(blocks) && blocks.some(b => b === 'lernblock')
-    ).length;
-
-    const blocksPerWeek = learningDaysPerWeek * blocksPerDay;
-
-    // Count total learning days
-    let totalLearningDays = 0;
-    const currentDate = new Date(start);
-    while (currentDate <= end) {
-      const dayName = weekdayMap[currentDate.getDay()];
-      const dayBlocks = weekStructure[dayName];
-      if (Array.isArray(dayBlocks) && dayBlocks.some(b => b === 'lernblock')) {
-        totalLearningDays++;
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    const netLearningDays = Math.max(0, totalLearningDays - bufferDays - vacationDays);
-    const totalBlocks = netLearningDays * blocksPerDay;
+    // Calculate total blocks based on calendar days estimate
+    const netCalendarDays = Math.max(0, calendarDays - (bufferDays ?? 0) - (vacationDays ?? 0));
+    // Estimate ~71% of calendar days are weekdays (5/7)
+    const estimatedLearningDays = Math.round(netCalendarDays * (5 / 7));
+    const totalBlocks = estimatedLearningDays * blocksPerDay;
 
     return { blocksPerWeek, totalBlocks };
   };
@@ -150,7 +134,7 @@ const Step4Tagesbloecke = () => {
         <div className="w-full max-w-[520px] p-4 bg-blue-50/50 rounded-lg flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-neutral-900">
-              Blöcke pro Woche
+              Blöcke pro Woche (bei 5 Lerntagen)
             </span>
             <span className="text-lg font-light text-neutral-900">
               {blocksPerWeek}
@@ -158,12 +142,15 @@ const Step4Tagesbloecke = () => {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-neutral-900">
-              Blöcke gesamt
+              Blöcke gesamt (geschätzt)
             </span>
             <span className="text-lg font-light text-neutral-900">
-              {totalBlocks}
+              ~{totalBlocks}
             </span>
           </div>
+          <p className="text-xs text-neutral-500">
+            Exakte Werte werden nach Festlegung der Wochenstruktur (Schritt 5) berechnet.
+          </p>
         </div>
 
         {/* Warning Box - shown when no blocks selected */}

@@ -43,14 +43,19 @@ const WarningIcon = () => (
 );
 
 const Step3Urlaubstage = () => {
-  const { vacationDays, bufferDays, startDate, endDate, weekStructure, updateWizardData } = useWizard();
+  const { vacationDays, bufferDays, startDate, endDate, updateWizardData } = useWizard();
+
+  // Calculate calendar days
+  const calendarDays = (() => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    return Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+  })();
 
   // Calculate and set recommended vacation days on mount (if not yet set)
   useEffect(() => {
-    if (vacationDays === null && startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const calendarDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    if (vacationDays === null && calendarDays > 0) {
       const learningWeeks = calendarDays / 7;
       // Formula: 1 week off every 6 weeks, rounded up
       // Default assumption: 5 learning days per week (before Step 5)
@@ -58,43 +63,16 @@ const Step3Urlaubstage = () => {
       const recommendedVacationDays = vacationWeeks * 5;
       updateWizardData({ vacationDays: recommendedVacationDays });
     }
-  }, [vacationDays, startDate, endDate, updateWizardData]);
+  }, [vacationDays, calendarDays, updateWizardData]);
 
   // Use 0 as fallback while calculating
   const displayVacationDays = vacationDays ?? 0;
   const displayBufferDays = bufferDays ?? 0;
 
-  // Calculate total learning days
-  const calculateLearningDays = () => {
-    if (!startDate || !endDate) return 0;
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    // Count learning days based on week structure
-    const weekdayMap = {
-      0: 'sonntag', 1: 'montag', 2: 'dienstag', 3: 'mittwoch',
-      4: 'donnerstag', 5: 'freitag', 6: 'samstag'
-    };
-
-    let learningDays = 0;
-    const currentDate = new Date(start);
-    while (currentDate <= end) {
-      const dayName = weekdayMap[currentDate.getDay()];
-      const dayBlocks = weekStructure[dayName];
-      // Count day if it has at least one 'lernblock'
-      if (Array.isArray(dayBlocks) && dayBlocks.some(b => b === 'lernblock')) {
-        learningDays++;
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return learningDays;
-  };
-
-  const learningDays = calculateLearningDays();
-  const netLearningDays = Math.max(0, learningDays - displayBufferDays - displayVacationDays);
-  const showWarning = netLearningDays < 30 && learningDays > 0;
+  // Simple estimate: calendar days minus buffer and vacation days
+  // Note: weekStructure is configured later in Step 5, so we just show calendar days here
+  const netCalendarDays = Math.max(0, calendarDays - displayBufferDays - displayVacationDays);
+  const showWarning = netCalendarDays < 30 && calendarDays > 0;
 
   const handleDecrement = () => {
     if (displayVacationDays > 0) {
@@ -150,16 +128,19 @@ const Step3Urlaubstage = () => {
           </div>
         </div>
 
-        {/* Anzahl der Lerntage Info */}
+        {/* Anzahl der Kalendertage Info */}
         <div className="w-full max-w-[520px] p-4 bg-blue-50/50 rounded-lg">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-neutral-900">
-              Anzahl der Lerntage
+              Kalendertage (ohne Puffer & Urlaub)
             </span>
             <span className="text-lg font-light text-neutral-900">
-              {netLearningDays} Tage
+              {netCalendarDays} Tage
             </span>
           </div>
+          <p className="text-xs text-neutral-500 mt-2">
+            Die genaue Anzahl der Lerntage hängt von deiner Wochenstruktur ab (Schritt 5).
+          </p>
         </div>
 
         {/* Warning Box */}
