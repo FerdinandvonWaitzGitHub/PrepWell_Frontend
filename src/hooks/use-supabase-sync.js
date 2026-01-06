@@ -1731,34 +1731,59 @@ export function useTimeSessionsSync() {
           // Migrate from localStorage
           const localData = loadFromStorage(STORAGE_KEYS.timeSessions, {});
           const dataToInsert = [];
+
+          // Valid block types per schema CHECK constraint
+          const VALID_BLOCK_TYPES = ['lernblock', 'repetition', 'exam', 'private'];
+
           Object.entries(localData).forEach(([dateKey, blocks]) => {
+            if (!Array.isArray(blocks)) return;
+
             blocks.forEach(block => {
-              // Only insert if we have required fields (start_time, end_time are NOT NULL)
-              if (block.startTime && block.endTime && block.title) {
-                dataToInsert.push({
-                  user_id: user.id,
-                  session_date: dateKey,
-                  title: block.title,
-                  description: block.description,
-                  block_type: block.blockType || 'lernblock',
-                  start_time: block.startTime,
-                  end_time: block.endTime,
-                  rechtsgebiet: block.rechtsgebiet,
-                  unterrechtsgebiet: block.unterrechtsgebiet,
-                  repeat_enabled: block.repeatEnabled || false,
-                  repeat_type: block.repeatType,
-                  repeat_count: block.repeatCount,
-                  series_id: block.seriesId,
-                  custom_days: block.customDays,
-                  tasks: block.tasks || [],
-                  metadata: block.metadata || {},
-                });
+              // Only insert if we have required fields (start_time, end_time, title are NOT NULL)
+              if (!block.startTime || !block.endTime || !block.title) {
+                console.warn('Skipping block without required fields:', block);
+                return;
               }
+
+              // Validate and normalize block_type
+              let blockType = block.blockType || 'lernblock';
+              if (!VALID_BLOCK_TYPES.includes(blockType)) {
+                console.warn(`Invalid block_type "${blockType}", defaulting to "lernblock"`);
+                blockType = 'lernblock';
+              }
+
+              // Validate series_id is UUID or null
+              const seriesId = block.seriesId && typeof block.seriesId === 'string' &&
+                block.seriesId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+                ? block.seriesId : null;
+
+              dataToInsert.push({
+                user_id: user.id,
+                session_date: dateKey,
+                title: block.title,
+                description: block.description || null,
+                block_type: blockType,
+                start_time: block.startTime,
+                end_time: block.endTime,
+                rechtsgebiet: block.rechtsgebiet || null,
+                unterrechtsgebiet: block.unterrechtsgebiet || null,
+                repeat_enabled: block.repeatEnabled || false,
+                repeat_type: block.repeatType || null,
+                repeat_count: typeof block.repeatCount === 'number' ? block.repeatCount : null,
+                series_id: seriesId,
+                custom_days: block.customDays || null,
+                tasks: Array.isArray(block.tasks) ? block.tasks : [],
+                metadata: block.metadata && typeof block.metadata === 'object' ? block.metadata : {},
+              });
             });
           });
 
           if (dataToInsert.length > 0) {
-            await supabase.from('time_sessions').insert(dataToInsert);
+            const { error } = await supabase.from('time_sessions').insert(dataToInsert);
+            if (error) {
+              console.error('Error inserting time_sessions:', error);
+              throw error;
+            }
             console.log(`Migrated ${dataToInsert.length} time blocks to Supabase`);
           }
         }
@@ -1787,6 +1812,9 @@ export function useTimeSessionsSync() {
       return { success: true, source: 'localStorage' };
     }
 
+    // Valid block types per schema CHECK constraint
+    const VALID_BLOCK_TYPES = ['lernblock', 'repetition', 'exam', 'private'];
+
     try {
       // Delete existing blocks for this date
       await supabase
@@ -1800,24 +1828,36 @@ export function useTimeSessionsSync() {
         const dataToInsert = validBlocks.map(block => {
           const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('local-') || block.id?.startsWith('timeblock-');
           const blockId = isLocalId ? crypto.randomUUID() : block.id;
+
+          // Validate block_type
+          let blockType = block.blockType || 'lernblock';
+          if (!VALID_BLOCK_TYPES.includes(blockType)) {
+            blockType = 'lernblock';
+          }
+
+          // Validate series_id is UUID or null
+          const seriesId = block.seriesId && typeof block.seriesId === 'string' &&
+            block.seriesId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+            ? block.seriesId : null;
+
           return {
             id: blockId,
             user_id: user.id,
             session_date: dateKey,
             title: block.title,
-            description: block.description,
-            block_type: block.blockType || 'lernblock',
+            description: block.description || null,
+            block_type: blockType,
             start_time: block.startTime,
             end_time: block.endTime,
-            rechtsgebiet: block.rechtsgebiet,
-            unterrechtsgebiet: block.unterrechtsgebiet,
+            rechtsgebiet: block.rechtsgebiet || null,
+            unterrechtsgebiet: block.unterrechtsgebiet || null,
             repeat_enabled: block.repeatEnabled || false,
-            repeat_type: block.repeatType,
-            repeat_count: block.repeatCount,
-            series_id: block.seriesId,
-            custom_days: block.customDays,
-            tasks: block.tasks || [],
-            metadata: block.metadata || {},
+            repeat_type: block.repeatType || null,
+            repeat_count: typeof block.repeatCount === 'number' ? block.repeatCount : null,
+            series_id: seriesId,
+            custom_days: block.customDays || null,
+            tasks: Array.isArray(block.tasks) ? block.tasks : [],
+            metadata: block.metadata && typeof block.metadata === 'object' ? block.metadata : {},
           };
         });
 
@@ -1855,6 +1895,9 @@ export function useTimeSessionsSync() {
       return { success: true, source: 'localStorage' };
     }
 
+    // Valid block types per schema CHECK constraint
+    const VALID_BLOCK_TYPES = ['lernblock', 'repetition', 'exam', 'private'];
+
     try {
       for (const [dateKey, blocks] of Object.entries(updatesMap)) {
         await supabase
@@ -1868,24 +1911,36 @@ export function useTimeSessionsSync() {
           const dataToInsert = validBlocks.map(block => {
             const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('local-') || block.id?.startsWith('timeblock-');
             const blockId = isLocalId ? crypto.randomUUID() : block.id;
+
+            // Validate block_type
+            let blockType = block.blockType || 'lernblock';
+            if (!VALID_BLOCK_TYPES.includes(blockType)) {
+              blockType = 'lernblock';
+            }
+
+            // Validate series_id is UUID or null
+            const seriesId = block.seriesId && typeof block.seriesId === 'string' &&
+              block.seriesId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+              ? block.seriesId : null;
+
             return {
               id: blockId,
               user_id: user.id,
               session_date: dateKey,
               title: block.title,
-              description: block.description,
-              block_type: block.blockType || 'lernblock',
+              description: block.description || null,
+              block_type: blockType,
               start_time: block.startTime,
               end_time: block.endTime,
-              rechtsgebiet: block.rechtsgebiet,
-              unterrechtsgebiet: block.unterrechtsgebiet,
+              rechtsgebiet: block.rechtsgebiet || null,
+              unterrechtsgebiet: block.unterrechtsgebiet || null,
               repeat_enabled: block.repeatEnabled || false,
-              repeat_type: block.repeatType,
-              repeat_count: block.repeatCount,
-              series_id: block.seriesId,
-              custom_days: block.customDays,
-              tasks: block.tasks || [],
-              metadata: block.metadata || {},
+              repeat_type: block.repeatType || null,
+              repeat_count: typeof block.repeatCount === 'number' ? block.repeatCount : null,
+              series_id: seriesId,
+              custom_days: block.customDays || null,
+              tasks: Array.isArray(block.tasks) ? block.tasks : [],
+              metadata: block.metadata && typeof block.metadata === 'object' ? block.metadata : {},
             };
           });
 
