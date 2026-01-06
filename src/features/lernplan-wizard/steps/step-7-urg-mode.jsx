@@ -115,7 +115,14 @@ const Step7UrgMode = () => {
   }, [selectedRechtsgebiete, updateWizardData]);
 
   const handleSelectMode = (mode) => {
-    updateWizardData({ urgCreationMode: mode });
+    // When changing mode, reset the unterrechtsgebieteDraft to ensure
+    // Step 9 re-initializes based on the new mode (prefilled vs empty)
+    updateWizardData({
+      urgCreationMode: mode,
+      unterrechtsgebieteDraft: {}, // Clear draft so Step 9 re-initializes
+      completedRgUrgs: [], // Reset progress
+      currentRechtsgebietIndex: 0, // Reset to first RG
+    });
   };
 
   return (
