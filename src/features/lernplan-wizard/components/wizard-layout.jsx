@@ -13,7 +13,7 @@ const WizardLayout = ({ children }) => {
     showExitDialog,
     handleCancel,
     prevStep,
-    nextStep,
+    goNext, // Use goNext instead of nextStep to support Step 12 confirmation
     validateCurrentStep,
     completeWizard,
     completeManualCalendar,
@@ -51,7 +51,7 @@ const WizardLayout = ({ children }) => {
     } else if (isLastStep) {
       handleComplete();
     } else {
-      nextStep();
+      goNext(); // Use goNext to support Step 12 confirmation dialog
     }
   };
 

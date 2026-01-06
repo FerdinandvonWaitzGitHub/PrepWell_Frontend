@@ -196,6 +196,12 @@ export const WizardProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Step 12 confirmation handler - allows step component to intercept navigation
+  const step12ConfirmationHandlerRef = useRef(null);
+  const setStep12ConfirmationHandler = useCallback((handler) => {
+    step12ConfirmationHandlerRef.current = handler;
+  }, []);
+
   // Calendar creation flow state (for manual path)
   const [calendarCreationStatus, setCalendarCreationStatus] = useState(null); // null | 'loading' | 'success' | 'error'
   const [calendarCreationErrors, setCalendarCreationErrors] = useState([]);
@@ -369,6 +375,27 @@ export const WizardProvider = ({ children }) => {
       return { ...prev, ...updates };
     });
   }, []);
+
+  // Wrapper for nextStep that checks Step 12 confirmation handler
+  const goNext = useCallback(() => {
+    const { currentStep } = wizardState;
+
+    // Check Step 12 confirmation handler
+    if (currentStep === 12 && step12ConfirmationHandlerRef.current) {
+      const shouldProceed = step12ConfirmationHandlerRef.current(() => {
+        // This callback is called when user confirms in the dialog
+        nextStep();
+      });
+
+      if (!shouldProceed) {
+        // Handler returned false - it will show a dialog and call the callback later
+        return;
+      }
+    }
+
+    // Normal navigation
+    nextStep();
+  }, [wizardState, nextStep]);
 
   // Go to previous step
   // BUG-019 FIX: Reset relevant state when going back to allow re-selection
@@ -1023,8 +1050,10 @@ export const WizardProvider = ({ children }) => {
     // Actions
     updateWizardData,
     nextStep,
+    goNext, // Use this instead of nextStep for navigation buttons (handles Step 12 confirmation)
     prevStep,
     goToStep,
+    setStep12ConfirmationHandler, // For Step 12 to register its confirmation handler
     validateCurrentStep,
     handleCancel,
     saveAndExit,
