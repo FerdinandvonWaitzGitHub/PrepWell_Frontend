@@ -1052,31 +1052,36 @@ interface CalendarSession {
 - Alle Einträge einer Serie teilen sich eine `seriesId`
 - Original-Block hat `repeatEnabled: true`, Kopien haben `repeatEnabled: false`
 
-### 26.2 Kritische Datenlücken
+### 26.2 Wiederholungsfelder im Schema
 
 | Feld | Frontend | Supabase Schema | Status |
 |------|----------|-----------------|--------|
-| `series_id` | ✅ Verwendet | ❌ FEHLT | 🔴 Datenverlust |
-| `custom_days` | ✅ Verwendet | ❌ FEHLT | 🔴 Datenverlust |
-| `repeat_enabled` | ✅ | ✅ | OK |
-| `repeat_type` | ✅ | ✅ | OK |
-| `repeat_count` | ✅ | ✅ | OK |
+| `series_id` | ✅ Verwendet | ✅ Vorhanden | ✅ OK |
+| `custom_days` | ✅ Verwendet | ✅ Vorhanden | ✅ OK |
+| `repeat_enabled` | ✅ | ✅ | ✅ OK |
+| `repeat_type` | ✅ | ✅ | ✅ OK |
+| `repeat_count` | ✅ | ✅ | ✅ OK |
 
-**Auswirkung:** Nach Browser-Reload sind Serien-Verbindungen verloren!
+**Schema-Tabellen mit Wiederholungsfeldern:**
+- `private_sessions` - series_id, custom_days
+- `calendar_blocks` - series_id, custom_days
+- `time_sessions` - series_id, custom_days
 
-### 26.3 Datenverlust-Szenarien
+**Indizes:** Alle Tabellen haben `idx_*_series_id` für performante Abfragen.
+
+### 26.3 Serien-Operationen
 
 ```
 Szenario 1: Benutzer erstellt Serientermin
-├─ Frontend: Erstellt 20 Sessions mit seriesId
-├─ Supabase-Sync: Speichert OHNE seriesId (Feld fehlt!)
-├─ Browser-Reload: Sessions geladen, aber Serie-Info verloren
-└─ Ergebnis: 20 einzelne Sessions statt 1 Serie ❌
+├─ Frontend: Erstellt N Sessions mit gemeinsamer seriesId
+├─ Supabase-Sync: Speichert alle mit seriesId + custom_days
+├─ Browser-Reload: Sessions korrekt als Serie geladen
+└─ Ergebnis: Serie bleibt intakt ✅
 
-Szenario 2: Benutzer löscht eine Session
+Szenario 2: Benutzer löscht eine Session aus Serie
 ├─ handleDelete() löscht nur DIESE Session
-├─ Die anderen 19 Sessions der Serie bleiben
-└─ Ergebnis: Verwaiste Sessions ohne Zusammenhang ❌
+├─ Die anderen Sessions der Serie bleiben bestehen
+└─ Ergebnis: Teilweise Serie (gewünschtes Verhalten) ✅
 ```
 
 ### 26.4 Fehlende UI-Logik

@@ -15,14 +15,30 @@ import Step3Urlaubstage from './steps/step-3-urlaubstage';
 import Step4Tagesbloecke from './steps/step-4-tagesbloecke';
 import Step5Wochenstruktur from './steps/step-5-wochenstruktur';
 import Step6Erstellungsmethode from './steps/step-6-erstellungsmethode';
-import Step7Manual from './steps/step-7-manual';
 import Step7Automatic from './steps/step-7-automatic';
 import Step7Template from './steps/step-7-template';
 import Step7AI from './steps/step-7-ai';
-import Step8Calendar from './steps/step-8-calendar';
 import Step8Unterrechtsgebiete from './steps/step-8-unterrechtsgebiete';
 import Step9Lerntage from './steps/step-9-lerntage';
 import Step10Anpassungen from './steps/step-10-anpassungen';
+
+// "Als Liste erstellen" path (manual) - Steps 7-22
+import Step7UrgMode from './steps/step-7-urg-mode';
+import Step8RgSelect from './steps/step-8-rg-select';
+import Step9UrgsEdit from './steps/step-9-urgs-edit';
+import Step10UrgsSuccess from './steps/step-10-urgs-success';
+import Step11ThemenIntro from './steps/step-11-themen-intro';
+import Step12ThemenEdit from './steps/step-12-themen-edit';
+import Step13ThemenSuccess from './steps/step-13-themen-success';
+import Step14Gewichtung from './steps/step-14-gewichtung';
+import Step15ThemenUrgs from './steps/step-15-themen-urgs';
+import Step16BloeckeIntro from './steps/step-16-bloecke-intro';
+import Step17RgBloeckeSelect from './steps/step-17-rg-bloecke-select';
+import Step18BloeckeEdit from './steps/step-18-bloecke-edit';
+import Step19LernplanBloecke from './steps/step-19-lernplan-bloecke';
+import Step20Verteilungsmodus from './steps/step-20-verteilungsmodus';
+import Step21KalenderVorschau from './steps/step-21-kalender-vorschau';
+import Step22Bestaetigung from './steps/step-22-bestaetigung';
 
 /**
  * WizardContent - Renders the current step based on wizard state
@@ -112,6 +128,59 @@ const WizardContent = () => {
 
   // Render step based on current step and creation method
   const renderStep = () => {
+    // "Als Liste erstellen" (manual) path - Steps 7-19
+    if (creationMethod === 'manual') {
+      switch (currentStep) {
+        case 1:
+          return <Step1Lernzeitraum />;
+        case 2:
+          return <Step2Puffertage />;
+        case 3:
+          return <Step3Urlaubstage />;
+        case 4:
+          return <Step4Tagesbloecke />;
+        case 5:
+          return <Step5Wochenstruktur />;
+        case 6:
+          return <Step6Erstellungsmethode />;
+        case 7:
+          return <Step7UrgMode />;
+        case 8:
+          return <Step8RgSelect />;
+        case 9:
+          return <Step9UrgsEdit />;
+        case 10:
+          return <Step10UrgsSuccess />;
+        case 11:
+          return <Step11ThemenIntro />;
+        case 12:
+          return <Step12ThemenEdit />;
+        case 13:
+          return <Step13ThemenSuccess />;
+        case 14:
+          return <Step14Gewichtung />;
+        case 15:
+          return <Step15ThemenUrgs />;
+        case 16:
+          return <Step16BloeckeIntro />;
+        case 17:
+          return <Step17RgBloeckeSelect />;
+        case 18:
+          return <Step18BloeckeEdit />;
+        case 19:
+          return <Step19LernplanBloecke />;
+        case 20:
+          return <Step20Verteilungsmodus />;
+        case 21:
+          return <Step21KalenderVorschau />;
+        case 22:
+          return <Step22Bestaetigung />;
+        default:
+          return <Step1Lernzeitraum />;
+      }
+    }
+
+    // Other paths (automatic, template, ai)
     switch (currentStep) {
       case 1:
         return <Step1Lernzeitraum />;
@@ -128,8 +197,6 @@ const WizardContent = () => {
       case 7:
         // Different step 7 based on creation method
         switch (creationMethod) {
-          case 'manual':
-            return <Step7Manual />;
           case 'automatic':
             return <Step7Automatic />;
           case 'template':
@@ -140,10 +207,6 @@ const WizardContent = () => {
             return <Step7Automatic />;
         }
       case 8:
-        // For manual path, show calendar view
-        if (creationMethod === 'manual') {
-          return <Step8Calendar />;
-        }
         // For AI path, go directly to Anpassungen (AI generates the plan)
         if (creationMethod === 'ai') {
           return <Step10Anpassungen />;
@@ -154,10 +217,6 @@ const WizardContent = () => {
         }
         return <Step8Unterrechtsgebiete />;
       case 9:
-        // For manual path, show final adjustments
-        if (creationMethod === 'manual') {
-          return <Step10Anpassungen />;
-        }
         // For AI path, this shouldn't be reached (total steps = 8)
         if (creationMethod === 'ai') {
           return <Step10Anpassungen />;

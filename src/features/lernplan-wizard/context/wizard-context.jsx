@@ -41,14 +41,14 @@ const calculateRecommendedVacationDays = (startDate, endDate, learningDaysPerWee
 const getTotalStepsForMethod = (method) => {
   switch (method) {
     case 'manual':
-      return 8; // Steps 1-7 + Calendar (8) - no Anpassungen, goes to calendar view
+      return 22; // "Als Liste erstellen" flow: Steps 1-6 + Steps 7-22
     case 'template':
       return 9; // Steps 1-7 + Lerntage + Anpassungen (skip Unterrechtsgebiete)
     case 'ai':
       return 8; // Steps 1-7 (AI config) + Anpassungen (AI generates the rest)
     case 'automatic':
     default:
-      return 10; // Full flow: Steps 1-10
+      return 10; // Standard automatic flow
   }
 };
 
@@ -95,6 +95,41 @@ const initialWizardState = {
   learningDaysOrder: [],
   // Step 10: Anpassungen
   adjustments: {},
+
+  // === "Als Liste erstellen" Path (Steps 7-15) ===
+  // Step 7: URG creation mode
+  urgCreationMode: null, // 'manual' | 'prefilled'
+  // Selected Rechtsgebiete from user settings
+  selectedRechtsgebiete: [], // ['zivilrecht', 'strafrecht', 'oeffentliches-recht']
+  // Step 8/9: Current Rechtsgebiet being edited (index in selectedRechtsgebiete)
+  currentRechtsgebietIndex: 0,
+  // Track which Rechtsgebiete have their URGs configured
+  rechtsgebieteProgress: {}, // { 'zivilrecht': true, 'strafrecht': false, ... }
+  // URGs per Rechtsgebiet (draft during editing)
+  unterrechtsgebieteDraft: {}, // { 'zivilrecht': [{ id, name, kategorie }], ... }
+  // Step 12: Themen per URG
+  themenDraft: {}, // { 'bgb-at': [{ id, name, aufgaben: [] }], ... }
+  // Track which Rechtsgebiete have their Themen configured
+  themenProgress: {}, // { 'zivilrecht': true, ... }
+  // Step 14: Zielgewichtung (must sum to 100)
+  rechtsgebieteGewichtung: {}, // { 'zivilrecht': 40, 'strafrecht': 30, 'oeffentliches-recht': 30 }
+
+  // === Steps 16-19: Lernblöcke ===
+  // Step 17: Current Rechtsgebiet for block creation (index)
+  currentBlockRgIndex: 0,
+  // Track which Rechtsgebiete have their blocks configured
+  blockRgProgress: {}, // { 'zivilrecht': true, ... }
+  // Step 18: Lernblöcke per Rechtsgebiet
+  lernbloeckeDraft: {}, // { 'zivilrecht': [{ id, size, themen: [] }], ... }
+  // Step 19: Lernplanblöcke per URG
+  lernplanBloecke: {}, // { 'bgb-at': [{ id, size }], ... }
+
+  // === Steps 20-22: Verteilung & Abschluss ===
+  // Step 20: Verteilungsmodus
+  verteilungsmodus: null, // 'gemischt' | 'fokussiert' | 'themenweise'
+  // Step 21: Generated calendar preview
+  generatedCalendar: [], // [{ date, blocks: [{ id, rechtsgebiet, size }] }]
+
   // Meta
   lastModified: null,
   returnPath: '/lernplan',
@@ -150,7 +185,7 @@ export const WizardProvider = ({ children }) => {
   // Update state when synced draft changes (e.g., after login sync)
   useEffect(() => {
     if (syncedDraft && !initialSyncDone.current && syncedDraft.currentStep > 1) {
-      setWizardState(prev => ({ ...initialWizardState, ...syncedDraft }));
+      setWizardState(_prev => ({ ...initialWizardState, ...syncedDraft }));
       initialSyncDone.current = true;
     }
   }, [syncedDraft]);
@@ -169,6 +204,7 @@ export const WizardProvider = ({ children }) => {
     if (wizardState.returnPath !== referrer && location.state?.from) {
       setWizardState(prev => ({ ...prev, returnPath: referrer }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
   // Update totalSteps when creationMethod changes
@@ -179,6 +215,7 @@ export const WizardProvider = ({ children }) => {
         setWizardState(prev => ({ ...prev, totalSteps: newTotalSteps }));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wizardState.creationMethod]);
 
   // Auto-recalculate vacationDays when weekStructure changes (after Step 5)
@@ -199,6 +236,7 @@ export const WizardProvider = ({ children }) => {
       setWizardState(prev => ({ ...prev, vacationDays: newVacationDays }));
     }
     prevWeekStructureRef.current = currentWeekStructure;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wizardState.weekStructure, wizardState.startDate, wizardState.endDate]);
 
   // Auto-save on state change (debounced to avoid too many Supabase calls)
@@ -773,6 +811,7 @@ export const WizardProvider = ({ children }) => {
 /**
  * Hook to use wizard context
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useWizard = () => {
   const context = useContext(WizardContext);
   if (!context) {
