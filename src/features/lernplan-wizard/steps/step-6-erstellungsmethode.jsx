@@ -28,15 +28,23 @@ const SparkleIcon = () => (
 /**
  * Method card component matching Figma design
  */
-const MethodCard = ({ method, isSelected, onSelect }) => {
+const MethodCard = ({ method, isSelected, onSelect, disabled }) => {
+  const handleClick = () => {
+    if (!disabled) {
+      onSelect();
+    }
+  };
+
   return (
     <div
-      className={`flex-1 p-6 bg-white rounded-[10px] flex flex-col justify-between items-end min-h-[280px] cursor-pointer transition-all ${
-        isSelected
-          ? 'outline outline-2 outline-offset-[-2px] outline-slate-600'
-          : 'outline outline-1 outline-offset-[-1px] outline-neutral-200 hover:outline-neutral-300'
+      className={`flex-1 p-6 bg-white rounded-[10px] flex flex-col justify-between items-end min-h-[280px] transition-all ${
+        disabled
+          ? 'opacity-60 cursor-not-allowed'
+          : isSelected
+            ? 'outline outline-2 outline-offset-[-2px] outline-slate-600 cursor-pointer'
+            : 'outline outline-1 outline-offset-[-1px] outline-neutral-200 hover:outline-neutral-300 cursor-pointer'
       }`}
-      onClick={onSelect}
+      onClick={handleClick}
     >
       {/* Content section */}
       <div className="self-stretch flex justify-start items-start gap-2">
@@ -67,16 +75,19 @@ const MethodCard = ({ method, isSelected, onSelect }) => {
       <div className="flex justify-end items-center gap-2 mt-6">
         <button
           type="button"
+          disabled={disabled}
           className={`px-5 py-2.5 rounded-3xl flex justify-center items-center gap-2 transition-all ${
-            isSelected
-              ? 'bg-slate-600 text-white'
-              : 'outline outline-1 outline-offset-[-1px] outline-neutral-300 text-neutral-700 hover:bg-neutral-50'
+            disabled
+              ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+              : isSelected
+                ? 'bg-slate-600 text-white'
+                : 'outline outline-1 outline-offset-[-1px] outline-neutral-300 text-neutral-700 hover:bg-neutral-50'
           }`}
         >
           <span className="text-sm font-light">
-            {isSelected ? 'Ausgewählt' : 'Auswählen'}
+            {disabled ? 'Coming Soon' : isSelected ? 'Ausgewählt' : 'Auswählen'}
           </span>
-          <CheckIcon />
+          {!disabled && <CheckIcon />}
         </button>
       </div>
     </div>
@@ -103,9 +114,10 @@ const Step6Erstellungsmethode = () => {
       id: 'ai',
       title: 'KI-geführte Erstellung',
       description: 'Lass unsere KI deinen optimalen Lernplan erstellen. Basierend auf deinen Vorgaben, Lernzielen und bewährten Strategien generiert die KI einen personalisierten Plan.\n\n• Intelligente Themenverteilung nach Schwierigkeitsgrad\n• Automatische Wiederholungszyklen\n• Anpassung an deinen Lerntyp\n• Kontinuierliche Optimierung',
-      badge: 'Neu',
-      badgeColor: 'bg-purple-600 text-white',
+      badge: 'Coming Soon',
+      badgeColor: 'bg-neutral-400 text-white',
       badgeIcon: <SparkleIcon />,
+      disabled: true,
     },
     {
       id: 'template',
@@ -133,6 +145,7 @@ const Step6Erstellungsmethode = () => {
             method={method}
             isSelected={creationMethod === method.id}
             onSelect={() => updateWizardData({ creationMethod: method.id })}
+            disabled={method.disabled}
           />
         ))}
       </div>
