@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,7 @@ import {
 } from '../../ui/dialog';
 import { Button } from '../../ui';
 import { useTimer, TIMER_TYPES } from '../../../contexts/timer-context';
+import { AlertCircle } from 'lucide-react';
 
 /**
  * CircularProgress - Larger version for dialog
@@ -66,10 +68,13 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
     currentSession,
     totalSessions,
     togglePause,
-    resetSession,
+    resetTimerWithSave,
     stopTimer,
     getDisplayInfo,
   } = useTimer();
+
+  // State for reset confirmation dialog
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const displayInfo = getDisplayInfo();
   if (!displayInfo) return null;
@@ -107,6 +112,38 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
   const handleStop = () => {
     stopTimer();
     onOpenChange(false);
+  };
+
+  // Handle reset with confirmation
+  const handleResetClick = () => {
+    // Only show confirmation if there's significant time (> 1 min)
+    const currentTime = timerType === TIMER_TYPES.COUNTUP ? elapsedSeconds :
+      (timerType === TIMER_TYPES.POMODORO
+        ? (isBreak ? 0 : (pomodoroSettings?.sessionDuration || 25) * 60 - remainingSeconds)
+        : (countdownSettings?.duration || 60) * 60 - remainingSeconds);
+
+    if (currentTime >= 60) {
+      setShowResetConfirm(true);
+    } else {
+      // Less than 1 minute, just reset without saving
+      resetTimerWithSave();
+    }
+  };
+
+  const handleConfirmReset = () => {
+    resetTimerWithSave();
+    setShowResetConfirm(false);
+  };
+
+  // Get current elapsed time for display in confirm dialog
+  const getCurrentElapsedMinutes = () => {
+    if (timerType === TIMER_TYPES.COUNTUP) {
+      return Math.floor(elapsedSeconds / 60);
+    }
+    // For countdown/pomodoro, calculate how much time has passed
+    return Math.floor((timerType === TIMER_TYPES.POMODORO
+      ? (25 * 60 - remainingSeconds)
+      : (60 * 60 - remainingSeconds)) / 60);
   };
 
   return (
@@ -168,9 +205,9 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
           <div className="flex items-center gap-3 mt-8">
             {/* Reset Button */}
             <button
-              onClick={resetSession}
+              onClick={handleResetClick}
               className="p-3 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-600 transition-colors"
-              title="Session zurücksetzen"
+              title="Zeit zurücksetzen"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -221,6 +258,44 @@ const TimerControlsDialog = ({ open, onOpenChange }) => {
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Reset Confirmation Dialog */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900">Zeit zurücksetzen?</h3>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-neutral-700 mb-2">
+                Du hast bereits <strong>{getCurrentElapsedMinutes()} Minuten</strong> erfasst.
+              </p>
+              <p className="text-sm text-neutral-600">
+                Diese Zeit wird als abgebrochene Session im Logbuch gespeichert.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-neutral-600 border border-neutral-200 rounded-lg hover:bg-neutral-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleConfirmReset}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700"
+              >
+                Zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Dialog>
   );
 };

@@ -567,6 +567,58 @@ export const TimerProvider = ({ children }) => {
     }
   }, [timerType, isBreak, currentSession, pomodoroSettings, countdownSettings, remainingSeconds]);
 
+  // Reset timer and save current progress as cancelled session
+  const resetTimerWithSave = useCallback(() => {
+    // Calculate actual duration before reset
+    let actualDuration = 0;
+
+    if (timerType === TIMER_TYPES.COUNTUP) {
+      actualDuration = elapsedSeconds;
+    } else if (timerType === TIMER_TYPES.POMODORO) {
+      actualDuration = (pomodoroSettings.sessionDuration * 60) - remainingSeconds;
+    } else if (timerType === TIMER_TYPES.COUNTDOWN) {
+      actualDuration = (countdownSettings.duration * 60) - remainingSeconds;
+    }
+
+    // Save as cancelled session if at least 1 minute was spent
+    if (actualDuration >= 60) {
+      const session = {
+        type: timerType,
+        date: new Date().toISOString().split('T')[0],
+        startTime: startTime?.toISOString(),
+        endTime: new Date().toISOString(),
+        duration: actualDuration,
+        completed: false,
+        cancelled: true // Mark as reset/cancelled
+      };
+      saveSession(session);
+    }
+
+    // Reset the timer (keep it active, just reset time)
+    if (timerType === TIMER_TYPES.COUNTUP) {
+      setElapsedSeconds(0);
+      setStartTime(new Date());
+    } else if (timerType === TIMER_TYPES.POMODORO) {
+      if (isBreak) {
+        const isLongBreak = currentSession % pomodoroSettings.sessionsBeforeLongBreak === 0;
+        const breakDuration = isLongBreak
+          ? pomodoroSettings.longBreakDuration
+          : pomodoroSettings.breakDuration;
+        setRemainingSeconds(breakDuration * 60);
+        setEndTime(new Date(Date.now() + breakDuration * 60 * 1000));
+      } else {
+        setRemainingSeconds(pomodoroSettings.sessionDuration * 60);
+        setEndTime(new Date(Date.now() + pomodoroSettings.sessionDuration * 60 * 1000));
+      }
+      setStartTime(new Date());
+    } else if (timerType === TIMER_TYPES.COUNTDOWN) {
+      setRemainingSeconds(countdownSettings.duration * 60);
+      setStartTime(new Date());
+      setEndTime(new Date(Date.now() + countdownSettings.duration * 60 * 1000));
+    }
+  }, [timerType, elapsedSeconds, remainingSeconds, startTime, isBreak, currentSession,
+      pomodoroSettings, countdownSettings, saveSession]);
+
   // Stop timer completely
   const stopTimer = useCallback(() => {
     // Save partial session to history if timer was running
@@ -729,6 +781,7 @@ export const TimerProvider = ({ children }) => {
     resumeTimer,
     togglePause,
     resetSession,
+    resetTimerWithSave,
     stopTimer,
     saveTimerConfig,
     startFromConfig,
