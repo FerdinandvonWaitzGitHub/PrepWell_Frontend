@@ -22,6 +22,9 @@ import Step8Unterrechtsgebiete from './steps/step-8-unterrechtsgebiete';
 import Step9Lerntage from './steps/step-9-lerntage';
 import Step10Anpassungen from './steps/step-10-anpassungen';
 
+// "Im Kalender erstellen" path (calendar) - Step 7 only
+import Step7Calendar from './steps/step-8-calendar';
+
 // "Als Liste erstellen" path (manual) - Steps 7-22
 import Step7UrgMode from './steps/step-7-urg-mode';
 import Step8RgSelect from './steps/step-8-rg-select';
@@ -128,7 +131,29 @@ const WizardContent = () => {
 
   // Render step based on current step and creation method
   const renderStep = () => {
-    // "Als Liste erstellen" (manual) path - Steps 7-19
+    // "Im Kalender erstellen" (calendar) path - Step 7 only
+    if (creationMethod === 'calendar') {
+      switch (currentStep) {
+        case 1:
+          return <Step1Lernzeitraum />;
+        case 2:
+          return <Step2Puffertage />;
+        case 3:
+          return <Step3Urlaubstage />;
+        case 4:
+          return <Step4Tagesbloecke />;
+        case 5:
+          return <Step5Wochenstruktur />;
+        case 6:
+          return <Step6Erstellungsmethode />;
+        case 7:
+          return <Step7Calendar />;
+        default:
+          return <Step1Lernzeitraum />;
+      }
+    }
+
+    // "Als Liste erstellen" (manual) path - Steps 7-22
     if (creationMethod === 'manual') {
       switch (currentStep) {
         case 1:

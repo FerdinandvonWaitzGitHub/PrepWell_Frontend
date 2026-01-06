@@ -40,6 +40,8 @@ const calculateRecommendedVacationDays = (startDate, endDate, learningDaysPerWee
 // Calculate total steps based on creation method
 const getTotalStepsForMethod = (method) => {
   switch (method) {
+    case 'calendar':
+      return 7; // "Im Kalender erstellen" flow: Steps 1-6 + Step 7 (calendar editor)
     case 'manual':
       return 22; // "Als Liste erstellen" flow: Steps 1-6 + Steps 7-22
     case 'template':
@@ -264,12 +266,108 @@ export const WizardProvider = ({ children }) => {
     setWizardState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // Go to next step
+  // Go to next step (with loop logic for manual path)
   const nextStep = useCallback(() => {
-    setWizardState(prev => ({
-      ...prev,
-      currentStep: Math.min(prev.currentStep + 1, prev.totalSteps),
-    }));
+    setWizardState(prev => {
+      const {
+        currentStep,
+        totalSteps,
+        creationMethod,
+        selectedRechtsgebiete,
+        currentRechtsgebietIndex,
+        rechtsgebieteProgress,
+        themenProgress,
+        currentBlockRgIndex,
+        blockRgProgress,
+      } = prev;
+
+      // Default: just increment
+      let nextStepNum = Math.min(currentStep + 1, totalSteps);
+      const updates = { currentStep: nextStepNum };
+
+      // Manual path loop logic
+      if (creationMethod === 'manual') {
+        // === URG Loop (Steps 8-10) ===
+        if (currentStep === 10) {
+          // Step 10: URG Success - mark current RG as complete and check for more
+          const currentRg = selectedRechtsgebiete[currentRechtsgebietIndex];
+          const newProgress = { ...rechtsgebieteProgress, [currentRg]: true };
+          updates.rechtsgebieteProgress = newProgress;
+
+          // Check if all RGs are configured
+          const allRgsConfigured = selectedRechtsgebiete.every(rgId => newProgress[rgId]);
+
+          if (!allRgsConfigured) {
+            // Find next unconfigured RG
+            const nextUnconfiguredIndex = selectedRechtsgebiete.findIndex(
+              rgId => !newProgress[rgId]
+            );
+            if (nextUnconfiguredIndex !== -1) {
+              updates.currentRechtsgebietIndex = nextUnconfiguredIndex;
+              updates.currentStep = 8; // Go back to RG selection
+              return { ...prev, ...updates };
+            }
+          }
+          // All RGs configured - proceed to Step 11 (Themen intro)
+          updates.currentStep = 11;
+          return { ...prev, ...updates };
+        }
+
+        // === Themen Loop (Steps 12-13) ===
+        if (currentStep === 13) {
+          // Step 13: Themen Success - mark current RG themes as complete
+          const currentRg = selectedRechtsgebiete[currentRechtsgebietIndex];
+          const newThemenProgress = { ...themenProgress, [currentRg]: true };
+          updates.themenProgress = newThemenProgress;
+
+          // Check if all RGs have themes configured
+          const allThemenConfigured = selectedRechtsgebiete.every(rgId => newThemenProgress[rgId]);
+
+          if (!allThemenConfigured) {
+            // Find next RG without themes
+            const nextUnconfiguredIndex = selectedRechtsgebiete.findIndex(
+              rgId => !newThemenProgress[rgId]
+            );
+            if (nextUnconfiguredIndex !== -1) {
+              updates.currentRechtsgebietIndex = nextUnconfiguredIndex;
+              updates.currentStep = 12; // Skip intro, go directly to themen edit
+              return { ...prev, ...updates };
+            }
+          }
+          // All RGs have themes - proceed to Step 14 (Gewichtung)
+          updates.currentStep = 14;
+          return { ...prev, ...updates };
+        }
+
+        // === Blocks Loop (Steps 17-19) ===
+        if (currentStep === 19) {
+          // Step 19: Lernplanblöcke complete - mark current RG blocks as complete
+          const currentRg = selectedRechtsgebiete[currentBlockRgIndex];
+          const newBlockProgress = { ...blockRgProgress, [currentRg]: true };
+          updates.blockRgProgress = newBlockProgress;
+
+          // Check if all RGs have blocks configured
+          const allBlocksConfigured = selectedRechtsgebiete.every(rgId => newBlockProgress[rgId]);
+
+          if (!allBlocksConfigured) {
+            // Find next RG without blocks
+            const nextUnconfiguredIndex = selectedRechtsgebiete.findIndex(
+              rgId => !newBlockProgress[rgId]
+            );
+            if (nextUnconfiguredIndex !== -1) {
+              updates.currentBlockRgIndex = nextUnconfiguredIndex;
+              updates.currentStep = 17; // Go back to RG selection for blocks
+              return { ...prev, ...updates };
+            }
+          }
+          // All RGs have blocks - proceed to Step 20 (Verteilungsmodus)
+          updates.currentStep = 20;
+          return { ...prev, ...updates };
+        }
+      }
+
+      return { ...prev, ...updates };
+    });
   }, []);
 
   // Go to previous step
@@ -343,11 +441,149 @@ export const WizardProvider = ({ children }) => {
         );
       case 6:
         return creationMethod !== null;
+      // Non-manual paths: steps 7-10
       case 7:
       case 8:
       case 9:
       case 10:
-        return true; // These steps have different validation based on path
+        if (creationMethod !== 'manual') {
+          return true; // Non-manual paths have their own validation in components
+        }
+        // Manual path validation for steps 7-10
+        return validateManualStep(currentStep);
+      // Manual path only: steps 11-22
+      case 11:
+      case 12:
+      case 13:
+      case 14:
+      case 15:
+      case 16:
+      case 17:
+      case 18:
+      case 19:
+      case 20:
+      case 21:
+      case 22:
+        if (creationMethod === 'manual') {
+          return validateManualStep(currentStep);
+        }
+        return true;
+      default:
+        return true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardState]); // validateManualStep depends on same wizardState
+
+  // Validation for manual path steps (7-22)
+  const validateManualStep = useCallback((step) => {
+    const {
+      urgCreationMode,
+      selectedRechtsgebiete,
+      currentRechtsgebietIndex,
+      unterrechtsgebieteDraft,
+      themenDraft,
+      rechtsgebieteGewichtung,
+      currentBlockRgIndex,
+      lernbloeckeDraft,
+      lernplanBloecke,
+      verteilungsmodus,
+    } = wizardState;
+
+    switch (step) {
+      case 7:
+        // Step 7: URG mode must be selected
+        return urgCreationMode !== null;
+
+      case 8:
+        // Step 8: A Rechtsgebiet must be selected
+        return selectedRechtsgebiete.length > 0 && currentRechtsgebietIndex >= 0;
+
+      case 9: {
+        // Step 9: Current RG must have at least one URG
+        const currentRg = selectedRechtsgebiete[currentRechtsgebietIndex];
+        const urgs = unterrechtsgebieteDraft[currentRg] || [];
+        return urgs.length > 0;
+      }
+
+      case 10:
+        // Step 10: Success screen - always valid (confirmation step)
+        return true;
+
+      case 11:
+        // Step 11: Themen intro - always valid
+        return true;
+
+      case 12: {
+        // Step 12: Current RG must have themes for at least one URG
+        const currentRgForThemen = selectedRechtsgebiete[currentRechtsgebietIndex];
+        const urgsForThemen = unterrechtsgebieteDraft[currentRgForThemen] || [];
+        // Check if at least one URG has themes
+        return urgsForThemen.some(urg => {
+          const themes = themenDraft[urg.id] || [];
+          return themes.length > 0;
+        });
+      }
+
+      case 13:
+        // Step 13: Themen success - always valid (confirmation step)
+        return true;
+
+      case 14: {
+        // Step 14: Gewichtung - OPTIONAL (informational only)
+        // If weights are set, they must sum to 100
+        // If no weights are set (disabled), that's also valid
+        if (selectedRechtsgebiete.length === 0) return false;
+        const hasAnyWeights = Object.keys(rechtsgebieteGewichtung).length > 0;
+        if (!hasAnyWeights) return true; // Gewichtung disabled - valid
+
+        const allHaveWeight = selectedRechtsgebiete.every(
+          rgId => rechtsgebieteGewichtung[rgId] !== undefined && rechtsgebieteGewichtung[rgId] >= 0
+        );
+        const totalWeight = Object.values(rechtsgebieteGewichtung).reduce((sum, w) => sum + (w || 0), 0);
+        return allHaveWeight && totalWeight === 100;
+      }
+
+      case 15:
+        // Step 15: Themen/URGs overview - always valid (review step)
+        return true;
+
+      case 16:
+        // Step 16: Blöcke intro - always valid
+        return true;
+
+      case 17:
+        // Step 17: RG selection for blocks - must have valid selection
+        return selectedRechtsgebiete.length > 0 && currentBlockRgIndex >= 0;
+
+      case 18: {
+        // Step 18: Lernblöcke edit - current RG must have at least one block
+        const currentRgForBlocks = selectedRechtsgebiete[currentBlockRgIndex];
+        const blocks = lernbloeckeDraft[currentRgForBlocks] || [];
+        return blocks.length > 0;
+      }
+
+      case 19: {
+        // Step 19: Lernplanblöcke - at least one URG must have blocks assigned
+        const currentRgForLpBlocks = selectedRechtsgebiete[currentBlockRgIndex];
+        const urgsForLpBlocks = unterrechtsgebieteDraft[currentRgForLpBlocks] || [];
+        return urgsForLpBlocks.some(urg => {
+          const lpBlocks = lernplanBloecke[urg.id] || [];
+          return lpBlocks.length > 0;
+        });
+      }
+
+      case 20:
+        // Step 20: Verteilungsmodus must be selected
+        return verteilungsmodus !== null;
+
+      case 21:
+        // Step 21: Calendar preview - always valid (preview step)
+        return true;
+
+      case 22:
+        // Step 22: Final confirmation - always valid (confirmation step)
+        return true;
+
       default:
         return true;
     }

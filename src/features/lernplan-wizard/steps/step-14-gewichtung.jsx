@@ -173,7 +173,28 @@ const Step14Gewichtung = () => {
               </div>
             </div>
           )}
+
+          {/* Info message */}
+          {isValid && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-700">
+                <strong>Hinweis:</strong> Die Gewichtung ist nur eine Orientierungshilfe und beeinflusst
+                nicht den automatischen Verteilungsalgorithmus. Sie hilft dir dabei, beim Erstellen
+                der Themen und Aufgaben den Überblick zu behalten.
+              </p>
+            </div>
+          )}
         </>
+      )}
+
+      {/* Info when disabled */}
+      {!isEnabled && (
+        <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+          <p className="text-sm text-neutral-600">
+            Du kannst diesen Schritt überspringen. Die Zielgewichtung ist optional und
+            dient nur als Orientierungshilfe beim Erstellen deines Lernplans.
+          </p>
+        </div>
       )}
     </div>
   );

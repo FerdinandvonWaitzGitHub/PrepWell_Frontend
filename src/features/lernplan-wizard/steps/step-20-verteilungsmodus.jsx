@@ -1,6 +1,7 @@
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
 import { CheckCircle, Shuffle, Target, BookOpen } from 'lucide-react';
+import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 
 /**
  * Step 20: Verteilungsmodus
@@ -113,14 +114,6 @@ const Step20Verteilungsmodus = () => {
     updateWizardData
   } = useWizard();
 
-  // Labels for Rechtsgebiete
-  const rechtsgebieteLabels = {
-    'zivilrecht': 'Zivilrecht',
-    'oeffentliches-recht': 'Öffentliches Recht',
-    'strafrecht': 'Strafrecht',
-    'querschnitt': 'Querschnittsrecht'
-  };
-
   const handleSelectMode = (mode) => {
     updateWizardData({ verteilungsmodus: mode });
   };
@@ -140,7 +133,7 @@ const Step20Verteilungsmodus = () => {
       {Object.keys(rechtsgebieteGewichtung).length > 0 && (
         <GewichtungPreview
           gewichtung={rechtsgebieteGewichtung}
-          rechtsgebieteLabels={rechtsgebieteLabels}
+          rechtsgebieteLabels={RECHTSGEBIET_LABELS}
         />
       )}
 

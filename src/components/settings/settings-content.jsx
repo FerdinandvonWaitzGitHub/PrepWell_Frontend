@@ -30,8 +30,12 @@ import {
   Brain
 } from 'lucide-react';
 import { useCalendar } from '../../contexts/calendar-context';
+import { RECHTSGEBIET_LABELS } from '../../data/unterrechtsgebiete-data';
 
 const STORAGE_KEY = 'prepwell_settings';
+
+// All available Rechtsgebiete
+const ALL_RECHTSGEBIETE = Object.keys(RECHTSGEBIET_LABELS);
 
 const defaultSettings = {
   notifications: {
@@ -54,6 +58,8 @@ const defaultSettings = {
   },
   jura: {
     chapterLevelEnabled: false, // Kapitel-Ebene zwischen Unterrechtsgebiet und Thema
+    // Default: alle 4 Rechtsgebiete ausgewählt (ohne Querschnitt)
+    selectedRechtsgebiete: ['zivilrecht', 'strafrecht', 'oeffentliches-recht'],
   },
 };
 
@@ -366,6 +372,59 @@ const SettingsContent = ({ className = '' }) => {
           </h3>
 
           <div className="space-y-4">
+            {/* Rechtsgebiete Auswahl */}
+            <div className="py-3 border-b border-neutral-100">
+              <div className="flex items-center gap-3 mb-3">
+                <BookOpen className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Rechtsgebiete für Lernplan</p>
+                  <p className="text-xs text-neutral-500">
+                    Wähle die Rechtsgebiete, die im Lernplan-Wizard verwendet werden
+                  </p>
+                </div>
+              </div>
+              <div className="ml-8 space-y-2">
+                {ALL_RECHTSGEBIETE.map(rgId => {
+                  const isSelected = settings.jura?.selectedRechtsgebiete?.includes(rgId) || false;
+                  const label = RECHTSGEBIET_LABELS[rgId];
+                  const selectedCount = settings.jura?.selectedRechtsgebiete?.length || 0;
+                  const isLastSelected = isSelected && selectedCount === 1;
+
+                  return (
+                    <label
+                      key={rgId}
+                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                        isSelected ? 'bg-blue-50' : 'hover:bg-neutral-50'
+                      } ${isLastSelected ? 'cursor-not-allowed' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={isLastSelected}
+                        onChange={(e) => {
+                          const currentSelected = settings.jura?.selectedRechtsgebiete || [];
+                          let newSelected;
+                          if (e.target.checked) {
+                            newSelected = [...currentSelected, rgId];
+                          } else {
+                            newSelected = currentSelected.filter(id => id !== rgId);
+                          }
+                          handleSettingChange('jura', 'selectedRechtsgebiete', newSelected);
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded border-neutral-300 focus:ring-blue-500"
+                      />
+                      <span className={`text-sm ${isSelected ? 'text-blue-900 font-medium' : 'text-neutral-700'}`}>
+                        {label}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="ml-8 mt-2 text-xs text-neutral-500">
+                Mindestens ein Rechtsgebiet muss ausgewählt sein.
+              </p>
+            </div>
+
             {/* Kapitel-Ebene Toggle */}
             <div className="flex items-center justify-between py-3">
               <div className="flex items-center gap-3">

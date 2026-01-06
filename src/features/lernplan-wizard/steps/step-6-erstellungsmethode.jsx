@@ -88,13 +88,13 @@ const Step6Erstellungsmethode = () => {
 
   const methods = [
     {
-      id: 'manual',
+      id: 'calendar',
       title: 'Im Kalender erstellen',
       description: 'Du kannst deinen Lernplan direkt im Kalender erstellen. Das funktioniert genau wie in Kalendern, die du sonst kennst:\n\n• Klicke einen Tag an und bestimme das Rechtsgebiet sowie das Thema\n• Füge Aufgaben hinzu, die zum dem Thema gehören\n• Verschiebe Tage mit den zur Verfügung stehenden Funktionen\n• Wenn du fertig bist, klicke unten auf "Fertigstellen"',
       badge: null,
     },
     {
-      id: 'automatic',
+      id: 'manual',
       title: 'Als Liste erstellen & in den Kalender importieren',
       description: 'Du kannst deinen Lernplan mit unserem Lernplan-Tool erstellen. Für jedes Rechtsgebiet kannst du Unterrechtsgebiete erstellen und innerhalb der Unterrechtsgebiete Lerntage erstellen. Die Lerntage können bis zu 3 Themen beinhalten (die Anzahl an Lernblöcken, die du zuvor festgelegt hast). Jedes Thema erhält Aufgaben, die du zusätzlich als „wichtig" markieren kannst.',
       badge: null,

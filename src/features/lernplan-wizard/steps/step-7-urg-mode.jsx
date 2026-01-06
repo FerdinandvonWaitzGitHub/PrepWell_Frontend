@@ -89,13 +89,28 @@ const Step7UrgMode = () => {
   const { urgCreationMode, selectedRechtsgebiete, updateWizardData } = useWizard();
 
   // Initialize selected Rechtsgebiete from user settings if not set
-  // In a real implementation, this would come from user settings context
   useEffect(() => {
     if (selectedRechtsgebiete.length === 0) {
-      // Default to main three Rechtsgebiete
-      updateWizardData({
-        selectedRechtsgebiete: ['zivilrecht', 'oeffentliches-recht', 'strafrecht']
-      });
+      // Read from user settings in localStorage
+      const SETTINGS_KEY = 'prepwell_settings';
+      const DEFAULT_RECHTSGEBIETE = ['zivilrecht', 'oeffentliches-recht', 'strafrecht'];
+
+      try {
+        const savedSettings = localStorage.getItem(SETTINGS_KEY);
+        if (savedSettings) {
+          const settings = JSON.parse(savedSettings);
+          const userRechtsgebiete = settings?.jura?.selectedRechtsgebiete;
+          if (Array.isArray(userRechtsgebiete) && userRechtsgebiete.length > 0) {
+            updateWizardData({ selectedRechtsgebiete: userRechtsgebiete });
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Error reading settings:', e);
+      }
+
+      // Fallback to defaults
+      updateWizardData({ selectedRechtsgebiete: DEFAULT_RECHTSGEBIETE });
     }
   }, [selectedRechtsgebiete, updateWizardData]);
 
