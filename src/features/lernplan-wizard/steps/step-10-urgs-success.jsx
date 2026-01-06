@@ -1,5 +1,6 @@
 import { useWizard } from '../context/wizard-context';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
+import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 
 /**
  * Step 10: URGs Success/Error Screen
@@ -30,22 +31,27 @@ const ProblemAlert = ({ problems }) => {
 
 /**
  * Step 10 Component
+ * Shows success for the CURRENT Rechtsgebiet being edited in the loop
  */
 const Step10UrgsSuccess = () => {
-  const { selectedRechtsgebiete, unterrechtsgebieteDraft } = useWizard();
+  const { selectedRechtsgebiete, unterrechtsgebieteDraft, currentRechtsgebietIndex, completedRgUrgs } = useWizard();
 
-  // Validate URGs - check for potential problems
+  // Get the current RG being edited (the one that was just completed)
+  const currentRgId = selectedRechtsgebiete[currentRechtsgebietIndex];
+  const currentUrgs = unterrechtsgebieteDraft[currentRgId] || [];
+
+  // Only validate the CURRENT Rechtsgebiet, not all of them
   const problems = [];
-
-  // Check if any Rechtsgebiet has no URGs
-  selectedRechtsgebiete.forEach(rgId => {
-    const urgs = unterrechtsgebieteDraft[rgId] || [];
-    if (urgs.length === 0) {
-      problems.push(`Keine Unterrechtsgebiete für ${rgId} definiert.`);
-    }
-  });
+  if (currentUrgs.length === 0) {
+    problems.push(`Keine Kapitel für dieses Fach definiert.`);
+  }
 
   const hasProblems = problems.length > 0;
+
+  // Count progress
+  const completedCount = completedRgUrgs?.length || 0;
+  const totalCount = selectedRechtsgebiete.length;
+  const remainingCount = totalCount - completedCount - 1; // -1 for current
 
   return (
     <div className="flex flex-col items-center justify-center py-12">
@@ -61,8 +67,8 @@ const Step10UrgsSuccess = () => {
       {/* Message */}
       <h2 className="text-xl font-semibold text-neutral-900 text-center mb-4">
         {hasProblems
-          ? 'Achtung, beim Übernehmen deiner Unterrechtsgebiete sind Probleme aufgetreten.'
-          : 'Deine Unterrechtsgebiete wurden erfolgreich in deinen Lernplan übernommen.'}
+          ? 'Achtung, beim Übernehmen der Kapitel sind Probleme aufgetreten.'
+          : `Kapitel für ${RECHTSGEBIET_LABELS[currentRgId] || currentRgId} übernommen!`}
       </h2>
 
       {/* Problems list if any */}
@@ -74,9 +80,21 @@ const Step10UrgsSuccess = () => {
 
       {/* Success details */}
       {!hasProblems && (
-        <p className="text-neutral-600 text-center">
-          Du kannst nun mit dem Hinzufügen von Themen und Aufgaben fortfahren.
-        </p>
+        <div className="text-center">
+          <p className="text-neutral-600 mb-4">
+            {currentUrgs.length} Kapitel wurden hinzugefügt.
+          </p>
+          {remainingCount > 0 && (
+            <p className="text-sm text-neutral-500">
+              Noch {remainingCount} {remainingCount === 1 ? 'Fach' : 'Fächer'} zu konfigurieren.
+            </p>
+          )}
+          {remainingCount === 0 && (
+            <p className="text-sm text-green-600 font-medium">
+              Alle Fächer sind konfiguriert! Weiter zu den Themen.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

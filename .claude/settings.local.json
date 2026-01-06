@@ -50,7 +50,8 @@
       "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" add:*)",
       "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" commit -m \"$\\(cat <<''EOF''\nchore: Remove unused data/ folder\n\nEmpty placeholder JSON files that were remnants from before\nSupabase migration. Static data lives in src/data/.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" commit -m \"$\\(cat <<''EOF''\nchore: Remove unused design-tokens.js\n\nFile was never imported or used anywhere in the codebase.\nDesign tokens are properly maintained in tailwind.config.js.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(git check-ignore:*)"
     ]
   }
 }

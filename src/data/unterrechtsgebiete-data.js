@@ -281,8 +281,13 @@ export const DEFAULT_SELECTION = {
     { id: 'besitz', name: 'Besitz', kategorie: 'Sachenrecht' },
   ],
   'strafrecht': [
+    // Materielles Strafrecht (Kernbereiche für Examen)
     { id: 'strafr-at', name: 'Allgemeiner Teil', kategorie: 'Materielles Strafrecht' },
     { id: 'strafr-bt', name: 'Besonderer Teil', kategorie: 'Materielles Strafrecht' },
+    // Strafverfahrensrecht (examensrelevant)
+    { id: 'ermittlungsverf', name: 'Ermittlungsverfahren', kategorie: 'Strafverfahrensrecht' },
+    { id: 'hauptverf', name: 'Hauptverfahren', kategorie: 'Strafverfahrensrecht' },
+    { id: 'rechtsmittel', name: 'Rechtsmittel', kategorie: 'Strafverfahrensrecht' },
   ],
   'querschnitt': []
 };
