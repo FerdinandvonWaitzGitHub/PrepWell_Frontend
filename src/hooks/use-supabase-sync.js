@@ -1714,12 +1714,25 @@ export function useTimeSessionsSync() {
         return;
       }
 
+      // Skip if user is not properly authenticated
+      if (!user?.id) {
+        console.warn('[TimeSessionsSync] Skipping sync - no authenticated user');
+        return;
+      }
+
       setLoading(true);
       try {
-        const { data: existingData } = await supabase
+        const { data: existingData, error: selectError } = await supabase
           .from('time_sessions')
           .select('id')
           .limit(1);
+
+        // If we can't even query, skip the migration (likely auth issue)
+        if (selectError) {
+          console.error('[TimeSessionsSync] Cannot query time_sessions, skipping sync:', selectError);
+          syncedRef.current = true; // Mark as synced to prevent retry loops
+          return;
+        }
 
         if (existingData && existingData.length > 0) {
           const supabaseData = await fetchFromSupabase();
@@ -1779,12 +1792,17 @@ export function useTimeSessionsSync() {
           });
 
           if (dataToInsert.length > 0) {
+            console.log(`[TimeSessionsSync] Attempting to insert ${dataToInsert.length} blocks`);
             const { error } = await supabase.from('time_sessions').insert(dataToInsert);
             if (error) {
-              console.error('Error inserting time_sessions:', error);
-              throw error;
+              console.error('[TimeSessionsSync] Insert error:', error.message, error.details, error.hint);
+              // Don't throw - mark as synced to prevent endless retry
+              console.warn('[TimeSessionsSync] Migration failed, will use localStorage only');
+            } else {
+              console.log(`[TimeSessionsSync] Successfully migrated ${dataToInsert.length} time blocks`);
             }
-            console.log(`Migrated ${dataToInsert.length} time blocks to Supabase`);
+          } else {
+            console.log('[TimeSessionsSync] No valid blocks to migrate from localStorage');
           }
         }
 
