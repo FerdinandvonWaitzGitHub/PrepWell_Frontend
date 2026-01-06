@@ -1661,7 +1661,7 @@ export function useTimeSessionsSync() {
   const transformFromSupabase = useCallback((rows) => {
     const result = {};
     rows.forEach(row => {
-      const dateKey = row.block_date;
+      const dateKey = row.session_date;
       if (!result[dateKey]) {
         result[dateKey] = [];
       }
@@ -1697,7 +1697,7 @@ export function useTimeSessionsSync() {
       const { data, error } = await supabase
         .from('time_sessions')
         .select('*')
-        .order('block_date', { ascending: true });
+        .order('session_date', { ascending: true });
 
       if (error) throw error;
       return transformFromSupabase(data || []);
@@ -1733,24 +1733,27 @@ export function useTimeSessionsSync() {
           const dataToInsert = [];
           Object.entries(localData).forEach(([dateKey, blocks]) => {
             blocks.forEach(block => {
-              dataToInsert.push({
-                user_id: user.id,
-                block_date: dateKey,
-                title: block.title,
-                description: block.description,
-                block_type: block.blockType || 'lernblock',
-                start_time: block.startTime,
-                end_time: block.endTime,
-                rechtsgebiet: block.rechtsgebiet,
-                unterrechtsgebiet: block.unterrechtsgebiet,
-                repeat_enabled: block.repeatEnabled || false,
-                repeat_type: block.repeatType,
-                repeat_count: block.repeatCount,
-                series_id: block.seriesId,
-                custom_days: block.customDays,
-                tasks: block.tasks || [],
-                metadata: block.metadata || {},
-              });
+              // Only insert if we have required fields (start_time, end_time are NOT NULL)
+              if (block.startTime && block.endTime && block.title) {
+                dataToInsert.push({
+                  user_id: user.id,
+                  session_date: dateKey,
+                  title: block.title,
+                  description: block.description,
+                  block_type: block.blockType || 'lernblock',
+                  start_time: block.startTime,
+                  end_time: block.endTime,
+                  rechtsgebiet: block.rechtsgebiet,
+                  unterrechtsgebiet: block.unterrechtsgebiet,
+                  repeat_enabled: block.repeatEnabled || false,
+                  repeat_type: block.repeatType,
+                  repeat_count: block.repeatCount,
+                  series_id: block.seriesId,
+                  custom_days: block.customDays,
+                  tasks: block.tasks || [],
+                  metadata: block.metadata || {},
+                });
+              }
             });
           });
 
@@ -1789,17 +1792,18 @@ export function useTimeSessionsSync() {
       await supabase
         .from('time_sessions')
         .delete()
-        .eq('block_date', dateKey);
+        .eq('session_date', dateKey);
 
-      // Insert new blocks
-      if (blocks.length > 0) {
-        const dataToInsert = blocks.map(block => {
+      // Insert new blocks (only valid ones with required fields)
+      const validBlocks = blocks.filter(block => block.startTime && block.endTime && block.title);
+      if (validBlocks.length > 0) {
+        const dataToInsert = validBlocks.map(block => {
           const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('local-') || block.id?.startsWith('timeblock-');
           const blockId = isLocalId ? crypto.randomUUID() : block.id;
           return {
             id: blockId,
             user_id: user.id,
-            block_date: dateKey,
+            session_date: dateKey,
             title: block.title,
             description: block.description,
             block_type: block.blockType || 'lernblock',
@@ -1856,16 +1860,18 @@ export function useTimeSessionsSync() {
         await supabase
           .from('time_sessions')
           .delete()
-          .eq('block_date', dateKey);
+          .eq('session_date', dateKey);
 
-        if (blocks.length > 0) {
-          const dataToInsert = blocks.map(block => {
+        // Only insert valid blocks with required fields
+        const validBlocks = blocks.filter(block => block.startTime && block.endTime && block.title);
+        if (validBlocks.length > 0) {
+          const dataToInsert = validBlocks.map(block => {
             const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('local-') || block.id?.startsWith('timeblock-');
             const blockId = isLocalId ? crypto.randomUUID() : block.id;
             return {
               id: blockId,
               user_id: user.id,
-              block_date: dateKey,
+              session_date: dateKey,
               title: block.title,
               description: block.description,
               block_type: block.blockType || 'lernblock',
