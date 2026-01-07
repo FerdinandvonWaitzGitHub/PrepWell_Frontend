@@ -19,13 +19,13 @@ const WeightItem = ({ rechtsgebietId, weight, onChange }) => {
 
   const handleDecrease = () => {
     if (weight > 0) {
-      onChange(Math.max(0, weight - 5));
+      onChange(Math.max(0, weight - 1));
     }
   };
 
   const handleIncrease = () => {
     if (weight < 100) {
-      onChange(Math.min(100, weight + 5));
+      onChange(Math.min(100, weight + 1));
     }
   };
 
