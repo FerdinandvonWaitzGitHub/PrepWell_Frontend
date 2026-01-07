@@ -292,61 +292,6 @@ const ConfirmationDialog = ({ rgsWithoutThemes, onContinue, onStay }) => {
 };
 
 /**
- * Add Theme Modal
- */
-const AddThemaModal = ({ onAdd, onClose }) => {
-  const [themaName, setThemaName] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (themaName.trim()) {
-      onAdd({
-        id: `thema-${Date.now()}`,
-        name: themaName.trim(),
-        aufgaben: []
-      });
-      onClose();
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
-        <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-          Neues Thema hinzufügen
-        </h3>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={themaName}
-            onChange={(e) => setThemaName(e.target.value)}
-            placeholder="Thema eingeben..."
-            className="w-full px-4 py-3 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4"
-            autoFocus
-          />
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 border border-neutral-300 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-50 transition-colors"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              disabled={!themaName.trim()}
-              className="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Hinzufügen
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-/**
  * Step 12 Component
  */
 const Step12ThemenEdit = () => {
@@ -361,7 +306,7 @@ const Step12ThemenEdit = () => {
   } = useWizard();
 
   const [activeUrgIndex, setActiveUrgIndex] = useState(0);
-  const [showAddThemaModal, setShowAddThemaModal] = useState(false);
+  const [newThemaName, setNewThemaName] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
 
@@ -433,15 +378,21 @@ const Step12ThemenEdit = () => {
   }, [currentRgId]);
 
   // === Theme operations ===
-  const handleAddThema = (thema) => {
-    if (!activeUrg) return;
+  const handleAddThema = () => {
+    if (!activeUrg || !newThemaName.trim()) return;
     const currentThemen = themenDraft[activeUrg.id] || [];
+    const newThema = {
+      id: `thema-${Date.now()}`,
+      name: newThemaName.trim(),
+      aufgaben: []
+    };
     updateWizardData({
       themenDraft: {
         ...themenDraft,
-        [activeUrg.id]: [...currentThemen, thema]
+        [activeUrg.id]: [...currentThemen, newThema]
       }
     });
+    setNewThemaName('');
   };
 
   const handleDeleteThema = (themaId) => {
@@ -547,25 +498,32 @@ const Step12ThemenEdit = () => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* RG Progress Indicator */}
+      {/* RG Tabs - Clickable to switch between RGs */}
       <div className="mb-4 flex items-center justify-center gap-2">
         {selectedRechtsgebiete.map((rgId, index) => {
           const label = RECHTSGEBIET_LABELS[rgId] || rgId;
           const isCurrent = index === currentRechtsgebietIndex;
-          const isCompleted = index < currentRechtsgebietIndex;
+          const rgThemenCount = themenCountsPerRg[rgId] || 0;
           return (
-            <div
+            <button
               key={rgId}
+              type="button"
+              onClick={() => updateWizardData({ currentRechtsgebietIndex: index })}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                 isCurrent
                   ? 'bg-primary-600 text-white'
-                  : isCompleted
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-neutral-100 text-neutral-400'
+                  : rgThemenCount > 0
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
               }`}
             >
               {label}
-            </div>
+              {rgThemenCount > 0 && !isCurrent && (
+                <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-green-200 text-green-800 rounded-full">
+                  {rgThemenCount}
+                </span>
+              )}
+            </button>
           );
         })}
       </div>
@@ -641,15 +599,24 @@ const Step12ThemenEdit = () => {
             )}
           </div>
 
-          {/* Add Theme Button */}
-          <div className="flex justify-center">
+          {/* Add Theme - Inline Input */}
+          <div className="flex items-center gap-2 max-w-md mx-auto">
+            <input
+              type="text"
+              value={newThemaName}
+              onChange={(e) => setNewThemaName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddThema()}
+              placeholder="Neues Thema eingeben..."
+              className="flex-1 px-4 py-3 border border-neutral-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
             <button
               type="button"
-              onClick={() => setShowAddThemaModal(true)}
-              className="flex items-center gap-2 px-6 py-3 border border-neutral-300 rounded-full text-neutral-700 hover:bg-neutral-50 transition-colors"
+              onClick={handleAddThema}
+              disabled={!newThemaName.trim()}
+              className="flex items-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-full text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span>Neues Thema hinzufügen</span>
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
+              Hinzufügen
             </button>
           </div>
         </div>
@@ -714,14 +681,6 @@ const Step12ThemenEdit = () => {
           </div>
         );
       })()}
-
-      {/* Add Theme Modal */}
-      {showAddThemaModal && (
-        <AddThemaModal
-          onAdd={handleAddThema}
-          onClose={() => setShowAddThemaModal(false)}
-        />
-      )}
 
       {/* Confirmation Dialog - shown when proceeding without themes */}
       {showConfirmDialog && (
