@@ -1,69 +1,61 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
-import { Plus, Minus, Pencil } from 'lucide-react';
+import { CheckCircle2, Package } from 'lucide-react';
+import { RECHTSGEBIET_LABELS, RECHTSGEBIET_COLORS } from '../../../data/unterrechtsgebiete-data';
 
 /**
- * Step 19: Lernplanblöcke
- * Final step where users assign blocks to their learning plan
- * and set block sizes.
+ * Step 19: Lernplanblöcke - Übersicht
+ * Shows a summary of all blocks created in Step 15.
+ * Uses lernbloeckeDraft (keyed by RG) - consistent with Steps 15, 18, and 21.
+ *
+ * NOTE: lernplanBloecke (keyed by URG) was removed as it was never used
+ * by Step 21 calendar generation. All block data is now in lernbloeckeDraft.
  */
 
 /**
- * Block Size Selector Component
+ * Block Summary Card
  */
-const BlockSizeSelector = ({ block, onChangeSize }) => {
+const BlockSummaryCard = ({ rgId, blocks }) => {
+  const colorClass = RECHTSGEBIET_COLORS[rgId] || 'bg-gray-500';
+  const label = RECHTSGEBIET_LABELS[rgId] || rgId;
+
+  const totalThemes = blocks.reduce((sum, block) => sum + (block.themen?.length || 0), 0);
+
   return (
-    <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-neutral-200">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-neutral-900">Blockgröße</span>
+    <div className="bg-white rounded-lg border border-neutral-200 p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`w-3 h-3 rounded-full ${colorClass}`} />
+        <h4 className="font-medium text-neutral-900">{label}</h4>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onChangeSize(Math.max(1, block.size - 1))}
-          disabled={block.size <= 1}
-          className="p-1.5 rounded border border-neutral-200 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-
-        <div className="px-3 py-1 bg-neutral-100 rounded-lg min-w-[60px] text-center">
-          <span className="text-sm font-medium text-neutral-900">{block.size}/3</span>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-neutral-50 rounded-lg p-3 text-center">
+          <div className="text-2xl font-semibold text-neutral-900">{blocks.length}</div>
+          <div className="text-xs text-neutral-500">Lernblöcke</div>
         </div>
-
-        <button
-          type="button"
-          onClick={() => onChangeSize(Math.min(3, block.size + 1))}
-          disabled={block.size >= 3}
-          className="p-1.5 rounded border border-neutral-200 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="bg-neutral-50 rounded-lg p-3 text-center">
+          <div className="text-2xl font-semibold text-neutral-900">{totalThemes}</div>
+          <div className="text-xs text-neutral-500">Themen</div>
+        </div>
       </div>
-    </div>
-  );
-};
 
-/**
- * URG Sidebar Item
- */
-const UrgSidebarItem = ({ urg, isActive, onClick }) => {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`
-        w-full text-left px-4 py-3 rounded-lg transition-all
-        ${isActive
-          ? 'bg-primary-50 border-l-4 border-primary-600 text-primary-900 font-medium'
-          : 'hover:bg-neutral-50 text-neutral-700'
-        }
-      `}
-    >
-      <span className="text-sm">{urg.name}</span>
-    </button>
+      {blocks.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {blocks.slice(0, 3).map((block, idx) => (
+            <div key={block.id} className="flex items-center gap-2 text-sm text-neutral-600">
+              <Package className="w-3 h-3" />
+              <span>Block {idx + 1}: {block.themen?.length || 0} Themen</span>
+            </div>
+          ))}
+          {blocks.length > 3 && (
+            <div className="text-xs text-neutral-400">
+              +{blocks.length - 3} weitere Blöcke
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -73,123 +65,83 @@ const UrgSidebarItem = ({ urg, isActive, onClick }) => {
 const Step19LernplanBloecke = () => {
   const {
     selectedRechtsgebiete,
-    currentBlockRgIndex,
-    unterrechtsgebieteDraft,
-    lernplanBloecke,
-    updateWizardData
+    lernbloeckeDraft,
   } = useWizard();
 
-  const [activeUrgIndex, setActiveUrgIndex] = useState(0);
+  // Calculate totals
+  const { totalBlocks, totalThemes, blocksByRg } = useMemo(() => {
+    let total = 0;
+    let themes = 0;
+    const byRg = {};
 
-  const activeRg = selectedRechtsgebiete[currentBlockRgIndex || 0];
-  const activeUrgs = unterrechtsgebieteDraft[activeRg] || [];
-  const activeUrg = activeUrgs[activeUrgIndex];
-
-  // Get lernplan blocks for active URG
-  const urgBlocks = activeUrg ? (lernplanBloecke?.[activeUrg.id] || []) : [];
-
-  const handleAddBlock = () => {
-    if (!activeUrg) return;
-
-    const newBlock = {
-      id: `lernplan-block-${Date.now()}`,
-      size: 3
-    };
-
-    updateWizardData({
-      lernplanBloecke: {
-        ...lernplanBloecke,
-        [activeUrg.id]: [...urgBlocks, newBlock]
-      }
+    selectedRechtsgebiete.forEach(rgId => {
+      const blocks = lernbloeckeDraft[rgId] || [];
+      byRg[rgId] = blocks;
+      total += blocks.length;
+      blocks.forEach(block => {
+        themes += block.themen?.length || 0;
+      });
     });
-  };
 
-  const handleChangeBlockSize = (blockId, newSize) => {
-    if (!activeUrg) return;
+    return { totalBlocks: total, totalThemes: themes, blocksByRg: byRg };
+  }, [selectedRechtsgebiete, lernbloeckeDraft]);
 
-    updateWizardData({
-      lernplanBloecke: {
-        ...lernplanBloecke,
-        [activeUrg.id]: urgBlocks.map(b =>
-          b.id === blockId ? { ...b, size: newSize } : b
-        )
-      }
-    });
-  };
+  const hasBlocks = totalBlocks > 0;
 
   return (
     <div>
       <StepHeader
         step={19}
-        title="Einteilung in Lernplanblöcke"
-        description="Lege die Größe deiner Lernplanblöcke fest, um sie später deinen Lerntagen zuzuordnen."
+        title="Deine Lernplanblöcke"
+        description="Übersicht über alle erstellten Lernblöcke. Diese werden im nächsten Schritt auf deine Lerntage verteilt."
       />
 
-      {/* Main Content */}
-      <div className="flex gap-4">
-        {/* Left: URG Sidebar */}
-        <div className="w-64 flex-shrink-0">
-          <div className="bg-neutral-50 rounded-lg p-2 space-y-1">
-            {activeUrgs.map((urg, index) => (
-              <UrgSidebarItem
-                key={urg.id}
-                urg={urg}
-                isActive={index === activeUrgIndex}
-                onClick={() => setActiveUrgIndex(index)}
-              />
-            ))}
-
-            <button className="w-full flex items-center gap-2 px-4 py-3 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">
-              <Pencil className="w-4 h-4" />
-              <span>URGs anpassen</span>
-            </button>
-          </div>
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="bg-primary-50 rounded-lg p-4 text-center">
+          <div className="text-3xl font-semibold text-primary-700">{totalBlocks}</div>
+          <div className="text-sm text-primary-600">Lernblöcke gesamt</div>
         </div>
-
-        {/* Right: Lernplanblöcke */}
-        <div className="flex-1">
-          {activeUrg ? (
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
-              <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-                Einteilung in Lernplanblöcke
-              </h3>
-
-              {/* Blocks List */}
-              <div className="space-y-3 mb-4">
-                {urgBlocks.map((block) => (
-                  <BlockSizeSelector
-                    key={block.id}
-                    block={block}
-                    onChangeSize={(size) => handleChangeBlockSize(block.id, size)}
-                  />
-                ))}
-
-                {urgBlocks.length === 0 && (
-                  <p className="text-sm text-neutral-500 italic py-4 text-center">
-                    Noch keine Lernplanblöcke erstellt.
-                  </p>
-                )}
-              </div>
-
-              {/* Add Block Button */}
-              <button
-                type="button"
-                onClick={handleAddBlock}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-neutral-300 rounded-lg text-neutral-600 hover:border-primary-400 hover:text-primary-600 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                <span className="font-medium">Neuen Lernplanblock erstellen</span>
-              </button>
-            </div>
-          ) : (
-            <div className="bg-neutral-50 rounded-lg p-8 text-center">
-              <p className="text-neutral-500">
-                Wähle ein Unterrechtsgebiet aus der Liste.
-              </p>
-            </div>
-          )}
+        <div className="bg-primary-50 rounded-lg p-4 text-center">
+          <div className="text-3xl font-semibold text-primary-700">{totalThemes}</div>
+          <div className="text-sm text-primary-600">Themen zugewiesen</div>
         </div>
       </div>
+
+      {/* Blocks by RG */}
+      {hasBlocks ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {selectedRechtsgebiete.map(rgId => (
+            <BlockSummaryCard
+              key={rgId}
+              rgId={rgId}
+              blocks={blocksByRg[rgId] || []}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-amber-50 rounded-lg border border-amber-200 p-6 text-center mb-6">
+          <p className="text-amber-700">
+            <strong>Keine Lernblöcke erstellt.</strong><br />
+            Gehe zurück zu Schritt 15, um Lernblöcke zu erstellen.
+          </p>
+        </div>
+      )}
+
+      {/* Success message if blocks exist */}
+      {hasBlocks && (
+        <div className="bg-green-50 rounded-lg border border-green-200 p-4 flex items-start gap-3">
+          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-green-900">
+              {totalBlocks} Lernblöcke bereit
+            </p>
+            <p className="text-sm text-green-700">
+              Im nächsten Schritt wählst du, wie die Blöcke auf deine Lerntage verteilt werden.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

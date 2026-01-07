@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useWizard } from '../context/wizard-context';
-import { Plus, GripVertical, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import { Plus, GripVertical, Pencil, Trash2, ChevronRight, AlertTriangle } from 'lucide-react';
 import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 
 /**
@@ -299,6 +299,18 @@ const Step15Lernbloecke = () => {
     return themenDraft[activeUrg.id] || [];
   }, [activeUrg, themenDraft]);
 
+  // P10 FIX: Calculate total themes for current RG (across all URGs)
+  const totalThemesForCurrentRg = useMemo(() => {
+    let count = 0;
+    currentUrgs.forEach(urg => {
+      const themes = themenDraft[urg.id] || [];
+      count += themes.length;
+    });
+    return count;
+  }, [currentUrgs, themenDraft]);
+
+  const hasNoThemes = totalThemesForCurrentRg === 0;
+
   // Handlers
   const handleDragStart = (e, thema) => {
     setDraggingThema(thema);
@@ -478,6 +490,22 @@ const Step15Lernbloecke = () => {
           </div>
         </div>
       </div>
+
+      {/* P10 FIX: Warning when no themes exist */}
+      {hasNoThemes && (
+        <div className="mb-6 p-4 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-900">
+              Keine Themen für {currentRgLabel}
+            </p>
+            <p className="text-sm text-amber-700">
+              Du hast noch keine Themen für dieses Rechtsgebiet erstellt.
+              Gehe zurück zu Schritt 12, um Themen hinzuzufügen.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Separator Line */}
       <div className="border-t border-neutral-200 mb-6" />

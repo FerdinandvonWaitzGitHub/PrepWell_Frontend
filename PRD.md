@@ -274,20 +274,78 @@ Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
 
 ## 5. Features im Detail
 
-### 5.1 Lernplan-Wizard (10 Schritte)
+### 5.1 Lernplan-Wizard
 
-| Schritt | Funktion |
-|---------|----------|
-| 1 | Lernzeitraum (Start/Ende) |
-| 2 | Puffertage |
-| 3 | Urlaubstage markieren |
-| 4 | Tagesblöcke (1-4) |
-| 5 | Wochenstruktur |
-| 6 | Erstellungsmethode (Manual/Auto/Vorlage/KI) |
-| 7 | Themenverteilung |
-| 8 | Kalendervorschau |
-| 9 | Feinabstimmung |
-| 10 | Abschluss |
+Der Wizard unterstützt mehrere Pfade mit unterschiedlicher Schrittanzahl:
+
+| Pfad | Schritte | Beschreibung |
+|------|----------|--------------|
+| Calendar | 7 | "Im Kalender erstellen" - Direkte Kalender-Bearbeitung |
+| Manual | 22 | "Als Liste erstellen" - Vollständige manuelle Konfiguration |
+| Automatic | 10 | Automatische Generierung |
+| Template | 9 | Vorlage-basiert |
+| AI | 8 | KI-Generierung |
+
+#### Basis-Schritte (alle Pfade)
+
+| Schritt | Funktion | Datenfeld |
+|---------|----------|-----------|
+| 1 | Lernzeitraum (Start/Ende) | `startDate`, `endDate` |
+| 2 | Puffertage | `bufferDays` |
+| 3 | Urlaubstage | `vacationDays` |
+| 4 | Tagesblöcke (1-4) | `blocksPerDay` |
+| 5 | Wochenstruktur | `weekStructure` |
+| 6 | Erstellungsmethode | `creationMethod` |
+
+#### Manual Path (Schritte 7-22)
+
+| Schritt | Funktion | Datenfeld |
+|---------|----------|-----------|
+| 7 | URG-Modus wählen | `urgCreationMode` |
+| 8 | Rechtsgebiete auswählen | `selectedRechtsgebiete` |
+| 9 | URGs bearbeiten | `unterrechtsgebieteDraft` |
+| 10 | URGs Bestätigung | - |
+| 11 | Themen Intro | - |
+| 12 | Themen & Aufgaben bearbeiten | `themenDraft` |
+| 14 | Gewichtung festlegen | `rechtsgebieteGewichtung` |
+| 15 | Lernblöcke erstellen | `lernbloeckeDraft` |
+| 16-18 | Block-Konfiguration | `lernbloeckeDraft` |
+| 19 | Lernplanblöcke Übersicht | `lernbloeckeDraft` (readonly) |
+| 20 | Verteilungsmodus | `verteilungsmodus` |
+| 21 | Kalender-Vorschau | `generatedCalendar` |
+| 22 | Bestätigung & Erstellung | - |
+
+> **Hinweis:** Step 13 wurde entfernt (Legacy).
+
+#### Datenfluss-Diagramm (Manual Path)
+
+```
+Step 8 (RG Select) → selectedRechtsgebiete[]
+         ↓
+Step 9 (URGs Edit) → unterrechtsgebieteDraft{ rgId: [URG] }
+         ↓
+Step 12 (Themen) → themenDraft{ urgId: [Thema] }
+         ↓
+Step 14 (Gewichtung) → rechtsgebieteGewichtung{ rgId: % }
+         ↓
+Step 15 (Blöcke) → lernbloeckeDraft{ rgId: [Block] }
+         ↓
+Step 20 (Modus) → verteilungsmodus
+         ↓
+Step 21 (Kalender) → generateMockCalendar()
+         ↓
+Step 22 → API POST /api/wizard/complete
+```
+
+#### Index-Strategie
+
+| Index | Verwendung | Scope |
+|-------|------------|-------|
+| `currentRechtsgebietIndex` | Step 12 (Themen) | Global, Wizard-weites Cycling |
+| `activeRgIndex` | Step 15 (Blöcke) | Lokal, freie RG-Auswahl |
+| `currentBlockRgIndex` | Steps 17-19 | Global, Block-Schritt-Cycling |
+
+> **Design-Entscheidung:** Step 12 erfordert sequentielles Durcharbeiten aller RGs, daher globaler Index. Step 15 erlaubt freie Navigation zwischen RGs, daher lokaler Index.
 
 **Wizard-Draft:** Automatisches Speichern alle 500ms zu Supabase.
 

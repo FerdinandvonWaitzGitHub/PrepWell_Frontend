@@ -1,6 +1,7 @@
 # Wizard Daten-Handling: Identifizierte Probleme & KPIs
 
 **Erstellt:** 2026-01-07
+**Letzte Aktualisierung:** 2026-01-07
 **Betroffener Pfad:** Manual Path (Steps 6-22)
 
 ---
@@ -8,6 +9,21 @@
 ## Zusammenfassung
 
 Nach umfassender Analyse des Lernplan-Wizard wurden **10 kritische Probleme** im Daten-Handling identifiziert.
+
+### Status-Übersicht
+
+| Problem | Status | Commit |
+|---------|--------|--------|
+| P1: Doppelte Block-Strukturen | ✅ Gelöst | - |
+| P2: Step-Überlappung | ✅ Dokumentiert | PRD.md |
+| P3: Orphaned Themes | ✅ Gelöst | step-9-urgs-edit.jsx |
+| P4: Index-Inkonsistenz | ✅ Dokumentiert | PRD.md |
+| P5: Keine Daten-Cleanup | ✅ Gelöst | wizard-context.jsx |
+| P6: API unvollständig | ✅ Gelöst | wizard-context.jsx |
+| P7: Toter Code Step 13 | ✅ Gelöst | Datei gelöscht |
+| P8: Step 15 Validierung | ✅ Gelöst | wizard-context.jsx |
+| P9: Kalender ignoriert Daten | ✅ Gelöst | Step 19 konsolidiert |
+| P10: Themen-Validierung | ✅ Gelöst | step-15-lernbloecke.jsx |
 
 ---
 
@@ -318,10 +334,14 @@ KPI-10.3: UX-Test: Benutzer versteht warum Blöcke leer sind = Messung erforderl
 
 ## Nächste Schritte
 
-1. [ ] **P0: API-Payload korrigieren** - `completeWizard()` muss alle Manual-Path Daten senden
-2. [ ] **P1: Datenstruktur konsolidieren** - Entscheiden: `lernbloeckeDraft` ODER `lernplanBloecke`
-3. [ ] **P1: Step 21 Kalender-Logik fixen** - Korrekte Datenquelle verwenden
-4. [ ] **PRD.md aktualisieren** - Datenfluss dokumentieren
+Alle Probleme wurden gelöst:
+
+1. [x] **P0: API-Payload korrigieren** - `completeWizard()` sendet jetzt alle Manual-Path Daten
+2. [x] **P1: Datenstruktur konsolidieren** - `lernbloeckeDraft` ist die einzige Block-Struktur
+3. [x] **P1: Step 21 Kalender-Logik** - Verwendet konsistent `lernbloeckeDraft`
+4. [x] **PRD.md aktualisieren** - Datenfluss und Index-Strategie dokumentiert
+5. [x] **P5: Daten-Cleanup** - `prevStep()` bereinigt abhängige Daten bei Zurück-Navigation
+6. [x] **P10: Themen-Validierung** - Step 15 zeigt Warnung wenn keine Themen existieren
 
 ---
 

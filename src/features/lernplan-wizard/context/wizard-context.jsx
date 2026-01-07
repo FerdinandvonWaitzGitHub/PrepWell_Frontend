@@ -405,13 +405,17 @@ export const WizardProvider = ({ children }) => {
 
   // Go to previous step
   // BUG-019 FIX: Reset relevant state when going back to allow re-selection
+  // P5 FIX: Cascade delete dependent data when navigating back
   const prevStep = useCallback(() => {
     setWizardState(prev => {
       const newStep = Math.max(prev.currentStep - 1, 1);
       const updates = { currentStep: newStep };
+      const isManualPath = prev.creationMethod === 'manual';
 
       // Reset step-specific data when going back from certain steps
       // This allows users to make different choices when navigating back
+
+      // === Non-Manual Paths ===
       if (prev.currentStep === 7 && newStep === 6) {
         // Going back from Step 7 to Step 6 (method selection)
         // Reset creation method and all path-specific data
@@ -422,25 +426,89 @@ export const WizardProvider = ({ children }) => {
         updates.learningDaysOrder = [];
         updates.adjustments = {};
         updates.totalSteps = 10; // Reset to default
+        // Also reset manual path data
+        updates.urgCreationMode = null;
+        updates.selectedRechtsgebiete = [];
+        updates.currentRechtsgebietIndex = 0;
+        updates.rechtsgebieteProgress = {};
+        updates.unterrechtsgebieteDraft = {};
+        updates.themenDraft = {};
+        updates.themenProgress = {};
+        updates.rechtsgebieteGewichtung = {};
+        updates.lernbloeckeDraft = {};
+        updates.lernplanBloecke = {};
+        updates.verteilungsmodus = null;
+        updates.generatedCalendar = [];
       }
 
-      if (prev.currentStep === 8 && newStep === 7) {
-        // Going back from Step 8 to Step 7
-        // Reset data entered in Step 8+
-        updates.unterrechtsgebieteOrder = [];
-        updates.learningDaysOrder = [];
-        updates.adjustments = {};
+      if (!isManualPath) {
+        if (prev.currentStep === 8 && newStep === 7) {
+          // Going back from Step 8 to Step 7
+          updates.unterrechtsgebieteOrder = [];
+          updates.learningDaysOrder = [];
+          updates.adjustments = {};
+        }
+
+        if (prev.currentStep === 9 && newStep === 8) {
+          // Going back from Step 9 to Step 8
+          updates.learningDaysOrder = [];
+          updates.adjustments = {};
+        }
+
+        if (prev.currentStep === 10 && newStep === 9) {
+          // Going back from Step 10 to Step 9
+          updates.adjustments = {};
+        }
       }
 
-      if (prev.currentStep === 9 && newStep === 8) {
-        // Going back from Step 9 to Step 8
-        updates.learningDaysOrder = [];
-        updates.adjustments = {};
-      }
+      // === Manual Path Cleanup ===
+      if (isManualPath) {
+        // Going back from Step 8 (RG Select) to Step 7 (URG Mode)
+        // Reset RG selection and all dependent data
+        if (prev.currentStep === 8 && newStep === 7) {
+          updates.selectedRechtsgebiete = [];
+          updates.currentRechtsgebietIndex = 0;
+          updates.rechtsgebieteProgress = {};
+          updates.unterrechtsgebieteDraft = {};
+          updates.themenDraft = {};
+          updates.themenProgress = {};
+          updates.rechtsgebieteGewichtung = {};
+          updates.lernbloeckeDraft = {};
+          updates.lernplanBloecke = {};
+          updates.verteilungsmodus = null;
+          updates.generatedCalendar = [];
+        }
 
-      if (prev.currentStep === 10 && newStep === 9) {
-        // Going back from Step 10 to Step 9
-        updates.adjustments = {};
+        // Going back from Step 9 (URGs Edit) to Step 8 (RG Select)
+        // Keep RG selection but reset URG-dependent data
+        if (prev.currentStep === 9 && newStep === 8) {
+          updates.currentRechtsgebietIndex = 0;
+          updates.rechtsgebieteProgress = {};
+          updates.unterrechtsgebieteDraft = {};
+          updates.themenDraft = {};
+          updates.themenProgress = {};
+          updates.rechtsgebieteGewichtung = {};
+          updates.lernbloeckeDraft = {};
+          updates.lernplanBloecke = {};
+          updates.verteilungsmodus = null;
+          updates.generatedCalendar = [];
+        }
+
+        // Going back from Step 14 (Gewichtung) to Step 12 (Themen)
+        // Reset RG index to allow re-editing
+        if (prev.currentStep === 14 && newStep === 12) {
+          updates.currentRechtsgebietIndex = prev.selectedRechtsgebiete.length - 1;
+        }
+
+        // Going back from Step 15 (Lernblöcke) to Step 14 (Gewichtung)
+        // Keep blocks, just allow re-weighting
+        // No cleanup needed
+
+        // Going back from Step 20+ to earlier steps
+        // Reset calendar preview so it regenerates
+        if (prev.currentStep >= 20 && newStep < 20) {
+          updates.generatedCalendar = [];
+        }
       }
 
       return { ...prev, ...updates };
