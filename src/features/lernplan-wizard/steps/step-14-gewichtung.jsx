@@ -1,62 +1,70 @@
 import { useState, useEffect } from 'react';
 import { useWizard } from '../context/wizard-context';
-import StepHeader from '../components/step-header';
-import { Minus, Plus, AlertTriangle } from 'lucide-react';
-import { RECHTSGEBIET_LABELS, RECHTSGEBIET_COLORS } from '../../../data/unterrechtsgebiete-data';
+import { Minus, Plus, AlertTriangle, Network } from 'lucide-react';
+import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 
 /**
  * Step 14: Zielgewichtung der Rechtsgebiete
  * User sets percentage weights for each Rechtsgebiet.
  * Weights must sum to 100%.
+ *
+ * Figma Design: Horizontal cards with ButtonGroup (-, %, +)
  */
 
 /**
- * Weight Item Component
+ * Weight Card Component - Figma Style
+ * Horizontal card with title and ButtonGroup stepper
  */
-const WeightItem = ({ rechtsgebietId, weight, onChange }) => {
+const WeightCard = ({ rechtsgebietId, weight, onChange }) => {
   const label = RECHTSGEBIET_LABELS[rechtsgebietId] || rechtsgebietId;
-  const colorClass = RECHTSGEBIET_COLORS[rechtsgebietId] || 'bg-gray-500';
 
   const handleDecrease = () => {
     if (weight > 0) {
-      onChange(Math.max(0, weight - 1));
+      onChange(Math.max(0, weight - 5)); // 5% steps like Figma
     }
   };
 
   const handleIncrease = () => {
     if (weight < 100) {
-      onChange(Math.min(100, weight + 1));
+      onChange(Math.min(100, weight + 5)); // 5% steps like Figma
     }
   };
 
   return (
-    <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-neutral-200">
-      <div className="flex items-center gap-3">
-        {/* Color indicator */}
-        <div className={`w-3 h-3 rounded-full ${colorClass}`} />
-        <span className="font-medium text-neutral-900">{label}</span>
-      </div>
+    <div className="border border-neutral-200 rounded-lg p-4 flex flex-col gap-4 min-w-[160px]">
+      {/* Title */}
+      <p className="font-medium text-sm text-neutral-900">{label}</p>
 
-      {/* Weight controls */}
-      <div className="flex items-center gap-2">
+      {/* ButtonGroup: Minus | Percent | Plus */}
+      <div className="flex items-center">
+        {/* Minus Button */}
         <button
           type="button"
           onClick={handleDecrease}
           disabled={weight <= 0}
-          className="p-2 rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-white border border-neutral-200 rounded-l-lg h-9 w-9
+                     flex items-center justify-center shadow-sm
+                     hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-colors"
         >
           <Minus className="w-4 h-4" />
         </button>
 
-        <div className="w-16 text-center">
-          <span className="text-lg font-semibold text-neutral-900">{weight} %</span>
+        {/* Percent Display */}
+        <div className="bg-white border-y border-neutral-200 h-9 px-4 min-w-[60px]
+                        flex items-center justify-center shadow-sm">
+          <span className="font-medium text-sm text-neutral-900">{weight} %</span>
         </div>
 
+        {/* Plus Button */}
         <button
           type="button"
           onClick={handleIncrease}
           disabled={weight >= 100}
-          className="p-2 rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-white border border-neutral-200 rounded-r-lg h-9 w-9
+                     flex items-center justify-center shadow-sm
+                     hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-colors"
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -66,7 +74,8 @@ const WeightItem = ({ rechtsgebietId, weight, onChange }) => {
 };
 
 /**
- * Step 14 Component
+ * Step 14 Component - Figma Redesign
+ * Centered layout with horizontal cards
  */
 const Step14Gewichtung = () => {
   const { selectedRechtsgebiete, rechtsgebieteGewichtung, updateWizardData } = useWizard();
@@ -75,17 +84,18 @@ const Step14Gewichtung = () => {
     Object.keys(rechtsgebieteGewichtung).length > 0
   );
 
-  // Initialize weights if not set
+  // Initialize weights if not set - use 5% increments
   useEffect(() => {
     if (isEnabled && Object.keys(rechtsgebieteGewichtung).length === 0) {
-      // Initialize with equal distribution
-      const equalWeight = Math.floor(100 / selectedRechtsgebiete.length);
-      const remainder = 100 - (equalWeight * selectedRechtsgebiete.length);
+      // Initialize with equal distribution (rounded to nearest 5)
+      const count = selectedRechtsgebiete.length;
+      const baseWeight = Math.floor(100 / count / 5) * 5; // Round down to nearest 5
+      const remainder = 100 - (baseWeight * count);
 
       const initialWeights = {};
       selectedRechtsgebiete.forEach((rgId, index) => {
-        // Give remainder to first item
-        initialWeights[rgId] = equalWeight + (index === 0 ? remainder : 0);
+        // Give remainder to first item (in 5% increments)
+        initialWeights[rgId] = baseWeight + (index === 0 ? remainder : 0);
       });
 
       updateWizardData({ rechtsgebieteGewichtung: initialWeights });
@@ -117,32 +127,45 @@ const Step14Gewichtung = () => {
   const isValid = !isEnabled || totalWeight === 100;
 
   return (
-    <div>
-      <StepHeader
-        step={14}
-        title="Zielgewichtung der Rechtsgebiete"
-        description="Damit du während der folgenden Schritte deine grobe Zielgewichtung der Rechtsgebiete nicht aus dem Blick verlierst, hast du jetzt die Möglichkeit eine Zielverteilung anzugeben. Du musst diese beim Erstellen nicht zwingend einhalten, allerdings verschafft sie dir ein Gefühl dafür, wie viel Zeit du für deine URGs und Themen hast."
-      />
+    <div className="flex flex-col items-center">
+      {/* Header Section - Figma Style */}
+      <div className="flex flex-col items-center gap-5 text-center max-w-[900px] mb-8">
+        {/* Network Icon */}
+        <div className="flex items-center justify-center">
+          <Network className="w-12 h-12 text-neutral-900" strokeWidth={1} />
+        </div>
 
-      {/* Toggle Button */}
-      <button
-        type="button"
-        onClick={handleToggle}
-        className={`mb-6 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-          isEnabled
-            ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            : 'bg-primary-600 text-white hover:bg-primary-700'
-        }`}
-      >
-        {isEnabled ? 'Zielgewichtung entfernen' : 'Zielgewichtung festlegen'}
-      </button>
+        {/* Title */}
+        <h1 className="text-4xl font-extralight text-neutral-900">
+          Zielgewichtung der Rechtsgebiete
+        </h1>
 
-      {/* Weight Items */}
+        {/* Description */}
+        <p className="text-sm font-light text-neutral-500 max-w-[900px]">
+          Damit du während der folgenden Schritte deine grobe Zielgewichtung der
+          Rechtsgebiete nicht aus dem Blick verlierst, hast du jetzt die Möglichkeit
+          eine Zielverteilung anzugeben. Du musst diese beim Erstellen nicht zwingend
+          einhalten, allerdings verschafft sie dir ein Gefühl dafür, wie viel Zeit
+          du für deine URGs und Themen hast.
+        </p>
+
+        {/* Toggle Button - Pill Style */}
+        <button
+          type="button"
+          onClick={handleToggle}
+          className="px-5 py-2.5 rounded-full text-sm font-light border border-neutral-200
+                     hover:bg-neutral-50 transition-colors"
+        >
+          {isEnabled ? 'Zielgewichtung entfernen' : 'Zielgewichtung festlegen'}
+        </button>
+      </div>
+
+      {/* Weight Cards - Horizontal Layout */}
       {isEnabled && (
         <>
-          <div className="space-y-3 mb-6">
+          <div className="flex flex-wrap gap-3 justify-center mb-6">
             {selectedRechtsgebiete.map((rgId) => (
-              <WeightItem
+              <WeightCard
                 key={rgId}
                 rechtsgebietId={rgId}
                 weight={rechtsgebieteGewichtung[rgId] || 0}
@@ -151,37 +174,37 @@ const Step14Gewichtung = () => {
             ))}
           </div>
 
-          {/* Total display */}
-          <div className="flex items-center justify-between p-4 bg-neutral-100 rounded-lg">
-            <span className="font-medium text-neutral-700">Gesamt</span>
-            <span className={`text-lg font-bold ${isValid ? 'text-green-600' : 'text-red-600'}`}>
-              {totalWeight} %
-            </span>
-          </div>
-
-          {/* Error message if not 100% */}
+          {/* Error Alert - Figma Style */}
           {!isValid && (
-            <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
-              <div className="flex gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                <div>
-                  <h4 className="text-sm font-medium text-red-900">Probleme</h4>
-                  <p className="mt-1 text-sm text-red-700">
+            <div className="bg-white rounded-lg px-4 py-3 flex gap-3 items-start max-w-[700px]">
+              <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+              <div className="flex flex-col gap-1 text-red-600">
+                <p className="font-medium text-sm">Probleme</p>
+                <ul className="text-sm list-disc ml-5">
+                  <li>
                     Deine Gewichtungen müssen insgesamt 100% ergeben.
-                  </p>
-                </div>
+                    {' '}(Aktuell: {totalWeight}%)
+                  </li>
+                </ul>
               </div>
             </div>
           )}
 
-          {/* Info message */}
+          {/* Success Info */}
           {isValid && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-700">
-                <strong>Hinweis:</strong> Die Gewichtung ist nur eine Orientierungshilfe und beeinflusst
-                nicht den automatischen Verteilungsalgorithmus. Sie hilft dir dabei, beim Erstellen
-                der Themen und Aufgaben den Überblick zu behalten.
-              </p>
+            <div className="bg-green-50 rounded-lg px-4 py-3 flex gap-3 items-start max-w-[700px] border border-green-200">
+              <div className="w-4 h-4 rounded-full bg-green-500 mt-0.5 shrink-0 flex items-center justify-center">
+                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div className="flex flex-col gap-1 text-green-700">
+                <p className="font-medium text-sm">Gewichtung vollständig</p>
+                <p className="text-sm">
+                  Die Gewichtung ist nur eine Orientierungshilfe und beeinflusst
+                  nicht den automatischen Verteilungsalgorithmus.
+                </p>
+              </div>
             </div>
           )}
         </>
@@ -189,8 +212,8 @@ const Step14Gewichtung = () => {
 
       {/* Info when disabled */}
       {!isEnabled && (
-        <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-          <p className="text-sm text-neutral-600">
+        <div className="bg-neutral-50 rounded-lg px-4 py-3 max-w-[700px] border border-neutral-200">
+          <p className="text-sm text-neutral-600 text-center">
             Du kannst diesen Schritt überspringen. Die Zielgewichtung ist optional und
             dient nur als Orientierungshilfe beim Erstellen deines Lernplans.
           </p>
