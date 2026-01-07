@@ -165,6 +165,7 @@ const Step9UrgsEdit = () => {
     currentRechtsgebietIndex,
     urgCreationMode,
     unterrechtsgebieteDraft,
+    themenDraft,
     updateWizardData
   } = useWizard();
 
@@ -199,11 +200,17 @@ const Step9UrgsEdit = () => {
 
   const handleRemoveUrg = (urgId) => {
     const updatedUrgs = currentUrgs.filter(u => u.id !== urgId);
+
+    // Also remove orphaned themes for this URG (P2 fix - see WIZARD_DATA_ISSUES.md)
+    const updatedThemenDraft = { ...themenDraft };
+    delete updatedThemenDraft[urgId];
+
     updateWizardData({
       unterrechtsgebieteDraft: {
         ...unterrechtsgebieteDraft,
         [currentRechtsgebiet]: updatedUrgs
-      }
+      },
+      themenDraft: updatedThemenDraft
     });
   };
 

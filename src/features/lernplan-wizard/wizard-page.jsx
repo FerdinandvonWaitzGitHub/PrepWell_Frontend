@@ -32,7 +32,7 @@ import Step9UrgsEdit from './steps/step-9-urgs-edit';
 import Step10UrgsSuccess from './steps/step-10-urgs-success';
 import Step11ThemenIntro from './steps/step-11-themen-intro';
 import Step12ThemenEdit from './steps/step-12-themen-edit';
-import Step13ThemenSuccess from './steps/step-13-themen-success';
+// Step 13 removed - skipped in wizard flow (see wizard-context.jsx)
 import Step14Gewichtung from './steps/step-14-gewichtung';
 import Step15Lernbloecke from './steps/step-15-lernbloecke';
 import Step16BloeckeIntro from './steps/step-16-bloecke-intro';
@@ -180,8 +180,7 @@ const WizardContent = () => {
           return <Step11ThemenIntro />;
         case 12:
           return <Step12ThemenEdit />;
-        case 13:
-          return <Step13ThemenSuccess />;
+        // case 13 removed - step is skipped in wizard flow
         case 14:
           return <Step14Gewichtung />;
         case 15:

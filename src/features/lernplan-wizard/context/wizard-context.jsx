@@ -518,7 +518,7 @@ export const WizardProvider = ({ children }) => {
       rechtsgebieteGewichtung,
       currentBlockRgIndex,
       lernbloeckeDraft,
-      lernplanBloecke,
+      // Note: lernplanBloecke removed - see WIZARD_DATA_ISSUES.md P1
       verteilungsmodus,
     } = wizardState;
 
@@ -580,9 +580,14 @@ export const WizardProvider = ({ children }) => {
         return allHaveWeight && totalWeight === 100;
       }
 
-      case 15:
-        // Step 15: Themen/URGs overview - always valid (review step)
-        return true;
+      case 15: {
+        // Step 15: Lernblöcke erstellen - at least one block must exist
+        // Users should create blocks and assign themes before proceeding
+        const hasAnyBlocks = Object.values(lernbloeckeDraft).some(
+          blocks => blocks && blocks.length > 0
+        );
+        return hasAnyBlocks;
+      }
 
       case 16:
         // Step 16: Blöcke intro - always valid
@@ -600,13 +605,12 @@ export const WizardProvider = ({ children }) => {
       }
 
       case 19: {
-        // Step 19: Lernplanblöcke - at least one URG must have blocks assigned
+        // Step 19: Lernplanblöcke
+        // NOTE: Using lernbloeckeDraft for validation (same as Step 21 calendar generation)
+        // lernplanBloecke is currently not used by Step 21 - see WIZARD_DATA_ISSUES.md P1
         const currentRgForLpBlocks = selectedRechtsgebiete[currentBlockRgIndex];
-        const urgsForLpBlocks = unterrechtsgebieteDraft[currentRgForLpBlocks] || [];
-        return urgsForLpBlocks.some(urg => {
-          const lpBlocks = lernplanBloecke[urg.id] || [];
-          return lpBlocks.length > 0;
-        });
+        const blocks = lernbloeckeDraft[currentRgForLpBlocks] || [];
+        return blocks.length > 0;
       }
 
       case 20:
@@ -664,18 +668,38 @@ export const WizardProvider = ({ children }) => {
         },
         body: JSON.stringify({
           title: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
+          // Core settings (Steps 1-5)
           startDate: wizardState.startDate,
           endDate: wizardState.endDate,
           bufferDays: wizardState.bufferDays ?? 0,
           vacationDays: wizardState.vacationDays ?? 0,
           blocksPerDay: wizardState.blocksPerDay,
           weekStructure: wizardState.weekStructure,
+          // Step 6: Creation method
           creationMethod: wizardState.creationMethod,
+          // Template/AI paths
           selectedTemplate: wizardState.selectedTemplate,
           aiSettings: wizardState.aiSettings,
           unterrechtsgebieteOrder: wizardState.unterrechtsgebieteOrder,
           learningDaysOrder: wizardState.learningDaysOrder,
           adjustments: wizardState.adjustments,
+          // === Manual Path Data (Steps 7-22) ===
+          // Step 7: URG mode and selected Rechtsgebiete
+          urgCreationMode: wizardState.urgCreationMode,
+          selectedRechtsgebiete: wizardState.selectedRechtsgebiete,
+          // Step 9: URGs per Rechtsgebiet
+          unterrechtsgebieteDraft: wizardState.unterrechtsgebieteDraft,
+          // Step 12: Themen & Aufgaben per URG
+          themenDraft: wizardState.themenDraft,
+          // Step 14: Gewichtung (optional)
+          rechtsgebieteGewichtung: wizardState.rechtsgebieteGewichtung,
+          // Steps 15-19: Lernblöcke
+          lernbloeckeDraft: wizardState.lernbloeckeDraft,
+          lernplanBloecke: wizardState.lernplanBloecke,
+          // Step 20: Distribution mode
+          verteilungsmodus: wizardState.verteilungsmodus,
+          // Step 21: Generated calendar preview
+          generatedCalendar: wizardState.generatedCalendar,
         }),
       });
 
