@@ -34,7 +34,7 @@ import Step11ThemenIntro from './steps/step-11-themen-intro';
 import Step12ThemenEdit from './steps/step-12-themen-edit';
 import Step13ThemenSuccess from './steps/step-13-themen-success';
 import Step14Gewichtung from './steps/step-14-gewichtung';
-import Step15ThemenUrgs from './steps/step-15-themen-urgs';
+import Step15Lernbloecke from './steps/step-15-lernbloecke';
 import Step16BloeckeIntro from './steps/step-16-bloecke-intro';
 import Step17RgBloeckeSelect from './steps/step-17-rg-bloecke-select';
 import Step18BloeckeEdit from './steps/step-18-bloecke-edit';
@@ -185,7 +185,7 @@ const WizardContent = () => {
         case 14:
           return <Step14Gewichtung />;
         case 15:
-          return <Step15ThemenUrgs />;
+          return <Step15Lernbloecke />;
         case 16:
           return <Step16BloeckeIntro />;
         case 17:
