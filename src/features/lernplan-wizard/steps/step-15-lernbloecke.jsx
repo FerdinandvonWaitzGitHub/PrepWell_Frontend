@@ -1,17 +1,16 @@
 import { useState, useMemo } from 'react';
 import { useWizard } from '../context/wizard-context';
-import { Plus, Minus, GripVertical, Pencil, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
-import { RECHTSGEBIET_LABELS, RECHTSGEBIET_COLORS } from '../../../data/unterrechtsgebiete-data';
+import { Plus, GripVertical, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 
 /**
  * Step 15: Lernblöcke erstellen
+ * Based on Figma: Lernplan_Prozess_Base
  *
- * User assigns themes to learning blocks with drag & drop.
- * - Left column: "Meine Themen" with size controls (+/- for block count)
- * - Right column: "Meine Lernblöcke" (user creates blocks and assigns themes)
- *
- * Block budget is calculated from:
- * - Total learning days × blocks per day × RG weighting %
+ * Layout:
+ * - Header with title and stats (Gewichtung, gesamt/verbraucht/verfügbar)
+ * - URG tabs (horizontal)
+ * - Two columns: Meine Themen (left) | Meine Lernblöcke (right)
  */
 
 /**
@@ -29,260 +28,207 @@ const calculateLearningDays = (startDate, endDate, bufferDays, vacationDays, wee
     ? Object.values(weekStructure).filter(blocks =>
         Array.isArray(blocks) && blocks.every(b => b === 'free')
       ).length
-    : 2; // Default: Saturday + Sunday
+    : 2;
 
-  // Calculate weeks
   const weeks = totalDays / 7;
   const freeDays = Math.floor(weeks * freeDaysPerWeek);
-
-  // Net learning days
   const netDays = totalDays - (bufferDays || 0) - (vacationDays || 0) - freeDays;
   return Math.max(0, Math.floor(netDays));
 };
 
 /**
- * RG Tab Component
+ * URG Tab Component (Figma style)
  */
-const RgTab = ({ rechtsgebietId, isActive, onClick, gewichtung }) => {
-  const label = RECHTSGEBIET_LABELS[rechtsgebietId] || rechtsgebietId;
-  const colorClass = RECHTSGEBIET_COLORS[rechtsgebietId] || 'bg-gray-500';
-
+const UrgTab = ({ urg, isActive, onClick }) => {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`
-        px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap
+        px-4 py-2 text-sm transition-all whitespace-nowrap
         ${isActive
-          ? `${colorClass} text-white`
-          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-        }
-      `}
-    >
-      {label}
-      {gewichtung > 0 && (
-        <span className="ml-2 opacity-75">({gewichtung}%)</span>
-      )}
-    </button>
-  );
-};
-
-/**
- * URG Tab Component
- */
-const UrgTab = ({ urg, isActive, onClick, themenCount }) => {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`
-        px-3 py-1.5 rounded-lg text-sm transition-all whitespace-nowrap
-        ${isActive
-          ? 'bg-primary-600 text-white'
-          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+          ? 'bg-white border border-neutral-200 rounded-lg font-medium text-neutral-900'
+          : 'text-neutral-600 hover:text-neutral-900'
         }
       `}
     >
       {urg.name}
-      {themenCount > 0 && (
-        <span className={`ml-1.5 px-1.5 py-0.5 rounded text-xs ${
-          isActive ? 'bg-white/20' : 'bg-neutral-200'
-        }`}>
-          {themenCount}
-        </span>
-      )}
     </button>
   );
 };
 
 /**
- * Theme Card Component (Left Column)
+ * Aufgabe Item Component (matching Step 12 / Figma design)
  */
-const ThemeCard = ({
-  thema,
-  themaSize,
-  onSizeChange,
-  isExpanded,
-  onToggleExpand,
-  onDragStart,
-  isDragging
-}) => {
-  const aufgabenCount = thema.aufgaben?.length || 0;
-
+const AufgabeItem = ({ aufgabe, onToggle, onPriorityChange, onDelete }) => {
   return (
-    <div
-      draggable
-      onDragStart={(e) => onDragStart(e, thema)}
-      className={`
-        bg-white rounded-lg border transition-all cursor-grab active:cursor-grabbing
-        ${isDragging
-          ? 'border-primary-400 bg-primary-50 opacity-50'
-          : 'border-neutral-200 hover:border-neutral-300'
-        }
-      `}
-    >
-      {/* Header */}
-      <div className="p-3 flex items-center gap-3">
-        {/* Drag Handle */}
-        <div className="text-neutral-400">
-          <GripVertical className="w-4 h-4" />
-        </div>
+    <div className="flex items-center gap-2 py-2 border-b border-neutral-100 last:border-0">
+      {/* Checkbox */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+          aufgabe.completed
+            ? 'bg-primary-600 border-primary-600'
+            : 'border-neutral-300 hover:border-neutral-400'
+        }`}
+      >
+        {aufgabe.completed && (
+          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </button>
 
-        {/* Theme Name */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-neutral-900 truncate">{thema.name}</p>
-          {aufgabenCount > 0 && (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 mt-0.5"
-            >
-              {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              {aufgabenCount} Aufgabe{aufgabenCount !== 1 ? 'n' : ''}
-            </button>
-          )}
-        </div>
+      {/* Aufgabe text */}
+      <span className={`flex-1 text-sm ${aufgabe.completed ? 'line-through text-neutral-400' : 'text-neutral-700'}`}>
+        {aufgabe.name || aufgabe.text || 'Aufgabe'}
+      </span>
 
-        {/* Size Controls */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onSizeChange(Math.max(1, themaSize - 1))}
-            disabled={themaSize <= 1}
-            className="p-1 rounded border border-neutral-200 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Minus className="w-3 h-3" />
-          </button>
-          <div className="w-8 text-center">
-            <span className="text-sm font-semibold">{themaSize}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => onSizeChange(themaSize + 1)}
-            disabled={themaSize >= 10}
-            className="p-1 rounded border border-neutral-200 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-3 h-3" />
-          </button>
-        </div>
+      {/* Priority buttons (!!) */}
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => onPriorityChange(aufgabe.priority === 1 ? 0 : 1)}
+          className={`w-6 h-6 rounded text-xs font-bold transition-all ${
+            aufgabe.priority >= 1
+              ? 'bg-amber-100 text-amber-600'
+              : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
+          }`}
+        >
+          !
+        </button>
+        <button
+          type="button"
+          onClick={() => onPriorityChange(aufgabe.priority === 2 ? 0 : 2)}
+          className={`w-6 h-6 rounded text-xs font-bold transition-all ${
+            aufgabe.priority >= 2
+              ? 'bg-red-100 text-red-600'
+              : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
+          }`}
+        >
+          !
+        </button>
       </div>
 
-      {/* Aufgaben (Expandable) */}
-      {isExpanded && aufgabenCount > 0 && (
-        <div className="px-3 pb-3 pt-0 border-t border-neutral-100">
-          <div className="mt-2 space-y-1">
-            {thema.aufgaben.map((aufgabe, idx) => (
-              <div key={aufgabe.id || idx} className="flex items-center gap-2 text-xs text-neutral-600">
-                <span className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
-                <span className="truncate">{aufgabe.name || aufgabe.text || `Aufgabe ${idx + 1}`}</span>
-                {aufgabe.priority > 0 && (
-                  <span className="text-amber-500">{'!'.repeat(aufgabe.priority)}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Delete button */}
+      <button
+        type="button"
+        onClick={onDelete}
+        className="p-1 text-neutral-400 hover:text-red-500 transition-colors"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
     </div>
   );
 };
 
 /**
- * Lernblock Component (Right Column)
+ * Theme Card Component (Figma style - like Step 12)
  */
-const LernblockCard = ({
-  block,
-  onRemoveThema,
-  onRemoveBlock,
-  onDrop,
-  isDropTarget
+const ThemeCard = ({
+  thema,
+  onDragStart,
+  onAufgabeToggle,
+  onAufgabePriority,
+  onAufgabeDelete,
+  onAddAufgabe
 }) => {
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [newAufgabe, setNewAufgabe] = useState('');
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragOver(true);
+  const handleAddAufgabe = () => {
+    if (newAufgabe.trim()) {
+      onAddAufgabe(newAufgabe.trim());
+      setNewAufgabe('');
+    }
   };
-
-  const handleDragLeave = () => {
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    onDrop(e, block.id);
-  };
-
-  const totalSize = block.themen?.reduce((sum, t) => sum + (t.size || 1), 0) || 0;
 
   return (
     <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className={`
-        bg-white rounded-lg border-2 transition-all min-h-[100px]
-        ${isDragOver || isDropTarget
-          ? 'border-primary-400 bg-primary-50'
-          : 'border-neutral-200'
-        }
-      `}
+      draggable
+      onDragStart={(e) => onDragStart(e, thema)}
+      className="bg-white rounded-lg border border-neutral-200 overflow-hidden cursor-grab active:cursor-grabbing"
     >
-      {/* Block Header */}
-      <div className="p-3 border-b border-neutral-100 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {/* Visual block indicator */}
-          <div className="flex gap-0.5">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className={`w-1 h-6 rounded-full ${
-                  i <= (block.maxSize || 3) ? 'bg-primary-400' : 'bg-neutral-200'
-                }`}
-              />
-            ))}
-          </div>
-          <span className="text-sm font-medium text-neutral-700">
-            Lernblock ({totalSize}/{block.maxSize || 3})
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => onRemoveBlock(block.id)}
-          className="p-1 text-neutral-400 hover:text-red-500 rounded"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+      {/* Theme Header */}
+      <div className="flex items-center gap-2 p-3 bg-neutral-50 border-b border-neutral-200">
+        <GripVertical className="w-4 h-4 text-neutral-400" />
+        <span className="font-medium text-neutral-900">{thema.name}</span>
       </div>
 
-      {/* Assigned Themes */}
-      <div className="p-2 space-y-1">
-        {block.themen?.length > 0 ? (
-          block.themen.map((thema, idx) => (
-            <div
-              key={thema.id || idx}
-              className="flex items-center justify-between p-2 bg-neutral-50 rounded text-sm"
-            >
-              <span className="truncate">{thema.name}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-neutral-500">({thema.size || 1})</span>
-                <button
-                  type="button"
-                  onClick={() => onRemoveThema(block.id, thema.id)}
-                  className="text-neutral-400 hover:text-red-500"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="py-4 text-center text-sm text-neutral-400">
-            Themen hierher ziehen
-          </div>
-        )}
+      {/* Aufgaben List */}
+      <div className="px-3">
+        {thema.aufgaben?.map((aufgabe, idx) => (
+          <AufgabeItem
+            key={aufgabe.id || idx}
+            aufgabe={aufgabe}
+            onToggle={() => onAufgabeToggle(thema.id, aufgabe.id || idx)}
+            onPriorityChange={(p) => onAufgabePriority(thema.id, aufgabe.id || idx, p)}
+            onDelete={() => onAufgabeDelete(thema.id, aufgabe.id || idx)}
+          />
+        ))}
       </div>
+
+      {/* Add Aufgabe */}
+      <div className="p-3 border-t border-neutral-100">
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={newAufgabe}
+            onChange={(e) => setNewAufgabe(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddAufgabe()}
+            placeholder="Neue Aufgabe..."
+            className="flex-1 text-sm px-2 py-1 border-0 bg-transparent focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleAddAufgabe}
+            className="flex items-center gap-1 text-sm text-neutral-500 hover:text-primary-600"
+          >
+            <Plus className="w-4 h-4" />
+            Neue Aufgabe
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Lernblock Card Component (Right Column)
+ */
+const LernblockCard = ({ block, onRemove, onDrop }) => {
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setIsDragOver(false); onDrop(e, block.id); }}
+      className={`
+        bg-white rounded-lg border-2 p-4 min-h-[120px] transition-all
+        ${isDragOver ? 'border-primary-400 bg-primary-50' : 'border-dashed border-neutral-300'}
+      `}
+    >
+      {block.themen?.length > 0 ? (
+        <div className="space-y-2">
+          {block.themen.map((t, idx) => (
+            <div key={idx} className="flex items-center justify-between p-2 bg-neutral-50 rounded">
+              <span className="text-sm">{t.name}</span>
+              <button
+                type="button"
+                onClick={() => onRemove(block.id, t.id)}
+                className="text-neutral-400 hover:text-red-500"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+          Themen hierher ziehen
+        </div>
+      )}
     </div>
   );
 };
@@ -293,6 +239,7 @@ const LernblockCard = ({
 const Step15Lernbloecke = () => {
   const {
     selectedRechtsgebiete,
+    currentRechtsgebietIndex,
     unterrechtsgebieteDraft,
     themenDraft,
     rechtsgebieteGewichtung,
@@ -306,26 +253,25 @@ const Step15Lernbloecke = () => {
     updateWizardData
   } = useWizard();
 
-  const [activeRgIndex, setActiveRgIndex] = useState(0);
   const [activeUrgIndex, setActiveUrgIndex] = useState(0);
-  const [expandedThemen, setExpandedThemen] = useState({});
   const [draggingThema, setDraggingThema] = useState(null);
 
-  // Theme sizes state (stored separately)
-  const [themenSizes, setThemenSizes] = useState({});
+  // Current RG (from the loop, like Step 12)
+  const currentRgId = selectedRechtsgebiete[currentRechtsgebietIndex] || selectedRechtsgebiete[0];
+  const currentRgLabel = RECHTSGEBIET_LABELS[currentRgId] || currentRgId;
+  const rgGewichtung = rechtsgebieteGewichtung[currentRgId] || 0;
 
-  // Current RG and URG
-  const activeRg = selectedRechtsgebiete[activeRgIndex] || selectedRechtsgebiete[0];
-  const activeUrgs = useMemo(() => {
-    return unterrechtsgebieteDraft[activeRg] || [];
-  }, [unterrechtsgebieteDraft, activeRg]);
-  const activeUrg = activeUrgs[activeUrgIndex];
-  const rgGewichtung = rechtsgebieteGewichtung[activeRg] || 0;
+  // URGs for current RG
+  const currentUrgs = useMemo(() => {
+    return unterrechtsgebieteDraft[currentRgId] || [];
+  }, [unterrechtsgebieteDraft, currentRgId]);
 
-  // Current blocks for this RG
+  const activeUrg = currentUrgs[activeUrgIndex];
+
+  // Blocks for current RG
   const currentBlocks = useMemo(() => {
-    return lernbloeckeDraft[activeRg] || [];
-  }, [lernbloeckeDraft, activeRg]);
+    return lernbloeckeDraft[currentRgId] || [];
+  }, [lernbloeckeDraft, currentRgId]);
 
   // Calculate block budget
   const learningDays = useMemo(() =>
@@ -338,144 +284,137 @@ const Step15Lernbloecke = () => {
     return Math.floor(learningDays * blocksPerDay * (rgGewichtung / 100));
   }, [learningDays, blocksPerDay, rgGewichtung]);
 
-  // Count used blocks (sum of theme sizes in all blocks)
   const usedBlocks = useMemo(() => {
-    return currentBlocks.reduce((sum, block) => {
-      return sum + (block.themen?.reduce((s, t) => s + (t.size || 1), 0) || 0);
-    }, 0);
+    return currentBlocks.reduce((sum, block) =>
+      sum + (block.themen?.length || 0), 0);
   }, [currentBlocks]);
 
   const availableBlocks = Math.max(0, totalBlocksForRg - usedBlocks);
   const usedPercentage = totalBlocksForRg > 0 ? Math.round((usedBlocks / totalBlocksForRg) * 100) : 0;
 
-  // Get themes for current URG
-  const currentThemen = useMemo(() => {
+  // Themes for active URG
+  const activeUrgThemen = useMemo(() => {
     if (!activeUrg) return [];
     return themenDraft[activeUrg.id] || [];
   }, [activeUrg, themenDraft]);
 
-  // Theme counts per URG
-  const themenCountsPerUrg = useMemo(() => {
-    const counts = {};
-    activeUrgs.forEach(urg => {
-      counts[urg.id] = (themenDraft[urg.id] || []).length;
-    });
-    return counts;
-  }, [activeUrgs, themenDraft]);
-
   // Handlers
-  const handleRgChange = (index) => {
-    setActiveRgIndex(index);
-    setActiveUrgIndex(0);
-  };
-
-  const handleThemaSizeChange = (themaId, newSize) => {
-    setThemenSizes(prev => ({ ...prev, [themaId]: newSize }));
-  };
-
-  const toggleThemaExpand = (themaId) => {
-    setExpandedThemen(prev => ({ ...prev, [themaId]: !prev[themaId] }));
-  };
-
-  // Drag & Drop
   const handleDragStart = (e, thema) => {
     setDraggingThema(thema);
     e.dataTransfer.setData('text/plain', thema.id);
-    e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDrop = (e, blockId) => {
-    e.preventDefault();
     const themaId = e.dataTransfer.getData('text/plain');
-
     if (!themaId || !draggingThema) return;
 
-    const themaSize = themenSizes[themaId] || 1;
-
-    // Add theme to block
     const updatedBlocks = currentBlocks.map(block => {
       if (block.id === blockId) {
-        // Check if theme already exists in this block
-        const existingThema = block.themen?.find(t => t.id === themaId);
-        if (existingThema) return block;
-
+        if (block.themen?.find(t => t.id === themaId)) return block;
         return {
           ...block,
-          themen: [
-            ...(block.themen || []),
-            { id: themaId, name: draggingThema.name, size: themaSize }
-          ]
+          themen: [...(block.themen || []), { id: themaId, name: draggingThema.name }]
         };
       }
       return block;
     });
 
     updateWizardData({
-      lernbloeckeDraft: {
-        ...lernbloeckeDraft,
-        [activeRg]: updatedBlocks
-      }
+      lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: updatedBlocks }
     });
-
     setDraggingThema(null);
   };
 
-  const handleRemoveThemaFromBlock = (blockId, themaId) => {
+  const handleRemoveFromBlock = (blockId, themaId) => {
     const updatedBlocks = currentBlocks.map(block => {
       if (block.id === blockId) {
-        return {
-          ...block,
-          themen: (block.themen || []).filter(t => t.id !== themaId)
-        };
+        return { ...block, themen: (block.themen || []).filter(t => t.id !== themaId) };
       }
       return block;
     });
-
     updateWizardData({
-      lernbloeckeDraft: {
-        ...lernbloeckeDraft,
-        [activeRg]: updatedBlocks
-      }
+      lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: updatedBlocks }
     });
   };
 
   const handleAddBlock = () => {
-    const newBlock = {
-      id: `block-${Date.now()}`,
-      maxSize: blocksPerDay,
-      themen: []
-    };
-
+    const newBlock = { id: `block-${Date.now()}`, themen: [] };
     updateWizardData({
-      lernbloeckeDraft: {
-        ...lernbloeckeDraft,
-        [activeRg]: [...currentBlocks, newBlock]
-      }
+      lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: [...currentBlocks, newBlock] }
     });
   };
 
-  const handleRemoveBlock = (blockId) => {
-    updateWizardData({
-      lernbloeckeDraft: {
-        ...lernbloeckeDraft,
-        [activeRg]: currentBlocks.filter(b => b.id !== blockId)
+  // Aufgaben handlers
+  const handleAufgabeToggle = (themaId, aufgabeIdx) => {
+    const updatedThemen = activeUrgThemen.map(t => {
+      if (t.id === themaId) {
+        const updatedAufgaben = t.aufgaben?.map((a, i) =>
+          i === aufgabeIdx ? { ...a, completed: !a.completed } : a
+        );
+        return { ...t, aufgaben: updatedAufgaben };
       }
+      return t;
+    });
+    updateWizardData({
+      themenDraft: { ...themenDraft, [activeUrg.id]: updatedThemen }
+    });
+  };
+
+  const handleAufgabePriority = (themaId, aufgabeIdx, priority) => {
+    const updatedThemen = activeUrgThemen.map(t => {
+      if (t.id === themaId) {
+        const updatedAufgaben = t.aufgaben?.map((a, i) =>
+          i === aufgabeIdx ? { ...a, priority } : a
+        );
+        return { ...t, aufgaben: updatedAufgaben };
+      }
+      return t;
+    });
+    updateWizardData({
+      themenDraft: { ...themenDraft, [activeUrg.id]: updatedThemen }
+    });
+  };
+
+  const handleAufgabeDelete = (themaId, aufgabeIdx) => {
+    const updatedThemen = activeUrgThemen.map(t => {
+      if (t.id === themaId) {
+        return { ...t, aufgaben: t.aufgaben?.filter((_, i) => i !== aufgabeIdx) };
+      }
+      return t;
+    });
+    updateWizardData({
+      themenDraft: { ...themenDraft, [activeUrg.id]: updatedThemen }
+    });
+  };
+
+  const handleAddAufgabe = (themaId, text) => {
+    const updatedThemen = activeUrgThemen.map(t => {
+      if (t.id === themaId) {
+        return {
+          ...t,
+          aufgaben: [...(t.aufgaben || []), { id: `aufgabe-${Date.now()}`, name: text, completed: false, priority: 0 }]
+        };
+      }
+      return t;
+    });
+    updateWizardData({
+      themenDraft: { ...themenDraft, [activeUrg.id]: updatedThemen }
     });
   };
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="text-center mb-4">
-        <h1 className="text-2xl font-light text-neutral-900 mb-2">
-          Lernblöcke für {RECHTSGEBIET_LABELS[activeRg] || activeRg}
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-light text-neutral-900">
+          Lernblöcke für {currentRgLabel}
         </h1>
       </div>
 
       {/* Stats Bar */}
-      <div className="flex items-center justify-center gap-4 mb-6 p-4 bg-neutral-50 rounded-lg">
+      <div className="flex items-center justify-center gap-6 mb-8">
         {/* Gewichtung Badge */}
-        <div className="px-3 py-1 bg-white rounded-lg border border-neutral-200 text-sm">
+        <div className="px-4 py-1.5 bg-white rounded-full border border-neutral-200 text-sm">
           Gewichtung {rgGewichtung}%
         </div>
 
@@ -483,138 +422,133 @@ const Step15Lernbloecke = () => {
         <div className="flex items-center gap-6">
           <div className="text-center">
             <div className="text-xs text-neutral-500">gesamt</div>
-            <div className="text-lg font-semibold">{totalBlocksForRg}</div>
+            <div className="text-xl font-medium">{totalBlocksForRg}</div>
           </div>
           <div className="text-center">
             <div className="text-xs text-neutral-500">verbraucht</div>
-            <div className="text-lg font-semibold">{usedBlocks}</div>
+            <div className="text-xl font-medium">{usedBlocks}</div>
           </div>
           <div className="text-center">
             <div className="text-xs text-neutral-500">verfügbar</div>
-            <div className="text-lg font-semibold">{availableBlocks}</div>
+            <div className="text-xl font-medium">{availableBlocks}</div>
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-32">
+        {/* Progress */}
+        <div className="w-40">
           <div className="text-xs text-neutral-500 mb-1">{usedPercentage}% verbraucht</div>
-          <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-neutral-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary-600 transition-all"
+              className="h-full bg-neutral-800 transition-all"
               style={{ width: `${Math.min(100, usedPercentage)}%` }}
             />
           </div>
         </div>
       </div>
 
-      {/* RG Tabs */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-        {selectedRechtsgebiete.map((rgId, index) => (
-          <RgTab
-            key={rgId}
-            rechtsgebietId={rgId}
-            isActive={index === activeRgIndex}
-            onClick={() => handleRgChange(index)}
-            gewichtung={rechtsgebieteGewichtung[rgId] || 0}
-          />
-        ))}
-      </div>
+      {/* Separator Line */}
+      <div className="border-t border-neutral-200 mb-6" />
 
       {/* URG Tabs */}
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2 flex-wrap">
-        {activeUrgs.map((urg, index) => (
+      <div className="flex flex-wrap items-center gap-1 mb-2">
+        {currentUrgs.map((urg, index) => (
           <UrgTab
             key={urg.id}
             urg={urg}
             isActive={index === activeUrgIndex}
             onClick={() => setActiveUrgIndex(index)}
-            themenCount={themenCountsPerUrg[urg.id] || 0}
           />
         ))}
-        <button
-          type="button"
-          className="flex items-center gap-1 px-3 py-1.5 text-sm text-neutral-500 hover:text-neutral-700"
-        >
-          <Pencil className="w-3 h-3" />
-          URGs anpassen
-        </button>
       </div>
 
-      {/* Info Text */}
-      <p className="text-center text-neutral-500 mb-6">
+      {/* URGs anpassen link */}
+      <button
+        type="button"
+        className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 mb-6"
+      >
+        <Pencil className="w-3.5 h-3.5" />
+        URGs anpassen
+      </button>
+
+      {/* Instruction */}
+      <p className="text-center text-neutral-600 mb-8">
         Erstelle Lernblöcke und bringe alle Themen darin unter.
       </p>
 
       {/* Two Column Layout */}
-      <div className="flex-1 grid grid-cols-2 gap-6 min-h-0">
+      <div className="flex-1 grid grid-cols-[1fr_auto_1fr] gap-4 min-h-0">
         {/* Left Column: Meine Themen */}
         <div className="flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-neutral-900">Meine Themen</h2>
             <button
               type="button"
               className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
             >
-              <Pencil className="w-3 h-3" />
+              <Pencil className="w-3.5 h-3.5" />
               Themen anpassen
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-            {currentThemen.length > 0 ? (
-              currentThemen.map(thema => (
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            {activeUrgThemen.length > 0 ? (
+              activeUrgThemen.map(thema => (
                 <ThemeCard
                   key={thema.id}
                   thema={thema}
-                  themaSize={themenSizes[thema.id] || 1}
-                  onSizeChange={(size) => handleThemaSizeChange(thema.id, size)}
-                  isExpanded={expandedThemen[thema.id]}
-                  onToggleExpand={() => toggleThemaExpand(thema.id)}
                   onDragStart={handleDragStart}
-                  isDragging={draggingThema?.id === thema.id}
+                  onAufgabeToggle={handleAufgabeToggle}
+                  onAufgabePriority={handleAufgabePriority}
+                  onAufgabeDelete={handleAufgabeDelete}
+                  onAddAufgabe={(text) => handleAddAufgabe(thema.id, text)}
                 />
               ))
             ) : (
-              <div className="p-8 bg-neutral-50 rounded-lg text-center">
-                <p className="text-neutral-500 text-sm">
-                  Keine Themen für dieses Unterrechtsgebiet.
-                </p>
+              <div className="p-8 bg-neutral-50 rounded-lg text-center text-neutral-500">
+                Keine Themen für dieses Unterrechtsgebiet.
               </div>
             )}
+
+            {/* Add Theme button */}
+            <button
+              type="button"
+              className="w-full py-3 border-2 border-dashed border-neutral-300 rounded-lg text-neutral-500 hover:border-neutral-400 hover:text-neutral-600 transition-colors flex items-center justify-center gap-2"
+            >
+              Neues Thema hinzufügen
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* Arrow between columns */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden lg:block">
-          <div className="text-neutral-300 text-4xl">→</div>
+        {/* Arrow */}
+        <div className="flex items-center justify-center px-4">
+          <ChevronRight className="w-8 h-8 text-neutral-300" />
         </div>
 
         {/* Right Column: Meine Lernblöcke */}
         <div className="flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-4">
             <h2 className="text-lg font-medium text-neutral-900">Meine Lernblöcke</h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
             {currentBlocks.map(block => (
               <LernblockCard
                 key={block.id}
                 block={block}
-                onRemoveThema={handleRemoveThemaFromBlock}
-                onRemoveBlock={handleRemoveBlock}
+                onRemove={handleRemoveFromBlock}
                 onDrop={handleDrop}
-                isDropTarget={false}
               />
             ))}
 
-            {/* Add Block Button */}
+            {/* Add Block button */}
             <button
               type="button"
               onClick={handleAddBlock}
-              className="w-full p-4 border-2 border-dashed border-neutral-300 rounded-lg text-neutral-500 hover:border-primary-400 hover:text-primary-600 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 border-2 border-dashed border-neutral-300 rounded-lg text-neutral-500 hover:border-neutral-400 hover:text-neutral-600 transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
-              <span>Neuer Lernblock</span>
+              Neuer Lernblock
             </button>
           </div>
         </div>
