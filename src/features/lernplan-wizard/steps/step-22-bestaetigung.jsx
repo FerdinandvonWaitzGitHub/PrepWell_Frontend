@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useWizard } from '../context/wizard-context';
 import StepHeader from '../components/step-header';
 import {
@@ -8,7 +8,10 @@ import {
   Target,
   Layers,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  LayoutGrid,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { RECHTSGEBIET_LABELS, RECHTSGEBIET_COLORS } from '../../../data/unterrechtsgebiete-data';
 
@@ -52,6 +55,114 @@ const RgBadge = ({ rgId, weight }) => {
 /**
  * Step 22 Component
  */
+/**
+ * Block Assignments Summary Component
+ */
+const BlockAssignmentsSummary = ({ lernbloeckeDraft, selectedRechtsgebiete }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Calculate block statistics
+  const stats = useMemo(() => {
+    const result = {
+      totalBlocks: 0,
+      assignedBlocks: 0,
+      perRg: {}
+    };
+
+    selectedRechtsgebiete.forEach(rgId => {
+      const blocks = lernbloeckeDraft[rgId] || [];
+      const assigned = blocks.filter(b =>
+        (b.thema !== null && b.thema !== undefined) ||
+        (Array.isArray(b.aufgaben) && b.aufgaben.length > 0)
+      );
+
+      result.totalBlocks += blocks.length;
+      result.assignedBlocks += assigned.length;
+      result.perRg[rgId] = {
+        total: blocks.length,
+        assigned: assigned.length,
+        blocks: assigned
+      };
+    });
+
+    return result;
+  }, [lernbloeckeDraft, selectedRechtsgebiete]);
+
+  if (stats.totalBlocks === 0) {
+    return null;
+  }
+
+  return (
+    <div className="p-4 bg-white rounded-lg border border-neutral-200">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <LayoutGrid className="w-5 h-5 text-primary-600" />
+          <h4 className="text-sm font-medium text-neutral-900">Lernblöcke</h4>
+        </div>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-neutral-500 hover:text-neutral-700"
+        >
+          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* Summary */}
+      <div className="text-sm text-neutral-600">
+        <p>
+          <strong>{stats.assignedBlocks}</strong> von <strong>{stats.totalBlocks}</strong> Blöcken zugewiesen
+        </p>
+      </div>
+
+      {/* Per-RG breakdown */}
+      {isExpanded && (
+        <div className="mt-4 space-y-3">
+          {selectedRechtsgebiete.map(rgId => {
+            const rgStats = stats.perRg[rgId];
+            if (!rgStats || rgStats.total === 0) return null;
+
+            const colorClass = RECHTSGEBIET_COLORS[rgId] || 'bg-gray-500';
+            const label = RECHTSGEBIET_LABELS[rgId] || rgId;
+
+            return (
+              <div key={rgId} className="p-3 bg-neutral-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`w-2 h-2 rounded-full ${colorClass}`}></span>
+                  <span className="text-sm font-medium text-neutral-700">{label}</span>
+                  <span className="text-xs text-neutral-500">
+                    ({rgStats.assigned}/{rgStats.total} Blöcke)
+                  </span>
+                </div>
+
+                {rgStats.blocks.length > 0 && (
+                  <div className="pl-4 space-y-1">
+                    {rgStats.blocks.map((block, idx) => {
+                      const displayName = block.thema
+                        ? block.thema.name
+                        : block.aufgaben?.length === 1
+                          ? block.aufgaben[0].name
+                          : `${block.aufgaben?.length || 0} Aufgaben`;
+
+                      return (
+                        <p key={block.id || idx} className="text-xs text-neutral-600">
+                          • {displayName}
+                        </p>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Step 22 Component
+ */
 const Step22Bestaetigung = () => {
   const {
     startDate,
@@ -63,6 +174,7 @@ const Step22Bestaetigung = () => {
     selectedRechtsgebiete,
     unterrechtsgebieteDraft,
     themenDraft,
+    lernbloeckeDraft,
     rechtsgebieteGewichtung,
     verteilungsmodus,
     completeWizard,
@@ -103,6 +215,18 @@ const Step22Bestaetigung = () => {
     'fokussiert': 'Fokussiert (Ein RG pro Tag)',
     'themenweise': 'Themenweise (Sequenziell)'
   };
+
+  // Count assigned blocks
+  const assignedBlocksCount = useMemo(() => {
+    if (!lernbloeckeDraft) return 0;
+    return Object.values(lernbloeckeDraft).reduce((sum, blocks) => {
+      if (!Array.isArray(blocks)) return sum;
+      return sum + blocks.filter(b =>
+        (b.thema !== null && b.thema !== undefined) ||
+        (Array.isArray(b.aufgaben) && b.aufgaben.length > 0)
+      ).length;
+    }, 0);
+  }, [lernbloeckeDraft]);
 
   const handleCreate = async () => {
     setIsCreating(true);
@@ -171,17 +295,37 @@ const Step22Bestaetigung = () => {
         <SummaryCard icon={Target} title="Verteilung">
           <p>{verteilungsmodusLabels[verteilungsmodus] || 'Nicht festgelegt'}</p>
         </SummaryCard>
+
+        {/* Block-Zuweisungen */}
+        <BlockAssignmentsSummary
+          lernbloeckeDraft={lernbloeckeDraft || {}}
+          selectedRechtsgebiete={selectedRechtsgebiete}
+        />
       </div>
 
       {/* Warnings */}
       {totalThemes === 0 && (
-        <div className="mb-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+        <div className="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
           <div className="flex gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
             <div>
-              <h4 className="text-sm font-medium text-amber-900">Hinweis</h4>
+              <h4 className="text-sm font-medium text-amber-900">Keine Themen</h4>
               <p className="text-sm text-amber-700">
                 Du hast noch keine Themen hinzugefügt. Du kannst diese später im Kalender ergänzen.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {totalThemes > 0 && assignedBlocksCount === 0 && (
+        <div className="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+          <div className="flex gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-amber-900">Keine Zuweisungen</h4>
+              <p className="text-sm text-amber-700">
+                Du hast Themen erstellt, aber noch keine Blöcke zugewiesen. Der Kalender wird ohne vorausgefüllte Inhalte erstellt.
               </p>
             </div>
           </div>

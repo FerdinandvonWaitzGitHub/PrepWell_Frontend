@@ -1,16 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useWizard } from '../context/wizard-context';
-import { Plus, GripVertical, Pencil, Trash2, ChevronRight, AlertTriangle } from 'lucide-react';
+import { GripVertical, RotateCcw, AlertTriangle, Info, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 
 /**
- * Step 15: Lernblöcke erstellen
- * Based on Figma: Lernplan_Prozess_Base
+ * Step 15: Lernblöcke erstellen (Redesigned v2)
  *
- * Layout:
- * - Header with title and stats (Gewichtung, gesamt/verbraucht/verfügbar)
- * - URG tabs (horizontal)
- * - Two columns: Meine Themen (left) | Meine Lernblöcke (right)
+ * Design Decisions:
+ * - Themes are collapsible and show individual tasks (Aufgaben)
+ * - Both themes AND individual tasks can be dragged
+ * - A block can contain: 1 whole theme OR multiple individual tasks (mutually exclusive)
+ * - Themes are greyed out when assigned as a whole
+ * - Individual tasks are greyed out when assigned individually
+ * - Block order can be changed via drag & drop
+ * - Reset button per Rechtsgebiet
  */
 
 /**
@@ -37,198 +40,273 @@ const calculateLearningDays = (startDate, endDate, bufferDays, vacationDays, wee
 };
 
 /**
- * URG Tab Component (Figma style)
+ * Task Item Component (inside collapsible theme)
+ * Shows task name with drag handle
  */
-const UrgTab = ({ urg, isActive, onClick }) => {
+const TaskItem = ({ aufgabe, themaId, themaName, urgId, isAssigned, assignedBlockIndex, onDragStart }) => {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
+      draggable={!isAssigned}
+      onDragStart={(e) => !isAssigned && onDragStart(e, {
+        type: 'aufgabe',
+        aufgabe,
+        themaId,
+        themaName,
+        urgId
+      })}
       className={`
-        px-4 py-2 text-sm transition-all whitespace-nowrap
-        ${isActive
-          ? 'bg-white border border-neutral-200 rounded-lg font-medium text-neutral-900'
-          : 'text-neutral-600 hover:text-neutral-900'
+        flex items-center gap-2 py-1.5 px-2 rounded transition-all
+        ${isAssigned
+          ? 'opacity-50 cursor-default'
+          : 'cursor-grab active:cursor-grabbing hover:bg-neutral-100'
         }
       `}
     >
-      {urg.name}
-    </button>
-  );
-};
-
-/**
- * Aufgabe Item Component (matching Step 12 / Figma design)
- */
-const AufgabeItem = ({ aufgabe, onToggle, onPriorityChange, onDelete }) => {
-  return (
-    <div className="flex items-center gap-2 py-2 border-b border-neutral-100 last:border-0">
-      {/* Checkbox */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-          aufgabe.completed
-            ? 'bg-primary-600 border-primary-600'
-            : 'border-neutral-300 hover:border-neutral-400'
-        }`}
-      >
-        {aufgabe.completed && (
-          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </button>
-
-      {/* Aufgabe text */}
-      <span className={`flex-1 text-sm ${aufgabe.completed ? 'line-through text-neutral-400' : 'text-neutral-700'}`}>
-        {aufgabe.name || aufgabe.text || 'Aufgabe'}
+      {!isAssigned && <GripVertical className="w-3 h-3 text-neutral-400 flex-shrink-0" />}
+      <div className="w-3 h-3 border border-neutral-300 rounded flex-shrink-0" />
+      <span className={`text-sm flex-1 ${isAssigned ? 'line-through text-neutral-400' : 'text-neutral-700'}`}>
+        {aufgabe.name}
       </span>
-
-      {/* Priority buttons (!!) */}
-      <div className="flex gap-1">
-        <button
-          type="button"
-          onClick={() => onPriorityChange(aufgabe.priority === 1 ? 0 : 1)}
-          className={`w-6 h-6 rounded text-xs font-bold transition-all ${
-            aufgabe.priority >= 1
-              ? 'bg-amber-100 text-amber-600'
-              : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
-          }`}
-        >
-          !
-        </button>
-        <button
-          type="button"
-          onClick={() => onPriorityChange(aufgabe.priority === 2 ? 0 : 2)}
-          className={`w-6 h-6 rounded text-xs font-bold transition-all ${
-            aufgabe.priority >= 2
-              ? 'bg-red-100 text-red-600'
-              : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
-          }`}
-        >
-          !
-        </button>
-      </div>
-
-      {/* Delete button */}
-      <button
-        type="button"
-        onClick={onDelete}
-        className="p-1 text-neutral-400 hover:text-red-500 transition-colors"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      {isAssigned && (
+        <span className="text-xs bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded">
+          Block {assignedBlockIndex + 1}
+        </span>
+      )}
     </div>
   );
 };
 
 /**
- * Theme Card Component (Figma style - like Step 12)
+ * Collapsible Theme Card Component (Left Column)
+ * Shows theme name, can expand to show tasks
  */
 const ThemeCard = ({
   thema,
-  onDragStart,
-  onAufgabeToggle,
-  onAufgabePriority,
-  onAufgabeDelete,
-  onAddAufgabe
+  isFullyAssigned,
+  assignedBlockIndex,
+  assignedAufgabenMap,
+  onDragStart
 }) => {
-  const [newAufgabe, setNewAufgabe] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const aufgaben = thema.aufgaben || [];
+  const aufgabenCount = aufgaben.length;
 
-  const handleAddAufgabe = () => {
-    if (newAufgabe.trim()) {
-      onAddAufgabe(newAufgabe.trim());
-      setNewAufgabe('');
-    }
-  };
+  // Count how many tasks are individually assigned
+  const assignedCount = aufgaben.filter(a => assignedAufgabenMap.has(a.id)).length;
+  const hasPartialAssignment = assignedCount > 0 && !isFullyAssigned;
 
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, thema)}
-      className="bg-white rounded-lg border border-neutral-200 overflow-hidden cursor-grab active:cursor-grabbing"
+      className={`
+        bg-white rounded-lg border transition-all
+        ${isFullyAssigned
+          ? 'border-neutral-200 opacity-50'
+          : 'border-neutral-300'
+        }
+      `}
     >
-      {/* Theme Header */}
-      <div className="flex items-center gap-2 p-3 bg-neutral-50 border-b border-neutral-200">
-        <GripVertical className="w-4 h-4 text-neutral-400" />
-        <span className="font-medium text-neutral-900">{thema.name}</span>
-      </div>
+      {/* Theme Header - Always visible, draggable */}
+      <div
+        draggable={!isFullyAssigned && !hasPartialAssignment}
+        onDragStart={(e) => !isFullyAssigned && !hasPartialAssignment && onDragStart(e, { type: 'thema', thema })}
+        className={`
+          flex items-center gap-2 p-3
+          ${isFullyAssigned || hasPartialAssignment
+            ? 'cursor-default'
+            : 'cursor-grab active:cursor-grabbing hover:bg-neutral-50'
+          }
+        `}
+      >
+        {/* Expand/Collapse Button */}
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="p-1 hover:bg-neutral-100 rounded transition-colors"
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-neutral-500" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-neutral-500" />
+          )}
+        </button>
 
-      {/* Aufgaben List */}
-      <div className="px-3">
-        {thema.aufgaben?.map((aufgabe) => (
-          <AufgabeItem
-            key={aufgabe.id}
-            aufgabe={aufgabe}
-            onToggle={() => onAufgabeToggle(thema.id, aufgabe.id)}
-            onPriorityChange={(p) => onAufgabePriority(thema.id, aufgabe.id, p)}
-            onDelete={() => onAufgabeDelete(thema.id, aufgabe.id)}
-          />
-        ))}
-      </div>
+        {/* Drag Handle (only if draggable) */}
+        {!isFullyAssigned && !hasPartialAssignment && (
+          <GripVertical className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+        )}
 
-      {/* Add Aufgabe */}
-      <div className="p-3 border-t border-neutral-100">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={newAufgabe}
-            onChange={(e) => setNewAufgabe(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddAufgabe()}
-            placeholder="Neue Aufgabe..."
-            className="flex-1 text-sm px-2 py-1 border-0 bg-transparent focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleAddAufgabe}
-            className="flex items-center gap-1 text-sm text-neutral-500 hover:text-primary-600"
-          >
-            <Plus className="w-4 h-4" />
-            Neue Aufgabe
-          </button>
+        {/* Theme Info */}
+        <div className="flex-1 min-w-0">
+          <p className={`font-medium text-sm truncate ${isFullyAssigned ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
+            {thema.name}
+          </p>
+          <p className={`text-xs ${isFullyAssigned ? 'text-neutral-300' : hasPartialAssignment ? 'text-amber-600' : 'text-neutral-500'}`}>
+            {hasPartialAssignment
+              ? `${assignedCount}/${aufgabenCount} Aufgaben verteilt`
+              : `${aufgabenCount} ${aufgabenCount === 1 ? 'Aufgabe' : 'Aufgaben'}`
+            }
+          </p>
         </div>
+
+        {/* Badge for assigned theme */}
+        {isFullyAssigned && (
+          <span className="text-xs bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded">
+            Block {assignedBlockIndex + 1}
+          </span>
+        )}
       </div>
+
+      {/* Expanded: Show Tasks */}
+      {isExpanded && !isFullyAssigned && aufgaben.length > 0 && (
+        <div className="px-3 pb-3 border-t border-neutral-100 pt-2 space-y-1">
+          {aufgaben.map(aufgabe => (
+            <TaskItem
+              key={aufgabe.id}
+              aufgabe={aufgabe}
+              themaId={thema.id}
+              themaName={thema.name}
+              urgId={thema.urgId}
+              isAssigned={assignedAufgabenMap.has(aufgabe.id)}
+              assignedBlockIndex={assignedAufgabenMap.get(aufgabe.id)}
+              onDragStart={onDragStart}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Show info when theme is fully assigned */}
+      {isExpanded && isFullyAssigned && (
+        <div className="px-3 pb-3 border-t border-neutral-100 pt-2">
+          <p className="text-xs text-neutral-400 italic">
+            Gesamtes Thema in Block {assignedBlockIndex + 1} zugewiesen
+          </p>
+        </div>
+      )}
     </div>
   );
 };
 
 /**
  * Lernblock Card Component (Right Column)
+ * Can contain: 1 theme OR multiple individual tasks
  */
-const LernblockCard = ({ block, onRemove, onDrop }) => {
+const LernblockCard = ({
+  block,
+  index,
+  onDrop,
+  onRemoveThema,
+  onRemoveAufgabe,
+  onBlockDragStart,
+  onBlockDragOver,
+  onBlockDrop,
+  isDragOverBlock
+}) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const hasThema = block.thema !== null;
+  const hasAufgaben = (block.aufgaben || []).length > 0;
+  const isEmpty = !hasThema && !hasAufgaben;
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    // Show drop zone for theme or aufgabe drops
+    if (e.dataTransfer.types.includes('drag-type')) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    onDrop(e, block.id);
+  };
 
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-      onDragLeave={() => setIsDragOver(false)}
-      onDrop={(e) => { e.preventDefault(); setIsDragOver(false); onDrop(e, block.id); }}
+      draggable
+      onDragStart={(e) => onBlockDragStart(e, index)}
+      onDragOver={(e) => {
+        handleDragOver(e);
+        onBlockDragOver(e, index);
+      }}
+      onDragLeave={handleDragLeave}
+      onDrop={(e) => {
+        handleDrop(e);
+        onBlockDrop(e, index);
+      }}
       className={`
-        bg-white rounded-lg border-2 p-4 min-h-[120px] transition-all
-        ${isDragOver ? 'border-primary-400 bg-primary-50' : 'border-dashed border-neutral-300'}
+        rounded-lg border-2 p-3 min-h-[72px] transition-all cursor-grab active:cursor-grabbing
+        ${isDragOver && isEmpty
+          ? 'border-primary-400 bg-primary-50'
+          : isDragOverBlock
+            ? 'border-blue-400 bg-blue-50'
+            : !isEmpty
+              ? 'border-neutral-200 bg-white'
+              : 'border-dashed border-neutral-300 bg-neutral-50'
+        }
       `}
     >
-      {block.themen?.length > 0 ? (
-        <div className="space-y-2">
-          {block.themen.map((t, idx) => (
-            <div key={idx} className="flex items-center justify-between p-2 bg-neutral-50 rounded">
-              <span className="text-sm">{t.name}</span>
+      <div className="flex items-start gap-2 h-full">
+        {/* Block Number & Drag Handle */}
+        <div className="flex items-center gap-1 text-neutral-400 pt-0.5">
+          <GripVertical className="w-4 h-4" />
+          <span className="text-xs font-medium w-5">{index + 1}</span>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1">
+          {/* Theme Content */}
+          {hasThema && (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm text-neutral-900">{block.thema.name}</p>
+                <p className="text-xs text-neutral-500">
+                  {block.thema.aufgabenCount} {block.thema.aufgabenCount === 1 ? 'Aufgabe' : 'Aufgaben'}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => onRemove(block.id, t.id)}
-                className="text-neutral-400 hover:text-red-500"
+                onClick={() => onRemoveThema(block.id)}
+                className="text-neutral-400 hover:text-red-500 p-1 transition-colors"
+                title="Thema entfernen"
               >
-                <Trash2 className="w-4 h-4" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-          ))}
+          )}
+
+          {/* Individual Aufgaben Content */}
+          {hasAufgaben && (
+            <div className="space-y-1">
+              {block.aufgaben.map(aufgabe => (
+                <div key={aufgabe.id} className="flex items-center gap-2 group">
+                  <div className="w-3 h-3 border border-neutral-300 rounded flex-shrink-0" />
+                  <span className="text-sm text-neutral-700 flex-1">{aufgabe.name}</span>
+                  <span className="text-xs text-neutral-400">{aufgabe.themaName}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveAufgabe(block.id, aufgabe.id)}
+                    className="text-neutral-300 hover:text-red-500 p-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                    title="Aufgabe entfernen"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {isEmpty && (
+            <p className="text-sm text-neutral-400 italic pt-1">
+              Thema oder Aufgaben hierher ziehen
+            </p>
+          )}
         </div>
-      ) : (
-        <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
-          Themen hierher ziehen
-        </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -252,29 +330,18 @@ const Step15Lernbloecke = () => {
     updateWizardData
   } = useWizard();
 
-  // Local state for RG selection (not using currentRechtsgebietIndex since Step 15 shows all RGs)
+  // Local state for RG selection
   const [activeRgIndex, setActiveRgIndex] = useState(0);
-  const [activeUrgIndex, setActiveUrgIndex] = useState(0);
-  const [draggingThema, setDraggingThema] = useState(null);
+  const [, setDraggingItem] = useState(null); // Used only for drag state cleanup
+  const [draggingBlockIndex, setDraggingBlockIndex] = useState(null);
+  const [dragOverBlockIndex, setDragOverBlockIndex] = useState(null);
 
-  // Current RG (local state)
+  // Current RG
   const currentRgId = selectedRechtsgebiete[activeRgIndex] || selectedRechtsgebiete[0];
   const currentRgLabel = RECHTSGEBIET_LABELS[currentRgId] || currentRgId;
   const rgGewichtung = rechtsgebieteGewichtung[currentRgId] || 0;
 
-  // URGs for current RG
-  const currentUrgs = useMemo(() => {
-    return unterrechtsgebieteDraft[currentRgId] || [];
-  }, [unterrechtsgebieteDraft, currentRgId]);
-
-  const activeUrg = currentUrgs[activeUrgIndex];
-
-  // Blocks for current RG
-  const currentBlocks = useMemo(() => {
-    return lernbloeckeDraft[currentRgId] || [];
-  }, [lernbloeckeDraft, currentRgId]);
-
-  // Calculate block budget
+  // Calculate total blocks for this RG based on Gewichtung
   const learningDays = useMemo(() =>
     calculateLearningDays(startDate, endDate, bufferDays, vacationDays, weekStructure),
     [startDate, endDate, bufferDays, vacationDays, weekStructure]
@@ -285,144 +352,235 @@ const Step15Lernbloecke = () => {
     return Math.floor(learningDays * blocksPerDay * (rgGewichtung / 100));
   }, [learningDays, blocksPerDay, rgGewichtung]);
 
-  const usedBlocks = useMemo(() => {
-    return currentBlocks.reduce((sum, block) =>
-      sum + (block.themen?.length || 0), 0);
+  // Get all themes for current RG (across all URGs)
+  const allThemesForRg = useMemo(() => {
+    const themes = [];
+    const urgs = unterrechtsgebieteDraft[currentRgId] || [];
+    urgs.forEach(urg => {
+      const urgThemes = themenDraft[urg.id] || [];
+      urgThemes.forEach(theme => {
+        themes.push({
+          ...theme,
+          urgId: urg.id,
+          urgName: urg.name
+        });
+      });
+    });
+    return themes;
+  }, [currentRgId, unterrechtsgebieteDraft, themenDraft]);
+
+  // Current blocks for RG
+  const currentBlocks = useMemo(() => {
+    return lernbloeckeDraft[currentRgId] || [];
+  }, [lernbloeckeDraft, currentRgId]);
+
+  // Initialize blocks when component mounts or RG changes
+  useEffect(() => {
+    if (totalBlocksForRg > 0 && currentBlocks.length === 0) {
+      // Create empty blocks based on Gewichtung
+      const newBlocks = Array.from({ length: totalBlocksForRg }, (_, i) => ({
+        id: `block-${currentRgId}-${i}-${Date.now()}`,
+        thema: null,
+        aufgaben: []
+      }));
+      updateWizardData({
+        lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: newBlocks }
+      });
+    }
+  }, [currentRgId, totalBlocksForRg, currentBlocks.length, lernbloeckeDraft, updateWizardData]);
+
+  // Track which themes are fully assigned to blocks
+  const assignedThemeIds = useMemo(() => {
+    const assigned = new Map(); // themaId -> blockIndex
+    currentBlocks.forEach((block, index) => {
+      if (block.thema) {
+        assigned.set(block.thema.id, index);
+      }
+    });
+    return assigned;
   }, [currentBlocks]);
 
-  const availableBlocks = Math.max(0, totalBlocksForRg - usedBlocks);
-  const usedPercentage = totalBlocksForRg > 0 ? Math.round((usedBlocks / totalBlocksForRg) * 100) : 0;
-
-  // Themes for active URG
-  const activeUrgThemen = useMemo(() => {
-    if (!activeUrg) return [];
-    return themenDraft[activeUrg.id] || [];
-  }, [activeUrg, themenDraft]);
-
-  // P10 FIX: Calculate total themes for current RG (across all URGs)
-  const totalThemesForCurrentRg = useMemo(() => {
-    let count = 0;
-    currentUrgs.forEach(urg => {
-      const themes = themenDraft[urg.id] || [];
-      count += themes.length;
+  // Track which individual aufgaben are assigned to blocks
+  const assignedAufgabenIds = useMemo(() => {
+    const assigned = new Map(); // aufgabeId -> blockIndex
+    currentBlocks.forEach((block, index) => {
+      (block.aufgaben || []).forEach(aufgabe => {
+        assigned.set(aufgabe.id, index);
+      });
     });
-    return count;
-  }, [currentUrgs, themenDraft]);
+    return assigned;
+  }, [currentBlocks]);
 
-  const hasNoThemes = totalThemesForCurrentRg === 0;
+  // Stats
+  const totalThemes = allThemesForRg.length;
+  const totalAufgaben = allThemesForRg.reduce((sum, t) => sum + (t.aufgaben?.length || 0), 0);
+  const aufgabenAssigned = assignedAufgabenIds.size +
+    currentBlocks.reduce((sum, b) => sum + (b.thema?.aufgabenCount || 0), 0);
+  const filledBlocks = currentBlocks.filter(b => b.thema || (b.aufgaben || []).length > 0).length;
 
-  // Handlers
-  const handleDragStart = (e, thema) => {
-    setDraggingThema(thema);
-    e.dataTransfer.setData('text/plain', thema.id);
+  // === Drag & Drop Handlers ===
+
+  // Start dragging theme or aufgabe
+  const handleDragStart = (e, item) => {
+    setDraggingItem(item);
+    e.dataTransfer.setData('drag-type', item.type);
+    e.dataTransfer.setData('drag-data', JSON.stringify(item));
+    e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDrop = (e, blockId) => {
-    const themaId = e.dataTransfer.getData('text/plain');
-    if (!themaId || !draggingThema) return;
+  // Drop item on block
+  const handleDropOnBlock = useCallback((e, blockId) => {
+    const dragType = e.dataTransfer.getData('drag-type');
+    const dragDataStr = e.dataTransfer.getData('drag-data');
+
+    if (!dragType || !dragDataStr) return;
+
+    const dragData = JSON.parse(dragDataStr);
 
     const updatedBlocks = currentBlocks.map(block => {
-      if (block.id === blockId) {
-        if (block.themen?.find(t => t.id === themaId)) return block;
+      if (block.id !== blockId) return block;
+
+      // If block already has a theme, don't allow anything
+      if (block.thema) return block;
+
+      if (dragType === 'thema') {
+        // Dropping a theme: Only if block is empty
+        if ((block.aufgaben || []).length > 0) return block;
+
         return {
           ...block,
-          themen: [...(block.themen || []), { id: themaId, name: draggingThema.name }]
+          thema: {
+            id: dragData.thema.id,
+            name: dragData.thema.name,
+            aufgabenCount: dragData.thema.aufgaben?.length || 0,
+            urgId: dragData.thema.urgId
+          },
+          aufgaben: []
+        };
+      } else if (dragType === 'aufgabe') {
+        // Dropping an aufgabe: Add to aufgaben array
+        // Check if already in this block
+        if ((block.aufgaben || []).some(a => a.id === dragData.aufgabe.id)) {
+          return block;
+        }
+
+        return {
+          ...block,
+          aufgaben: [
+            ...(block.aufgaben || []),
+            {
+              id: dragData.aufgabe.id,
+              name: dragData.aufgabe.name,
+              themaId: dragData.themaId,
+              themaName: dragData.themaName,
+              urgId: dragData.urgId
+            }
+          ]
         };
       }
+
       return block;
     });
+
+    // Remove aufgabe from previous block if it was assigned elsewhere
+    if (dragType === 'aufgabe') {
+      updatedBlocks.forEach(block => {
+        if (block.id !== blockId && block.aufgaben) {
+          block.aufgaben = block.aufgaben.filter(a => a.id !== dragData.aufgabe.id);
+        }
+      });
+    }
 
     updateWizardData({
       lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: updatedBlocks }
     });
-    setDraggingThema(null);
-  };
+    setDraggingItem(null);
+  }, [currentBlocks, lernbloeckeDraft, currentRgId, updateWizardData]);
 
-  const handleRemoveFromBlock = (blockId, themaId) => {
+  // Remove theme from block
+  const handleRemoveThema = useCallback((blockId) => {
     const updatedBlocks = currentBlocks.map(block => {
       if (block.id === blockId) {
-        return { ...block, themen: (block.themen || []).filter(t => t.id !== themaId) };
+        return { ...block, thema: null };
       }
       return block;
     });
     updateWizardData({
       lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: updatedBlocks }
     });
-  };
+  }, [currentBlocks, lernbloeckeDraft, currentRgId, updateWizardData]);
 
-  const handleAddBlock = () => {
-    const newBlock = { id: `block-${Date.now()}`, themen: [] };
-    updateWizardData({
-      lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: [...currentBlocks, newBlock] }
-    });
-  };
-
-  // Aufgaben handlers - using IDs like Step 12
-  const handleAufgabeToggle = (themaId, aufgabeId) => {
-    if (!activeUrg) return;
-    const updatedThemen = activeUrgThemen.map(t => {
-      if (t.id === themaId) {
-        const updatedAufgaben = t.aufgaben?.map(a =>
-          a.id === aufgabeId ? { ...a, completed: !a.completed } : a
-        );
-        return { ...t, aufgaben: updatedAufgaben };
-      }
-      return t;
-    });
-    updateWizardData({
-      themenDraft: { ...themenDraft, [activeUrg.id]: updatedThemen }
-    });
-  };
-
-  const handleAufgabePriority = (themaId, aufgabeId, priority) => {
-    if (!activeUrg) return;
-    const updatedThemen = activeUrgThemen.map(t => {
-      if (t.id === themaId) {
-        const updatedAufgaben = t.aufgaben?.map(a =>
-          a.id === aufgabeId ? { ...a, priority } : a
-        );
-        return { ...t, aufgaben: updatedAufgaben };
-      }
-      return t;
-    });
-    updateWizardData({
-      themenDraft: { ...themenDraft, [activeUrg.id]: updatedThemen }
-    });
-  };
-
-  const handleAufgabeDelete = (themaId, aufgabeId) => {
-    if (!activeUrg) return;
-    const updatedThemen = activeUrgThemen.map(t => {
-      if (t.id === themaId) {
-        return { ...t, aufgaben: t.aufgaben?.filter(a => a.id !== aufgabeId) };
-      }
-      return t;
-    });
-    updateWizardData({
-      themenDraft: { ...themenDraft, [activeUrg.id]: updatedThemen }
-    });
-  };
-
-  const handleAddAufgabe = (themaId, text) => {
-    if (!activeUrg) return;
-    const updatedThemen = activeUrgThemen.map(t => {
-      if (t.id === themaId) {
+  // Remove individual aufgabe from block
+  const handleRemoveAufgabe = useCallback((blockId, aufgabeId) => {
+    const updatedBlocks = currentBlocks.map(block => {
+      if (block.id === blockId) {
         return {
-          ...t,
-          aufgaben: [...(t.aufgaben || []), { id: `aufgabe-${Date.now()}`, name: text, completed: false, priority: 0 }]
+          ...block,
+          aufgaben: (block.aufgaben || []).filter(a => a.id !== aufgabeId)
         };
       }
-      return t;
+      return block;
     });
     updateWizardData({
-      themenDraft: { ...themenDraft, [activeUrg.id]: updatedThemen }
+      lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: updatedBlocks }
+    });
+  }, [currentBlocks, lernbloeckeDraft, currentRgId, updateWizardData]);
+
+  // Block reordering drag handlers
+  const handleBlockDragStart = (e, index) => {
+    setDraggingBlockIndex(index);
+    e.dataTransfer.setData('block-index', index.toString());
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleBlockDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggingBlockIndex !== null && draggingBlockIndex !== index) {
+      setDragOverBlockIndex(index);
+    }
+  };
+
+  const handleBlockDrop = useCallback((e, targetIndex) => {
+    e.preventDefault();
+    const sourceIndex = parseInt(e.dataTransfer.getData('block-index'), 10);
+
+    if (isNaN(sourceIndex) || sourceIndex === targetIndex) {
+      setDraggingBlockIndex(null);
+      setDragOverBlockIndex(null);
+      return;
+    }
+
+    // Reorder blocks
+    const newBlocks = [...currentBlocks];
+    const [movedBlock] = newBlocks.splice(sourceIndex, 1);
+    newBlocks.splice(targetIndex, 0, movedBlock);
+
+    updateWizardData({
+      lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: newBlocks }
+    });
+
+    setDraggingBlockIndex(null);
+    setDragOverBlockIndex(null);
+  }, [currentBlocks, lernbloeckeDraft, currentRgId, updateWizardData]);
+
+  // Reset all assignments for current RG
+  const handleReset = () => {
+    const resetBlocks = currentBlocks.map(block => ({
+      ...block,
+      thema: null,
+      aufgaben: []
+    }));
+    updateWizardData({
+      lernbloeckeDraft: { ...lernbloeckeDraft, [currentRgId]: resetBlocks }
     });
   };
 
-  // Reset URG index when RG changes
+  // Handle RG change
   const handleRgChange = (newIndex) => {
     setActiveRgIndex(newIndex);
-    setActiveUrgIndex(0); // Reset URG selection when switching RGs
+    setDraggingItem(null);
+    setDraggingBlockIndex(null);
+    setDragOverBlockIndex(null);
   };
 
   return (
@@ -432,6 +590,10 @@ const Step15Lernbloecke = () => {
         {selectedRechtsgebiete.map((rgId, index) => {
           const label = RECHTSGEBIET_LABELS[rgId] || rgId;
           const isCurrent = index === activeRgIndex;
+          const rgBlocks = lernbloeckeDraft[rgId] || [];
+          const rgFilled = rgBlocks.filter(b => b.thema || (b.aufgaben || []).length > 0).length;
+          const rgTotal = rgBlocks.length;
+
           return (
             <button
               key={rgId}
@@ -444,173 +606,133 @@ const Step15Lernbloecke = () => {
               }`}
             >
               {label}
+              {rgTotal > 0 && (
+                <span className={`ml-1.5 ${isCurrent ? 'text-primary-200' : 'text-neutral-400'}`}>
+                  ({rgFilled}/{rgTotal})
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
       {/* Header */}
-      <div className="text-center mb-6">
+      <div className="text-center mb-4">
         <h1 className="text-2xl font-light text-neutral-900">
           Lernblöcke für {currentRgLabel}
         </h1>
+        <p className="text-sm text-neutral-500 mt-1">
+          Ziehe ganze Themen oder einzelne Aufgaben in die Blöcke.
+        </p>
       </div>
 
       {/* Stats Bar */}
-      <div className="flex items-center justify-center gap-6 mb-8">
-        {/* Gewichtung Badge */}
+      <div className="flex items-center justify-center gap-4 mb-6">
         <div className="px-4 py-1.5 bg-white rounded-full border border-neutral-200 text-sm">
-          Gewichtung {rgGewichtung}%
+          Gewichtung: <span className="font-medium">{rgGewichtung}%</span>
+        </div>
+        <div className="px-4 py-1.5 bg-white rounded-full border border-neutral-200 text-sm">
+          Aufgaben: <span className="font-medium">{aufgabenAssigned}/{totalAufgaben}</span>
+        </div>
+        <div className="px-4 py-1.5 bg-white rounded-full border border-neutral-200 text-sm">
+          Blöcke: <span className="font-medium">{filledBlocks}/{currentBlocks.length}</span>
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-6">
-          <div className="text-center">
-            <div className="text-xs text-neutral-500">gesamt</div>
-            <div className="text-xl font-medium">{totalBlocksForRg}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xs text-neutral-500">verbraucht</div>
-            <div className="text-xl font-medium">{usedBlocks}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xs text-neutral-500">verfügbar</div>
-            <div className="text-xl font-medium">{availableBlocks}</div>
-          </div>
-        </div>
-
-        {/* Progress */}
-        <div className="w-40">
-          <div className="text-xs text-neutral-500 mb-1">{usedPercentage}% verbraucht</div>
-          <div className="h-1.5 bg-neutral-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-neutral-800 transition-all"
-              style={{ width: `${Math.min(100, usedPercentage)}%` }}
-            />
-          </div>
-        </div>
+        {/* Reset Button */}
+        {filledBlocks > 0 && (
+          <button
+            type="button"
+            onClick={handleReset}
+            className="px-4 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors flex items-center gap-1"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Zurücksetzen
+          </button>
+        )}
       </div>
 
-      {/* P10 FIX: Warning when no themes exist */}
-      {hasNoThemes && (
-        <div className="mb-6 p-4 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-amber-900">
-              Keine Themen für {currentRgLabel}
-            </p>
-            <p className="text-sm text-amber-700">
-              Du hast noch keine Themen für dieses Rechtsgebiet erstellt.
-              Gehe zurück zu Schritt 12, um Themen hinzuzufügen.
-            </p>
-          </div>
+      {/* Hints */}
+      {totalAufgaben === 0 && (
+        <div className="mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800">
+            Keine Themen vorhanden. Gehe zurück zu Schritt 12 um Themen hinzuzufügen.
+          </p>
         </div>
       )}
 
-      {/* Separator Line */}
-      <div className="border-t border-neutral-200 mb-6" />
-
-      {/* URG Tabs */}
-      <div className="flex flex-wrap items-center gap-1 mb-2">
-        {currentUrgs.map((urg, index) => (
-          <UrgTab
-            key={urg.id}
-            urg={urg}
-            isActive={index === activeUrgIndex}
-            onClick={() => setActiveUrgIndex(index)}
-          />
-        ))}
-      </div>
-
-      {/* URGs anpassen link */}
-      <button
-        type="button"
-        className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 mb-6"
-      >
-        <Pencil className="w-3.5 h-3.5" />
-        URGs anpassen
-      </button>
-
-      {/* Instruction */}
-      <p className="text-center text-neutral-600 mb-8">
-        Erstelle Lernblöcke und bringe alle Themen darin unter.
-      </p>
+      {currentBlocks.length - filledBlocks > 0 && filledBlocks > 0 && (
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-start gap-2">
+          <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-800">
+            <span className="font-medium">{currentBlocks.length - filledBlocks} {(currentBlocks.length - filledBlocks) === 1 ? 'Block' : 'Blöcke'}</span> noch frei.
+          </p>
+        </div>
+      )}
 
       {/* Two Column Layout */}
-      <div className="flex-1 grid grid-cols-[1fr_auto_1fr] gap-4 min-h-0">
-        {/* Left Column: Meine Themen */}
+      <div className="flex-1 grid grid-cols-2 gap-6 min-h-0">
+        {/* Left Column: Themes (Collapsible) */}
         <div className="flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-neutral-900">Meine Themen</h2>
-            <button
-              type="button"
-              className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Themen anpassen
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            {activeUrgThemen.length > 0 ? (
-              activeUrgThemen.map(thema => (
+          <h2 className="text-sm font-medium text-neutral-700 mb-3">
+            Meine Themen ({totalThemes})
+          </h2>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+            {allThemesForRg.length > 0 ? (
+              allThemesForRg.map(thema => (
                 <ThemeCard
                   key={thema.id}
                   thema={thema}
+                  isFullyAssigned={assignedThemeIds.has(thema.id)}
+                  assignedBlockIndex={assignedThemeIds.get(thema.id)}
+                  assignedAufgabenMap={assignedAufgabenIds}
                   onDragStart={handleDragStart}
-                  onAufgabeToggle={handleAufgabeToggle}
-                  onAufgabePriority={handleAufgabePriority}
-                  onAufgabeDelete={handleAufgabeDelete}
-                  onAddAufgabe={(text) => handleAddAufgabe(thema.id, text)}
                 />
               ))
             ) : (
-              <div className="p-8 bg-neutral-50 rounded-lg text-center text-neutral-500">
-                Keine Themen für dieses Unterrechtsgebiet.
+              <div className="p-6 bg-neutral-50 rounded-lg text-center text-neutral-500 text-sm">
+                Keine Themen vorhanden.
+                <br />
+                <span className="text-xs">Gehe zurück zu Schritt 12.</span>
               </div>
             )}
-
-            {/* Add Theme button */}
-            <button
-              type="button"
-              className="w-full py-3 border-2 border-dashed border-neutral-300 rounded-lg text-neutral-500 hover:border-neutral-400 hover:text-neutral-600 transition-colors flex items-center justify-center gap-2"
-            >
-              Neues Thema hinzufügen
-              <Plus className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
-        {/* Arrow */}
-        <div className="flex items-center justify-center px-4">
-          <ChevronRight className="w-8 h-8 text-neutral-300" />
-        </div>
-
-        {/* Right Column: Meine Lernblöcke */}
+        {/* Right Column: Blocks */}
         <div className="flex flex-col min-h-0">
-          <div className="mb-4">
-            <h2 className="text-lg font-medium text-neutral-900">Meine Lernblöcke</h2>
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            {currentBlocks.map(block => (
-              <LernblockCard
-                key={block.id}
-                block={block}
-                onRemove={handleRemoveFromBlock}
-                onDrop={handleDrop}
-              />
-            ))}
-
-            {/* Add Block button */}
-            <button
-              type="button"
-              onClick={handleAddBlock}
-              className="w-full py-4 border-2 border-dashed border-neutral-300 rounded-lg text-neutral-500 hover:border-neutral-400 hover:text-neutral-600 transition-colors flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Neuer Lernblock
-            </button>
+          <h2 className="text-sm font-medium text-neutral-700 mb-3">
+            Lernblöcke ({currentBlocks.length})
+          </h2>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+            {currentBlocks.length > 0 ? (
+              currentBlocks.map((block, index) => (
+                <LernblockCard
+                  key={block.id}
+                  block={block}
+                  index={index}
+                  onDrop={handleDropOnBlock}
+                  onRemoveThema={handleRemoveThema}
+                  onRemoveAufgabe={handleRemoveAufgabe}
+                  onBlockDragStart={handleBlockDragStart}
+                  onBlockDragOver={handleBlockDragOver}
+                  onBlockDrop={handleBlockDrop}
+                  isDragOverBlock={dragOverBlockIndex === index}
+                />
+              ))
+            ) : totalBlocksForRg === 0 ? (
+              <div className="p-6 bg-amber-50 rounded-lg text-center border border-amber-200">
+                <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+                <p className="text-sm text-amber-800 font-medium">Keine Blöcke verfügbar</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Setze in Schritt 14 eine Gewichtung für {currentRgLabel}.
+                </p>
+              </div>
+            ) : (
+              <div className="p-6 bg-neutral-50 rounded-lg text-center text-neutral-500 text-sm">
+                Blöcke werden geladen...
+              </div>
+            )}
           </div>
         </div>
       </div>

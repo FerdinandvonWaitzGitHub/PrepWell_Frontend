@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWizardDraftSync } from '../../../hooks/use-supabase-sync';
 import { useCalendar } from '../../../contexts/calendar-context';
+import { useAuth } from '../../../contexts/auth-context';
 
 /**
  * Lernplan Wizard Context
@@ -161,6 +162,9 @@ export const WizardProvider = ({ children }) => {
   // Calendar context for saving slots directly
   const { setCalendarData } = useCalendar();
 
+  // Auth context for session/token
+  const { session } = useAuth();
+
   // Use Supabase sync hook for wizard drafts
   const {
     draft: syncedDraft,
@@ -282,8 +286,7 @@ export const WizardProvider = ({ children }) => {
         currentRechtsgebietIndex,
         rechtsgebieteProgress,
         themenProgress,
-        currentBlockRgIndex,
-        blockRgProgress,
+        // currentBlockRgIndex and blockRgProgress reserved for future use
       } = prev;
 
       // Default: just increment
@@ -350,28 +353,9 @@ export const WizardProvider = ({ children }) => {
           return { ...prev, ...updates };
         }
 
-        // === Blocks Loop (Steps 17-19) ===
-        if (currentStep === 19) {
-          // Step 19: Lernplanblöcke complete - mark current RG blocks as complete
-          const currentRg = selectedRechtsgebiete[currentBlockRgIndex];
-          const newBlockProgress = { ...blockRgProgress, [currentRg]: true };
-          updates.blockRgProgress = newBlockProgress;
-
-          // Check if all RGs have blocks configured
-          const allBlocksConfigured = selectedRechtsgebiete.every(rgId => newBlockProgress[rgId]);
-
-          if (!allBlocksConfigured) {
-            // Find next RG without blocks
-            const nextUnconfiguredIndex = selectedRechtsgebiete.findIndex(
-              rgId => !newBlockProgress[rgId]
-            );
-            if (nextUnconfiguredIndex !== -1) {
-              updates.currentBlockRgIndex = nextUnconfiguredIndex;
-              updates.currentStep = 17; // Go back to RG selection for blocks
-              return { ...prev, ...updates };
-            }
-          }
-          // All RGs have blocks - proceed to Step 20 (Verteilungsmodus)
+        // Step 15: Lernblöcke - skip directly to Step 20 (Verteilungsmodus)
+        // Steps 16-19 have been removed - block editing is now consolidated in Step 15
+        if (currentStep === 15) {
           updates.currentStep = 20;
           return { ...prev, ...updates };
         }
@@ -500,9 +484,16 @@ export const WizardProvider = ({ children }) => {
         // Keep blocks, just allow re-weighting
         // No cleanup needed
 
+        // Going back from Step 20 to Step 15 (skip Steps 16-19 which were removed)
+        if (prev.currentStep === 20) {
+          updates.currentStep = 15;
+          updates.generatedCalendar = [];
+          return { ...prev, ...updates };
+        }
+
         // Going back from Step 20+ to earlier steps
         // Reset calendar preview so it regenerates
-        if (prev.currentStep >= 20 && newStep < 20) {
+        if (prev.currentStep > 20 && newStep < 20) {
           updates.generatedCalendar = [];
         }
       }
@@ -548,16 +539,14 @@ export const WizardProvider = ({ children }) => {
         }
         // Manual path validation for steps 7-10
         return validateManualStep(currentStep);
-      // Manual path only: steps 11-22
+      // Manual path only: steps 11-22 (16-19 removed)
       case 11:
       case 12:
       case 13:
       case 14:
       case 15:
-      case 16:
-      case 17:
-      case 18:
-      case 19:
+      // case 16-19: removed - block editing consolidated in Step 15
+      // falls through
       case 20:
       case 21:
       case 22:
@@ -580,9 +569,7 @@ export const WizardProvider = ({ children }) => {
       unterrechtsgebieteDraft,
       themenDraft,
       rechtsgebieteGewichtung,
-      currentBlockRgIndex,
       lernbloeckeDraft,
-      // Note: lernplanBloecke removed - see WIZARD_DATA_ISSUES.md P1
       verteilungsmodus,
     } = wizardState;
 
@@ -646,36 +633,14 @@ export const WizardProvider = ({ children }) => {
 
       case 15: {
         // Step 15: Lernblöcke erstellen - at least one block must exist
-        // Users should create blocks and assign themes before proceeding
+        // Users should create blocks and assign themes/tasks before proceeding
         const hasAnyBlocks = Object.values(lernbloeckeDraft).some(
           blocks => blocks && blocks.length > 0
         );
         return hasAnyBlocks;
       }
 
-      case 16:
-        // Step 16: Blöcke intro - always valid
-        return true;
-
-      case 17:
-        // Step 17: RG selection for blocks - must have valid selection
-        return selectedRechtsgebiete.length > 0 && currentBlockRgIndex >= 0;
-
-      case 18: {
-        // Step 18: Lernblöcke edit - current RG must have at least one block
-        const currentRgForBlocks = selectedRechtsgebiete[currentBlockRgIndex];
-        const blocks = lernbloeckeDraft[currentRgForBlocks] || [];
-        return blocks.length > 0;
-      }
-
-      case 19: {
-        // Step 19: Lernplanblöcke
-        // NOTE: Using lernbloeckeDraft for validation (same as Step 21 calendar generation)
-        // lernplanBloecke is currently not used by Step 21 - see WIZARD_DATA_ISSUES.md P1
-        const currentRgForLpBlocks = selectedRechtsgebiete[currentBlockRgIndex];
-        const blocks = lernbloeckeDraft[currentRgForLpBlocks] || [];
-        return blocks.length > 0;
-      }
+      // Steps 16-19 removed - block editing is now consolidated in Step 15
 
       case 20:
         // Step 20: Verteilungsmodus must be selected
@@ -714,6 +679,7 @@ export const WizardProvider = ({ children }) => {
   }, [wizardState.returnPath, navigate, clearDraftFromSupabase]);
 
   // Complete wizard - sends data to API
+  // UNIFIED DATA MODEL: API writes directly to Supabase when authenticated
   const completeWizard = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -724,45 +690,58 @@ export const WizardProvider = ({ children }) => {
         ? 'http://localhost:3010/api/wizard/complete'
         : '/api/wizard/complete';
 
-      // Sende Wizard-Daten an API
+      // Prepare request headers
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add Authorization header if authenticated (for Supabase mode)
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      // Build wizardData object matching API WizardDraft type
+      const wizardData = {
+        currentStep: wizardState.currentStep,
+        totalSteps: wizardState.totalSteps,
+        // Core settings (Steps 1-5)
+        startDate: wizardState.startDate,
+        endDate: wizardState.endDate,
+        bufferDays: wizardState.bufferDays ?? 0,
+        vacationDays: wizardState.vacationDays ?? 0,
+        blocksPerDay: wizardState.blocksPerDay,
+        weekStructure: wizardState.weekStructure,
+        // Step 6: Creation method
+        creationMethod: wizardState.creationMethod,
+        // Template/AI paths
+        selectedTemplate: wizardState.selectedTemplate,
+        unterrechtsgebieteOrder: wizardState.unterrechtsgebieteOrder,
+        learningDaysOrder: wizardState.learningDaysOrder,
+        adjustments: wizardState.adjustments,
+        returnPath: wizardState.returnPath,
+        // === Manual Path Data (Steps 7-22) ===
+        // Step 7: Selected Rechtsgebiete
+        selectedRechtsgebiete: wizardState.selectedRechtsgebiete,
+        // Step 9: URGs per Rechtsgebiet
+        unterrechtsgebieteDraft: wizardState.unterrechtsgebieteDraft,
+        // Step 12: Themen & Aufgaben per URG
+        themenDraft: wizardState.themenDraft,
+        // Step 14: Gewichtung (optional)
+        rechtsgebieteGewichtung: wizardState.rechtsgebieteGewichtung,
+        // Steps 15-19: Lernblöcke (consolidated into lernbloeckeDraft)
+        lernbloeckeDraft: wizardState.lernbloeckeDraft,
+        // Step 20: Distribution mode
+        verteilungsmodus: wizardState.verteilungsmodus,
+      };
+
+      // Send data to API in expected format
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
-          title: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
-          // Core settings (Steps 1-5)
-          startDate: wizardState.startDate,
-          endDate: wizardState.endDate,
-          bufferDays: wizardState.bufferDays ?? 0,
-          vacationDays: wizardState.vacationDays ?? 0,
-          blocksPerDay: wizardState.blocksPerDay,
-          weekStructure: wizardState.weekStructure,
-          // Step 6: Creation method
-          creationMethod: wizardState.creationMethod,
-          // Template/AI paths
-          selectedTemplate: wizardState.selectedTemplate,
-          aiSettings: wizardState.aiSettings,
-          unterrechtsgebieteOrder: wizardState.unterrechtsgebieteOrder,
-          learningDaysOrder: wizardState.learningDaysOrder,
-          adjustments: wizardState.adjustments,
-          // === Manual Path Data (Steps 7-22) ===
-          // Step 7: URG mode and selected Rechtsgebiete
-          urgCreationMode: wizardState.urgCreationMode,
-          selectedRechtsgebiete: wizardState.selectedRechtsgebiete,
-          // Step 9: URGs per Rechtsgebiet
-          unterrechtsgebieteDraft: wizardState.unterrechtsgebieteDraft,
-          // Step 12: Themen & Aufgaben per URG
-          themenDraft: wizardState.themenDraft,
-          // Step 14: Gewichtung (optional)
-          rechtsgebieteGewichtung: wizardState.rechtsgebieteGewichtung,
-          // Steps 15-19: Lernblöcke (consolidated into lernbloeckeDraft)
-          lernbloeckeDraft: wizardState.lernbloeckeDraft,
-          // Step 20: Distribution mode
-          verteilungsmodus: wizardState.verteilungsmodus,
-          // Step 21: Generated calendar preview
-          generatedCalendar: wizardState.generatedCalendar,
+          wizardData,
+          lernplanTitle: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
+          lernplanDescription: '',
         }),
       });
 
@@ -772,7 +751,11 @@ export const WizardProvider = ({ children }) => {
         throw new Error(result.error || 'Lernplan konnte nicht erstellt werden');
       }
 
-      console.log('✅ Lernplan erstellt:', result.lernplanId);
+      // Handle response based on storage mode
+      const storageMode = result.data?.storage || 'unknown';
+      const lernplanId = result.data?.contentPlan?.id || result.data?.lernplan?.id;
+
+      console.log(`✅ Lernplan erstellt (${storageMode}):`, lernplanId);
 
       // Clear draft after successful creation (from both localStorage and Supabase)
       await clearDraftFromSupabase();
@@ -780,12 +763,13 @@ export const WizardProvider = ({ children }) => {
       // Reset state
       setWizardState(initialWizardState);
 
-      // Navigate to the Lernplan overview (detail page not yet implemented)
-      navigate('/lernplan', {
+      // Navigate to the calendar month view (blocks are now in Supabase)
+      navigate('/kalender/monat', {
         state: {
           lernplanCreated: true,
-          lernplanId: result.lernplanId,
-          message: result.message,
+          lernplanId,
+          storageMode,
+          message: `Lernplan wurde erstellt mit ${result.data?.blocksCount || result.data?.slotsCount || 0} Blöcken.`,
         }
       });
     } catch (err) {
@@ -793,7 +777,7 @@ export const WizardProvider = ({ children }) => {
       setError(err.message || 'Ein Fehler ist aufgetreten');
       setIsLoading(false);
     }
-  }, [wizardState, navigate, clearDraftFromSupabase]);
+  }, [wizardState, navigate, clearDraftFromSupabase, session]);
 
   // Check if there's a saved draft (uses synced state)
   const hasDraft = useCallback(() => {

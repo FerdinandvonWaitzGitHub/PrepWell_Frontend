@@ -35,10 +35,7 @@ import Step12ThemenEdit from './steps/step-12-themen-edit';
 // Step 13 removed - skipped in wizard flow (see wizard-context.jsx)
 import Step14Gewichtung from './steps/step-14-gewichtung';
 import Step15Lernbloecke from './steps/step-15-lernbloecke';
-import Step16BloeckeIntro from './steps/step-16-bloecke-intro';
-import Step17RgBloeckeSelect from './steps/step-17-rg-bloecke-select';
-import Step18BloeckeEdit from './steps/step-18-bloecke-edit';
-import Step19LernplanBloecke from './steps/step-19-lernplan-bloecke';
+// Steps 16-19 removed - block editing now happens in Step 15
 import Step20Verteilungsmodus from './steps/step-20-verteilungsmodus';
 import Step21KalenderVorschau from './steps/step-21-kalender-vorschau';
 import Step22Bestaetigung from './steps/step-22-bestaetigung';
@@ -185,14 +182,7 @@ const WizardContent = () => {
           return <Step14Gewichtung />;
         case 15:
           return <Step15Lernbloecke />;
-        case 16:
-          return <Step16BloeckeIntro />;
-        case 17:
-          return <Step17RgBloeckeSelect />;
-        case 18:
-          return <Step18BloeckeEdit />;
-        case 19:
-          return <Step19LernplanBloecke />;
+        // Steps 16-19 removed - block editing now consolidated in Step 15
         case 20:
           return <Step20Verteilungsmodus />;
         case 21:

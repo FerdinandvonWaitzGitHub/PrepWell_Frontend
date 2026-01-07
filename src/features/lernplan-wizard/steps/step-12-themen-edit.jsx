@@ -8,20 +8,102 @@ import {
   ChevronDown,
   ChevronRight,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 
 /**
  * Step 12: Themen & Aufgaben Editor
- * Based on Figma design: Shows URG tabs, themes with tasks (Aufgaben)
  *
- * Structure:
- * - Header shows current RG name
- * - URG tabs to switch between Unterrechtsgebiete
- * - Each theme has a list of Aufgaben (tasks)
- * - Can add/remove themes and Aufgaben
+ * Navigation Logic:
+ * - Always starts at first RG (index 0)
+ * - "Weiter" button navigates to NEXT RG (not next step)
+ * - Only when on LAST RG and clicking "Weiter": validate all URGs
+ * - Show popup dialog if any URGs are missing themes
+ * - "Zurück" button goes to previous RG or Step 11
  */
+
+/**
+ * Validation Dialog Component
+ */
+const ValidationDialog = ({ isOpen, onClose, onProceed, incompleteUrgs }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+      />
+
+      {/* Dialog */}
+      <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 rounded-full">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-neutral-900">
+              Unvollständige Unterrechtsgebiete
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-neutral-400 hover:text-neutral-600 rounded transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4">
+          <p className="text-sm text-neutral-600 mb-4">
+            Folgende Unterrechtsgebiete haben noch keine Themen:
+          </p>
+
+          <div className="max-h-60 overflow-y-auto space-y-2">
+            {incompleteUrgs.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-2 p-2 bg-amber-50 rounded-lg"
+              >
+                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <div className="text-sm">
+                  <span className="font-medium text-neutral-900">{item.rgLabel}</span>
+                  <span className="text-neutral-500"> → </span>
+                  <span className="text-neutral-700">{item.urgName}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 p-4 border-t border-neutral-200 bg-neutral-50">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-neutral-300 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-100 transition-colors"
+          >
+            Bearbeiten
+          </button>
+          <button
+            type="button"
+            onClick={onProceed}
+            className="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
+          >
+            Trotzdem weiter
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /**
  * URG Tab Component
@@ -57,7 +139,6 @@ const UrgTab = ({ urg, isActive, onClick, themenCount }) => {
 const AufgabeItem = ({ aufgabe, onToggle, onTogglePriority, onDelete }) => {
   return (
     <div className="flex items-center gap-3 py-2 group">
-      {/* Checkbox */}
       <label className="flex items-center cursor-pointer">
         <input
           type="checkbox"
@@ -70,10 +151,8 @@ const AufgabeItem = ({ aufgabe, onToggle, onTogglePriority, onDelete }) => {
         </span>
       </label>
 
-      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Priority buttons */}
       <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
         <button
           type="button"
@@ -101,7 +180,6 @@ const AufgabeItem = ({ aufgabe, onToggle, onTogglePriority, onDelete }) => {
         </button>
       </div>
 
-      {/* Delete button */}
       <button
         type="button"
         onClick={() => onDelete(aufgabe.id)}
@@ -142,9 +220,7 @@ const ThemaCard = ({
 
   return (
     <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-      {/* Theme Header */}
       <div className="flex items-center gap-3 p-4 border-b border-neutral-100">
-        {/* Collapse/Expand button */}
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
@@ -157,17 +233,14 @@ const ThemaCard = ({
           )}
         </button>
 
-        {/* Theme title */}
         <h4 className="flex-1 text-base font-medium text-neutral-900">
           {thema.name}
         </h4>
 
-        {/* Aufgaben count badge */}
         <span className="px-2 py-0.5 bg-neutral-100 text-neutral-500 text-xs rounded-full">
           {thema.aufgaben?.length || 0} Aufgaben
         </span>
 
-        {/* Delete theme button */}
         <button
           type="button"
           onClick={onDeleteThema}
@@ -178,10 +251,8 @@ const ThemaCard = ({
         </button>
       </div>
 
-      {/* Theme Content (Aufgaben) */}
       {isExpanded && (
         <div className="p-4">
-          {/* Aufgaben list */}
           <div className="space-y-1">
             {thema.aufgaben && thema.aufgaben.length > 0 ? (
               thema.aufgaben.map((aufgabe) => (
@@ -200,7 +271,6 @@ const ThemaCard = ({
             )}
           </div>
 
-          {/* Add Aufgabe */}
           <div className="mt-3 flex items-center gap-2">
             <input
               type="text"
@@ -232,31 +302,39 @@ const ThemaCard = ({
 const Step12ThemenEdit = () => {
   const {
     selectedRechtsgebiete,
-    currentRechtsgebietIndex,
     unterrechtsgebieteDraft,
     themenDraft,
     updateWizardData,
-    prevStep
+    goToStep,
+    nextStep
   } = useWizard();
 
+  // LOCAL state for RG navigation within Step 12
+  const [localRgIndex, setLocalRgIndex] = useState(0);
   const [activeUrgIndex, setActiveUrgIndex] = useState(0);
   const [newThemaName, setNewThemaName] = useState('');
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [incompleteUrgs, setIncompleteUrgs] = useState([]);
 
-  // Current Rechtsgebiet
-  const currentRgId = selectedRechtsgebiete[currentRechtsgebietIndex] || selectedRechtsgebiete[0];
+  // Reset to first RG when entering Step 12
+  useEffect(() => {
+    setLocalRgIndex(0);
+    setActiveUrgIndex(0);
+  }, []);
+
+  // Current Rechtsgebiet (from local state, NOT wizard context)
+  const currentRgId = selectedRechtsgebiete[localRgIndex] || selectedRechtsgebiete[0];
   const currentRgLabel = RECHTSGEBIET_LABELS[currentRgId] || currentRgId;
 
-  // URGs for current RG - memoized to avoid dependency issues
+  // URGs for current RG
   const currentUrgs = useMemo(() => {
     return unterrechtsgebieteDraft[currentRgId] || [];
   }, [unterrechtsgebieteDraft, currentRgId]);
 
   const activeUrg = currentUrgs[activeUrgIndex];
-
-  // Themes for active URG
   const activeUrgThemen = activeUrg ? (themenDraft[activeUrg.id] || []) : [];
 
-  // Calculate theme counts
+  // Calculate theme counts per URG
   const themenCountsPerUrg = useMemo(() => {
     const counts = {};
     for (const urg of currentUrgs) {
@@ -265,7 +343,7 @@ const Step12ThemenEdit = () => {
     return counts;
   }, [currentUrgs, themenDraft]);
 
-  // Calculate theme counts per RG for validation
+  // Calculate theme counts per RG
   const themenCountsPerRg = useMemo(() => {
     const counts = {};
     for (const rgId of selectedRechtsgebiete) {
@@ -284,7 +362,70 @@ const Step12ThemenEdit = () => {
     setActiveUrgIndex(0);
   }, [currentRgId]);
 
-  // === Theme operations ===
+  // Find all incomplete URGs (no themes)
+  const findIncompleteUrgs = () => {
+    const incomplete = [];
+    for (const rgId of selectedRechtsgebiete) {
+      const rgLabel = RECHTSGEBIET_LABELS[rgId] || rgId;
+      const urgs = unterrechtsgebieteDraft[rgId] || [];
+      for (const urg of urgs) {
+        const themes = themenDraft[urg.id] || [];
+        if (themes.length === 0) {
+          incomplete.push({
+            rgId,
+            rgLabel,
+            urgId: urg.id,
+            urgName: urg.name
+          });
+        }
+      }
+    }
+    return incomplete;
+  };
+
+  // === Custom Navigation Handlers ===
+
+  // Handle "Weiter" button
+  const handleWeiter = () => {
+    const isLastRg = localRgIndex === selectedRechtsgebiete.length - 1;
+
+    if (isLastRg) {
+      // On last RG: validate all URGs
+      const incomplete = findIncompleteUrgs();
+      if (incomplete.length > 0) {
+        setIncompleteUrgs(incomplete);
+        setShowValidationDialog(true);
+      } else {
+        // All complete, proceed to next step
+        proceedToNextStep();
+      }
+    } else {
+      // Not last RG: go to next RG
+      setLocalRgIndex(prev => prev + 1);
+    }
+  };
+
+  // Handle "Zurück" button
+  const handleZurueck = () => {
+    if (localRgIndex > 0) {
+      // Go to previous RG
+      setLocalRgIndex(prev => prev - 1);
+    } else {
+      // On first RG: go to Step 11
+      goToStep(11);
+    }
+  };
+
+  // Proceed to next step (Step 14, skipping Step 13)
+  const proceedToNextStep = () => {
+    setShowValidationDialog(false);
+    // Update wizard context index before leaving
+    updateWizardData({ currentRechtsgebietIndex: 0 });
+    // Use nextStep which handles the skip to Step 14
+    nextStep();
+  };
+
+  // === Theme Operations ===
   const handleAddThema = () => {
     if (!activeUrg || !newThemaName.trim()) return;
     const currentThemen = themenDraft[activeUrg.id] || [];
@@ -313,7 +454,7 @@ const Step12ThemenEdit = () => {
     });
   };
 
-  // === Aufgabe operations ===
+  // === Aufgabe Operations ===
   const handleAddAufgabe = (themaId, aufgabe) => {
     if (!activeUrg) return;
     const currentThemen = themenDraft[activeUrg.id] || [];
@@ -386,35 +527,46 @@ const Step12ThemenEdit = () => {
     });
   };
 
-  // Calculate RG progress for display
-  const rgProgress = currentRechtsgebietIndex + 1;
+  // Progress display
+  const rgProgress = localRgIndex + 1;
   const rgTotal = selectedRechtsgebiete.length;
+  const isLastRg = localRgIndex === selectedRechtsgebiete.length - 1;
 
   return (
     <div className="flex flex-col h-full">
-      {/* RG Tabs - Clickable to switch between RGs */}
+      {/* Validation Dialog */}
+      <ValidationDialog
+        isOpen={showValidationDialog}
+        onClose={() => setShowValidationDialog(false)}
+        onProceed={proceedToNextStep}
+        incompleteUrgs={incompleteUrgs}
+      />
+
+      {/* RG Tabs - Shows all RGs, current one highlighted */}
       <div className="mb-4 flex items-center justify-center gap-2">
         {selectedRechtsgebiete.map((rgId, index) => {
           const label = RECHTSGEBIET_LABELS[rgId] || rgId;
-          const isCurrent = index === currentRechtsgebietIndex;
+          const isCurrent = index === localRgIndex;
           const rgThemenCount = themenCountsPerRg[rgId] || 0;
+          const isPast = index < localRgIndex;
+
           return (
             <button
               key={rgId}
               type="button"
-              onClick={() => updateWizardData({ currentRechtsgebietIndex: index })}
+              onClick={() => setLocalRgIndex(index)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                 isCurrent
                   ? 'bg-primary-600 text-white'
-                  : rgThemenCount > 0
+                  : isPast && rgThemenCount > 0
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
               }`}
             >
               {label}
               {rgThemenCount > 0 && !isCurrent && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-green-200 text-green-800 rounded-full">
-                  {rgThemenCount}
+                <span className="ml-1.5">
+                  <CheckCircle2 className="w-3 h-3 inline" />
                 </span>
               )}
             </button>
@@ -454,7 +606,7 @@ const Step12ThemenEdit = () => {
       <div className="mb-6 flex justify-center">
         <button
           type="button"
-          onClick={() => prevStep()}
+          onClick={() => goToStep(9)}
           className="flex items-center gap-2 text-neutral-500 hover:text-neutral-700 text-sm transition-colors"
         >
           <Pencil className="w-4 h-4" />
@@ -464,13 +616,11 @@ const Step12ThemenEdit = () => {
 
       {/* Main Content */}
       {currentUrgs.length > 0 && activeUrg ? (
-        <div className="flex-1">
-          {/* Section Title */}
+        <div className="flex-1 overflow-y-auto">
           <h2 className="text-lg font-medium text-neutral-900 mb-4 text-center">
             Meine Themen
           </h2>
 
-          {/* Theme Cards */}
           <div className="space-y-4 mb-6">
             {activeUrgThemen.length > 0 ? (
               activeUrgThemen.map((thema) => (
@@ -493,7 +643,7 @@ const Step12ThemenEdit = () => {
             )}
           </div>
 
-          {/* Add Theme - Inline Input */}
+          {/* Add Theme Input */}
           <div className="flex items-center gap-2 max-w-md mx-auto">
             <input
               type="text"
@@ -522,7 +672,7 @@ const Step12ThemenEdit = () => {
             </p>
             <button
               type="button"
-              onClick={() => prevStep()}
+              onClick={() => goToStep(9)}
               className="mt-4 text-primary-600 hover:text-primary-700 text-sm font-medium"
             >
               Zurück zu den Unterrechtsgebieten
@@ -531,12 +681,10 @@ const Step12ThemenEdit = () => {
         </div>
       )}
 
-      {/* Validation Feedback - for CURRENT RG only */}
+      {/* Status Bar */}
       {(() => {
-        // Count themes for current RG
         const currentRgThemenCount = themenCountsPerRg[currentRgId] || 0;
         const currentRgHasThemes = currentRgThemenCount > 0;
-        const isLastRg = currentRechtsgebietIndex === selectedRechtsgebiete.length - 1;
 
         return (
           <div className={`mt-6 p-4 rounded-lg flex items-start gap-3 ${
@@ -547,14 +695,14 @@ const Step12ThemenEdit = () => {
             {currentRgHasThemes ? (
               <>
                 <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-medium text-green-900">
                     {currentRgThemenCount} {currentRgThemenCount === 1 ? 'Thema' : 'Themen'} für {currentRgLabel}
                   </p>
                   <p className="text-sm text-green-700">
                     {isLastRg
-                      ? 'Du kannst jetzt fortfahren!'
-                      : `Klicke auf "Weiter" um zum nächsten Rechtsgebiet zu gelangen.`
+                      ? 'Klicke auf "Weiter" um fortzufahren.'
+                      : `Klicke auf "Weiter" um zu ${RECHTSGEBIET_LABELS[selectedRechtsgebiete[localRgIndex + 1]] || 'nächstes RG'} zu gelangen.`
                     }
                   </p>
                 </div>
@@ -562,7 +710,7 @@ const Step12ThemenEdit = () => {
             ) : (
               <>
                 <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-medium text-amber-900">
                     Noch keine Themen für {currentRgLabel}
                   </p>
@@ -575,6 +723,40 @@ const Step12ThemenEdit = () => {
           </div>
         );
       })()}
+
+      {/* Custom Navigation Buttons */}
+      <div className="mt-6 flex justify-between items-center pt-4 border-t border-neutral-200">
+        <button
+          type="button"
+          onClick={handleZurueck}
+          className="px-6 py-2.5 border border-neutral-300 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-50 transition-colors"
+        >
+          Zurück
+        </button>
+
+        <div className="flex items-center gap-2 text-sm text-neutral-500">
+          {selectedRechtsgebiete.map((_, index) => (
+            <div
+              key={index}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                index === localRgIndex
+                  ? 'bg-primary-600'
+                  : index < localRgIndex
+                    ? 'bg-green-500'
+                    : 'bg-neutral-300'
+              }`}
+            />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleWeiter}
+          className="px-6 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
+        >
+          {isLastRg ? 'Weiter' : `Weiter zu ${RECHTSGEBIET_LABELS[selectedRechtsgebiete[localRgIndex + 1]] || 'Nächstes'}`}
+        </button>
+      </div>
     </div>
   );
 };
