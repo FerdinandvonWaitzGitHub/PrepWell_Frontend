@@ -157,13 +157,13 @@ const ThemeCard = ({
 
       {/* Aufgaben List */}
       <div className="px-3">
-        {thema.aufgaben?.map((aufgabe, idx) => (
+        {thema.aufgaben?.map((aufgabe) => (
           <AufgabeItem
-            key={aufgabe.id || idx}
+            key={aufgabe.id}
             aufgabe={aufgabe}
-            onToggle={() => onAufgabeToggle(thema.id, aufgabe.id || idx)}
-            onPriorityChange={(p) => onAufgabePriority(thema.id, aufgabe.id || idx, p)}
-            onDelete={() => onAufgabeDelete(thema.id, aufgabe.id || idx)}
+            onToggle={() => onAufgabeToggle(thema.id, aufgabe.id)}
+            onPriorityChange={(p) => onAufgabePriority(thema.id, aufgabe.id, p)}
+            onDelete={() => onAufgabeDelete(thema.id, aufgabe.id)}
           />
         ))}
       </div>
@@ -239,7 +239,6 @@ const LernblockCard = ({ block, onRemove, onDrop }) => {
 const Step15Lernbloecke = () => {
   const {
     selectedRechtsgebiete,
-    currentRechtsgebietIndex,
     unterrechtsgebieteDraft,
     themenDraft,
     rechtsgebieteGewichtung,
@@ -253,11 +252,13 @@ const Step15Lernbloecke = () => {
     updateWizardData
   } = useWizard();
 
+  // Local state for RG selection (not using currentRechtsgebietIndex since Step 15 shows all RGs)
+  const [activeRgIndex, setActiveRgIndex] = useState(0);
   const [activeUrgIndex, setActiveUrgIndex] = useState(0);
   const [draggingThema, setDraggingThema] = useState(null);
 
-  // Current RG (from the loop, like Step 12)
-  const currentRgId = selectedRechtsgebiete[currentRechtsgebietIndex] || selectedRechtsgebiete[0];
+  // Current RG (local state)
+  const currentRgId = selectedRechtsgebiete[activeRgIndex] || selectedRechtsgebiete[0];
   const currentRgLabel = RECHTSGEBIET_LABELS[currentRgId] || currentRgId;
   const rgGewichtung = rechtsgebieteGewichtung[currentRgId] || 0;
 
@@ -344,12 +345,13 @@ const Step15Lernbloecke = () => {
     });
   };
 
-  // Aufgaben handlers
-  const handleAufgabeToggle = (themaId, aufgabeIdx) => {
+  // Aufgaben handlers - using IDs like Step 12
+  const handleAufgabeToggle = (themaId, aufgabeId) => {
+    if (!activeUrg) return;
     const updatedThemen = activeUrgThemen.map(t => {
       if (t.id === themaId) {
-        const updatedAufgaben = t.aufgaben?.map((a, i) =>
-          i === aufgabeIdx ? { ...a, completed: !a.completed } : a
+        const updatedAufgaben = t.aufgaben?.map(a =>
+          a.id === aufgabeId ? { ...a, completed: !a.completed } : a
         );
         return { ...t, aufgaben: updatedAufgaben };
       }
@@ -360,11 +362,12 @@ const Step15Lernbloecke = () => {
     });
   };
 
-  const handleAufgabePriority = (themaId, aufgabeIdx, priority) => {
+  const handleAufgabePriority = (themaId, aufgabeId, priority) => {
+    if (!activeUrg) return;
     const updatedThemen = activeUrgThemen.map(t => {
       if (t.id === themaId) {
-        const updatedAufgaben = t.aufgaben?.map((a, i) =>
-          i === aufgabeIdx ? { ...a, priority } : a
+        const updatedAufgaben = t.aufgaben?.map(a =>
+          a.id === aufgabeId ? { ...a, priority } : a
         );
         return { ...t, aufgaben: updatedAufgaben };
       }
@@ -375,10 +378,11 @@ const Step15Lernbloecke = () => {
     });
   };
 
-  const handleAufgabeDelete = (themaId, aufgabeIdx) => {
+  const handleAufgabeDelete = (themaId, aufgabeId) => {
+    if (!activeUrg) return;
     const updatedThemen = activeUrgThemen.map(t => {
       if (t.id === themaId) {
-        return { ...t, aufgaben: t.aufgaben?.filter((_, i) => i !== aufgabeIdx) };
+        return { ...t, aufgaben: t.aufgaben?.filter(a => a.id !== aufgabeId) };
       }
       return t;
     });
@@ -388,6 +392,7 @@ const Step15Lernbloecke = () => {
   };
 
   const handleAddAufgabe = (themaId, text) => {
+    if (!activeUrg) return;
     const updatedThemen = activeUrgThemen.map(t => {
       if (t.id === themaId) {
         return {
@@ -402,8 +407,36 @@ const Step15Lernbloecke = () => {
     });
   };
 
+  // Reset URG index when RG changes
+  const handleRgChange = (newIndex) => {
+    setActiveRgIndex(newIndex);
+    setActiveUrgIndex(0); // Reset URG selection when switching RGs
+  };
+
   return (
     <div className="flex flex-col h-full">
+      {/* RG Tabs */}
+      <div className="mb-4 flex items-center justify-center gap-2">
+        {selectedRechtsgebiete.map((rgId, index) => {
+          const label = RECHTSGEBIET_LABELS[rgId] || rgId;
+          const isCurrent = index === activeRgIndex;
+          return (
+            <button
+              key={rgId}
+              type="button"
+              onClick={() => handleRgChange(index)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                isCurrent
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Header */}
       <div className="text-center mb-6">
         <h1 className="text-2xl font-light text-neutral-900">
