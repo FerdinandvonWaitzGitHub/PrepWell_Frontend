@@ -541,10 +541,40 @@ const Step12ThemenEdit = () => {
     setPendingNavigation(null);
   };
 
+  // Calculate RG progress for display
+  const rgProgress = currentRechtsgebietIndex + 1;
+  const rgTotal = selectedRechtsgebiete.length;
+
   return (
     <div className="flex flex-col h-full">
+      {/* RG Progress Indicator */}
+      <div className="mb-4 flex items-center justify-center gap-2">
+        {selectedRechtsgebiete.map((rgId, index) => {
+          const label = RECHTSGEBIET_LABELS[rgId] || rgId;
+          const isCurrent = index === currentRechtsgebietIndex;
+          const isCompleted = index < currentRechtsgebietIndex;
+          return (
+            <div
+              key={rgId}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                isCurrent
+                  ? 'bg-primary-600 text-white'
+                  : isCompleted
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-neutral-100 text-neutral-400'
+              }`}
+            >
+              {label}
+            </div>
+          );
+        })}
+      </div>
+
       {/* Header */}
       <div className="text-center mb-6">
+        <p className="text-sm text-neutral-500 mb-2">
+          Rechtsgebiet {rgProgress} von {rgTotal}
+        </p>
         <h1 className="text-2xl font-light text-neutral-900 mb-2">
           Themen und Aufgaben für {currentRgLabel}
         </h1>
@@ -640,52 +670,50 @@ const Step12ThemenEdit = () => {
         </div>
       )}
 
-      {/* Validation Feedback */}
-      <div className={`mt-6 p-4 rounded-lg flex items-start gap-3 ${
-        allRgsHaveThemes
-          ? 'bg-green-50 border border-green-200'
-          : hasAnyThemes
-            ? 'bg-amber-50 border border-amber-200'
-            : 'bg-red-50 border border-red-200'
-      }`}>
-        {allRgsHaveThemes ? (
-          <>
-            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-green-900">
-                Alle Rechtsgebiete haben Themen ({totalThemenCount} insgesamt)
-              </p>
-              <p className="text-sm text-green-700">
-                Du kannst jetzt fortfahren!
-              </p>
-            </div>
-          </>
-        ) : hasAnyThemes ? (
-          <>
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-900">
-                {totalThemenCount} {totalThemenCount === 1 ? 'Thema' : 'Themen'} hinzugefügt
-              </p>
-              <p className="text-sm text-amber-700">
-                {rgsWithoutThemes.length} {rgsWithoutThemes.length === 1 ? 'Rechtsgebiet hat' : 'Rechtsgebiete haben'} noch keine Themen
-              </p>
-            </div>
-          </>
-        ) : (
-          <>
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-red-900">
-                Mindestens ein Thema erforderlich
-              </p>
-              <p className="text-sm text-red-700">
-                Füge mindestens einem Unterrechtsgebiet ein Thema hinzu, um fortzufahren.
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Validation Feedback - for CURRENT RG only */}
+      {(() => {
+        // Count themes for current RG
+        const currentRgThemenCount = themenCountsPerRg[currentRgId] || 0;
+        const currentRgHasThemes = currentRgThemenCount > 0;
+        const isLastRg = currentRechtsgebietIndex === selectedRechtsgebiete.length - 1;
+
+        return (
+          <div className={`mt-6 p-4 rounded-lg flex items-start gap-3 ${
+            currentRgHasThemes
+              ? 'bg-green-50 border border-green-200'
+              : 'bg-amber-50 border border-amber-200'
+          }`}>
+            {currentRgHasThemes ? (
+              <>
+                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-green-900">
+                    {currentRgThemenCount} {currentRgThemenCount === 1 ? 'Thema' : 'Themen'} für {currentRgLabel}
+                  </p>
+                  <p className="text-sm text-green-700">
+                    {isLastRg
+                      ? 'Du kannst jetzt fortfahren!'
+                      : `Klicke auf "Weiter" um zum nächsten Rechtsgebiet zu gelangen.`
+                    }
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-900">
+                    Noch keine Themen für {currentRgLabel}
+                  </p>
+                  <p className="text-sm text-amber-700">
+                    Füge mindestens einem Unterrechtsgebiet ein Thema hinzu.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Add Theme Modal */}
       {showAddThemaModal && (
@@ -695,10 +723,10 @@ const Step12ThemenEdit = () => {
         />
       )}
 
-      {/* Confirmation Dialog */}
+      {/* Confirmation Dialog - shown when proceeding without themes */}
       {showConfirmDialog && (
         <ConfirmationDialog
-          rgsWithoutThemes={rgsWithoutThemes}
+          rgsWithoutThemes={[currentRgId]} // Only current RG
           onContinue={handleConfirmContinue}
           onStay={handleConfirmStay}
         />

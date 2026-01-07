@@ -1,6 +1,7 @@
 import { useWizard } from '../context/wizard-context';
 import { Button } from '../../../components/ui';
 import ExitDialog from './exit-dialog';
+import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
 
 /**
  * WizardLayout - Main layout wrapper for the wizard
@@ -22,6 +23,8 @@ const WizardLayout = ({ children }) => {
     creationMethod,
     isLoading,
     selectedTemplate,
+    selectedRechtsgebiete,
+    currentRechtsgebietIndex,
   } = useWizard();
 
   const isFirstStep = currentStep === 1;
@@ -55,6 +58,17 @@ const WizardLayout = ({ children }) => {
     }
   };
 
+  // Check if we're on Step 12 and there are more RGs to configure
+  const isStep12WithMoreRgs = currentStep === 12 &&
+    creationMethod === 'manual' &&
+    selectedRechtsgebiete.length > 0 &&
+    currentRechtsgebietIndex < selectedRechtsgebiete.length - 1;
+
+  // Get the next RG name for Step 12 button text
+  const nextRgName = isStep12WithMoreRgs
+    ? RECHTSGEBIET_LABELS[selectedRechtsgebiete[currentRechtsgebietIndex + 1]] || selectedRechtsgebiete[currentRechtsgebietIndex + 1]
+    : null;
+
   // Get button text based on path and step
   const getButtonText = () => {
     if (isLoading) return 'Wird erstellt...';
@@ -65,6 +79,10 @@ const WizardLayout = ({ children }) => {
       if (isManualCalendarPath) return 'Fertig';
       if (isAutomaticPath) return 'Lernplan erstellen';
       return 'Lernplan erstellen';
+    }
+    // Step 12: Show "Nächstes Rechtsgebiet" when there are more RGs
+    if (isStep12WithMoreRgs) {
+      return `Weiter zu ${nextRgName}`;
     }
     return 'Weiter';
   };

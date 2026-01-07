@@ -319,28 +319,34 @@ export const WizardProvider = ({ children }) => {
           return { ...prev, ...updates };
         }
 
-        // === Themen Loop (Steps 12-13) ===
-        if (currentStep === 13) {
-          // Step 13: Themen Success - mark current RG themes as complete
+        // === Themen Loop (Step 12 cycles through all RGs) ===
+        if (currentStep === 12) {
+          // Step 12: Themen Edit - mark current RG themes as complete and check for more
           const currentRg = selectedRechtsgebiete[currentRechtsgebietIndex];
           const newThemenProgress = { ...themenProgress, [currentRg]: true };
           updates.themenProgress = newThemenProgress;
 
-          // Check if all RGs have themes configured
-          const allThemenConfigured = selectedRechtsgebiete.every(rgId => newThemenProgress[rgId]);
+          // Check if this is the last RG
+          const nextRgIndex = currentRechtsgebietIndex + 1;
+          const hasMoreRgs = nextRgIndex < selectedRechtsgebiete.length;
 
-          if (!allThemenConfigured) {
-            // Find next RG without themes
-            const nextUnconfiguredIndex = selectedRechtsgebiete.findIndex(
-              rgId => !newThemenProgress[rgId]
-            );
-            if (nextUnconfiguredIndex !== -1) {
-              updates.currentRechtsgebietIndex = nextUnconfiguredIndex;
-              updates.currentStep = 12; // Skip intro, go directly to themen edit
-              return { ...prev, ...updates };
-            }
+          if (hasMoreRgs) {
+            // Move to next RG, stay on Step 12
+            updates.currentRechtsgebietIndex = nextRgIndex;
+            updates.currentStep = 12; // Stay on Step 12
+            return { ...prev, ...updates };
           }
-          // All RGs have themes - proceed to Step 14 (Gewichtung)
+
+          // All RGs done - skip Step 13 (not needed anymore), go directly to Step 14
+          updates.currentStep = 14;
+          // Reset index for potential future use
+          updates.currentRechtsgebietIndex = 0;
+          return { ...prev, ...updates };
+        }
+
+        // Step 13 is now skipped (legacy - kept for backwards compatibility)
+        if (currentStep === 13) {
+          // Go directly to Step 14
           updates.currentStep = 14;
           return { ...prev, ...updates };
         }
