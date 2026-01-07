@@ -121,10 +121,9 @@ const initialWizardState = {
   currentBlockRgIndex: 0,
   // Track which Rechtsgebiete have their blocks configured
   blockRgProgress: {}, // { 'zivilrecht': true, ... }
-  // Step 18: Lernblöcke per Rechtsgebiet
+  // Step 15/18: Lernblöcke per Rechtsgebiet (consolidated - see WIZARD_DATA_ISSUES.md P1)
   lernbloeckeDraft: {}, // { 'zivilrecht': [{ id, size, themen: [] }], ... }
-  // Step 19: Lernplanblöcke per URG
-  lernplanBloecke: {}, // { 'bgb-at': [{ id, size }], ... }
+  // NOTE: lernplanBloecke (URG-keyed) was removed - Step 19 now uses lernbloeckeDraft
 
   // === Steps 20-22: Verteilung & Abschluss ===
   // Step 20: Verteilungsmodus
@@ -436,7 +435,6 @@ export const WizardProvider = ({ children }) => {
         updates.themenProgress = {};
         updates.rechtsgebieteGewichtung = {};
         updates.lernbloeckeDraft = {};
-        updates.lernplanBloecke = {};
         updates.verteilungsmodus = null;
         updates.generatedCalendar = [];
       }
@@ -474,7 +472,6 @@ export const WizardProvider = ({ children }) => {
           updates.themenProgress = {};
           updates.rechtsgebieteGewichtung = {};
           updates.lernbloeckeDraft = {};
-          updates.lernplanBloecke = {};
           updates.verteilungsmodus = null;
           updates.generatedCalendar = [];
         }
@@ -489,7 +486,6 @@ export const WizardProvider = ({ children }) => {
           updates.themenProgress = {};
           updates.rechtsgebieteGewichtung = {};
           updates.lernbloeckeDraft = {};
-          updates.lernplanBloecke = {};
           updates.verteilungsmodus = null;
           updates.generatedCalendar = [];
         }
@@ -761,9 +757,8 @@ export const WizardProvider = ({ children }) => {
           themenDraft: wizardState.themenDraft,
           // Step 14: Gewichtung (optional)
           rechtsgebieteGewichtung: wizardState.rechtsgebieteGewichtung,
-          // Steps 15-19: Lernblöcke
+          // Steps 15-19: Lernblöcke (consolidated into lernbloeckeDraft)
           lernbloeckeDraft: wizardState.lernbloeckeDraft,
-          lernplanBloecke: wizardState.lernplanBloecke,
           // Step 20: Distribution mode
           verteilungsmodus: wizardState.verteilungsmodus,
           // Step 21: Generated calendar preview

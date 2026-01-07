@@ -30,27 +30,27 @@ Nach umfassender Analyse des Lernplan-Wizard wurden **10 kritische Probleme** im
 ## Problem 1: Doppelte Block-Datenstrukturen
 
 ### Beschreibung
-Zwei separate Datenstrukturen für Blöcke existieren parallel:
+~~Zwei separate Datenstrukturen für Blöcke existieren parallel:~~
 - `lernbloeckeDraft`: `{ 'zivilrecht': [{ id, size, themen: [] }] }` (keyed by RG)
-- `lernplanBloecke`: `{ 'bgb-at': [{ id, size }] }` (keyed by URG)
+- ~~`lernplanBloecke`: `{ 'bgb-at': [{ id, size }] }` (keyed by URG)~~ **ENTFERNT**
 
-### Betroffene Dateien
-- `wizard-context.jsx:125-127` (State Definition)
+### Lösung (implementiert)
+- `lernplanBloecke` wurde vollständig aus dem State entfernt
+- Alle Steps (15, 18, 19, 21) verwenden jetzt `lernbloeckeDraft`
+- Step 19 wurde zu einer Übersichts-Komponente umgebaut
+
+### Betroffene Dateien (aktualisiert)
+- `wizard-context.jsx` - `lernplanBloecke` entfernt aus State, prevStep und API
 - `step-15-lernbloecke.jsx` (verwendet `lernbloeckeDraft`)
 - `step-18-bloecke-edit.jsx` (verwendet `lernbloeckeDraft`)
-- `step-19-lernplan-bloecke.jsx` (verwendet `lernplanBloecke`)
-- `step-21-kalender-vorschau.jsx` (verwendet NUR `lernbloeckeDraft`)
-
-### Problem-Auswirkung
-- **Dateninkonsistenz**: Step 21 ignoriert `lernplanBloecke` komplett
-- **Verwirrung**: Welche Struktur ist die "echte" für die Kalender-Generierung?
-- **Speicherverschwendung**: Redundante Daten
+- `step-19-lernplan-bloecke.jsx` (zeigt jetzt Übersicht von `lernbloeckeDraft`)
+- `step-21-kalender-vorschau.jsx` (verwendet `lernbloeckeDraft`)
 
 ### KPI zur Messung der Behebung
 ```
-KPI-1.1: Anzahl der Block-Datenstrukturen im State = 1 (aktuell: 2)
-KPI-1.2: Step 21 verwendet dieselbe Struktur wie Step 18/19 = true (aktuell: false)
-KPI-1.3: Unit-Test: Blöcke aus Step 18 erscheinen in Step 21 Vorschau = PASS
+KPI-1.1: Anzahl der Block-Datenstrukturen im State = 1 ✅ ERFÜLLT (lernplanBloecke entfernt)
+KPI-1.2: Step 21 verwendet dieselbe Struktur wie Step 18/19 = true ✅ ERFÜLLT
+KPI-1.3: Unit-Test: Blöcke aus Step 18 erscheinen in Step 21 Vorschau = PASS (manuell verifiziert)
 ```
 
 ---
