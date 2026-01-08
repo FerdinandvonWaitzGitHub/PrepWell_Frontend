@@ -144,10 +144,10 @@ const WizardContext = createContext(null);
  * Now uses Supabase for persistence when authenticated,
  * with LocalStorage fallback for offline/unauthenticated use.
  */
-// Weekday keys for slot generation
+// Weekday keys for block generation
 const WEEKDAY_KEYS = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag'];
 
-// Position to time mapping (used for wizard-generated slots)
+// Position to time mapping (used for wizard-generated blocks)
 const POSITION_TO_TIME = {
   1: { startTime: '08:00', endTime: '10:00' },
   2: { startTime: '10:00', endTime: '12:00' },
@@ -159,8 +159,8 @@ export const WizardProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Calendar context for saving slots directly
-  const { setCalendarData } = useCalendar();
+  // Calendar context for saving blocks directly
+  const { setCalendarData, hasActiveLernplan } = useCalendar();
 
   // Auth context for session/token
   const { session } = useAuth();
@@ -521,7 +521,7 @@ export const WizardProvider = ({ children }) => {
       case 3:
         return wizardState.vacationDays === null || wizardState.vacationDays >= 0;
       case 4:
-        return wizardState.blocksPerDay >= 1 && wizardState.blocksPerDay <= 4; // Max 4 slots per day
+        return wizardState.blocksPerDay >= 1 && wizardState.blocksPerDay <= 4; // Max 4 blocks per day
       case 5:
         // Check that all days have blocks defined (not empty arrays)
         return Object.values(wizardState.weekStructure).every(blocks =>
@@ -617,12 +617,9 @@ export const WizardProvider = ({ children }) => {
         return true;
 
       case 14: {
-        // Step 14: Gewichtung - OPTIONAL (informational only)
-        // If weights are set, they must sum to 100
-        // If no weights are set (disabled), that's also valid
+        // Step 14: Gewichtung - BUG-P3 FIX: Now REQUIRED (must sum to 100%)
+        // User must set weights that sum to exactly 100%
         if (selectedRechtsgebiete.length === 0) return false;
-        const hasAnyWeights = Object.keys(rechtsgebieteGewichtung).length > 0;
-        if (!hasAnyWeights) return true; // Gewichtung disabled - valid
 
         const allHaveWeight = selectedRechtsgebiete.every(
           rgId => rechtsgebieteGewichtung[rgId] !== undefined && rechtsgebieteGewichtung[rgId] >= 0
@@ -632,12 +629,43 @@ export const WizardProvider = ({ children }) => {
       }
 
       case 15: {
-        // Step 15: Lernblöcke erstellen - at least one block must exist
-        // Users should create blocks and assign themes/tasks before proceeding
-        const hasAnyBlocks = Object.values(lernbloeckeDraft).some(
-          blocks => blocks && blocks.length > 0
-        );
-        return hasAnyBlocks;
+        // BUG-P6 FIX: Option A - Strikte Validierung
+        // ALLE Themen müssen verteilt sein (als ganzes Thema ODER alle Aufgaben einzeln)
+
+        for (const rgId of selectedRechtsgebiete) {
+          const urgsForRg = unterrechtsgebieteDraft[rgId] || [];
+          const rgBlocks = lernbloeckeDraft[rgId] || [];
+
+          // Get all theme IDs assigned as whole themes
+          const assignedThemeIds = new Set(
+            rgBlocks.filter(b => b.thema).map(b => b.thema.id)
+          );
+
+          // Get all aufgabe IDs assigned individually
+          const assignedAufgabeIds = new Set(
+            rgBlocks.flatMap(b => (b.aufgaben || []).map(a => a.id))
+          );
+
+          for (const urg of urgsForRg) {
+            const themes = themenDraft[urg.id] || [];
+
+            for (const thema of themes) {
+              // If theme is assigned as whole, it's covered
+              if (assignedThemeIds.has(thema.id)) continue;
+
+              // Otherwise, all aufgaben must be assigned individually
+              const aufgaben = thema.aufgaben || [];
+              if (aufgaben.length === 0) continue; // No aufgaben = nothing to assign
+
+              const allAufgabenAssigned = aufgaben.every(a => assignedAufgabeIds.has(a.id));
+              if (!allAufgabenAssigned) {
+                return false; // Found unassigned content
+              }
+            }
+          }
+        }
+
+        return true; // All themes are distributed
       }
 
       // Steps 16-19 removed - block editing is now consolidated in Step 15
@@ -677,6 +705,228 @@ export const WizardProvider = ({ children }) => {
     setShowExitDialog(false);
     navigate(wizardState.returnPath);
   }, [wizardState.returnPath, navigate, clearDraftFromSupabase]);
+
+  /**
+   * Generate full calendar blocks from wizard state
+   * Creates blocks for all days in the learning period based on weekStructure
+   * Respects bufferDays and vacationDays:
+   * - Learning period: startDate to (endDate - bufferDays - vacationDays)
+   * - Vacation period: collected at end before buffer
+   * - Buffer period: last days before exam
+   *
+   * BUG-P7 FIX: Also distributes themes/tasks from lernbloeckeDraft to calendar blocks
+   */
+  const generateBlocksFromWizardState = useCallback(() => {
+    const { startDate, endDate, weekStructure, bufferDays, vacationDays, lernbloeckeDraft, selectedRechtsgebiete } = wizardState;
+    if (!startDate || !endDate) return {};
+
+    // BUG-P7 FIX: Flatten all lernbloeckeDraft blocks into a single queue
+    // Respects RG order from selectedRechtsgebiete
+    const contentQueue = [];
+    if (lernbloeckeDraft && selectedRechtsgebiete) {
+      for (const rgId of selectedRechtsgebiete) {
+        const rgBlocks = lernbloeckeDraft[rgId] || [];
+        for (const block of rgBlocks) {
+          // Only include blocks that have content (theme or aufgaben)
+          if (block.thema || (block.aufgaben && block.aufgaben.length > 0)) {
+            contentQueue.push({
+              rgId,
+              thema: block.thema,
+              aufgaben: block.aufgaben || [],
+            });
+          }
+        }
+      }
+    }
+    let contentIndex = 0; // Track which content block to assign next
+
+    // Parse dates
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    const learningStart = new Date(startYear, startMonth - 1, startDay);
+    const examEnd = new Date(endYear, endMonth - 1, endDay);
+
+    // Calculate effective buffer and vacation days (default to 0 if null)
+    const effectiveBufferDays = bufferDays ?? 0;
+    const effectiveVacationDays = vacationDays ?? 0;
+
+    // Calculate period boundaries (working backwards from examEnd)
+    // Buffer period: last X days before exam
+    const bufferStart = new Date(examEnd);
+    bufferStart.setDate(bufferStart.getDate() - effectiveBufferDays + 1);
+
+    // Vacation period: before buffer period
+    const vacationStart = new Date(bufferStart);
+    vacationStart.setDate(vacationStart.getDate() - effectiveVacationDays);
+
+    // Learning period ends before vacation
+    const learningEnd = new Date(vacationStart);
+    learningEnd.setDate(learningEnd.getDate() - 1);
+
+    const generatedBlocks = {};
+    const currentDate = new Date(learningStart);
+    const now = new Date().toISOString();
+
+    // Helper to format date key
+    const formatDateKey = (date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    // Iterate through all days from start to exam end
+    while (currentDate <= examEnd) {
+      const dateKey = formatDateKey(currentDate);
+
+      // Get day of week (convert Sunday=0 to our Monday=0 system)
+      const dayOfWeek = currentDate.getDay();
+      const adjustedIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const dayKey = WEEKDAY_KEYS[adjustedIndex];
+      const dayBlockTypes = weekStructure[dayKey] || [];
+
+      // Determine what type of period this day falls into
+      const isBufferPeriod = effectiveBufferDays > 0 && currentDate >= bufferStart;
+      const isVacationPeriod = effectiveVacationDays > 0 && currentDate >= vacationStart && currentDate < bufferStart;
+      const isLearningPeriod = currentDate <= learningEnd;
+
+      if (isBufferPeriod) {
+        // Buffer days: Create special "buffer" blocks (for review/catch-up)
+        const bufferBlocks = [{
+          id: `${dateKey}-buffer-0`,
+          date: dateKey,
+          position: 1,
+          status: 'buffer',
+          blockType: 'buffer',
+          topicId: `${dateKey}-buffer`,
+          topicTitle: 'Puffertag',
+          groupId: `${dateKey}-buffer-group`,
+          groupSize: 1,
+          groupIndex: 0,
+          isFromTemplate: true,
+          isFromLernplan: true,
+          isBufferDay: true,
+          // Time information (full day representation)
+          startTime: '08:00',
+          endTime: '18:00',
+          hasTime: true,
+          createdAt: now,
+          updatedAt: now,
+        }];
+        generatedBlocks[dateKey] = bufferBlocks;
+      } else if (isVacationPeriod) {
+        // Vacation days: Create special "vacation" blocks (no learning)
+        const vacationBlocks = [{
+          id: `${dateKey}-vacation-0`,
+          date: dateKey,
+          position: 1,
+          status: 'vacation',
+          blockType: 'vacation',
+          topicId: `${dateKey}-vacation`,
+          topicTitle: 'Urlaubstag',
+          groupId: `${dateKey}-vacation-group`,
+          groupSize: 1,
+          groupIndex: 0,
+          isFromTemplate: true,
+          isFromLernplan: true,
+          isVacationDay: true,
+          // Time information (full day representation)
+          startTime: '08:00',
+          endTime: '18:00',
+          hasTime: true,
+          createdAt: now,
+          updatedAt: now,
+        }];
+        generatedBlocks[dateKey] = vacationBlocks;
+      } else if (isLearningPeriod) {
+        // Normal learning days: Create blocks from weekStructure
+        const dayLearningBlocks = dayBlockTypes.map((blockType, index) => {
+          const position = index + 1;
+          const timeInfo = POSITION_TO_TIME[position] || POSITION_TO_TIME[1];
+
+          // BUG-P7 FIX: Assign content from lernbloeckeDraft queue
+          const content = contentQueue[contentIndex] || null;
+          if (content) {
+            contentIndex++; // Move to next content for next block
+          }
+
+          // Build tasks array from content (either from thema.aufgaben or direct aufgaben)
+          let tasks = [];
+          let topicTitle = '';
+          let metadata = {};
+
+          if (content) {
+            if (content.thema) {
+              // Theme assigned - use theme's aufgaben as tasks
+              topicTitle = content.thema.name || '';
+              tasks = (content.thema.aufgaben || []).map(a => ({
+                id: a.id,
+                name: a.name,
+                completed: false,
+                priority: a.priority || 'normal',
+              }));
+              metadata = {
+                themaId: content.thema.id,
+                themaName: content.thema.name,
+                rgId: content.rgId,
+                source: 'wizard-thema',
+              };
+            } else if (content.aufgaben && content.aufgaben.length > 0) {
+              // Individual aufgaben assigned
+              topicTitle = content.aufgaben.length === 1
+                ? content.aufgaben[0].name
+                : `${content.aufgaben.length} Aufgaben`;
+              tasks = content.aufgaben.map(a => ({
+                id: a.id,
+                name: a.name,
+                completed: false,
+                priority: a.priority || 'normal',
+              }));
+              metadata = {
+                rgId: content.rgId,
+                source: 'wizard-aufgaben',
+              };
+            }
+          }
+
+          return {
+            id: `${dateKey}-block-${index}`,
+            date: dateKey,
+            position,
+            status: 'topic',
+            blockType: blockType,
+            topicId: `${dateKey}-block-${index}`,
+            topicTitle,
+            groupId: `${dateKey}-group-${index}`,
+            groupSize: 1,
+            groupIndex: 0,
+            isFromTemplate: true,
+            isFromLernplan: true,
+            // Time information based on position
+            startTime: timeInfo.startTime,
+            endTime: timeInfo.endTime,
+            hasTime: true,
+            // BUG-P7 FIX: Include tasks and metadata
+            tasks,
+            metadata,
+            createdAt: now,
+            updatedAt: now,
+          };
+        });
+
+        if (dayLearningBlocks.length > 0) {
+          generatedBlocks[dateKey] = dayLearningBlocks;
+        }
+      }
+
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    console.log(`Wizard: Generated blocks - Learning days, Vacation: ${effectiveVacationDays} days, Buffer: ${effectiveBufferDays} days, Content assigned: ${contentIndex}/${contentQueue.length}`);
+
+    return generatedBlocks;
+  }, [wizardState]);
 
   // Complete wizard - sends data to API
   // UNIFIED DATA MODEL: API writes directly to Supabase when authenticated
@@ -757,6 +1007,27 @@ export const WizardProvider = ({ children }) => {
 
       console.log(`✅ Lernplan erstellt (${storageMode}):`, lernplanId);
 
+      // === FIX: Transfer data to CalendarContext ===
+      // Generate blocks locally and save to CalendarContext (which syncs to Supabase)
+      const blocks = generateBlocksFromWizardState();
+      const metadata = {
+        id: lernplanId,
+        name: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
+        startDate: wizardState.startDate,
+        endDate: wizardState.endDate,
+        bufferDays: wizardState.bufferDays ?? 0,
+        vacationDays: wizardState.vacationDays ?? 0,
+        blocksPerDay: wizardState.blocksPerDay,
+        weekStructure: wizardState.weekStructure,
+        creationMethod: wizardState.creationMethod,
+        selectedRechtsgebiete: wizardState.selectedRechtsgebiete,
+        rechtsgebieteGewichtung: wizardState.rechtsgebieteGewichtung,
+      };
+
+      // This will archive any existing plan automatically
+      await setCalendarData(blocks, metadata);
+      console.log('Wizard: Calendar data saved to CalendarContext', { blocksCount: Object.keys(blocks).length });
+
       // Clear draft after successful creation (from both localStorage and Supabase)
       await clearDraftFromSupabase();
 
@@ -769,7 +1040,7 @@ export const WizardProvider = ({ children }) => {
           lernplanCreated: true,
           lernplanId,
           storageMode,
-          message: `Lernplan wurde erstellt mit ${result.data?.blocksCount || result.data?.slotsCount || 0} Blöcken.`,
+          message: `Lernplan wurde erstellt mit ${Object.keys(blocks).length} Tagen.`,
         }
       });
     } catch (err) {
@@ -777,7 +1048,7 @@ export const WizardProvider = ({ children }) => {
       setError(err.message || 'Ein Fehler ist aufgetreten');
       setIsLoading(false);
     }
-  }, [wizardState, navigate, clearDraftFromSupabase, session]);
+  }, [wizardState, navigate, clearDraftFromSupabase, session, generateBlocksFromWizardState, setCalendarData]);
 
   // Check if there's a saved draft (uses synced state)
   const hasDraft = useCallback(() => {
@@ -797,167 +1068,16 @@ export const WizardProvider = ({ children }) => {
     setWizardState({ ...initialWizardState, returnPath });
   }, [clearDraftFromSupabase]);
 
-  /**
-   * Generate full calendar slots from wizard state
-   * Creates slots for all days in the learning period based on weekStructure
-   * Respects bufferDays and vacationDays:
-   * - Learning period: startDate to (endDate - bufferDays - vacationDays)
-   * - Vacation period: collected at end before buffer
-   * - Buffer period: last days before exam
-   */
-  const generateSlotsFromWizardState = useCallback(() => {
-    const { startDate, endDate, weekStructure, bufferDays, vacationDays } = wizardState;
-    if (!startDate || !endDate) return {};
-
-    // Parse dates
-    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
-    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
-    const learningStart = new Date(startYear, startMonth - 1, startDay);
-    const examEnd = new Date(endYear, endMonth - 1, endDay);
-
-    // Calculate effective buffer and vacation days (default to 0 if null)
-    const effectiveBufferDays = bufferDays ?? 0;
-    const effectiveVacationDays = vacationDays ?? 0;
-
-    // Calculate period boundaries (working backwards from examEnd)
-    // Buffer period: last X days before exam
-    const bufferStart = new Date(examEnd);
-    bufferStart.setDate(bufferStart.getDate() - effectiveBufferDays + 1);
-
-    // Vacation period: before buffer period
-    const vacationStart = new Date(bufferStart);
-    vacationStart.setDate(vacationStart.getDate() - effectiveVacationDays);
-
-    // Learning period ends before vacation
-    const learningEnd = new Date(vacationStart);
-    learningEnd.setDate(learningEnd.getDate() - 1);
-
-    const slots = {};
-    const currentDate = new Date(learningStart);
-    const now = new Date().toISOString();
-
-    // Helper to format date key
-    const formatDateKey = (date) => {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    };
-
-    // Iterate through all days from start to exam end
-    while (currentDate <= examEnd) {
-      const dateKey = formatDateKey(currentDate);
-
-      // Get day of week (convert Sunday=0 to our Monday=0 system)
-      const dayOfWeek = currentDate.getDay();
-      const adjustedIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const dayKey = WEEKDAY_KEYS[adjustedIndex];
-      const dayBlocks = weekStructure[dayKey] || [];
-
-      // Determine what type of period this day falls into
-      const isBufferPeriod = effectiveBufferDays > 0 && currentDate >= bufferStart;
-      const isVacationPeriod = effectiveVacationDays > 0 && currentDate >= vacationStart && currentDate < bufferStart;
-      const isLearningPeriod = currentDate <= learningEnd;
-
-      if (isBufferPeriod) {
-        // Buffer days: Create special "buffer" slots (for review/catch-up)
-        const bufferSlots = [{
-          id: `${dateKey}-buffer-0`,
-          date: dateKey,
-          position: 1,
-          status: 'buffer',
-          blockType: 'buffer',
-          topicId: `${dateKey}-buffer`,
-          topicTitle: 'Puffertag',
-          groupId: `${dateKey}-buffer-group`,
-          groupSize: 1,
-          groupIndex: 0,
-          isFromTemplate: true,
-          isFromLernplan: true,
-          isBufferDay: true,
-          // Time information (full day representation)
-          startTime: '08:00',
-          endTime: '18:00',
-          hasTime: true,
-          createdAt: now,
-          updatedAt: now,
-        }];
-        slots[dateKey] = bufferSlots;
-      } else if (isVacationPeriod) {
-        // Vacation days: Create special "vacation" slots (no learning)
-        const vacationSlots = [{
-          id: `${dateKey}-vacation-0`,
-          date: dateKey,
-          position: 1,
-          status: 'vacation',
-          blockType: 'vacation',
-          topicId: `${dateKey}-vacation`,
-          topicTitle: 'Urlaubstag',
-          groupId: `${dateKey}-vacation-group`,
-          groupSize: 1,
-          groupIndex: 0,
-          isFromTemplate: true,
-          isFromLernplan: true,
-          isVacationDay: true,
-          // Time information (full day representation)
-          startTime: '08:00',
-          endTime: '18:00',
-          hasTime: true,
-          createdAt: now,
-          updatedAt: now,
-        }];
-        slots[dateKey] = vacationSlots;
-      } else if (isLearningPeriod) {
-        // Normal learning days: Create slots from weekStructure
-        const daySlots = dayBlocks.map((blockType, index) => {
-          const position = index + 1;
-          const timeInfo = POSITION_TO_TIME[position] || POSITION_TO_TIME[1];
-          return {
-            id: `${dateKey}-slot-${index}`,
-            date: dateKey,
-            position,
-            status: 'topic',
-            blockType: blockType,
-            topicId: `${dateKey}-block-${index}`,
-            topicTitle: '',
-            groupId: `${dateKey}-group-${index}`,
-            groupSize: 1,
-            groupIndex: 0,
-            isFromTemplate: true,
-            isFromLernplan: true,
-            // Time information based on position
-            startTime: timeInfo.startTime,
-            endTime: timeInfo.endTime,
-            hasTime: true,
-            createdAt: now,
-            updatedAt: now,
-          };
-        });
-
-        if (daySlots.length > 0) {
-          slots[dateKey] = daySlots;
-        }
-      }
-
-      // Move to next day
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    console.log(`Wizard: Generated slots - Learning days, Vacation: ${effectiveVacationDays} days, Buffer: ${effectiveBufferDays} days`);
-
-    return slots;
-  }, [wizardState]);
-
   // Complete manual calendar wizard - shows loading/success flow
   const completeManualCalendar = useCallback(async () => {
     setCalendarCreationStatus('loading');
     setCalendarCreationErrors([]);
 
     try {
-      // Generate slots from wizard state BEFORE showing loading
-      // This ensures slots are created immediately, not relying on Step8Calendar unmount
-      const slots = generateSlotsFromWizardState();
-      console.log('Wizard: Generated', Object.keys(slots).length, 'days of slots');
+      // Generate blocks from wizard state BEFORE showing loading
+      // This ensures blocks are created immediately, not relying on Step8Calendar unmount
+      const blocks = generateBlocksFromWizardState();
+      console.log('Wizard: Generated', Object.keys(blocks).length, 'days of blocks');
 
       // Create metadata for this Lernplan
       const metadata = {
@@ -969,7 +1089,7 @@ export const WizardProvider = ({ children }) => {
       };
 
       // Save to CalendarContext - wait for this to complete
-      await setCalendarData(slots, metadata);
+      await setCalendarData(blocks, metadata);
       console.log('Wizard: Calendar data saved to context');
 
       // Brief delay to show loading state
@@ -991,7 +1111,7 @@ export const WizardProvider = ({ children }) => {
       setCalendarCreationStatus('error');
       setCalendarCreationErrors([err.message || 'Ein Fehler ist aufgetreten']);
     }
-  }, [navigate, clearDraftFromSupabase, generateSlotsFromWizardState, wizardState, setCalendarData]);
+  }, [navigate, clearDraftFromSupabase, generateBlocksFromWizardState, wizardState, setCalendarData]);
 
   // Create Lernplan from template selection (for automatic/template paths)
   const createLernplanFromTemplate = useCallback(async () => {
@@ -1031,6 +1151,26 @@ export const WizardProvider = ({ children }) => {
 
       console.log('✅ Lernplan erstellt:', result.lernplanId);
 
+      // === FIX: Transfer data to CalendarContext ===
+      // Generate blocks locally and save to CalendarContext (which syncs to Supabase)
+      const blocks = generateBlocksFromWizardState();
+      const metadata = {
+        id: result.lernplanId,
+        name: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
+        startDate: wizardState.startDate,
+        endDate: wizardState.endDate,
+        bufferDays: wizardState.bufferDays ?? 0,
+        vacationDays: wizardState.vacationDays ?? 0,
+        blocksPerDay: wizardState.blocksPerDay,
+        weekStructure: wizardState.weekStructure,
+        creationMethod: wizardState.creationMethod,
+        selectedTemplate: wizardState.selectedTemplate,
+      };
+
+      // This will archive any existing plan automatically
+      await setCalendarData(blocks, metadata);
+      console.log('Wizard: Calendar data saved to CalendarContext', { blocksCount: Object.keys(blocks).length });
+
       // Clear the wizard draft (from both localStorage and Supabase)
       await clearDraftFromSupabase();
 
@@ -1047,7 +1187,7 @@ export const WizardProvider = ({ children }) => {
       setCalendarCreationStatus('error');
       setCalendarCreationErrors([err.message || 'Ein Fehler ist aufgetreten']);
     }
-  }, [wizardState, navigate, clearDraftFromSupabase]);
+  }, [wizardState, navigate, clearDraftFromSupabase, generateBlocksFromWizardState, setCalendarData]);
 
   // Reset calendar creation status
   const resetCalendarCreationStatus = useCallback(() => {
@@ -1095,6 +1235,25 @@ export const WizardProvider = ({ children }) => {
 
       console.log('✅ Lernplan erstellt:', result.lernplanId);
 
+      // === FIX: Transfer data to CalendarContext ===
+      // Generate blocks locally and save to CalendarContext (which syncs to Supabase)
+      const blocks = generateBlocksFromWizardState();
+      const metadata = {
+        id: result.lernplanId,
+        name: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
+        startDate: wizardState.startDate,
+        endDate: wizardState.endDate,
+        bufferDays: wizardState.bufferDays ?? 0,
+        vacationDays: wizardState.vacationDays ?? 0,
+        blocksPerDay: wizardState.blocksPerDay,
+        weekStructure: wizardState.weekStructure,
+        creationMethod: wizardState.creationMethod,
+      };
+
+      // This will archive any existing plan automatically
+      await setCalendarData(blocks, metadata);
+      console.log('Wizard: Calendar data saved to CalendarContext', { blocksCount: Object.keys(blocks).length });
+
       // Clear the wizard draft (from both localStorage and Supabase)
       await clearDraftFromSupabase();
 
@@ -1111,7 +1270,7 @@ export const WizardProvider = ({ children }) => {
       setCalendarCreationStatus('error');
       setCalendarCreationErrors([err.message || 'Ein Fehler ist aufgetreten']);
     }
-  }, [wizardState, navigate, clearDraftFromSupabase]);
+  }, [wizardState, navigate, clearDraftFromSupabase, generateBlocksFromWizardState, setCalendarData]);
 
   const value = {
     // State
@@ -1123,6 +1282,7 @@ export const WizardProvider = ({ children }) => {
     calendarCreationStatus,
     calendarCreationErrors,
     isAuthenticated, // Whether user is authenticated (for UI hints)
+    hasActiveLernplan, // Check if there's an active plan (for archive warning)
 
     // Actions
     updateWizardData,

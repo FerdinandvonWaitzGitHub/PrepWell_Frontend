@@ -34,6 +34,8 @@ const WizardLayout = ({ children }) => {
   const isAutomaticPath = creationMethod === 'automatic';
   // Only template path goes directly to creation after step 7
   const isTemplateSelectionStep = currentStep === 7 && creationMethod === 'template';
+  // BUG-P4 FIX: Step 12 has its own navigation buttons (RG cycling)
+  const hasCustomNavigation = currentStep === 12 && creationMethod === 'manual';
 
   // Handle complete button click - use different function based on path
   const handleComplete = () => {
@@ -141,27 +143,30 @@ const WizardLayout = ({ children }) => {
       </main>
 
       {/* Footer with navigation buttons */}
-      <footer className="border-t border-neutral-100 px-4 sm:px-8 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          {/* Back button */}
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            disabled={isFirstStep || isLoading}
-            className={isFirstStep ? 'invisible' : ''}
-          >
-            Zurück
-          </Button>
+      {/* BUG-P4 FIX: Hide footer for Step 12 (has own navigation) */}
+      {!hasCustomNavigation && (
+        <footer className="border-t border-neutral-100 px-4 sm:px-8 py-4">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            {/* Back button */}
+            <Button
+              variant="outline"
+              onClick={prevStep}
+              disabled={isFirstStep || isLoading}
+              className={isFirstStep ? 'invisible' : ''}
+            >
+              Zurück
+            </Button>
 
-          {/* Next/Complete button */}
-          <Button
-            onClick={handleNext}
-            disabled={isButtonDisabled()}
-          >
-            {getButtonText()}
-          </Button>
-        </div>
-      </footer>
+            {/* Next/Complete button */}
+            <Button
+              onClick={handleNext}
+              disabled={isButtonDisabled()}
+            >
+              {getButtonText()}
+            </Button>
+          </div>
+        </footer>
+      )}
 
       {/* Exit confirmation dialog */}
       <ExitDialog open={showExitDialog} />

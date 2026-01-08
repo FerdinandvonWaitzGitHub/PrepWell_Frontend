@@ -100,15 +100,93 @@ const DEFAULT_COUNTDOWN_SETTINGS = {
 const TimerContext = createContext(null);
 
 /**
+ * Check if two dates are on the same day
+ */
+const isSameDay = (date1, date2) => {
+  return date1.toDateString() === date2.toDateString();
+};
+
+/**
+ * Save a session from a previous day to history (called when day changes)
+ * Returns the session data for Supabase sync
+ */
+const savePreviousDaySession = (data) => {
+  if (!data || !data.startTime) return null;
+
+  const startDate = new Date(data.startTime);
+  const endOfDay = new Date(startDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  // Calculate duration until end of that day
+  let actualDuration = 0;
+  if (data.timerType === TIMER_TYPES.COUNTUP) {
+    // For countup: use elapsed seconds, but cap at end of day
+    const maxSecondsInDay = Math.floor((endOfDay - startDate) / 1000);
+    actualDuration = Math.min(data.elapsedSeconds || 0, maxSecondsInDay);
+  } else {
+    // For countdown/pomodoro: calculate from start to end of day
+    const plannedDuration = data.timerType === TIMER_TYPES.POMODORO
+      ? (data.pomodoroSettings?.sessionDuration || 25) * 60
+      : (data.countdownSettings?.duration || 60) * 60;
+    const elapsedBeforeClose = plannedDuration - (data.remainingSeconds || 0);
+    actualDuration = Math.max(0, elapsedBeforeClose);
+  }
+
+  // Only save if at least 1 minute was tracked
+  if (actualDuration < 60) return null;
+
+  const session = {
+    type: data.timerType,
+    date: startDate.toISOString().split('T')[0],
+    startTime: data.startTime,
+    endTime: endOfDay.toISOString(),
+    duration: actualDuration,
+    completed: false,
+    autoSaved: true, // Mark as auto-saved due to day change
+  };
+
+  // Save to localStorage history
+  try {
+    const history = loadHistoryFromStorage();
+    history.push({
+      ...session,
+      id: `session-${Date.now()}`,
+      savedAt: new Date().toISOString()
+    });
+    const trimmedHistory = history.slice(-1000);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
+  } catch (error) {
+    console.error('Error saving previous day session:', error);
+  }
+
+  return session;
+};
+
+/**
  * Load timer state from localStorage
+ * BUG-P1 FIX: Check for day change and reset timer if needed
  */
 const loadFromStorage = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const data = JSON.parse(stored);
-      // Check if timer was running and calculate elapsed time
-      if (data.state === TIMER_STATES.RUNNING && data.lastUpdated) {
+
+      // Check if timer was running
+      if (data.state === TIMER_STATES.RUNNING && data.lastUpdated && data.startTime) {
+        const startDate = new Date(data.startTime);
+        const now = new Date();
+
+        // BUG-P1 FIX: If started on a different day, save old session and reset
+        if (!isSameDay(startDate, now)) {
+          console.log('[Timer] Day changed - saving previous session and resetting');
+          savePreviousDaySession(data);
+          // Clear the stored state so timer resets
+          localStorage.removeItem(STORAGE_KEY);
+          return null;
+        }
+
+        // Same day - calculate elapsed time normally
         const elapsed = Math.floor((Date.now() - data.lastUpdated) / 1000);
         data.remainingSeconds = Math.max(0, (data.remainingSeconds || 0) - elapsed);
         data.elapsedSeconds = (data.elapsedSeconds || 0) + elapsed;
@@ -148,25 +226,6 @@ const loadHistoryFromStorage = () => {
     console.error('Error loading timer history:', error);
   }
   return [];
-};
-
-/**
- * Save timer session to history (legacy - kept for offline fallback)
- */
-const _saveSessionToHistory = (session) => {
-  try {
-    const history = loadHistoryFromStorage();
-    history.push({
-      ...session,
-      id: `session-${Date.now()}`,
-      savedAt: new Date().toISOString()
-    });
-    // Keep last 1000 sessions max
-    const trimmedHistory = history.slice(-1000);
-    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
-  } catch (error) {
-    console.error('Error saving timer session to history:', error);
-  }
 };
 
 /**
@@ -397,10 +456,63 @@ export const TimerProvider = ({ children }) => {
     };
   }, [timerState, timerType]);
 
-  // Note: Timer continues running in background when tab is hidden
-  // This is intentional - the app should work well in the background
-  // When the tab is CLOSED, the user is logged out (via sessionStorage)
-  // and the timer state is naturally reset on next login
+  // BUG-P1 FIX: Midnight watcher - auto-save session and reset timer at day change
+  useEffect(() => {
+    if (timerState !== TIMER_STATES.RUNNING || !startTime) return;
+
+    const checkMidnight = () => {
+      const now = new Date();
+      const start = new Date(startTime);
+
+      if (!isSameDay(start, now)) {
+        console.log('[Timer] Midnight passed - saving session and resetting');
+
+        // Save current session to history
+        let actualDuration = 0;
+        if (timerType === TIMER_TYPES.COUNTUP) {
+          actualDuration = elapsedSeconds;
+        } else if (timerType === TIMER_TYPES.POMODORO) {
+          actualDuration = (pomodoroSettings.sessionDuration * 60) - remainingSeconds;
+        } else if (timerType === TIMER_TYPES.COUNTDOWN) {
+          actualDuration = (countdownSettings.duration * 60) - remainingSeconds;
+        }
+
+        if (actualDuration >= 60) {
+          const session = {
+            type: timerType,
+            date: start.toISOString().split('T')[0],
+            startTime: startTime.toISOString(),
+            endTime: new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59).toISOString(),
+            duration: actualDuration,
+            completed: false,
+            autoSaved: true,
+          };
+          saveSession(session);
+        }
+
+        // Reset timer for new day
+        setElapsedSeconds(0);
+        setStartTime(new Date());
+        if (timerType !== TIMER_TYPES.COUNTUP) {
+          // Reset countdown/pomodoro to full duration
+          if (timerType === TIMER_TYPES.POMODORO) {
+            setRemainingSeconds(pomodoroSettings.sessionDuration * 60);
+            setEndTime(new Date(Date.now() + pomodoroSettings.sessionDuration * 60 * 1000));
+          } else {
+            setRemainingSeconds(countdownSettings.duration * 60);
+            setEndTime(new Date(Date.now() + countdownSettings.duration * 60 * 1000));
+          }
+        }
+      }
+    };
+
+    // Check immediately and then every minute
+    checkMidnight();
+    const intervalId = setInterval(checkMidnight, 60000);
+
+    return () => clearInterval(intervalId);
+  }, [timerState, timerType, startTime, elapsedSeconds, remainingSeconds,
+      pomodoroSettings, countdownSettings, saveSession]);
 
   // Handle timer completion
   const handleTimerComplete = useCallback(() => {

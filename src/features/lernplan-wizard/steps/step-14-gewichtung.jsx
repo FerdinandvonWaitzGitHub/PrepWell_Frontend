@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+// BUG-P3 FIX: Removed useState - toggle is no longer used
 import { useWizard } from '../context/wizard-context';
 import { Minus, Plus, AlertTriangle, Network } from 'lucide-react';
 import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
@@ -80,13 +81,10 @@ const WeightCard = ({ rechtsgebietId, weight, onChange }) => {
 const Step14Gewichtung = () => {
   const { selectedRechtsgebiete, rechtsgebieteGewichtung, updateWizardData } = useWizard();
 
-  const [isEnabled, setIsEnabled] = useState(
-    Object.keys(rechtsgebieteGewichtung).length > 0
-  );
-
-  // Initialize weights if not set - use 5% increments
+  // BUG-P3 FIX: Gewichtung is now always enabled (required)
+  // Initialize weights on mount if not set
   useEffect(() => {
-    if (isEnabled && Object.keys(rechtsgebieteGewichtung).length === 0) {
+    if (Object.keys(rechtsgebieteGewichtung).length === 0 && selectedRechtsgebiete.length > 0) {
       // Initialize with equal distribution (rounded to nearest 5)
       const count = selectedRechtsgebiete.length;
       const baseWeight = Math.floor(100 / count / 5) * 5; // Round down to nearest 5
@@ -100,15 +98,7 @@ const Step14Gewichtung = () => {
 
       updateWizardData({ rechtsgebieteGewichtung: initialWeights });
     }
-  }, [isEnabled, selectedRechtsgebiete, rechtsgebieteGewichtung, updateWizardData]);
-
-  const handleToggle = () => {
-    if (isEnabled) {
-      // Clear weights
-      updateWizardData({ rechtsgebieteGewichtung: {} });
-    }
-    setIsEnabled(!isEnabled);
-  };
+  }, [selectedRechtsgebiete, rechtsgebieteGewichtung, updateWizardData]);
 
   const handleWeightChange = (rgId, newWeight) => {
     updateWizardData({
@@ -124,7 +114,8 @@ const Step14Gewichtung = () => {
     (sum, w) => sum + (w || 0),
     0
   );
-  const isValid = !isEnabled || totalWeight === 100;
+  // BUG-P3 FIX: isValid only when sum = 100%
+  const isValid = totalWeight === 100;
 
   return (
     <div className="flex flex-col items-center">
@@ -140,29 +131,17 @@ const Step14Gewichtung = () => {
           Zielgewichtung der Rechtsgebiete
         </h1>
 
-        {/* Description */}
+        {/* Description - BUG-P3 FIX: Updated text (Gewichtung is now required) */}
         <p className="text-sm font-light text-neutral-500 max-w-[900px]">
-          Damit du während der folgenden Schritte deine grobe Zielgewichtung der
-          Rechtsgebiete nicht aus dem Blick verlierst, hast du jetzt die Möglichkeit
-          eine Zielverteilung anzugeben. Du musst diese beim Erstellen nicht zwingend
-          einhalten, allerdings verschafft sie dir ein Gefühl dafür, wie viel Zeit
-          du für deine URGs und Themen hast.
+          Lege fest, wie viel Zeit du für jedes Rechtsgebiet einplanen möchtest.
+          Die Gewichtung muss insgesamt 100% ergeben. Diese Verteilung hilft dir,
+          den Überblick über deine Lernziele zu behalten.
         </p>
-
-        {/* Toggle Button - Pill Style */}
-        <button
-          type="button"
-          onClick={handleToggle}
-          className="px-5 py-2.5 rounded-full text-sm font-light border border-neutral-200
-                     hover:bg-neutral-50 transition-colors"
-        >
-          {isEnabled ? 'Zielgewichtung entfernen' : 'Zielgewichtung festlegen'}
-        </button>
       </div>
 
       {/* Weight Cards - Horizontal Layout */}
-      {isEnabled && (
-        <>
+      {/* BUG-P3 FIX: Removed toggle, cards are always shown */}
+      <>
           <div className="flex flex-wrap gap-3 justify-center mb-6">
             {selectedRechtsgebiete.map((rgId) => (
               <WeightCard
@@ -208,17 +187,6 @@ const Step14Gewichtung = () => {
             </div>
           )}
         </>
-      )}
-
-      {/* Info when disabled */}
-      {!isEnabled && (
-        <div className="bg-neutral-50 rounded-lg px-4 py-3 max-w-[700px] border border-neutral-200">
-          <p className="text-sm text-neutral-600 text-center">
-            Du kannst diesen Schritt überspringen. Die Zielgewichtung ist optional und
-            dient nur als Orientierungshilfe beim Erstellen deines Lernplans.
-          </p>
-        </div>
-      )}
     </div>
   );
 };

@@ -189,6 +189,7 @@ const ThemeCard = ({
 /**
  * Lernblock Card Component (Right Column)
  * Can contain: 1 theme OR multiple individual tasks
+ * BUG-P5 FIX: Option B - Show Aufgaben-List for both themes and individual tasks
  */
 const LernblockCard = ({
   block,
@@ -205,6 +206,11 @@ const LernblockCard = ({
   const hasThema = block.thema !== null;
   const hasAufgaben = (block.aufgaben || []).length > 0;
   const isEmpty = !hasThema && !hasAufgaben;
+
+  // BUG-P5 FIX: Get aufgaben directly from block.thema (stored when dropped)
+  const themaAufgaben = hasThema
+    ? (block.thema.aufgaben || [])
+    : [];
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -258,23 +264,32 @@ const LernblockCard = ({
 
         {/* Content Area */}
         <div className="flex-1">
-          {/* Theme Content */}
+          {/* Theme Content - BUG-P5 FIX: Show aufgaben list instead of just count */}
           {hasThema && (
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="space-y-1">
+              {/* Theme Header with remove button */}
+              <div className="flex items-center justify-between mb-1">
                 <p className="font-medium text-sm text-neutral-900">{block.thema.name}</p>
-                <p className="text-xs text-neutral-500">
-                  {block.thema.aufgabenCount} {block.thema.aufgabenCount === 1 ? 'Aufgabe' : 'Aufgaben'}
-                </p>
+                <button
+                  type="button"
+                  onClick={() => onRemoveThema(block.id)}
+                  className="text-neutral-400 hover:text-red-500 p-1 transition-colors"
+                  title="Thema entfernen"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => onRemoveThema(block.id)}
-                className="text-neutral-400 hover:text-red-500 p-1 transition-colors"
-                title="Thema entfernen"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {/* Aufgaben List - same style as individual aufgaben */}
+              {themaAufgaben.length > 0 ? (
+                themaAufgaben.map(aufgabe => (
+                  <div key={aufgabe.id} className="flex items-center gap-2 group">
+                    <div className="w-3 h-3 border border-neutral-300 rounded flex-shrink-0" />
+                    <span className="text-sm text-neutral-700 flex-1">{aufgabe.name}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-neutral-400 italic">Keine Aufgaben</p>
+              )}
             </div>
           )}
 
@@ -414,8 +429,9 @@ const Step15Lernbloecke = () => {
   // Stats
   const totalThemes = allThemesForRg.length;
   const totalAufgaben = allThemesForRg.reduce((sum, t) => sum + (t.aufgaben?.length || 0), 0);
+  // BUG-P5 FIX: Use aufgaben array length instead of aufgabenCount
   const aufgabenAssigned = assignedAufgabenIds.size +
-    currentBlocks.reduce((sum, b) => sum + (b.thema?.aufgabenCount || 0), 0);
+    currentBlocks.reduce((sum, b) => sum + (b.thema?.aufgaben?.length || 0), 0);
   const filledBlocks = currentBlocks.filter(b => b.thema || (b.aufgaben || []).length > 0).length;
 
   // === Drag & Drop Handlers ===
@@ -447,12 +463,13 @@ const Step15Lernbloecke = () => {
         // Dropping a theme: Only if block is empty
         if ((block.aufgaben || []).length > 0) return block;
 
+        // BUG-P5 FIX: Store full aufgaben array directly in block.thema
         return {
           ...block,
           thema: {
             id: dragData.thema.id,
             name: dragData.thema.name,
-            aufgabenCount: dragData.thema.aufgaben?.length || 0,
+            aufgaben: dragData.thema.aufgaben || [], // Full aufgaben array for display
             urgId: dragData.thema.urgId
           },
           aufgaben: []

@@ -2,7 +2,7 @@ import { useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import LernplanCard from './lernplan-card';
 import ContentPlanEditCard from './content-plan-edit-card';
 import { Button, PlusIcon } from '../ui';
-import { ChevronDownIcon } from '../ui';
+// BUG-P2 FIX: Removed ChevronDownIcon import - no longer needed after removing Mode Dropdown
 import { useCalendar } from '../../contexts/calendar-context';
 
 /**
@@ -15,7 +15,7 @@ import { useCalendar } from '../../contexts/calendar-context';
  */
 const LernplanContent = forwardRef(({ className = '' }, ref) => {
   const [expandedIds, setExpandedIds] = useState(new Set());
-  const [viewMode, setViewMode] = useState('all'); // 'standard', 'examen', 'all'
+  // BUG-P2 FIX: Removed viewMode state - dropdown was confusing and unnecessary
   const [showArchived, setShowArchived] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [newPlanId, setNewPlanId] = useState(null);
@@ -51,23 +51,19 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
   }));
 
   // Filter content plans
+  // BUG-P2 FIX: Removed viewMode filter - show all plans regardless of mode
   const { filteredLernplaene, filteredThemenlisten } = useMemo(() => {
     let plans = contentPlans || [];
 
-    // Filter by archived status
+    // Filter by archived status only
     plans = plans.filter(p => p.archived === showArchived);
-
-    // Filter by mode (for Lernpläne)
-    if (viewMode !== 'all') {
-      plans = plans.filter(p => p.type === 'themenliste' || p.mode === viewMode);
-    }
 
     // Separate by type
     const lernplaeneOnly = plans.filter(p => p.type === 'lernplan');
     const themenlistenOnly = plans.filter(p => p.type === 'themenliste');
 
     return { filteredLernplaene: lernplaeneOnly, filteredThemenlisten: themenlistenOnly };
-  }, [contentPlans, viewMode, showArchived]);
+  }, [contentPlans, showArchived]);
 
   // Auto-expand if only one plan
   const shouldAutoExpand = filteredLernplaene.length === 1 || filteredThemenlisten.length === 1;
@@ -151,25 +147,9 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
           </button>
         </div>
 
-        {/* Right: Mode Dropdown + Edit Toggle */}
+        {/* Right: Edit Toggle */}
+        {/* BUG-P2 FIX: Removed Mode Dropdown - was confusing and unnecessary */}
         <div className="flex items-center gap-3">
-          {/* Mode Dropdown */}
-          <div className="relative">
-            <select
-              value={viewMode}
-              onChange={(e) => setViewMode(e.target.value)}
-              className="appearance-none px-3 py-1.5 pr-8 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white cursor-pointer"
-            >
-              <option value="all">Alle Modi</option>
-              <option value="standard">Standard</option>
-              <option value="examen">Examen</option>
-            </select>
-            <ChevronDownIcon
-              size={14}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500"
-            />
-          </div>
-
           {/* Edit Mode Toggle */}
           <div className="flex items-center bg-neutral-100 rounded-lg p-0.5">
             <button
