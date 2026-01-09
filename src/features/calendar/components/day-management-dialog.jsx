@@ -39,8 +39,11 @@ const DayManagementDialog = ({
   learningBlocks = [],
   onUpdateBlock,
   onDeleteBlock,
-  availableSlots = 4
+  availableBlocks = 4,
+  availableSlots // Legacy alias
 }) => {
+  // Support legacy prop name
+  const maxBlocks = availableSlots ?? availableBlocks;
   // State for selected block
   const [selectedBlock, setSelectedBlock] = useState(null);
 
@@ -315,7 +318,7 @@ const DayManagementDialog = ({
         block={selectedBlock}
         onSave={handleBlockSave}
         onDelete={handleBlockDelete}
-        availableSlots={availableSlots}
+        availableBlocks={maxBlocks}
       />
 
       {/* Manage Repetition Session Dialog */}
@@ -326,7 +329,7 @@ const DayManagementDialog = ({
         block={selectedBlock}
         onSave={handleBlockSave}
         onDelete={handleBlockDelete}
-        availableSlots={availableSlots}
+        availableBlocks={maxBlocks}
       />
 
       {/* Manage Freetime Session Dialog */}
@@ -337,7 +340,7 @@ const DayManagementDialog = ({
         block={selectedBlock}
         onSave={handleBlockSave}
         onDelete={handleBlockDelete}
-        availableSlots={availableSlots}
+        availableBlocks={maxBlocks}
       />
 
       {/* Manage Exam Session Dialog */}
@@ -348,7 +351,7 @@ const DayManagementDialog = ({
         block={selectedBlock}
         onSave={handleBlockSave}
         onDelete={handleBlockDelete}
-        availableSlots={availableSlots}
+        availableBlocks={maxBlocks}
       />
     </Dialog>
   );

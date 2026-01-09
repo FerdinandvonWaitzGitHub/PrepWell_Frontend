@@ -40,7 +40,7 @@ const TRIAL_DURATION_DAYS = 30; // Trial period length
 const AppModeContext = createContext(null);
 
 export const AppModeProvider = ({ children }) => {
-  const { getContentPlansByType } = useCalendar();
+  const { getContentPlansByType, lernplanMetadata, blocksByDate } = useCalendar();
 
   // Use Supabase sync hook for app mode state
   const {
@@ -149,9 +149,31 @@ export const AppModeProvider = ({ children }) => {
   }, [updateAppModeState]);
 
   // Check if there's at least one active (non-archived) Lernplan
+  // This includes both:
+  // 1. ContentPlan-based Lernpläne (from contentPlans array)
+  // 2. Wizard-created Lernpläne (stored in blocksByDate + lernplanMetadata)
   const activeLernplaene = useMemo(() => {
-    return getContentPlansByType('lernplan', false);
-  }, [getContentPlansByType]);
+    const contentPlanLernplaene = getContentPlansByType('lernplan', false);
+
+    // Check for Wizard-created Lernplan (not stored as ContentPlan)
+    const hasWizardLernplan = lernplanMetadata &&
+      Object.keys(blocksByDate || {}).length > 0;
+
+    if (hasWizardLernplan) {
+      // Create a pseudo-Lernplan object for the Wizard-created plan
+      const wizardLernplan = {
+        id: 'wizard-lernplan',
+        name: lernplanMetadata.name || 'Aktiver Lernplan',
+        type: 'lernplan',
+        archived: false,
+        isWizardCreated: true,
+        ...lernplanMetadata,
+      };
+      return [wizardLernplan, ...contentPlanLernplaene];
+    }
+
+    return contentPlanLernplaene;
+  }, [getContentPlansByType, lernplanMetadata, blocksByDate]);
 
   // Determine current app mode (respects user preference)
   const appMode = useMemo(() => {

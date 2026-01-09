@@ -42,8 +42,11 @@ const ManageRepetitionBlockDialog = ({
   block,
   onSave,
   onDelete,
-  availableSlots = 4
+  availableBlocks = 4,
+  availableSlots // Legacy alias
 }) => {
+  // Support legacy prop name
+  const maxBlocks = availableSlots ?? availableBlocks;
   // Form state
   const [blockSize, setBlockSize] = useState(2);
   const [title, setTitle] = useState('');
@@ -218,7 +221,7 @@ const ManageRepetitionBlockDialog = ({
   };
 
   // Calculate total available slots (current block size + free slots)
-  const totalAvailableSlots = (block?.blockSize || 0) + availableSlots;
+  const totalAvailableBlocks = (block?.blockSize || 0) + maxBlocks;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -252,8 +255,8 @@ const ManageRepetitionBlockDialog = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setBlockSize(Math.min(totalAvailableSlots, blockSize + 1))}
-                    disabled={blockSize >= totalAvailableSlots}
+                    onClick={() => setBlockSize(Math.min(totalAvailableBlocks, blockSize + 1))}
+                    disabled={blockSize >= totalAvailableBlocks}
                     className="w-9 h-9 bg-white rounded-r-lg shadow-sm border border-neutral-200 flex items-center justify-center disabled:opacity-50"
                   >
                     <PlusIcon size={16} className="text-neutral-900" />

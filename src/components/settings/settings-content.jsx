@@ -86,7 +86,7 @@ const SettingsContent = ({ className = '' }) => {
     isAuthenticated
   } = useAuth();
 
-  const { flattenAllKapitel, archiveCurrentPlan } = useCalendar();
+  const { flattenAllKapitel, archiveAndConvertToThemenliste } = useCalendar();
   const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang } = useStudiengang();
   // FEAT-001: Get mentor activation status and functions
   const { isActivated: isMentorActivated, activateMentor, deactivateMentor } = useMentor();
@@ -228,10 +228,9 @@ const SettingsContent = ({ className = '' }) => {
 
   // Confirm mode switch: archive Lernplan and switch to normal mode
   const confirmModeSwitch = async () => {
-    // Archive all active Lernpläne
-    for (const lernplan of activeLernplaene) {
-      await archiveCurrentPlan(lernplan.id);
-    }
+    // Archive Lernplan and convert to Themenliste
+    // This extracts themes from calendar blocks and creates a ContentPlan
+    await archiveAndConvertToThemenliste();
     // Now switch mode
     toggleMode();
     setShowModeSwitchModal(false);

@@ -43,11 +43,15 @@ const CreatePrivateBlockDialog = ({
   date,
   onSave,
   initialTime = null, // Optional: wenn vom Wochenansicht-Klick
-  availableSlots = 4,
-  mode = 'block' // 'block' = Uhrzeiten (Week/Dashboard), 'slot' = Slot-Größe (Month)
+  availableBlocks = 4,
+  availableSlots, // Legacy alias
+  mode = 'session' // 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
 }) => {
+  // Support legacy prop name
+  const maxBlocks = availableSlots ?? availableBlocks;
+
   // Form state
-  const [slotSize, setSlotSize] = useState(1); // For slot mode
+  const [allocationSize, setAllocationSize] = useState(1); // For allocation mode (Month)
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -65,7 +69,7 @@ const CreatePrivateBlockDialog = ({
   // Reset form when dialog opens
   useEffect(() => {
     if (open && date) {
-      setSlotSize(1); // Reset slot size for slot mode
+      setAllocationSize(1); // Reset block size for allocation mode
       setTitle('');
       setDescription('');
       setStartDate(formatDateForInput(date));
@@ -166,8 +170,8 @@ const CreatePrivateBlockDialog = ({
     };
 
     // Add mode-specific data
-    if (mode === 'block') {
-      // Block mode: time-based (Week/Dashboard)
+    if (mode === 'session') {
+      // Session mode: time-based (Week/Dashboard)
       Object.assign(baseData, {
         blockSize: 1,
         startDate,
@@ -180,11 +184,11 @@ const CreatePrivateBlockDialog = ({
         duration: calculateDuration(),
       });
     } else {
-      // Slot mode: position-based (Month)
+      // Allocation mode: position-based (Month)
       Object.assign(baseData, {
-        blockSize: slotSize,
+        blockSize: allocationSize,
         hasTime: false,
-        isFromLernplan: false, // Manually created slot
+        isFromLernplan: false, // Manually created block
       });
     }
 
@@ -209,28 +213,28 @@ const CreatePrivateBlockDialog = ({
 
         <DialogBody>
           <div className="space-y-4">
-            {/* Slot-Größe Field - Only in slot mode (Month view) */}
-            {mode === 'slot' && (
+            {/* Block-Größe Field - Only in allocation mode (Month view) */}
+            {mode === 'block' && (
               <div className="space-y-3">
                 <label className="text-sm font-medium text-neutral-900">
-                  Slot-Größe <span className="text-xs text-neutral-500">({availableSlots} Slot{availableSlots !== 1 ? 's' : ''} verfügbar)</span>
+                  Block-Größe <span className="text-xs text-neutral-500">({maxBlocks} Block{maxBlocks !== 1 ? 's' : ''} verfügbar)</span>
                 </label>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4].map((size) => (
                     <button
                       key={size}
                       type="button"
-                      onClick={() => setSlotSize(size)}
-                      disabled={size > availableSlots}
+                      onClick={() => setAllocationSize(size)}
+                      disabled={size > maxBlocks}
                       className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                        slotSize === size
+                        allocationSize === size
                           ? 'bg-neutral-900 text-white'
-                          : size > availableSlots
+                          : size > maxBlocks
                             ? 'bg-neutral-100 text-neutral-300 cursor-not-allowed'
                             : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                       }`}
                     >
-                      {size} Slot{size !== 1 ? 's' : ''}
+                      {size} Block{size !== 1 ? 's' : ''}
                     </button>
                   ))}
                 </div>
@@ -250,8 +254,8 @@ const CreatePrivateBlockDialog = ({
               />
             </div>
 
-            {/* Start Date & Time - Only in block mode (Week/Dashboard) */}
-            {mode === 'block' && (
+            {/* Start Date & Time - Only in session mode (Week/Dashboard) */}
+            {mode === 'session' && (
               <div className="space-y-3">
                 <label className="text-sm font-medium text-neutral-900">Beginn</label>
                 <div className="flex gap-2">
@@ -280,8 +284,8 @@ const CreatePrivateBlockDialog = ({
               </div>
             )}
 
-            {/* End Date & Time - Only in block mode (Week/Dashboard) */}
-            {mode === 'block' && (
+            {/* End Date & Time - Only in session mode (Week/Dashboard) */}
+            {mode === 'session' && (
               <div className="space-y-3">
                 <label className="text-sm font-medium text-neutral-900">Ende</label>
                 <div className="flex gap-2">
@@ -399,8 +403,8 @@ const CreatePrivateBlockDialog = ({
               )}
             </div>
 
-            {/* Multi-day indicator - Only in block mode */}
-            {mode === 'block' && isMultiDay() && (
+            {/* Multi-day indicator - Only in session mode */}
+            {mode === 'session' && isMultiDay() && (
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                 <p className="text-sm text-blue-700">
                   Dieser Termin erstreckt sich über mehrere Tage und wird in der Wochenansicht oben angezeigt.

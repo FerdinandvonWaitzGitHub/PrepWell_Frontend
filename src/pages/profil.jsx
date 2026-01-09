@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Header, SubHeader } from '../components/layout';
 import { useAuth } from '../contexts/auth-context';
 import { useAppMode } from '../contexts/appmode-context';
-import { User, Mail, Calendar, Shield, Pencil, Check, X, ToggleLeft, ToggleRight, Trash2, LogOut, AlertTriangle } from 'lucide-react';
+import { useCalendar } from '../contexts/calendar-context';
+import { User, Mail, Calendar, Shield, Pencil, Check, X, ToggleLeft, ToggleRight, Trash2, LogOut, AlertTriangle, Archive } from 'lucide-react';
 
 /**
  * ProfilPage - Benutzerprofil
@@ -24,7 +25,10 @@ const ProfilPage = () => {
     toggleMode,
     canToggleMode,
     isModeManuallySet,
+    activeLernplaene,
   } = useAppMode();
+
+  const { archiveAndConvertToThemenliste } = useCalendar();
 
   // Edit states
   const [isEditingName, setIsEditingName] = useState(false);
@@ -32,6 +36,7 @@ const ProfilPage = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [showModeSwitchModal, setShowModeSwitchModal] = useState(false);
 
   // Get user data
   const initials = getInitials();
@@ -85,6 +90,26 @@ const ProfilPage = () => {
       setDeleteError(err.message || 'Fehler beim Löschen des Accounts');
       setIsDeleting(false);
     }
+  };
+
+  // Handle mode toggle - shows confirmation if switching to normal mode with active Lernplan
+  const handleModeToggle = () => {
+    // If switching from Exam to Normal and there's an active Lernplan, show warning
+    if (isExamMode && activeLernplaene && activeLernplaene.length > 0) {
+      setShowModeSwitchModal(true);
+    } else {
+      // No warning needed - just toggle
+      toggleMode();
+    }
+  };
+
+  // Confirm mode switch: archive Lernplan and switch to normal mode
+  const confirmModeSwitch = async () => {
+    // Archive Lernplan and convert to Themenliste
+    await archiveAndConvertToThemenliste();
+    // Now switch mode
+    toggleMode();
+    setShowModeSwitchModal(false);
   };
 
   return (
@@ -209,7 +234,7 @@ const ProfilPage = () => {
                     </span>
                     {canToggleMode ? (
                       <button
-                        onClick={toggleMode}
+                        onClick={handleModeToggle}
                         className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline"
                       >
                         {isExamMode ? 'Zu Normalmodus wechseln' : 'Zu Examensmodus wechseln'}
@@ -310,6 +335,68 @@ const ProfilPage = () => {
           </footer>
         </div>
       </main>
+
+      {/* Mode Switch Confirmation Modal */}
+      {showModeSwitchModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-xl">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 rounded-full bg-amber-100">
+                <Archive className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-900">
+                  Modus wechseln?
+                </h3>
+                <button
+                  onClick={() => setShowModeSwitchModal(false)}
+                  className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-neutral-700 mb-3">
+                Du hast {activeLernplaene?.length === 1 ? 'einen aktiven Lernplan' : `${activeLernplaene?.length || 0} aktive Lernpläne`}.
+              </p>
+              <p className="text-neutral-600 text-sm mb-3">
+                Wenn du in den <strong>Normal-Modus</strong> wechselst:
+              </p>
+              <ul className="text-sm text-neutral-600 space-y-2 ml-4">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span>Der Lernplan wird aus dem Kalender entfernt</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span>Der Lernplan wird als Themenliste archiviert</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span>Du kannst die Themenliste später in &quot;Lernpläne&quot; wiederfinden</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowModeSwitchModal(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-neutral-600 border border-neutral-200 rounded-lg hover:bg-neutral-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={confirmModeSwitch}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700"
+              >
+                Wechseln & Archivieren
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

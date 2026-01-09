@@ -54,7 +54,8 @@ const Step4Tagesbloecke = () => {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const calendarDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    // +1 to include both start and end date (inclusive range)
+    const calendarDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
     // Estimate based on 5 learning days per week (before Step 5 configuration)
     const estimatedLearningDaysPerWeek = 5;

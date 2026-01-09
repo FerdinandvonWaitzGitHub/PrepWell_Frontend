@@ -15,7 +15,7 @@ import { useAuth } from './auth-context';
 /**
  * Context for centrally managing Calendar data
  * Single Source of Truth for:
- * - Lernplan slots (from wizard)
+ * - Lernplan blocks (from wizard)
  * - Private blocks (personal appointments)
  * - Tasks (daily tasks)
  * - Content Plans (Lernpläne & Themenlisten)
@@ -24,7 +24,7 @@ import { useAuth } from './auth-context';
  *
  * Supabase Integration (ALL DATA NOW SYNCED):
  * - contentPlans: Synced via useContentPlansSync → content_plans table
- * - slots: Synced via useCalendarBlocksSync → calendar_slots table
+ * - blocks: Synced via useCalendarBlocksSync → calendar_blocks table
  * - tasks: Synced via useCalendarTasksSync → calendar_tasks table
  * - privateBlocks: Synced via usePrivateSessionsSync → private_blocks table
  * - archivedLernplaene: Synced via useArchivedLernplaeneSync → archived_lernplaene table
@@ -93,12 +93,12 @@ export const CalendarProvider = ({ children }) => {
   // User settings (for customUnterrechtsgebiete)
   const { settings: userSettings, updateSettings: updateUserSettings } = useUserSettingsSync();
 
-  // Calendar Slots - synced with Supabase
+  // Calendar Blocks - synced with Supabase
   const {
     blocksByDate,
-    setSlotsByDate: setBlocksByDateSync,
-    saveDaySlots,
-    clearAllSlots,
+    setBlocksByDate: setBlocksByDateSync,
+    saveDayBlocks: saveDayBlocksSync,
+    clearAllBlocks: clearAllBlocksSync,
     loading: blocksLoading,
   } = useCalendarBlocksSync();
 
@@ -117,7 +117,7 @@ export const CalendarProvider = ({ children }) => {
     loading: privateBlocksLoading,
   } = usePrivateSessionsSync();
 
-  // Time Blocks - synced with Supabase (BUG-023 FIX: Separate from calendar_slots)
+  // Time Blocks - synced with Supabase (BUG-023 FIX: Separate from calendar_blocks)
   // Time blocks are time-based (Week/Dashboard), NOT position-based (Month)
   const {
     timeSessionsByDate,
@@ -187,7 +187,7 @@ export const CalendarProvider = ({ children }) => {
   }, [setContentPlansLocal]);
 
   // Wrapper to set blocksByDate (for compatibility)
-  const setSlotsByDate = useCallback((newData) => {
+  const setBlocksByDate = useCallback((newData) => {
     setBlocksByDateSync(newData);
   }, [setBlocksByDateSync]);
 
@@ -196,22 +196,22 @@ export const CalendarProvider = ({ children }) => {
     return new Set(contentPlans.filter(p => p.archived).map(p => p.id));
   }, [contentPlans]);
 
-  // Compute visible slots (excludes slots from archived content plans)
+  // Compute visible blocks (excludes blocks from archived content plans)
   // BUG-010 FIX: Archived Lernpläne should not show in calendar
   const visibleBlocksByDate = useMemo(() => {
     if (archivedContentPlanIds.size === 0) {
-      return blocksByDate; // No archived plans, return all slots
+      return blocksByDate; // No archived plans, return all blocks
     }
 
     const result = {};
-    Object.entries(blocksByDate).forEach(([dateKey, slots]) => {
-      const visibleSlots = slots.filter(slot => {
-        // Keep slot if it has no contentPlanId or if its contentPlanId is not archived
-        if (!slot.contentPlanId) return true;
-        return !archivedContentPlanIds.has(slot.contentPlanId);
+    Object.entries(blocksByDate).forEach(([dateKey, blocks]) => {
+      const visibleBlocks = blocks.filter(block => {
+        // Keep block if it has no contentPlanId or if its contentPlanId is not archived
+        if (!block.contentPlanId) return true;
+        return !archivedContentPlanIds.has(block.contentPlanId);
       });
-      if (visibleSlots.length > 0) {
-        result[dateKey] = visibleSlots;
+      if (visibleBlocks.length > 0) {
+        result[dateKey] = visibleBlocks;
       }
     });
     return result;
@@ -231,10 +231,10 @@ export const CalendarProvider = ({ children }) => {
   } = usePublishedThemenlistenSync();
 
   // ============================================
-  // NEW DATA MODEL: Content (separate from Slots)
+  // NEW DATA MODEL: Content (separate from Blocks)
   // Content = What to learn (timeless)
-  // Slot = When to learn (date + position)
-  // Block = How to display (derived: Slot + Content + time)
+  // BlockAllocation = When to learn (date + position)
+  // Session = How to display (derived: Block + Content + time)
   // ============================================
 
   // Contents by ID (the learning material itself)
@@ -244,7 +244,7 @@ export const CalendarProvider = ({ children }) => {
 
   /**
    * Archive the current Lernplan
-   * Moves current slots to archived list
+   * Moves current blocks to archived list
    * Now synced to Supabase
    */
   const archiveCurrentPlan = useCallback(async () => {
@@ -254,7 +254,7 @@ export const CalendarProvider = ({ children }) => {
 
     const archivedPlanData = {
       id: `archive_${Date.now()}`,
-      slots: { ...blocksByDate },
+      blocks: { ...blocksByDate },
       metadata: {
         ...lernplanMetadata,
         archivedAt: new Date().toISOString()
@@ -269,17 +269,17 @@ export const CalendarProvider = ({ children }) => {
    * Set calendar data from wizard Step 8
    * Archives the current plan if one exists
    * Now synced to Supabase
-   * @param {Object} newSlots - The blocksByDate object from the wizard
+   * @param {Object} newBlocks - The blocksByDate object from the wizard
    * @param {Object} metadata - Lernplan metadata (name, startDate, endDate, etc.)
    */
-  const setCalendarData = useCallback(async (newSlots, metadata = {}) => {
+  const setCalendarData = useCallback(async (newBlocks, metadata = {}) => {
     // If there's existing data, archive it first
     if (Object.keys(blocksByDate).length > 0 && lernplanMetadata) {
       await archiveCurrentPlan();
     }
 
     // Set new data using sync hook
-    await setBlocksByDateSync(newSlots);
+    await setBlocksByDateSync(newBlocks);
 
     // Set metadata with creation timestamp using sync hook
     const newMetadata = {
@@ -289,7 +289,7 @@ export const CalendarProvider = ({ children }) => {
     };
     await updateLernplanMetadataSync(newMetadata);
 
-    console.log('CalendarContext: Saved new calendar data', { slots: Object.keys(newSlots).length, metadata: newMetadata });
+    console.log('CalendarContext: Saved new calendar data', { blocks: Object.keys(newBlocks).length, metadata: newMetadata });
   }, [blocksByDate, lernplanMetadata, archiveCurrentPlan, setBlocksByDateSync, updateLernplanMetadataSync]);
 
   /**
@@ -321,8 +321,8 @@ export const CalendarProvider = ({ children }) => {
     // Remove from archive using sync hook
     await deleteArchivedPlanSync(archiveId);
 
-    // Restore slots using sync hook
-    await setBlocksByDateSync(planToRestore.slots);
+    // Restore blocks using sync hook
+    await setBlocksByDateSync(planToRestore.blocks || planToRestore.slots);
 
     // Restore metadata using sync hook
     const restoredMetadata = {
@@ -343,14 +343,14 @@ export const CalendarProvider = ({ children }) => {
   }, [deleteArchivedPlanSync]);
 
   /**
-   * Update a single day's slots
+   * Update a single day's blocks
    * Now synced to Supabase
    * @param {string} dateKey - The date key (YYYY-MM-DD)
-   * @param {Array} slots - The new slots array for that day
+   * @param {Array} blocks - The new blocks array for that day
    */
-  const updateDayBlocks = useCallback(async (dateKey, slots) => {
-    // Use the sync hook to save day slots
-    await saveDaySlots(dateKey, slots);
+  const updateDayBlocks = useCallback(async (dateKey, blocks) => {
+    // Use the sync hook to save day blocks
+    await saveDayBlocksSync(dateKey, blocks);
 
     // Update metadata timestamp
     if (lernplanMetadata) {
@@ -360,19 +360,19 @@ export const CalendarProvider = ({ children }) => {
       };
       await updateLernplanMetadataSync(updatedMetadata);
     }
-  }, [lernplanMetadata, saveDaySlots, updateLernplanMetadataSync]);
+  }, [lernplanMetadata, saveDayBlocksSync, updateLernplanMetadataSync]);
 
   /**
-   * Get slots for a specific date
+   * Get blocks for a specific date
    * @param {string} dateKey - The date key (YYYY-MM-DD)
-   * @returns {Array} The slots for that day, or empty array
+   * @returns {Array} The blocks for that day, or empty array
    */
   const getDayBlocks = useCallback((dateKey) => {
     return blocksByDate[dateKey] || [];
   }, [blocksByDate]);
 
   /**
-   * Update Lernplan metadata (name, etc.) without changing slots
+   * Update Lernplan metadata (name, etc.) without changing blocks
    * Now synced to Supabase
    * @param {Object} updates - Partial metadata updates
    */
@@ -395,18 +395,18 @@ export const CalendarProvider = ({ children }) => {
    * Now synced to Supabase
    */
   const deleteCurrentPlan = useCallback(async () => {
-    await clearAllSlots();
+    await clearAllBlocksSync();
     await clearLernplanMetadataSync();
-  }, [clearAllSlots, clearLernplanMetadataSync]);
+  }, [clearAllBlocksSync, clearLernplanMetadataSync]);
 
   /**
    * Clear all calendar data (for testing/reset)
    * Now synced to Supabase
    */
   const clearAllData = useCallback(async () => {
-    await clearAllSlots();
+    await clearAllBlocksSync();
     await clearLernplanMetadataSync();
-  }, [clearAllSlots, clearLernplanMetadataSync]);
+  }, [clearAllBlocksSync, clearLernplanMetadataSync]);
 
   /**
    * Check if there's an active Lernplan
@@ -415,6 +415,117 @@ export const CalendarProvider = ({ children }) => {
   const hasActiveLernplan = useCallback(() => {
     return Object.keys(blocksByDate).length > 0;
   }, [blocksByDate]);
+
+  /**
+   * Archive Lernplan and convert to Themenliste
+   * Extracts themes from calendar blocks and creates a ContentPlan
+   * Clears calendar data after conversion
+   * @returns {Object} The created ContentPlan
+   */
+  const archiveAndConvertToThemenliste = useCallback(async () => {
+    // Helper to generate unique IDs
+    const genId = () => `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // 1. Collect all unique themes from blocksByDate grouped by RG/URG
+    const themesByRgUrg = {};
+
+    Object.values(blocksByDate).flat().forEach(block => {
+      const rgId = block.rechtsgebiet || block.metadata?.rgId;
+      const urgId = block.thema?.urgId || block.metadata?.urgId || block.unterrechtsgebiet;
+      const thema = block.thema;
+
+      if (!rgId) return; // Skip blocks without RG
+
+      if (!themesByRgUrg[rgId]) themesByRgUrg[rgId] = {};
+
+      // Handle blocks with themes
+      if (thema) {
+        const urgKey = urgId || 'unassigned';
+        if (!themesByRgUrg[rgId][urgKey]) themesByRgUrg[rgId][urgKey] = [];
+
+        // Avoid duplicates by checking theme ID
+        if (!themesByRgUrg[rgId][urgKey].find(t => t.id === thema.id)) {
+          themesByRgUrg[rgId][urgKey].push({
+            ...thema,
+            aufgaben: block.tasks || thema.aufgaben || []
+          });
+        }
+      }
+
+      // Also handle blocks with only tasks (no theme)
+      if (!thema && block.tasks && block.tasks.length > 0) {
+        const urgKey = urgId || 'unassigned';
+        if (!themesByRgUrg[rgId][urgKey]) themesByRgUrg[rgId][urgKey] = [];
+
+        // Create a pseudo-theme from the block's topic
+        const pseudoTheme = {
+          id: block.id,
+          name: block.topicTitle || 'Unbenanntes Thema',
+          aufgaben: block.tasks
+        };
+
+        if (!themesByRgUrg[rgId][urgKey].find(t => t.id === pseudoTheme.id)) {
+          themesByRgUrg[rgId][urgKey].push(pseudoTheme);
+        }
+      }
+    });
+
+    // 2. Convert to ContentPlan structure
+    const rechtsgebiete = Object.entries(themesByRgUrg).map(([rgId, urgs]) => ({
+      id: genId(),
+      rechtsgebietId: rgId,
+      unterrechtsgebiete: Object.entries(urgs).map(([urgId, themes]) => ({
+        id: genId(),
+        unterrechtsgebietId: urgId === 'unassigned' ? null : urgId,
+        name: urgId === 'unassigned' ? 'Nicht zugeordnet' : '',
+        kapitel: themes.map(theme => ({
+          id: genId(),
+          title: theme.name,
+          themen: (theme.aufgaben || []).map(aufgabe => ({
+            id: genId(),
+            name: aufgabe.name || aufgabe.title || 'Aufgabe',
+            completed: aufgabe.completed || false
+          }))
+        }))
+      }))
+    }));
+
+    // 3. Create ContentPlan
+    const contentPlan = {
+      id: genId(),
+      name: `${lernplanMetadata?.name || 'Lernplan'} (archiviert)`,
+      type: 'themenliste',
+      archived: true,
+      rechtsgebiete,
+      // Store wizard data for potential future restoration
+      wizardData: {
+        startDate: lernplanMetadata?.startDate,
+        endDate: lernplanMetadata?.endDate,
+        blocksPerDay: lernplanMetadata?.blocksPerDay,
+        weekStructure: lernplanMetadata?.weekStructure,
+        rechtsgebieteGewichtung: lernplanMetadata?.rechtsgebieteGewichtung,
+        verteilungsmodus: lernplanMetadata?.verteilungsmodus,
+        selectedRechtsgebiete: lernplanMetadata?.selectedRechtsgebiete,
+      },
+      createdAt: lernplanMetadata?.createdAt || new Date().toISOString(),
+      archivedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 4. Save to Supabase
+    await saveContentPlanToSupabase(contentPlan);
+
+    // 5. Clear calendar data
+    await clearAllBlocksSync();
+    await clearLernplanMetadataSync();
+
+    console.log('CalendarContext: Archived Lernplan and converted to Themenliste', {
+      contentPlanId: contentPlan.id,
+      rechtsgebieteCount: rechtsgebiete.length,
+    });
+
+    return contentPlan;
+  }, [blocksByDate, lernplanMetadata, saveContentPlanToSupabase, clearAllBlocksSync, clearLernplanMetadataSync]);
 
   // ============================================
   // CONTENT CRUD (NEW DATA MODEL)
@@ -517,91 +628,91 @@ export const CalendarProvider = ({ children }) => {
   }, []);
 
   /**
-   * Add a slot with automatic content creation
-   * Creates content from slot data if not exists
+   * Add a block with automatic content creation
+   * Creates content from block data if not exists
    * Handles repeat/series appointments
    * @param {string} dateKey - The date (YYYY-MM-DD)
-   * @param {Object} slotData - Slot data with embedded content
-   * @returns {{ slot: Object, content: Object }}
+   * @param {Object} blockData - Block data with embedded content
+   * @returns {{ block: Object, content: Object }}
    */
-  const addSlotWithContent = useCallback((dateKey, slotData) => {
+  const addBlockWithContent = useCallback((dateKey, blockData) => {
     // Create or get content ID
-    const contentId = slotData.contentId || slotData.topicId || `content-${Date.now()}`;
+    const contentId = blockData.contentId || blockData.topicId || `content-${Date.now()}`;
 
     // Save content if it has content fields
     const content = saveContent({
       id: contentId,
-      title: slotData.title || slotData.topicTitle || 'Lernblock',
-      description: slotData.description || '',
-      rechtsgebiet: slotData.rechtsgebiet || '',
-      unterrechtsgebiet: slotData.unterrechtsgebiet || '',
-      blockType: slotData.blockType || 'lernblock',
-      aufgaben: slotData.aufgaben || [],
+      title: blockData.title || blockData.topicTitle || 'Lernblock',
+      description: blockData.description || '',
+      rechtsgebiet: blockData.rechtsgebiet || '',
+      unterrechtsgebiet: blockData.unterrechtsgebiet || '',
+      blockType: blockData.blockType || 'lernblock',
+      aufgaben: blockData.aufgaben || [],
     });
 
     // Generate a series ID if this is a repeating appointment
-    const seriesId = slotData.repeatEnabled ? `series-${Date.now()}` : null;
+    const seriesId = blockData.repeatEnabled ? `series-${Date.now()}` : null;
 
-    // Create base slot referencing the content
-    const createSlot = (isOriginal = true) => ({
-      id: `slot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    // Create base block referencing the content
+    const createBlock = (isOriginal = true) => ({
+      id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       contentId: content.id,
-      position: slotData.position || 1,
-      blockType: slotData.blockType || 'lernblock',
-      isLocked: slotData.isLocked || false,
-      isFromLernplan: slotData.isFromLernplan || false,
-      tasks: slotData.tasks || [],
+      position: blockData.position || 1,
+      blockType: blockData.blockType || 'lernblock',
+      isLocked: blockData.isLocked || false,
+      isFromLernplan: blockData.isFromLernplan || false,
+      tasks: blockData.tasks || [],
       // Time overrides (optional)
-      hasTime: slotData.hasTime || false,
-      startHour: slotData.startHour,
-      duration: slotData.duration,
-      startTime: slotData.startTime,
-      endTime: slotData.endTime,
+      hasTime: blockData.hasTime || false,
+      startHour: blockData.startHour,
+      duration: blockData.duration,
+      startTime: blockData.startTime,
+      endTime: blockData.endTime,
       // Repeat settings (only on original)
-      repeatEnabled: isOriginal ? (slotData.repeatEnabled || false) : false,
-      repeatType: isOriginal ? slotData.repeatType : null,
-      repeatCount: isOriginal ? slotData.repeatCount : null,
-      seriesId: seriesId, // Links all slots in a series
+      repeatEnabled: isOriginal ? (blockData.repeatEnabled || false) : false,
+      repeatType: isOriginal ? blockData.repeatType : null,
+      repeatCount: isOriginal ? blockData.repeatCount : null,
+      seriesId: seriesId, // Links all blocks in a series
       createdAt: new Date().toISOString(),
     });
 
-    // Start with the original slot
-    const originalSlot = createSlot(true);
-    let updatedSlots = { ...blocksByDate };
+    // Start with the original block
+    const originalBlock = createBlock(true);
+    let updatedBlocks = { ...blocksByDate };
 
-    // Add original slot to the first date
-    const currentSlots = updatedSlots[dateKey] || [];
-    updatedSlots[dateKey] = [...currentSlots, originalSlot];
+    // Add original block to the first date
+    const currentBlocks = updatedBlocks[dateKey] || [];
+    updatedBlocks[dateKey] = [...currentBlocks, originalBlock];
 
-    // If repeat is enabled, create slots for all repeat dates
-    if (slotData.repeatEnabled && slotData.repeatType && slotData.repeatCount > 0) {
+    // If repeat is enabled, create blocks for all repeat dates
+    if (blockData.repeatEnabled && blockData.repeatType && blockData.repeatCount > 0) {
       const repeatDates = calculateRepeatDates(
         dateKey,
-        slotData.repeatType,
-        slotData.repeatCount,
-        slotData.customDays || []
+        blockData.repeatType,
+        blockData.repeatCount,
+        blockData.customDays || []
       );
 
       repeatDates.forEach(repeatDateKey => {
-        const repeatSlot = createSlot(false);
-        const existingSlots = updatedSlots[repeatDateKey] || [];
-        updatedSlots[repeatDateKey] = [...existingSlots, repeatSlot];
+        const repeatBlock = createBlock(false);
+        const existingBlocks = updatedBlocks[repeatDateKey] || [];
+        updatedBlocks[repeatDateKey] = [...existingBlocks, repeatBlock];
       });
     }
 
-    setSlotsByDate(updatedSlots);
-    saveToStorage(STORAGE_KEY_BLOCKS, updatedSlots);
+    setBlocksByDate(updatedBlocks);
+    saveToStorage(STORAGE_KEY_BLOCKS, updatedBlocks);
 
-    return { slot: originalSlot, content };
+    return { block: originalBlock, content };
   }, [blocksByDate, contentsById, saveContent, calculateRepeatDates]);
 
   /**
-   * Build a display block from slot (merges slot + content)
-   * @param {Object} slot - The slot
-   * @returns {Object} Block for display
+   * Build a display session from block (merges block + content)
+   * @param {Object} block - The block allocation
+   * @returns {Object} Session for display
    */
-  const buildBlockFromSlot = useCallback((slot) => {
-    const content = contentsById[slot.contentId] || {};
+  const buildSessionFromBlock = useCallback((block) => {
+    const content = contentsById[block.contentId] || {};
 
     // Position to time mapping
     const positionTimes = {
@@ -610,20 +721,20 @@ export const CalendarProvider = ({ children }) => {
       3: { startHour: 14, endHour: 16 },
       4: { startHour: 16, endHour: 18 },
     };
-    const posTime = positionTimes[slot.position] || positionTimes[1];
+    const posTime = positionTimes[block.position] || positionTimes[1];
 
     return {
       // IDs
-      id: content.id || slot.contentId,
-      slotId: slot.id,
-      contentId: slot.contentId,
+      id: content.id || block.contentId,
+      blockId: block.id,
+      contentId: block.contentId,
 
-      // Time (from slot override or position default)
-      startHour: slot.startHour ?? posTime.startHour,
-      duration: slot.duration ?? (posTime.endHour - posTime.startHour),
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      hasTime: slot.hasTime || false,
+      // Time (from block override or position default)
+      startHour: block.startHour ?? posTime.startHour,
+      duration: block.duration ?? (posTime.endHour - posTime.startHour),
+      startTime: block.startTime,
+      endTime: block.endTime,
+      hasTime: block.hasTime || false,
 
       // From Content
       title: content.title || 'Lernblock',
@@ -631,32 +742,32 @@ export const CalendarProvider = ({ children }) => {
       rechtsgebiet: content.rechtsgebiet,
       unterrechtsgebiet: content.unterrechtsgebiet,
 
-      // From Slot
-      position: slot.position,
-      blockType: slot.blockType || content.blockType || 'lernblock',
-      isBlocked: slot.isLocked || false,
-      isLocked: slot.isLocked || false,
-      isFromLernplan: slot.isFromLernplan || false, // Distinguishes wizard vs manual
-      tasks: slot.tasks || [],
+      // From Block
+      position: block.position,
+      blockType: block.blockType || content.blockType || 'lernblock',
+      isBlocked: block.isLocked || false,
+      isLocked: block.isLocked || false,
+      isFromLernplan: block.isFromLernplan || false, // Distinguishes wizard vs manual
+      tasks: block.tasks || [],
 
       // Repeat / Series
-      repeatEnabled: slot.repeatEnabled || false,
-      repeatType: slot.repeatType,
-      repeatCount: slot.repeatCount,
-      seriesId: slot.seriesId || null, // Links all slots in a series
+      repeatEnabled: block.repeatEnabled || false,
+      repeatType: block.repeatType,
+      repeatCount: block.repeatCount,
+      seriesId: block.seriesId || null, // Links all blocks in a series
     };
   }, [contentsById]);
 
   /**
-   * Get blocks for a date (slots merged with content)
+   * Get sessions for a date (blocks merged with content)
    * BUG-010 FIX: Uses visibleBlocksByDate to exclude archived content plans
    * @param {string} dateKey - The date (YYYY-MM-DD)
-   * @returns {Array} Array of display blocks
+   * @returns {Array} Array of display sessions
    */
-  const getBlocksForDate = useCallback((dateKey) => {
-    const slots = visibleBlocksByDate[dateKey] || [];
-    return slots.map(buildBlockFromSlot);
-  }, [visibleBlocksByDate, buildBlockFromSlot]);
+  const getSessionsForDate = useCallback((dateKey) => {
+    const blocks = visibleBlocksByDate[dateKey] || [];
+    return blocks.map(buildSessionFromBlock);
+  }, [visibleBlocksByDate, buildSessionFromBlock]);
 
   // ============================================
   // PRIVATE BLOCKS CRUD
@@ -936,50 +1047,50 @@ export const CalendarProvider = ({ children }) => {
   }, [timeSessionsByDate]);
 
   // ============================================
-  // SLOT DELETE OPERATIONS
+  // BLOCK DELETE OPERATIONS
   // ============================================
 
   /**
-   * Delete a single slot from a specific date
+   * Delete a single block from a specific date
    * @param {string} dateKey - The date key (YYYY-MM-DD)
-   * @param {string} slotId - The slot ID to delete
+   * @param {string} blockId - The block ID to delete
    */
-  const deleteBlock = useCallback((dateKey, slotId) => {
-    const currentSlots = blocksByDate[dateKey] || [];
-    const filteredSlots = currentSlots.filter(slot => slot.id !== slotId);
+  const deleteBlock = useCallback((dateKey, blockId) => {
+    const currentBlocks = blocksByDate[dateKey] || [];
+    const filteredBlocks = currentBlocks.filter(block => block.id !== blockId);
 
-    const updatedSlots = {
+    const updatedBlocks = {
       ...blocksByDate,
-      [dateKey]: filteredSlots,
+      [dateKey]: filteredBlocks,
     };
 
-    setSlotsByDate(updatedSlots);
-    saveToStorage(STORAGE_KEY_BLOCKS, updatedSlots);
+    setBlocksByDate(updatedBlocks);
+    saveToStorage(STORAGE_KEY_BLOCKS, updatedBlocks);
   }, [blocksByDate]);
 
   /**
-   * Delete all slots in a series (by seriesId)
+   * Delete all blocks in a series (by seriesId)
    * Useful for deleting all recurring appointments at once
    * @param {string} seriesId - The series ID
    */
-  const deleteSeriesSlots = useCallback((seriesId) => {
+  const deleteSeriesBlocks = useCallback((seriesId) => {
     if (!seriesId) return;
 
-    const updatedSlots = { ...blocksByDate };
+    const updatedBlocks = { ...blocksByDate };
 
-    // Iterate through all dates and remove slots with matching seriesId
-    Object.keys(updatedSlots).forEach(dateKey => {
-      const daySlots = updatedSlots[dateKey] || [];
-      updatedSlots[dateKey] = daySlots.filter(slot => slot.seriesId !== seriesId);
+    // Iterate through all dates and remove blocks with matching seriesId
+    Object.keys(updatedBlocks).forEach(dateKey => {
+      const dayBlocks = updatedBlocks[dateKey] || [];
+      updatedBlocks[dateKey] = dayBlocks.filter(block => block.seriesId !== seriesId);
 
       // Clean up empty date entries
-      if (updatedSlots[dateKey].length === 0) {
-        delete updatedSlots[dateKey];
+      if (updatedBlocks[dateKey].length === 0) {
+        delete updatedBlocks[dateKey];
       }
     });
 
-    setSlotsByDate(updatedSlots);
-    saveToStorage(STORAGE_KEY_BLOCKS, updatedSlots);
+    setBlocksByDate(updatedBlocks);
+    saveToStorage(STORAGE_KEY_BLOCKS, updatedBlocks);
   }, [blocksByDate]);
 
   // ============================================
@@ -2086,7 +2197,7 @@ export const CalendarProvider = ({ children }) => {
    * Schedule an Aufgabe to a Block (marks it as scheduled in the themenliste)
    * Used when dragging an Aufgabe from Themenliste to a Calendar Block
    * @param {string} aufgabeId - The Aufgabe ID to schedule
-   * @param {Object} blockInfo - { slotId, date, blockTitle }
+   * @param {Object} blockInfo - { blockId, date, blockTitle }
    */
   const scheduleAufgabeToBlock = useCallback((aufgabeId, blockInfo) => {
     const updated = contentPlans.map(plan => {
@@ -2107,7 +2218,7 @@ export const CalendarProvider = ({ children }) => {
                     return {
                       ...a,
                       scheduledInBlock: {
-                        slotId: blockInfo.slotId,
+                        blockId: blockInfo.blockId,
                         date: blockInfo.date,
                         blockTitle: blockInfo.blockTitle,
                         scheduledAt: new Date().toISOString(),
@@ -2209,14 +2320,14 @@ export const CalendarProvider = ({ children }) => {
   // ============================================
 
   /**
-   * Get all blocks (slots + private) for a specific date
+   * Get all blocks (allocations + private) for a specific date
    * Used by Wochenansicht and Startseite
    * @param {string} dateKey - The date key (YYYY-MM-DD)
-   * @returns {Object} { slots: [], privateBlocks: [], tasks: [] }
+   * @returns {Object} { blocks: [], privateBlocks: [], tasks: [] }
    */
   const getDayData = useCallback((dateKey) => {
     return {
-      slots: blocksByDate[dateKey] || [],
+      blocks: blocksByDate[dateKey] || [],
       privateBlocks: privateSessionsByDate[dateKey] || [],
       tasks: tasksByDate[dateKey] || [],
     };
@@ -2244,7 +2355,7 @@ export const CalendarProvider = ({ children }) => {
   const value = {
     // State
     blocksByDate,
-    visibleBlocksByDate, // BUG-010 FIX: Filtered slots (excludes archived plans)
+    visibleBlocksByDate, // BUG-010 FIX: Filtered blocks (excludes archived plans)
     lernplanMetadata,
     archivedLernplaene,
     privateSessionsByDate,
@@ -2268,7 +2379,7 @@ export const CalendarProvider = ({ children }) => {
     publishedThemenlistenLoading,
     isAuthenticated,
 
-    // Lernplan Slot Actions
+    // Lernplan Block Actions
     setCalendarData,
     updateDayBlocks,
     getDayBlocks,
@@ -2283,13 +2394,17 @@ export const CalendarProvider = ({ children }) => {
     saveContent,
     getContent,
     deleteContent,
-    addSlotWithContent,
-    buildBlockFromSlot,
-    getBlocksForDate,
+    addBlockWithContent,
+    addSlotWithContent: addBlockWithContent, // Legacy alias
+    buildSessionFromBlock,
+    buildBlockFromSlot: buildSessionFromBlock, // Legacy alias
+    getSessionsForDate,
+    getBlocksForDate: getSessionsForDate, // Legacy alias
 
-    // Slot Delete Actions
+    // Block Delete Actions
     deleteBlock,
-    deleteSeriesSlots,
+    deleteSeriesBlocks,
+    deleteSeriesSlots: deleteSeriesBlocks, // Legacy alias
 
     // Private Block Actions
     addPrivateBlock,
@@ -2298,7 +2413,7 @@ export const CalendarProvider = ({ children }) => {
     deleteSeriesPrivateBlocks,
     getPrivateBlocks,
 
-    // Time Block Actions (BUG-023 FIX: Separate from slots)
+    // Time Block Actions (BUG-023 FIX: Separate from block allocations)
     addTimeBlock,
     updateTimeBlock,
     deleteTimeBlock,
@@ -2380,6 +2495,9 @@ export const CalendarProvider = ({ children }) => {
     // Getters
     getArchivedPlans,
     hasActiveLernplan,
+
+    // Archive & Convert
+    archiveAndConvertToThemenliste,
   };
 
   return (

@@ -71,7 +71,7 @@ const DashboardPage = () => {
     displayDate,
     dateString,
     currentLernblock: _currentLernblock,
-    todaySlots,
+    todayBlocks: todaySlots,
     todayPrivateBlocks, // BUG-023 FIX: Private blocks only (for ZeitplanWidget)
     aufgaben,
     dayProgress,
@@ -79,7 +79,7 @@ const DashboardPage = () => {
     checkInDone,
     isMentorActivated: _isMentorActivated,
     wasMorningSkipped: _wasMorningSkipped,
-    hasRealLernplanSlots: _hasRealLernplanSlots, // true if wizard-created slots exist
+    hasRealLernplanBlocks: _hasRealLernplanBlocks, // true if wizard-created blocks exist
     refresh: _refresh,
     previousDay,
     nextDay,
@@ -95,7 +95,7 @@ const DashboardPage = () => {
   void _loading;
   void _isMentorActivated;
   void _wasMorningSkipped;
-  void _hasRealLernplanSlots;
+  void _hasRealLernplanBlocks;
   void _refresh;
   void _doCheckIn;
 
@@ -109,15 +109,15 @@ const DashboardPage = () => {
   // CalendarContext for CRUD operations
   // BUG-023 FIX: Use timeBlocksByDate and addTimeBlock for user-created blocks
   const {
-    slotsByDate,
+    blocksByDate,
     privateBlocksByDate,
     timeBlocksByDate, // BUG-023 FIX: Time-based blocks
-    updateDaySlots,
+    updateDayBlocks,
     addPrivateBlock,
     updatePrivateBlock,
     deletePrivateBlock,
     deleteSeriesPrivateBlocks,
-    addTimeBlock, // BUG-023 FIX: Use this instead of addSlotWithContent
+    addTimeBlock, // BUG-023 FIX: Use this instead of addBlockWithContent
     updateTimeBlock,
     deleteTimeBlock,
     // NEW DATA MODEL: Content management
@@ -247,13 +247,13 @@ const DashboardPage = () => {
 
   // Helper: Get position-based time (reserved for future use)
   const _getTimeForPosition = (position) => {
-    const timeSlots = {
+    const timePositions = {
       1: { startTime: '08:00', endTime: '10:00' },
       2: { startTime: '10:00', endTime: '12:00' },
       3: { startTime: '14:00', endTime: '16:00' },
       4: { startTime: '16:00', endTime: '18:00' },
     };
-    return timeSlots[position] || { startTime: '08:00', endTime: '10:00' };
+    return timePositions[position] || { startTime: '08:00', endTime: '10:00' };
   };
   void _getTimeForPosition;
 
@@ -308,7 +308,7 @@ const DashboardPage = () => {
   }, []);
 
   // BUG-023 FIX: Add a new learning block - uses timeBlocksByDate
-  // Creates time blocks (NOT slots) for Dashboard/Week views
+  // Creates time blocks (NOT block allocations) for Dashboard/Week views
   // This ensures blocks created here are NEVER shown in Month view
   const handleAddBlock = useCallback(async (_date, blockData) => {
     console.log('[Dashboard handleAddBlock] BUG-023 FIX: Creating time block');
@@ -330,14 +330,14 @@ const DashboardPage = () => {
       tasks: blockData.tasks || [],
     };
 
-    // Use addTimeBlock which stores in timeBlocksByDate (NOT slotsByDate)
+    // Use addTimeBlock which stores in timeBlocksByDate (NOT blocksByDate)
     await addTimeBlock(dateString, timeBlockData);
 
     console.log('[Dashboard handleAddBlock] Time block created successfully');
   }, [dateString, addTimeBlock]);
 
-  // Update a block (updates both Slot and Content)
-  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan slots
+  // Update a block (updates both Block and Content)
+  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan blocks
   const handleUpdateBlock = useCallback(async (_date, updatedBlock) => {
     if (updatedBlock.blockType === 'private') {
       updatePrivateBlock(dateString, updatedBlock.id, updatedBlock);
@@ -364,21 +364,21 @@ const DashboardPage = () => {
       return;
     }
 
-    // Legacy: Update Lernplan slot (for backwards compatibility)
-    const daySlots = slotsByDate[dateString] || [];
-    const updatedSlots = daySlots.map(slot => {
+    // Legacy: Update Lernplan block (for backwards compatibility)
+    const dayBlocks = blocksByDate[dateString] || [];
+    const updatedBlocks = dayBlocks.map(block => {
       const isMatch =
-        slot.contentId === updatedBlock.id ||
-        slot.contentId === updatedBlock.contentId ||
-        slot.topicId === updatedBlock.id ||
-        slot.topicId === updatedBlock.topicId ||
-        slot.id === updatedBlock.id;
+        block.contentId === updatedBlock.id ||
+        block.contentId === updatedBlock.contentId ||
+        block.topicId === updatedBlock.id ||
+        block.topicId === updatedBlock.topicId ||
+        block.id === updatedBlock.id;
 
       if (isMatch) {
         // Update Content separately if using contentId pattern
-        if (slot.contentId) {
+        if (block.contentId) {
           saveContent({
-            id: slot.contentId,
+            id: block.contentId,
             title: updatedBlock.title,
             description: updatedBlock.description,
             rechtsgebiet: updatedBlock.rechtsgebiet,
@@ -387,9 +387,9 @@ const DashboardPage = () => {
           });
         }
 
-        // Update Slot data
+        // Update Block data
         return {
-          ...slot,
+          ...block,
           title: updatedBlock.title,
           topicTitle: updatedBlock.title,
           blockType: updatedBlock.blockType,
@@ -409,13 +409,13 @@ const DashboardPage = () => {
           updatedAt: new Date().toISOString(),
         };
       }
-      return slot;
+      return block;
     });
-    updateDaySlots(dateString, updatedSlots);
-  }, [dateString, slotsByDate, timeBlocksByDate, updateDaySlots, updatePrivateBlock, updateTimeBlock, saveContent]);
+    updateDayBlocks(dateString, updatedBlocks);
+  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updatePrivateBlock, updateTimeBlock, saveContent]);
 
-  // Delete a block (removes Slot, Content remains for potential reuse)
-  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan slots
+  // Delete a block (removes Block, Content remains for potential reuse)
+  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan blocks
   const handleDeleteBlock = useCallback(async (_date, blockId) => {
     const dayPrivateBlocks = privateBlocksByDate[dateString] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
@@ -435,18 +435,18 @@ const DashboardPage = () => {
       return;
     }
 
-    // Legacy: Delete Lernplan slot (for backwards compatibility)
-    const daySlots = slotsByDate[dateString] || [];
-    const updatedSlots = daySlots.filter(slot => {
+    // Legacy: Delete Lernplan block (for backwards compatibility)
+    const dayBlocks = blocksByDate[dateString] || [];
+    const updatedBlocks = dayBlocks.filter(block => {
       const isMatch =
-        slot.contentId === blockId ||
-        slot.topicId === blockId ||
-        slot.id === blockId;
+        block.contentId === blockId ||
+        block.topicId === blockId ||
+        block.id === blockId;
       return !isMatch;
     });
-    updateDaySlots(dateString, updatedSlots);
+    updateDayBlocks(dateString, updatedBlocks);
     // Note: Content is NOT deleted - it can be reused later
-  }, [dateString, slotsByDate, timeBlocksByDate, privateBlocksByDate, updateDaySlots, deletePrivateBlock, deleteTimeBlock]);
+  }, [dateString, blocksByDate, timeBlocksByDate, privateBlocksByDate, updateDayBlocks, deletePrivateBlock, deleteTimeBlock]);
 
   // Add a new private block
   const handleAddPrivateBlock = useCallback((_date, blockData) => {
@@ -460,33 +460,33 @@ const DashboardPage = () => {
   // Handle dropping a task onto a block
   // Supports both contentId and topicId patterns for cross-view compatibility
   const handleDropTaskToBlock = useCallback((block, droppedTask, source) => {
-    const daySlots = slotsByDate[dateString] || [];
+    const dayBlocks = blocksByDate[dateString] || [];
     let taskWasAdded = false;
-    let targetSlotId = null;
+    let targetBlockId = null;
 
-    const updatedSlots = daySlots.map(slot => {
+    const updatedBlocks = dayBlocks.map(blk => {
       // Match by contentId, topicId, or id (supports both patterns)
       const isMatch =
-        slot.contentId === block.id ||
-        slot.contentId === block.contentId ||
-        slot.topicId === block.id ||
-        slot.topicId === block.topicId ||
-        slot.id === block.id;
+        blk.contentId === block.id ||
+        blk.contentId === block.contentId ||
+        blk.topicId === block.id ||
+        blk.topicId === block.topicId ||
+        blk.id === block.id;
 
       if (isMatch) {
-        // Add the task to this slot's tasks array
-        const existingTasks = slot.tasks || [];
+        // Add the task to this block's tasks array
+        const existingTasks = blk.tasks || [];
         // Check if task already exists (by sourceId or id)
         const alreadyExists = existingTasks.some(t =>
           t.sourceId === droppedTask.id || t.id === droppedTask.id
         );
 
         if (alreadyExists) {
-          return slot; // Don't add duplicate
+          return blk; // Don't add duplicate
         }
 
         taskWasAdded = true;
-        targetSlotId = slot.id;
+        targetBlockId = blk.id;
 
         const newTask = {
           id: `dropped-${Date.now()}`,
@@ -499,15 +499,15 @@ const DashboardPage = () => {
         };
 
         return {
-          ...slot,
+          ...blk,
           tasks: [...existingTasks, newTask],
           updatedAt: new Date().toISOString(),
         };
       }
-      return slot;
+      return blk;
     });
 
-    updateDaySlots(dateString, updatedSlots);
+    updateDayBlocks(dateString, updatedBlocks);
 
     // Handle source-specific behavior
     if (source === 'todos') {
@@ -516,29 +516,29 @@ const DashboardPage = () => {
     } else if (source === 'themenliste' && taskWasAdded) {
       // Mark the aufgabe as scheduled in the themenliste (grays it out)
       scheduleAufgabeToBlock(droppedTask.id, {
-        slotId: targetSlotId,
+        blockId: targetBlockId,
         date: dateString,
         blockTitle: block.title || 'Lernblock',
       });
     }
-  }, [dateString, slotsByDate, updateDaySlots, removeTask, scheduleAufgabeToBlock]);
+  }, [dateString, blocksByDate, updateDayBlocks, removeTask, scheduleAufgabeToBlock]);
 
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);
 
-  // BUG-023 FIX: Dashboard shows manually-created blocks (not Lernplan wizard slots)
+  // BUG-023 FIX: Dashboard shows manually-created blocks (not Lernplan wizard blocks)
   // - Private blocks: from todayPrivateBlocks
   // - Lernblöcke, Wiederholungsblöcke, Klausurblöcke: from todaySlots where isFromLernplan !== true
   const topics = [];
 
   // Filter todaySlots to get only manually-created blocks (not from Wizard)
-  const manuallyCreatedSlots = useMemo(() => {
-    return todaySlots.filter(slot => slot.isFromLernplan !== true);
+  const manuallyCreatedBlocks = useMemo(() => {
+    return todaySlots.filter(block => block.isFromLernplan !== true);
   }, [todaySlots]);
 
   // BUG-022 FIX: Calculate daily learning goal with proper priority:
   // 1. User-defined setting from Settings page (dailyGoalHours)
-  // 2. Calculated from planned Lernplan slots for today
+  // 2. Calculated from planned Lernplan blocks for today
   // 3. If neither, return 0 (not a hardcoded fallback)
   const dailyLearningGoalMinutes = useMemo(() => {
     // Priority 1: Check if user has set a daily goal in settings
@@ -555,28 +555,28 @@ const DashboardPage = () => {
       console.error('Error reading settings:', e);
     }
 
-    // Priority 2: Calculate from planned Lernplan slots for today
-    const learningSlots = todaySlots.filter(slot =>
-      slot.blockType !== 'private' && slot.isFromLernplan === true
+    // Priority 2: Calculate from planned Lernplan blocks for today
+    const learningBlocks = todaySlots.filter(block =>
+      block.blockType !== 'private' && block.isFromLernplan === true
     );
 
     let totalMinutes = 0;
-    learningSlots.forEach(slot => {
-      if (slot.duration) {
+    learningBlocks.forEach(block => {
+      if (block.duration) {
         // Custom duration in minutes
-        totalMinutes += slot.duration;
-      } else if (slot.startTime && slot.endTime) {
+        totalMinutes += block.duration;
+      } else if (block.startTime && block.endTime) {
         // Calculate from start/end time
-        const [startH, startM] = slot.startTime.split(':').map(Number);
-        const [endH, endM] = slot.endTime.split(':').map(Number);
+        const [startH, startM] = block.startTime.split(':').map(Number);
+        const [endH, endM] = block.endTime.split(':').map(Number);
         totalMinutes += (endH * 60 + endM) - (startH * 60 + startM);
       } else {
-        // Default: each position-based slot is 2 hours
+        // Default: each position-based block is 2 hours
         totalMinutes += 120;
       }
     });
 
-    // Priority 3: If no settings and no slots planned, return 0
+    // Priority 3: If no settings and no blocks planned, return 0
     return totalMinutes;
   }, [todaySlots]);
 
@@ -613,7 +613,7 @@ const DashboardPage = () => {
 
   // BUG-023 FIX: Transform blocks to ZeitplanWidget format
   // Dashboard shows: Private blocks + manually-created blocks (Lernblock, Wiederholung, Klausur)
-  // NOT shown: Wizard-created slots (isFromLernplan: true)
+  // NOT shown: Wizard-created blocks (isFromLernplan: true)
   const blocksForWidget = useMemo(() => {
     const allBlocks = [];
 
@@ -640,10 +640,10 @@ const DashboardPage = () => {
       });
     });
 
-    // Add manually-created slots (Lernblock, Wiederholung, Klausur - not from Wizard)
-    manuallyCreatedSlots.forEach(slot => {
-      // Use slot's time if available, otherwise use position-based defaults
-      const position = slot.position || 1;
+    // Add manually-created blocks (Lernblock, Wiederholung, Klausur - not from Wizard)
+    manuallyCreatedBlocks.forEach(block => {
+      // Use block's time if available, otherwise use position-based defaults
+      const position = block.position || 1;
       const defaultTimes = {
         1: { start: '08:00', end: '10:00' },
         2: { start: '10:00', end: '12:00' },
@@ -651,8 +651,8 @@ const DashboardPage = () => {
         4: { start: '16:00', end: '18:00' },
       };
       const defaults = defaultTimes[position] || defaultTimes[1];
-      const startTime = slot.startTime || defaults.start;
-      const endTime = slot.endTime || defaults.end;
+      const startTime = block.startTime || defaults.start;
+      const endTime = block.endTime || defaults.end;
 
       const [startH, startM] = startTime.split(':').map(Number);
       const [endH, endM] = endTime.split(':').map(Number);
@@ -660,18 +660,18 @@ const DashboardPage = () => {
       const durationHours = durationMinutes / 60;
 
       allBlocks.push({
-        id: slot.id || slot.contentId || slot.topicId,
+        id: block.id || block.contentId || block.topicId,
         startHour: startH + (startM / 60),
         duration: durationHours,
-        title: slot.title || slot.topicTitle || 'Lernblock',
-        description: slot.description || '',
-        blockType: slot.blockType || 'lernblock',
-        rechtsgebiet: slot.rechtsgebiet,
-        unterrechtsgebiet: slot.unterrechtsgebiet,
+        title: block.title || block.topicTitle || 'Lernblock',
+        description: block.description || '',
+        blockType: block.blockType || 'lernblock',
+        rechtsgebiet: block.rechtsgebiet,
+        unterrechtsgebiet: block.unterrechtsgebiet,
         isBlocked: false,
         startTime,
         endTime,
-        tasks: slot.tasks || [],
+        tasks: block.tasks || [],
       });
     });
 
@@ -679,7 +679,7 @@ const DashboardPage = () => {
     allBlocks.sort((a, b) => a.startHour - b.startHour);
 
     return allBlocks;
-  }, [todayPrivateBlocks, manuallyCreatedSlots]);
+  }, [todayPrivateBlocks, manuallyCreatedBlocks]);
 
   const zeitplanData = {
     completedBlocks: 0,

@@ -305,8 +305,7 @@ const Step12ThemenEdit = () => {
     unterrechtsgebieteDraft,
     themenDraft,
     updateWizardData,
-    goToStep,
-    nextStep
+    goToStep
   } = useWizard();
 
   // LOCAL state for RG navigation within Step 12
@@ -419,10 +418,13 @@ const Step12ThemenEdit = () => {
   // Proceed to next step (Step 14, skipping Step 13)
   const proceedToNextStep = () => {
     setShowValidationDialog(false);
-    // Update wizard context index before leaving
+    // Reset wizard context index before leaving
     updateWizardData({ currentRechtsgebietIndex: 0 });
-    // Use nextStep which handles the skip to Step 14
-    nextStep();
+    // Go directly to Step 14 (skip Step 13)
+    // We use goToStep instead of nextStep because Step 12 manages its own
+    // local RG navigation (localRgIndex) which is not synced with wizard context's
+    // currentRechtsgebietIndex. Using nextStep would cause a mismatch.
+    goToStep(14);
   };
 
   // === Theme Operations ===

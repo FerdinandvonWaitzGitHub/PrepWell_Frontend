@@ -572,9 +572,8 @@ const ThemeListThemaRow = ({
 /**
  * ThemeListView - Ansicht für eine ausgewählte Themenliste (hierarchisch)
  * Hierarchie: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
- * Reserved for future Themenliste feature
  */
-const _ThemeListView = ({
+const ThemeListView = ({
   themeList,
   expandedUnterrechtsgebietId,
   onToggleUnterrechtsgebiet,
@@ -634,7 +633,6 @@ const _ThemeListView = ({
     </div>
   );
 };
-void _ThemeListView;
 
 /**
  * Helper function to get Rechtsgebiet color based on ID or name
@@ -805,8 +803,8 @@ const SingleTopicView = ({
 };
 
 /**
- * NoTopicsView - Ansicht ohne Topics (nur To-Dos)
- * BUG-018 FIX: Themenlisten-Toggle entfernt - Themenlisten nur auf Lernpläne-Seite
+ * NoTopicsView - Ansicht ohne Topics (To-Dos oder Themenliste)
+ * Toggle zwischen To-Dos und Themenliste mit Dropdown-Auswahl
  */
 const NoTopicsView = ({
   tasks,
@@ -814,24 +812,122 @@ const NoTopicsView = ({
   onTogglePriority,
   onAddTask,
   onRemoveTask,
+  // Themenliste props
+  themeLists = [],
+  selectedThemeListId,
+  onSelectThemeList,
+  onToggleThemeListAufgabe,
 }) => {
+  const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themenliste'
+  const [expandedUnterrechtsgebietId, setExpandedUnterrechtsgebietId] = useState(null);
+  const [expandedKapitelId, setExpandedKapitelId] = useState(null);
+  const [expandedThemaId, setExpandedThemaId] = useState(null);
+
+  // Get selected Themenliste
+  const selectedThemeList = themeLists.find(tl => tl.id === selectedThemeListId);
+
+  // Auto-select first themenliste if none selected and switching to themenliste view
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    if (mode === 'themenliste' && !selectedThemeListId && themeLists.length > 0) {
+      onSelectThemeList?.(themeLists[0].id);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Header - simplified without toggle */}
+      {/* Header with Toggle */}
       <div className="border-b border-neutral-200 pb-4">
-        <h2 className="text-xl font-semibold text-neutral-900 mb-2">Aufgaben</h2>
-        <p className="text-sm text-neutral-500">Deine To-Dos für heute</p>
+        <div className="flex items-center justify-center mb-3">
+          <div className="inline-flex items-center bg-neutral-100 rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => handleViewModeChange('todos')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'todos'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              <ChecklistIcon />
+              <span>To-Dos</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleViewModeChange('themenliste')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'themenliste'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              <BookIcon />
+              <span>Themenliste</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Themenliste Dropdown - only show when in themenliste mode */}
+        {viewMode === 'themenliste' && themeLists.length > 0 && (
+          <div className="flex justify-center">
+            <select
+              value={selectedThemeListId || ''}
+              onChange={(e) => onSelectThemeList?.(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary-300"
+            >
+              {themeLists.map((tl) => (
+                <option key={tl.id} value={tl.id}>
+                  {tl.name} ({tl.progress?.completed || 0}/{tl.progress?.total || 0})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <p className="text-sm text-neutral-500 text-center mt-2">
+          {viewMode === 'todos'
+            ? 'Deine To-Dos für heute'
+            : themeLists.length === 0
+              ? 'Keine Themenlisten vorhanden'
+              : selectedThemeList?.name || 'Wähle eine Themenliste'
+          }
+        </p>
       </div>
 
-      {/* Content - only To-Dos */}
-      <TaskList
-        tasks={tasks}
-        title="Deine To-Dos"
-        onToggleTask={onToggleTask}
-        onTogglePriority={onTogglePriority}
-        onAddTask={onAddTask}
-        onRemoveTask={onRemoveTask}
-      />
+      {/* Content */}
+      {viewMode === 'todos' ? (
+        <TaskList
+          tasks={tasks}
+          title="Deine To-Dos"
+          onToggleTask={onToggleTask}
+          onTogglePriority={onTogglePriority}
+          onAddTask={onAddTask}
+          onRemoveTask={onRemoveTask}
+        />
+      ) : (
+        // Themenliste View
+        themeLists.length === 0 ? (
+          <div className="text-sm text-neutral-500 py-4 text-center">
+            <p>Du hast noch keine Themenlisten.</p>
+            <p className="mt-1">Erstelle eine auf der Lernpläne-Seite.</p>
+          </div>
+        ) : !selectedThemeList ? (
+          <div className="text-sm text-neutral-500 py-4 text-center">
+            Wähle eine Themenliste aus dem Dropdown.
+          </div>
+        ) : (
+          <ThemeListView
+            themeList={selectedThemeList}
+            expandedUnterrechtsgebietId={expandedUnterrechtsgebietId}
+            onToggleUnterrechtsgebiet={(id) => setExpandedUnterrechtsgebietId(prev => prev === id ? null : id)}
+            expandedKapitelId={expandedKapitelId}
+            onToggleKapitel={(id) => setExpandedKapitelId(prev => prev === id ? null : id)}
+            expandedThemaId={expandedThemaId}
+            onToggleThema={(id) => setExpandedThemaId(prev => prev === id ? null : id)}
+            onToggleAufgabe={onToggleThemeListAufgabe}
+          />
+        )
+      )}
     </div>
   );
 };
@@ -946,7 +1042,7 @@ const ExamModeView = ({
  *
  * Behavior based on mode:
  * - Exam Mode: Shows Lernplan/To-Dos toggle (with topics from Lernplan)
- * - Normal Mode: Shows Themenliste/To-Dos toggle (without topics)
+ * - Normal Mode: Shows To-Dos/Themenliste toggle with dropdown
  */
 const SessionWidget = ({
   className = '',
@@ -956,17 +1052,14 @@ const SessionWidget = ({
   onTogglePriority,
   onAddTask,
   onRemoveTask,
-  // Themenliste props (reserved for future use)
-  themeLists: _themeLists = [],
-  selectedThemeListId: _selectedThemeListId,
-  onSelectThemeList: _onSelectThemeList,
-  onToggleThemeListAufgabe: _onToggleThemeListAufgabe,
+  // Themenliste props
+  themeLists = [],
+  selectedThemeListId,
+  onSelectThemeList,
+  onToggleThemeListAufgabe,
   // Mode prop
   isExamMode = false,
 }) => {
-  // Mark reserved props as intentionally unused
-  void _themeLists; void _selectedThemeListId; void _onSelectThemeList; void _onToggleThemeListAufgabe;
-
   // Accordion state - nur ein Topic auf einmal expanded
   const [expandedTopicId, setExpandedTopicId] = useState(() => {
     // Standardmäßig erstes Topic expanded
@@ -994,13 +1087,17 @@ const SessionWidget = ({
             onRemoveTask={onRemoveTask}
           />
         ) : (
-          // Normal Mode: Only To-Dos (BUG-018 FIX: Themenlisten-Toggle entfernt)
+          // Normal Mode: To-Dos/Themenliste toggle
           <NoTopicsView
             tasks={tasks}
             onToggleTask={onToggleTask}
             onTogglePriority={onTogglePriority}
             onAddTask={onAddTask}
             onRemoveTask={onRemoveTask}
+            themeLists={themeLists}
+            selectedThemeListId={selectedThemeListId}
+            onSelectThemeList={onSelectThemeList}
+            onToggleThemeListAufgabe={onToggleThemeListAufgabe}
           />
         )}
       </div>

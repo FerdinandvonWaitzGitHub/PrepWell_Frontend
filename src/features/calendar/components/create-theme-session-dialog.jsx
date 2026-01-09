@@ -14,39 +14,43 @@ import { ChevronDownIcon, PlusIcon, TrashIcon } from '../../../components/ui/ico
 
 /**
  * Create Theme Block Dialog Component
- * Form for creating a new learning block/slot with tasks
+ * Form for creating a new learning block with tasks
  *
  * Features:
  * - Title and description
- * - Time selection (Block mode - Week/Dashboard) OR Slot size (Slot mode - Month)
+ * - Time selection (Session mode - Week/Dashboard) OR Block size (Allocation mode - Month)
  * - Repeat options
  * - Task creation and assignment from existing lists
  *
- * BUG-023 FIX: Two modes:
- * - mode="block" (default): For Week/Dashboard - uses start/end time
- * - mode="slot": For Month view - uses slot size (1-4 positions)
+ * PRD §3.1: Two modes (BlockAllocation vs. Session):
+ * - mode="session" (default): For Week/Dashboard - uses start/end time (Session)
+ * - mode="block": For Month view - uses block size (1-4 positions) (BlockAllocation)
  */
 const CreateThemeBlockDialog = ({
   open,
   onOpenChange,
   date,
   onSave,
-  availableSlots = 4,
-  mode = 'block', // BUG-023: 'block' = Uhrzeiten, 'slot' = Slot-Größe
+  availableBlocks = 4,
+  availableSlots, // Legacy alias
+  mode = 'session', // PRD §3.1: 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
   // Task sources
   availableTasks = [],      // To-Dos
   themeLists = [],          // Themenlisten
 }) => {
+  // Support legacy prop name
+  const maxBlocks = availableSlots ?? availableBlocks;
+
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
-  // Time settings (Block mode - Week/Dashboard)
+  // Time settings (Session mode - Week/Dashboard)
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:00');
 
-  // Slot size (Slot mode - Month view)
-  const [slotSize, setSlotSize] = useState(1);
+  // Block size (Allocation mode - Month view)
+  const [blockSize, setBlockSize] = useState(1);
 
   // Repeat settings
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -71,7 +75,7 @@ const CreateThemeBlockDialog = ({
       setDescription('');
       setStartTime('09:00');
       setEndTime('11:00');
-      setSlotSize(1); // BUG-023: Reset slot size
+      setBlockSize(1); // BUG-023: Reset block size
       setRepeatEnabled(false);
       setRepeatType('weekly');
       setRepeatCount(20);
@@ -214,12 +218,12 @@ const CreateThemeBlockDialog = ({
   };
 
   // Save handler
-  // BUG-023: Different data based on mode (block vs slot)
+  // PRD §3.1: Different data based on mode (session vs block)
   const handleSave = () => {
     if (!isFormValid() || !date || !onSave) return;
 
     const baseData = {
-      id: `${mode === 'slot' ? 'slot' : 'block'}-${Date.now()}`,
+      id: `block-${Date.now()}`,
       title: title.trim(),
       blockType: 'lernblock',
       description: description.trim(),
@@ -236,8 +240,8 @@ const CreateThemeBlockDialog = ({
       })),
     };
 
-    if (mode === 'block') {
-      // Block mode: Include time data (for Week/Dashboard)
+    if (mode === 'session') {
+      // Session mode: Include time data (for Week/Dashboard)
       Object.assign(baseData, {
         hasTime: true,
         startTime,
@@ -247,10 +251,10 @@ const CreateThemeBlockDialog = ({
         isFromLernplan: false, // Manually created in Week/Dashboard
       });
     } else {
-      // Slot mode: Include slot size (for Month view)
+      // Block mode: Include block size (for Month view)
       Object.assign(baseData, {
         hasTime: false, // No specific time, just position-based
-        blockSize: slotSize,
+        blockSize: blockSize,
         isFromLernplan: false, // Manually created in Month view
       });
     }
@@ -301,9 +305,9 @@ const CreateThemeBlockDialog = ({
             />
           </div>
 
-          {/* BUG-023: Time (Block mode) OR Slot Size (Slot mode) */}
-          {mode === 'block' ? (
-            /* Block mode: Time selection for Week/Dashboard */
+          {/* PRD §3.1: Time (Session mode) OR Block Size (Block mode) */}
+          {mode === 'session' ? (
+            /* Session mode: Time selection for Week/Dashboard */
             <div className="space-y-2">
               <label className="text-sm font-medium text-neutral-900">
                 Uhrzeit <span className="text-red-500">*</span>
@@ -330,22 +334,22 @@ const CreateThemeBlockDialog = ({
               </div>
             </div>
           ) : (
-            /* Slot mode: Slot size selection for Month view */
+            /* Block mode: Block size selection for Month view */
             <div className="space-y-2">
               <label className="text-sm font-medium text-neutral-900">
-                Slot-Größe <span className="text-red-500">*</span>
+                Block-Größe <span className="text-red-500">*</span>
               </label>
               <div className="flex items-center gap-3">
                 {[1, 2, 3, 4].map(size => (
                   <button
                     key={size}
                     type="button"
-                    onClick={() => setSlotSize(size)}
-                    disabled={size > availableSlots}
+                    onClick={() => setBlockSize(size)}
+                    disabled={size > maxBlocks}
                     className={`w-12 h-12 rounded-lg border-2 text-sm font-medium transition-colors ${
-                      slotSize === size
+                      blockSize === size
                         ? 'bg-neutral-900 text-white border-neutral-900'
-                        : size > availableSlots
+                        : size > maxBlocks
                           ? 'bg-neutral-100 text-neutral-300 border-neutral-200 cursor-not-allowed'
                           : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
                     }`}
@@ -354,12 +358,12 @@ const CreateThemeBlockDialog = ({
                   </button>
                 ))}
                 <span className="text-sm text-neutral-500">
-                  {slotSize === 1 ? '(2 Stunden)' : `(${slotSize * 2} Stunden)`}
+                  {blockSize === 1 ? '(2 Stunden)' : `(${blockSize * 2} Stunden)`}
                 </span>
               </div>
-              {availableSlots < 4 && (
+              {maxBlocks < 4 && (
                 <p className="text-xs text-neutral-500">
-                  Nur {availableSlots} Slot{availableSlots > 1 ? 's' : ''} verfügbar an diesem Tag
+                  Nur {maxBlocks} Block{maxBlocks > 1 ? 's' : ''} verfügbar an diesem Tag
                 </p>
               )}
             </div>

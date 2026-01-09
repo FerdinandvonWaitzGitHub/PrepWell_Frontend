@@ -66,9 +66,9 @@ const Step10Anpassungen = () => {
     }
   };
 
-  // Calculate totals
+  // Calculate totals (+1 to include both start and end date)
   const totalDays = startDate && endDate
-    ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1
     : 0;
 
   const sections = [

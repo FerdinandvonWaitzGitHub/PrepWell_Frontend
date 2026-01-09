@@ -53,11 +53,14 @@ const WeekGrid = memo(function WeekGrid({
   currentDate = new Date(),
   blocks = [],
   privateBlocks = [],
-  lernplanSlots = [], // BUG-023 FIX: Lernplan slots for Exam mode header bar
+  lernplanBlocks = [], // BUG-023 FIX: Lernplan blocks for Exam mode header bar
+  lernplanSlots, // Legacy alias (deprecated)
   onBlockClick,
   onSlotClick,
   className = ''
 }) {
+  // Support legacy prop name
+  const effectiveLernplanBlocks = lernplanBlocks.length > 0 ? lernplanBlocks : (lernplanSlots || []);
 
   // Calculate the dates for the week starting from Monday
   const weekDates = useMemo(() => {
@@ -204,25 +207,25 @@ const WeekGrid = memo(function WeekGrid({
     return block.startDate <= weekEndKey && block.endDate >= weekStartKey;
   });
 
-  // BUG-023 FIX: Group Lernplan slots by date for header bar display
-  const lernplanSlotsByDate = useMemo(() => {
+  // BUG-023 FIX: Group Lernplan blocks by date for header bar display
+  const lernplanBlocksByDate = useMemo(() => {
     const byDate = {};
-    lernplanSlots.forEach(slot => {
-      const dateKey = slot.startDate;
+    effectiveLernplanBlocks.forEach(block => {
+      const dateKey = block.startDate;
       if (!byDate[dateKey]) {
         byDate[dateKey] = [];
       }
-      byDate[dateKey].push(slot);
+      byDate[dateKey].push(block);
     });
-    // Sort slots within each date by position
-    Object.values(byDate).forEach(slots => {
-      slots.sort((a, b) => (a.position || 1) - (b.position || 1));
+    // Sort blocks within each date by position
+    Object.values(byDate).forEach(blocks => {
+      blocks.sort((a, b) => (a.position || 1) - (b.position || 1));
     });
     return byDate;
-  }, [lernplanSlots]);
+  }, [effectiveLernplanBlocks]);
 
-  // Check if there are any Lernplan slots in current week
-  const hasLernplanSlots = lernplanSlots.length > 0;
+  // Check if there are any Lernplan blocks in current week
+  const hasLernplanBlocks = effectiveLernplanBlocks.length > 0;
 
   // Group multi-day blocks by row (for stacking)
   const multiDayRows = useMemo(() => {
@@ -384,18 +387,18 @@ const WeekGrid = memo(function WeekGrid({
               </tr>
             )}
 
-            {/* BUG-023 FIX: Lernplan slots header bar (Exam mode only) */}
-            {hasLernplanSlots && (
+            {/* BUG-023 FIX: Lernplan blocks header bar (Exam mode only) */}
+            {hasLernplanBlocks && (
               <tr className="h-10 bg-blue-50 border-b border-blue-200">
                 {/* Label cell */}
                 <th className="align-middle border-r border-blue-200 bg-blue-50 px-1">
                   <span className="text-xs text-blue-600 font-medium">Lernplan</span>
                 </th>
 
-                {/* Lernplan slot cells for each day */}
+                {/* Lernplan block cells for each day */}
                 {weekDates.map((date, dayIndex) => {
                   const dateKey = formatDateKey(date);
-                  const slotsForDay = lernplanSlotsByDate[dateKey] || [];
+                  const blocksForDay = lernplanBlocksByDate[dateKey] || [];
 
                   return (
                     <th
@@ -403,17 +406,17 @@ const WeekGrid = memo(function WeekGrid({
                       className="border-r border-blue-100 last:border-r-0 p-1 font-normal bg-blue-50"
                     >
                       <div className="flex gap-1 flex-wrap">
-                        {slotsForDay.map((slot) => {
-                          const colorClass = BLOCK_COLORS[slot.blockType] || BLOCK_COLORS.lernblock;
+                        {blocksForDay.map((block) => {
+                          const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.lernblock;
                           return (
                             <button
-                              key={slot.id}
-                              onClick={() => onBlockClick && onBlockClick(slot, date)}
+                              key={block.id}
+                              onClick={() => onBlockClick && onBlockClick(block, date)}
                               className={`flex-1 min-w-0 h-7 rounded border px-1.5 text-left overflow-hidden cursor-pointer transition-colors ${colorClass}`}
-                              title={`${slot.title} (${slot.startTime}-${slot.endTime})`}
+                              title={`${block.title} (${block.startTime}-${block.endTime})`}
                             >
                               <div className="text-xs font-medium text-neutral-900 truncate">
-                                {slot.title}
+                                {block.title}
                               </div>
                             </button>
                           );

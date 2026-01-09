@@ -1,8 +1,8 @@
 # PrepWell - Product Requirements Document
 
-**Version:** 2.0
-**Stand:** Januar 2026
-**Status:** MVP mit Supabase-Integration
+**Version:** 3.0
+**Stand:** 09. Januar 2026
+**Status:** MVP mit Supabase-Integration, Wizard-Datenfluss dokumentiert
 
 ---
 
@@ -15,13 +15,15 @@
 PrepWell ist eine webbasierte Lernmanagement-Plattform für Studierende zur strukturierten Prüfungsvorbereitung. Die App unterstützt 20 verschiedene Studiengänge mit dynamischen Bezeichnungen, wobei Jurastudierende zusätzliche Features für die Staatsexamensvorbereitung erhalten.
 
 ### Kernfunktionen
-- Personalisierte Lernpläne mit 10-Schritte-Wizard
+- Personalisierte Lernpläne mit Wizard (5 Pfade, bis zu 22 Schritte)
 - Kalender mit Monats- und Wochenansicht
 - Timer-System (Pomodoro, Countdown, Count-up)
 - Aufgabenverwaltung mit Block-Zuordnung
+- Themenlisten mit hierarchischer Struktur
 - Statistik-Dashboard (Mentor)
 - Check-In System (Morgens/Abends)
-- **NEU:** Studiengang-Auswahl mit dynamischen Hierarchie-Bezeichnungen
+- **App-Modus:** Examen vs. Normal mit automatischer Archivierung
+- **Dashboard-Toggle:** To-Dos / Themenliste Umschaltung
 
 ---
 
@@ -91,21 +93,6 @@ Session {
 
 ---
 
-#### Entity C: BlockToSessionLink (Optional, für spätere Verbindungen)
-
-```
-BlockToSessionLink {
-  id:           UUID
-  block_id:     UUID → BlockAllocation
-  session_id:   UUID → Session
-  created_at:   DATETIME
-}
-```
-
-**Hinweis:** Diese Verbindungstabelle ist optional und wird nur bei expliziter "Umwandlung" angelegt.
-
----
-
 #### Guard Rules für KI und Validierung
 
 | # | Regel | Prüfung |
@@ -116,70 +103,65 @@ BlockToSessionLink {
 | 4 | Conversion = neue Objekt-Erstellung | Block→Session erzeugt NEUE Session, löscht NICHT den Block |
 | 5 | Keine Live-Kopplung | Änderungen an Session aktualisieren NICHT den verlinkten Block |
 
-**API-Validierung:**
-```javascript
-// Block-Endpoint lehnt Uhrzeiten ab
-POST /blocks { date, kind, size, start_time } → 400 Bad Request
-
-// Session-Endpoint lehnt block_size ab
-POST /sessions { start_at, end_at, kind, block_size } → 400 Bad Request
-```
-
 ---
-
-#### Edge Cases und Workarounds
-
-| Case | Problem | Lösung |
-|------|---------|--------|
-| **EC-1** | User klickt Block in Monatsansicht → will Uhrzeit eintragen | "Details bearbeiten" öffnet neues Session-Formular, Block bleibt unverändert |
-| **EC-2** | Block-Größe 2 = 4 Stunden → welche genau? | Default: 09:00-13:00 beim Umwandeln. User kann anpassen. |
-| **EC-3** | User löscht Session, die aus Block entstanden ist | Session wird gelöscht. Link wird gelöscht. Block bleibt bestehen. |
-| **EC-4** | User ändert Block-Größe 2→3 nachträglich | Nur Block-size ändern. Evtl. existierende Session bleibt unverändert (kein Auto-Resize). |
-| **EC-5** | Kalender-Export (iCal) | Nur Sessions exportieren (haben echte Zeiten). Blöcke sind intern. |
-| **EC-6** | Statistik/Analytics | Beide separat auswerten: "Geplante Kapazität" (Blöcke) vs. "Tatsächlich geblockt" (Sessions) |
-| **EC-7** | Wizard erstellt "08:00-10:00" Vorgabe | Wizard erstellt primär Blöcke (size=1 pro 2h). Vorgabe-Zeiten sind Defaults für spätere Session-Erstellung. |
-| **EC-8** | Offline-Sync Konflikt Block vs. Session | Getrennte Sync-Queues. Block-Änderungen ≠ Session-Änderungen. Kein Cross-Entity-Merge. |
-
----
-
-#### Dialog-Verhalten (mode-Prop)
-
-| Ansicht | Dialog-Mode | UI-Element | Entity | Gespeicherte Daten |
-|---------|-------------|------------|--------|-------------------|
-| Monatsansicht | `mode="block"` | Block-Größe Selector (1-4) | BlockAllocation | `date`, `kind`, `size` |
-| Wochenansicht | `mode="session"` | Uhrzeit-Inputs (Von-Bis) | Session | `start_at`, `end_at`, `kind` |
-| Startseite | `mode="session"` | Uhrzeit-Inputs (Von-Bis) | Session | `start_at`, `end_at`, `kind` |
-
----
-
-#### Prompt-Pattern für KI-Aktionen
-
-```
-Vor jeder Kalender-Aktion prüfen:
-1. Welche View ist aktiv? → month | week | home
-2. month → BlockAllocation (date + kind + size, KEINE Uhrzeiten)
-3. week/home → Session (start_at + end_at, KEINE block_size)
-4. Conversion explizit? → BlockToSessionLink + neue Session
-```
 
 ### 3.2 State Management (React Context)
 
 | Context | Beschreibung | Supabase-Sync |
 |---------|--------------|---------------|
-| `CalendarProvider` | Blöcke, Tasks, Private Sessions, ContentPlans | Ja |
+| `CalendarProvider` | Blöcke, Tasks, Private Sessions, ContentPlans, Archivierung | Ja |
 | `TimerProvider` | Timer-Zustand, Sessions | Ja (History) |
 | `AuthProvider` | Authentifizierung | Ja |
 | `StudiengangProvider` | Studiengang & Hierarchie-Labels | Lokal |
-| `AppModeProvider` | Examen vs Normal Modus | Lokal |
+| `AppModeProvider` | Examen vs Normal Modus, activeLernplaene | Ja |
 | `MentorProvider` | Mentor-Aktivierung | Ja |
 | `CheckInProvider` | Check-In Responses | Ja |
 | `ExamsProvider` | Leistungen (Normal) | Ja |
 | `UebungsklausurenProvider` | Klausuren (Examen) | Ja |
 | `OnboardingProvider` | Onboarding-Status | Lokal |
+| `WizardProvider` | Lernplan-Wizard State & Draft | Ja |
 
-### 3.3 Studiengang-System & Dynamische Hierarchie-Bezeichnungen
+### 3.3 App-Modus System
 
-**Kernkonzept:** Die App-Bezeichnungen passen sich dynamisch an den gewählten Studiengang an.
+#### Examensmodus vs. Normalmodus
+
+| Aspekt | Examensmodus | Normalmodus |
+|--------|--------------|-------------|
+| Aktivierung | Automatisch bei aktivem Lernplan | Automatisch ohne Lernplan |
+| Kalender-Default | Monatsansicht | Wochenansicht |
+| Dashboard-Widget | Lernplan / To-Dos Toggle | To-Dos / Themenliste Toggle |
+| Navigation | Alle Menüpunkte | "Übungsklausuren" ausgeblendet |
+| Wechsel | Profil-Seite oder Einstellungen | Profil-Seite oder Einstellungen |
+
+#### Moduswechsel mit Lernplan-Archivierung
+
+**Implementiert (09.01.2026):**
+
+```
+Examensmodus → Normalmodus wechseln (mit aktivem Lernplan)
+                    ↓
+        Dialog: "Modus wechseln?"
+        - Lernplan wird aus Kalender entfernt
+        - Lernplan wird als Themenliste archiviert
+        - Themenliste später in "Lernpläne" wiederzufinden
+                    ↓
+              [Wechseln & Archivieren]
+                    ↓
+        archiveAndConvertToThemenliste()
+                    ↓
+        → ContentPlan mit type='themenliste', archived=true
+        → blocksByDate geleert
+        → lernplanMetadata geleert
+        → Modus wechselt zu Normal
+```
+
+**Wichtig:** `activeLernplaene` in AppModeContext prüft BEIDE Datenquellen:
+1. `contentPlans` mit `type='lernplan'` und `archived=false`
+2. `lernplanMetadata` + `blocksByDate` (Wizard-erstellte Lernpläne)
+
+---
+
+### 3.4 Studiengang-System & Dynamische Hierarchie-Bezeichnungen
 
 #### Unterstützte Studiengänge (20)
 
@@ -204,47 +186,9 @@ Vor jeder Kalender-Aktion prüfen:
 | Level 4 | Thema | Aufgabe |
 | Level 5 | Aufgabe | - |
 
-**Hinweis:** Die Kapitel-Ebene (Level 3) ist nur für Jura-Studierende verfügbar und kann in den Einstellungen aktiviert/deaktiviert werden.
+---
 
-#### Implementierung
-
-```javascript
-// src/data/studiengaenge.js
-export const JURA_HIERARCHY = {
-  level1: 'Rechtsgebiet', level1Plural: 'Rechtsgebiete',
-  level2: 'Unterrechtsgebiet', level2Plural: 'Unterrechtsgebiete',
-  level3: 'Kapitel', level3Plural: 'Kapitel',
-  level4: 'Thema', level4Plural: 'Themen',
-  level5: 'Aufgabe', level5Plural: 'Aufgaben',
-};
-
-export const DEFAULT_HIERARCHY = {
-  level1: 'Fach', level1Plural: 'Fächer',
-  level2: 'Kapitel', level2Plural: 'Kapitel',
-  level3: 'Thema', level3Plural: 'Themen',
-  level4: 'Aufgabe', level4Plural: 'Aufgaben',
-};
-
-// Hook-Verwendung in Komponenten:
-const { level1, level2, level3, level4, isJura } = useHierarchyLabels();
-```
-
-#### Dateien
-
-| Datei | Zweck |
-|-------|-------|
-| `src/data/studiengaenge.js` | Studiengänge-Daten & Hierarchie-Definitionen |
-| `src/contexts/studiengang-context.jsx` | React Context für Studiengang-State |
-| `src/hooks/use-hierarchy-labels.js` | Hook für einfachen Label-Zugriff |
-
-#### Onboarding-Flow
-
-1. Neuer Benutzer startet Onboarding
-2. Nach Feature-Tour → Weiterleitung zu `/einstellungen?setup=studiengang`
-3. Info-Banner zeigt "Studiengang auswählen"
-4. Nach Auswahl: Normale App-Nutzung mit angepassten Labels
-
-### 3.4 Persistenz-Strategie
+### 3.5 Persistenz-Strategie
 
 ```
 Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
@@ -260,15 +204,15 @@ Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
 |-------|-------|--------------|
 | `/` | Dashboard | Tagesübersicht mit Widgets |
 | `/onboarding` | Onboarding | Willkommens-Flow für neue User |
-| `/lernplan` | Lernpläne | Übersicht aller Pläne |
-| `/lernplan/erstellen` | Wizard | 10-Schritte Lernplan-Erstellung |
+| `/lernplan` | Lernpläne | Übersicht aller Pläne & Themenlisten |
+| `/lernplan/erstellen` | Wizard | Lernplan-Erstellung (5 Pfade) |
 | `/kalender/woche` | Wochenansicht | Detaillierte Wochenplanung |
 | `/kalender/monat` | Monatsansicht | Übersichtskalender |
 | `/verwaltung/leistungen` | Leistungen | Klausuren & Noten |
 | `/verwaltung/aufgaben` | Aufgaben | Aufgabenverwaltung |
-| `/einstellungen` | Einstellungen | App-Konfiguration (inkl. Studiengang-Auswahl) |
+| `/einstellungen` | Einstellungen | App-Konfiguration |
 | `/mentor` | Mentor | Statistik-Dashboard |
-| `/profil` | Profil | Benutzerprofil |
+| `/profil` | Profil | Benutzerprofil & Moduswechsel |
 
 ---
 
@@ -276,80 +220,421 @@ Supabase (Primary) ←→ LocalStorage (Fallback/Cache)
 
 ### 5.1 Lernplan-Wizard
 
-Der Wizard unterstützt mehrere Pfade mit unterschiedlicher Schrittanzahl:
+#### Übersicht: Pfade und Steps
 
-| Pfad | Schritte | Beschreibung |
-|------|----------|--------------|
-| Calendar | 7 | "Im Kalender erstellen" - Direkte Kalender-Bearbeitung |
+| Pfad | totalSteps | Beschreibung |
+|------|------------|--------------|
 | Manual | 22 | "Als Liste erstellen" - Vollständige manuelle Konfiguration |
-| Automatic | 10 | Automatische Generierung |
+| Automatic | 10 | Automatische Generierung basierend auf hochgeladenem Lernplan |
 | Template | 9 | Vorlage-basiert |
-| AI | 8 | KI-Generierung |
+| AI | 8 | KI-generierter Lernplan |
+| Calendar | 7 | "Im Kalender erstellen" - Direkte Kalender-Bearbeitung |
 
-#### Basis-Schritte (alle Pfade)
+**Wizard-Draft:** Automatisches Speichern alle 500ms zu Supabase (wenn authentifiziert) + localStorage.
+
+---
+
+#### 5.1.1 Basis-Schritte (alle Pfade: Steps 1-6)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          GEMEINSAME SCHRITTE (1-6)                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Step 1: Lernzeitraum
+├── INPUT:  (keine)
+├── OUTPUT: startDate, endDate
+└── SPEICHERT: wizardState.startDate, wizardState.endDate
+
+        ↓
+
+Step 2: Puffertage
+├── INPUT:  startDate, endDate (aus Step 1)
+├── BERECHNET: Empfohlene Puffertage basierend auf Zeitraum
+├── OUTPUT: bufferDays
+└── SPEICHERT: wizardState.bufferDays
+
+        ↓
+
+Step 3: Urlaubstage
+├── INPUT:  startDate, endDate
+├── BERECHNET: Empfohlene Urlaubstage (1 Woche pro 6 Lernwochen)
+│             NUR beim ersten Betreten (wenn vacationDays === null)
+├── OUTPUT: vacationDays
+└── SPEICHERT: wizardState.vacationDays
+
+        ↓
+
+Step 4: Tagesblöcke
+├── INPUT:  (keine direkt, aber blocksPerDay default = 3)
+├── OUTPUT: blocksPerDay (1-4)
+└── SPEICHERT: wizardState.blocksPerDay
+└── TRIGGER: Passt weekStructure an
+
+        ↓
+
+Step 5: Wochenstruktur
+├── INPUT:  blocksPerDay (aus Step 4)
+├── OUTPUT: weekStructure { montag: ['lernblock', ...], ... }
+└── SPEICHERT: wizardState.weekStructure
+
+        ↓
+
+Step 6: Erstellungsmethode  ←── VERZWEIGUNGSPUNKT
+├── INPUT:  (keine)
+├── OUTPUT: creationMethod ('manual' | 'automatic' | 'template' | 'ai')
+└── SPEICHERT: wizardState.creationMethod
+└── TRIGGER: totalSteps wird basierend auf creationMethod angepasst
+```
+
+---
+
+#### 5.1.2 Step 6: Verzweigung der Pfade
+
+```
+                            ┌─────────────────┐
+                            │    Step 6:      │
+                            │ Erstellungs-    │
+                            │   methode       │
+                            └────────┬────────┘
+                                     │
+           ┌─────────────────────────┼─────────────────────────┐
+           │                         │                         │
+           ▼                         ▼                         ▼
+    ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+    │   'manual'   │         │ 'automatic'  │         │  'template'  │
+    │ Als Liste    │         │  Automatisch │         │   Vorlage    │
+    │  erstellen   │         │   erstellen  │         │   wählen     │
+    └──────┬───────┘         └──────┬───────┘         └──────┬───────┘
+           │                        │                        │
+    totalSteps = 22          totalSteps = 10          totalSteps = 9
+           │                        │                        │
+           ▼                        ▼                        ▼
+    Steps 7-22               Steps 7-10                Steps 7-9
+    (Manual Path)            (Automatic Path)          (Template Path)
+```
+
+---
+
+#### 5.1.3 Manual Path: Detaillierter Datenfluss (Steps 7-22)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          MANUAL PATH (Steps 7-22)                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Step 7: URG-Erstellungsmodus
+├── INPUT:  (keine)
+├── OUTPUT: urgCreationMode ('manual' | 'prefilled')
+└── SPEICHERT: wizardState.urgCreationMode
+
+        ↓
+
+Step 8: Rechtsgebiete auswählen
+├── INPUT:  urgCreationMode (bestimmt ob vorgefüllte URGs geladen werden)
+├── OUTPUT: selectedRechtsgebiete ['zivilrecht', 'strafrecht', ...]
+├── SPEICHERT: wizardState.selectedRechtsgebiete
+└── INITIALISIERT: rechtsgebieteProgress = { [rgId]: false, ... }
+
+        ↓
+
+Step 9: Unterrechtsgebiete bearbeiten  ←── LOOP über alle RGs
+├── INPUT:  selectedRechtsgebiete, currentRechtsgebietIndex
+├── OUTPUT: unterrechtsgebieteDraft { [rgId]: [{ id, name, kategorie }] }
+├── SPEICHERT: wizardState.unterrechtsgebieteDraft
+└── LOOP: Wenn alle RGs fertig → Step 11, sonst → zurück zu Step 8
+
+Step 10: URG-Erfolg (Bestätigung)
+├── INPUT:  (Anzeige der erstellten URGs)
+├── OUTPUT: rechtsgebieteProgress[currentRg] = true
+└── NAVIGATION: Nächster RG → Step 8, Alle fertig → Step 11
+
+        ↓
+
+Step 11: Themen-Intro
+├── INPUT:  (keine, nur Erklärungstext)
+├── OUTPUT: (keine)
+└── NAVIGATION: → Step 12
+
+        ↓
+
+Step 12: Themen & Aufgaben bearbeiten  ←── MIT RG-TABS
+├── INPUT:  selectedRechtsgebiete, unterrechtsgebieteDraft
+├── OUTPUT: themenDraft { [urgId]: [{ id, name, aufgaben: [...] }] }
+├── SPEICHERT: wizardState.themenDraft
+├── DATENSTRUKTUR:
+│   themenDraft = {
+│     'bgb-at': [
+│       { id: 'thema-1', name: 'Vertrag', aufgaben: [
+│         { id: 'aufg-1', name: 'Vertragsschluss', priority: 'hoch' },
+│         { id: 'aufg-2', name: 'Anfechtung', priority: 'normal' }
+│       ]}
+│     ]
+│   }
+├── UI: Klickbare RG-Tabs + Inline-Input für Themen
+└── NAVIGATION: → Step 14 (Step 13 entfernt)
+
+        ↓
+
+Step 14: Zielgewichtung
+├── INPUT:  selectedRechtsgebiete
+├── OUTPUT: rechtsgebieteGewichtung { [rgId]: number }
+├── VALIDIERUNG: Summe muss 100% ergeben
+├── SPEICHERT: wizardState.rechtsgebieteGewichtung
+└── BEISPIEL: { 'zivilrecht': 40, 'strafrecht': 30, 'oeffentliches-recht': 30 }
+
+        ↓
+
+Step 15: Lernblöcke erstellen
+├── INPUT:  themenDraft, unterrechtsgebieteDraft, selectedRechtsgebiete
+├── OUTPUT: lernbloeckeDraft { [rgId]: [{ id, thema, aufgaben }] }
+├── SPEICHERT: wizardState.lernbloeckeDraft
+├── DATENSTRUKTUR:
+│   lernbloeckeDraft = {
+│     'zivilrecht': [
+│       { id: 'block-1', thema: { id, name, aufgaben, urgId }, aufgaben: [] }
+│     ]
+│   }
+├── UI: RG-Tabs, URG-Tabs, Block-Budget pro RG
+└── NAVIGATION: → Step 20 (Steps 16-19 entfernt)
+
+        ↓
+
+Step 20: Verteilungsmodus
+├── INPUT:  (keine)
+├── OUTPUT: verteilungsmodus ('gemischt' | 'fokussiert' | 'themenweise')
+├── SPEICHERT: wizardState.verteilungsmodus
+├── ERKLÄRT:
+│   - gemischt: Block-weise Verteilung, gute Abwechslung
+│   - fokussiert: Tag-weise, ein RG pro Tag
+│   - themenweise: Themenpakete zusammenhängend
+└── NAVIGATION: → Step 21
+
+        ↓
+
+Step 21: Kalender-Vorschau  ←── KRITISCHER SCHRITT
+├── INPUT:  ALLE vorherigen Daten:
+│   - startDate, endDate, weekStructure, bufferDays, vacationDays
+│   - lernbloeckeDraft, selectedRechtsgebiete
+│   - rechtsgebieteGewichtung, verteilungsmodus
+│
+├── GENERIERT: generatedCalendar (Array von Tagen mit Blöcken)
+├── SPEICHERT: wizardState.generatedCalendar
+│
+├── BENUTZER-AKTIONEN:
+│   - Blöcke tauschen (Swap mit Validierung)
+│   - Blöcke sperren (Lock)
+│   - Undo/Redo
+│
+├── DATENSTRUKTUR:
+│   generatedCalendar = [
+│     {
+│       date: Date,
+│       blocks: [
+│         {
+│           id: 'block-2024-01-15-0',
+│           rechtsgebiet: 'zivilrecht',
+│           displayName: 'BGB AT - Vertrag',
+│           thema: { id, name, aufgaben, urgId },
+│           aufgaben: [],
+│           isLocked: false
+│         }
+│       ]
+│     }
+│   ]
+│
+└── NAVIGATION: → Step 22
+
+        ↓
+
+Step 22: Bestätigung & Erstellung
+├── INPUT:  generatedCalendar (aus Step 21 mit allen User-Änderungen)
+├── AKTION: completeManualCalendar()
+│
+├── KONVERTIERUNG:
+│   generatedCalendar → CalendarContext Format
+│   via convertGeneratedCalendarToBlocks()
+│
+├── OUTPUT FORMAT (für CalendarContext):
+│   {
+│     '2024-01-15': [
+│       {
+│         id: '2024-01-15-block-0',
+│         date: '2024-01-15',
+│         position: 1,
+│         blockType: 'lernblock',
+│         topicTitle: 'BGB AT - Vertrag',
+│         tasks: [{ id, name, completed, priority }],
+│         metadata: { themaId, rgId, urgId, source: 'wizard-thema' },
+│         rechtsgebiet: 'zivilrecht',
+│         thema: { id, name, aufgaben, urgId },
+│         startTime: '08:00',
+│         endTime: '10:00'
+│       }
+│     ]
+│   }
+│
+├── SPEICHERT:
+│   → CalendarContext.setCalendarData(blocks, metadata)
+│   → localStorage (sofort)
+│   → Supabase (wenn authentifiziert)
+│
+├── HINWEIS: Wizard erstellt KEINE ContentPlan!
+│            Nur blocksByDate + lernplanMetadata werden gespeichert.
+│
+└── NAVIGATION: → /kalender/monat
+```
+
+---
+
+#### 5.1.4 Datenfluss-Diagramm
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                              WIZARD STATE                                   │
+│  (wizardState im WizardContext - wird bei jedem Schritt aktualisiert)      │
+└────────────────────────────────────────────────────────────────────────────┘
+                                    │
+        ┌───────────────────────────┼───────────────────────────┐
+        │                           │                           │
+        ▼                           ▼                           ▼
+┌───────────────────┐    ┌───────────────────┐    ┌───────────────────┐
+│  ZEITRAUM-DATEN   │    │   STRUKTUR-DATEN  │    │   INHALT-DATEN    │
+├───────────────────┤    ├───────────────────┤    ├───────────────────┤
+│ • startDate       │    │ • blocksPerDay    │    │ • themenDraft     │
+│ • endDate         │    │ • weekStructure   │    │ • lernbloeckeDraft│
+│ • bufferDays      │    │ • selectedRechts- │    │ • rechtsgebiete-  │
+│ • vacationDays    │    │   gebiete         │    │   Gewichtung      │
+│                   │    │ • unterrechts-    │    │ • verteilungsmodus│
+│                   │    │   gebieteDraft    │    │                   │
+└─────────┬─────────┘    └─────────┬─────────┘    └─────────┬─────────┘
+          │                        │                        │
+          └────────────────────────┼────────────────────────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────┐
+                    │        STEP 21:          │
+                    │  generateCalendarFrom-   │
+                    │       Blocks()           │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │    generatedCalendar     │
+                    │  (mit User-Änderungen)   │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │        STEP 22:          │
+                    │  convertGeneratedCalen-  │
+                    │      darToBlocks()       │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │    CalendarContext       │
+                    │   setCalendarData()      │
+                    └────────────┬─────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │                         │
+                    ▼                         ▼
+          ┌─────────────────┐       ┌─────────────────┐
+          │   localStorage  │       │    Supabase     │
+          │   (immer)       │       │ (wenn auth)     │
+          └─────────────────┘       └─────────────────┘
+```
+
+---
+
+#### 5.1.5 Kritische Datenübergaben
+
+| Von | Nach | Daten | Transformation |
+|-----|------|-------|----------------|
+| Step 12 | Step 15 | `themenDraft` | User zieht Themen in `lernbloeckeDraft` |
+| Step 15 | Step 21 | `lernbloeckeDraft` | `generateCalendarFromBlocks()` erstellt `generatedCalendar` |
+| Step 21 | Step 22 | `generatedCalendar` | `convertGeneratedCalendarToBlocks()` konvertiert zu CalendarContext |
+| Step 22 | Kalender | CalendarContext-Blöcke | `setCalendarData()` speichert zu localStorage + Supabase |
+
+**Wichtig:** Step 22 verwendet `generatedCalendar` **direkt** (nicht neu generieren!), damit alle User-Änderungen aus Step 21 (Swaps, Locks) erhalten bleiben.
+
+---
+
+#### 5.1.6 Zurück-Navigation: Daten-Reset
+
+Bei Zurück-Navigation werden abhängige Daten automatisch zurückgesetzt:
+
+| Navigation | Gelöschte Daten | Grund |
+|------------|-----------------|-------|
+| Step 8 → 7 | `selectedRechtsgebiete`, alle URG/Themen/Block-Daten | RG-Auswahl ändert sich |
+| Step 9 → 8 | `unterrechtsgebieteDraft`, `themenDraft`, `lernbloeckeDraft` | URGs ändern sich |
+| Step 14 → 12 | Setzt `currentRechtsgebietIndex` auf letzten Index | Zurück zu Themen-Edit |
+| Step 20 → 15 | `generatedCalendar` | Blöcke ändern sich |
+| Step 21+ → <20 | `generatedCalendar` | Muss neu generiert werden |
+
+---
+
+#### 5.1.7 Index-Strategie
+
+| Index | Verwendung | Scope | Grund |
+|-------|------------|-------|-------|
+| `currentRechtsgebietIndex` | Step 12 (Themen) | Global, Wizard-weit | Sequentielles Durcharbeiten |
+| `localRgIndex` | Step 12 intern | Lokal (useState) | RG-Tabs innerhalb Step 12 |
+| `activeRgIndex` | Step 15 (Blöcke) | Lokal (useState) | Freie RG-Navigation |
+
+---
+
+#### 5.1.8 Automatic Path (Steps 7-10)
 
 | Schritt | Funktion | Datenfeld |
 |---------|----------|-----------|
-| 1 | Lernzeitraum (Start/Ende) | `startDate`, `endDate` |
-| 2 | Puffertage | `bufferDays` |
-| 3 | Urlaubstage | `vacationDays` |
-| 4 | Tagesblöcke (1-4) | `blocksPerDay` |
-| 5 | Wochenstruktur | `weekStructure` |
-| 6 | Erstellungsmethode | `creationMethod` |
+| 7 | Lernplan auswählen/hochladen | `manualLernplan` |
+| 8 | Unterrechtsgebiete-Reihenfolge | `unterrechtsgebieteOrder` |
+| 9 | Lerntage-Reihenfolge | `learningDaysOrder` |
+| 10 | Anpassungen & Erstellung | → `completeAutomaticLernplan()` |
 
-#### Manual Path (Schritte 7-22)
+---
+
+#### 5.1.9 Template Path (Steps 7-9)
 
 | Schritt | Funktion | Datenfeld |
 |---------|----------|-----------|
-| 7 | URG-Modus wählen | `urgCreationMode` |
-| 8 | Rechtsgebiete auswählen | `selectedRechtsgebiete` |
-| 9 | URGs bearbeiten | `unterrechtsgebieteDraft` |
-| 10 | URGs Bestätigung | - |
-| 11 | Themen Intro | - |
-| 12 | Themen & Aufgaben bearbeiten | `themenDraft` |
-| 14 | Gewichtung festlegen | `rechtsgebieteGewichtung` |
-| 15 | Lernblöcke erstellen | `lernbloeckeDraft` |
-| 16-18 | Block-Konfiguration | `lernbloeckeDraft` |
-| 19 | Lernplanblöcke Übersicht | `lernbloeckeDraft` (readonly) |
-| 20 | Verteilungsmodus | `verteilungsmodus` |
-| 21 | Kalender-Vorschau | `generatedCalendar` |
-| 22 | Bestätigung & Erstellung | - |
+| 7 | Template auswählen | `selectedTemplate` |
+| 8 | Lerntage konfigurieren | `learningDaysOrder` |
+| 9 | Anpassungen & Bestätigung | → Erstellung |
 
-> **Hinweis:** Step 13 wurde entfernt (Legacy).
+---
 
-#### Datenfluss-Diagramm (Manual Path)
+### 5.2 Dashboard-Widget: To-Dos / Themenliste Toggle
 
-```
-Step 8 (RG Select) → selectedRechtsgebiete[]
-         ↓
-Step 9 (URGs Edit) → unterrechtsgebieteDraft{ rgId: [URG] }
-         ↓
-Step 12 (Themen) → themenDraft{ urgId: [Thema] }
-         ↓
-Step 14 (Gewichtung) → rechtsgebieteGewichtung{ rgId: % }
-         ↓
-Step 15 (Blöcke) → lernbloeckeDraft{ rgId: [Block] }
-         ↓
-Step 20 (Modus) → verteilungsmodus
-         ↓
-Step 21 (Kalender) → generateMockCalendar()
-         ↓
-Step 22 → API POST /api/wizard/complete
+**Implementiert (09.01.2026):**
+
+Im Normalmodus zeigt das Dashboard einen Toggle zwischen:
+- **To-Dos:** Einfache Aufgabenliste
+- **Themenliste:** Hierarchische Ansicht (Unterrechtsgebiet → Kapitel → Themen → Aufgaben)
+
+```jsx
+// NoTopicsView in session-widget.jsx
+<Toggle>
+  <Button active={viewMode === 'todos'}>To-Dos</Button>
+  <Button active={viewMode === 'themenliste'}>Themenliste</Button>
+</Toggle>
+
+{viewMode === 'themenliste' && (
+  <Select value={selectedThemeListId}>
+    {themeLists.map(tl => <Option>{tl.name}</Option>)}
+  </Select>
+)}
 ```
 
-#### Index-Strategie
+Im Examensmodus zeigt das Dashboard einen Toggle zwischen:
+- **Lernplan:** Aktuelle Topics/Sessions
+- **To-Dos:** Aufgabenliste
 
-| Index | Verwendung | Scope |
-|-------|------------|-------|
-| `currentRechtsgebietIndex` | Step 12 (Themen) | Global, Wizard-weites Cycling |
-| `activeRgIndex` | Step 15 (Blöcke) | Lokal, freie RG-Auswahl |
-| `currentBlockRgIndex` | Steps 17-19 | Global, Block-Schritt-Cycling |
+---
 
-> **Design-Entscheidung:** Step 12 erfordert sequentielles Durcharbeiten aller RGs, daher globaler Index. Step 15 erlaubt freie Navigation zwischen RGs, daher lokaler Index.
-
-**Wizard-Draft:** Automatisches Speichern alle 500ms zu Supabase.
-
-### 5.2 Kalender-Feature
+### 5.3 Kalender-Feature
 
 **Blocktypen:**
 | Typ | Farbe | Wiederholung |
@@ -362,7 +647,9 @@ Step 22 → API POST /api/wizard/complete
 
 **Serientermine:** Täglich, Wöchentlich, Monatlich, Benutzerdefiniert (Wochentage)
 
-### 5.3 Timer-System
+---
+
+### 5.4 Timer-System
 
 | Modus | Beschreibung |
 |-------|--------------|
@@ -372,13 +659,7 @@ Step 22 → API POST /api/wizard/complete
 
 **Logbuch:** Manuelle Zeiterfassung für vergangene Aktivitäten.
 
-### 5.4 Dashboard Widgets
-
-- **Session-Widget:** Aktuelle/nächste Session
-- **Zeitplan-Widget:** Stunden-Übersicht mit rotem Zeitpunkt-Dot
-- **Aufgaben-Widget:** Tagesaufgaben mit Prioritäten
-- **Timer-Widget:** Schnellzugriff auf Timer
-- **Fortschritts-Widget:** Tagesziel-Anzeige
+---
 
 ### 5.5 Mentor & Statistiken
 
@@ -390,13 +671,8 @@ Step 22 → API POST /api/wizard/complete
 - Fächer-Verteilung
 - Aufgaben-Erledigungsrate
 - Streak-Tage
-- Timer-Sessions
 
-**Visualisierungen:**
-- Performance-Heatmap (30 Tage)
-- Jahresansicht (12 Monate)
-- WellScore (Radial Chart)
-- Liniendiagramme für Trends
+---
 
 ### 5.6 Check-In System
 
@@ -404,13 +680,6 @@ Step 22 → API POST /api/wizard/complete
 |-----------|-----------|
 | Morgens | Stimmung, Energielevel, Fokus, Tagesziele |
 | Abends | Reflexion, Erfolge, Herausforderungen |
-
-### 5.7 App-Modus
-
-| Modus | Aktivierung | Features |
-|-------|-------------|----------|
-| Examen | Aktiver Lernplan vorhanden | Voller Umfang |
-| Normal | Kein Lernplan | Reduziert (keine Lernpläne-Nav) |
 
 ---
 
@@ -428,7 +697,6 @@ Step 22 → API POST /api/wizard/complete
 | `private_sessions` | CalendarContext | Aktiv |
 | `time_sessions` | CalendarContext | Aktiv |
 | `archived_lernplaene` | CalendarContext | Aktiv |
-| `published_themenlisten` | CalendarContext | Aktiv |
 | `wizard_drafts` | WizardContext | Aktiv |
 | `timer_sessions` | TimerContext | Aktiv |
 | `checkin_responses` | CheckInContext | Aktiv |
@@ -448,14 +716,7 @@ Alle in `src/hooks/use-supabase-sync.js`:
 - `useTimerHistorySync`
 - `useCheckInSync`
 - `useLogbuchSync`
-- ... und weitere
-
-### 6.3 Schema
-
-Idempotentes Schema in `supabase/schema.sql`:
-- Kann mehrfach ausgeführt werden ohne Fehler
-- Row Level Security (RLS) für alle Tabellen
-- Trigger für `updated_at` Timestamps
+- `useAppModeSync`
 
 ---
 
@@ -470,23 +731,21 @@ src/
 │   ├── dashboard/      # Dashboard-Widgets
 │   │   └── timer/      # Timer-Dialoge
 │   ├── charts/         # RadialChart, LineChart
+│   ├── lernplan/       # Lernplan-Bearbeitung
 │   ├── mentor/         # Mentor-Dashboard
-│   └── ...
+│   └── settings/       # Einstellungen
 ├── features/           # Feature-Module
 │   ├── calendar/       # Kalender-Feature
 │   └── lernplan-wizard/# Wizard-Feature
+│       ├── context/    # wizard-context.jsx
+│       └── steps/      # Step-Komponenten (1-22)
 ├── contexts/           # 11+ React Contexts
-│   ├── studiengang-context.jsx  # NEU: Studiengang & Labels
-│   └── ...
 ├── hooks/              # Custom Hooks
-│   ├── use-supabase-sync.js     # Supabase-Sync
-│   ├── use-hierarchy-labels.js  # NEU: Dynamische Labels
-│   └── ...
 ├── services/           # API-Services
 ├── data/               # Statische Daten
-│   ├── unterrechtsgebiete-data.js  # Rechtsgebiete
-│   ├── studiengaenge.js            # NEU: 20 Studiengänge
-│   └── ...
+│   ├── unterrechtsgebiete-data.js
+│   ├── studiengaenge.js
+│   └── templates/
 └── utils/              # Hilfsfunktionen
 ```
 
@@ -494,56 +753,18 @@ src/
 
 ## 8. Design System
 
-### Farben (Rechtsgebiete/Fächer)
-| Rechtsgebiet (Jura) / Fach (Andere) | Farbe |
-|-------------------------------------|-------|
-| Öffentliches Recht / Fach 1 | Grün (#10B981) |
-| Zivilrecht / Fach 2 | Blau (#3B82F6) |
-| Strafrecht / Fach 3 | Rot (#EF4444) |
-| Querschnittsrecht / Fach 4 | Violett (#8B5CF6) |
-
-### Dynamische Bezeichnungen
-
-Die UI-Texte werden über den `useHierarchyLabels()` Hook dynamisch generiert:
-
-```jsx
-// Beispiel: Button-Text
-<button>+ {level1}</button>
-// Jura: "+ Rechtsgebiet"
-// BWL:  "+ Fach"
-
-// Beispiel: Überschrift
-<h4>{level2Plural} & Inhalte</h4>
-// Jura: "Unterrechtsgebiete & Inhalte"
-// BWL:  "Kapitel & Inhalte"
-```
+### Farben (Rechtsgebiete)
+| Rechtsgebiet | Farbe |
+|--------------|-------|
+| Öffentliches Recht | Grün (#10B981) |
+| Zivilrecht | Blau (#3B82F6) |
+| Strafrecht | Rot (#EF4444) |
+| Querschnittsrecht | Violett (#8B5CF6) |
 
 ### Typografie
 - **Font:** DM Sans
 - **H1:** 24px, Extralight (200)
 - **Body:** 16px, Normal (400)
-
-### Komponenten
-- Buttons: primary, default, ghost, icon
-- Dialoge: Modal mit Overlay
-- Badges: default, primary, outline
-
----
-
-## 9. Externe Abhängigkeiten
-
-- **Supabase:** Datenbank & Auth
-- **Vercel:** Hosting & Serverless Functions
-- **OpenAI:** KI-Lernplan-Generierung (optional)
-
----
-
-## 10. Bekannte Limitierungen
-
-1. **Offline:** LocalStorage-Fallback vorhanden, aber kein vollständiger Offline-Modus
-2. **Mobile:** Desktop-first, Tablet-Support, Mobile eingeschränkt
-3. **Realtime:** Kein Echtzeit-Sync zwischen Tabs/Geräten
-4. **Backend:** Supabase als Zwischenlösung (Migration geplant)
 
 ---
 
@@ -551,22 +772,23 @@ Die UI-Texte werden über den `useHierarchyLabels()` Hook dynamisch generiert:
 
 ---
 
-## 11. Bekannte Bugs
+## 9. Bekannte Bugs
 
-### 11.1 Kritisch (Blocker)
+### 9.1 Kritisch (Blocker)
 
 | ID | Bug | Bereich | Status |
 |----|-----|---------|--------|
 | - | Keine kritischen Bugs bekannt | - | - |
 
-### 11.2 Hoch (Funktionalität beeinträchtigt)
+### 9.2 Behoben (Januar 2026)
 
 | ID | Bug | Bereich | Status |
 |----|-----|---------|--------|
-| BUG-001 | ESLint-Fehler blockieren Commits | Build | Offen |
-| BUG-002 | Unused imports in vielen Dateien | Code Quality | Offen |
+| BUG-MSW-001 | Moduswechsel zeigt keinen Dialog | AppMode | ✅ Behoben |
+| BUG-MSW-002 | activeLernplaene erkennt Wizard-Lernpläne nicht | AppMode | ✅ Behoben |
+| BUG-P1 | Step 22 ignoriert User-Änderungen aus Step 21 | Wizard | ✅ Behoben |
 
-### 11.3 Mittel (Funktioniert, aber nicht optimal)
+### 9.3 Mittel (Funktioniert, aber nicht optimal)
 
 | ID | Bug | Bereich | Status |
 |----|-----|---------|--------|
@@ -574,196 +796,58 @@ Die UI-Texte werden über den `useHierarchyLabels()` Hook dynamisch generiert:
 | BUG-011 | Fast refresh Warnungen bei Context-Exporten | DevExp | Offen |
 | BUG-012 | Chunk size > 500kb Warnung beim Build | Bundle | Offen |
 
-### 11.4 Niedrig (Kosmetisch/Minor)
-
-| ID | Bug | Bereich | Status |
-|----|-----|---------|--------|
-| BUG-020 | LF/CRLF Git Warnungen (Windows) | Git | Offen |
-
 ---
 
-## 12. Funktionstest-Checkliste
+## 10. Funktionstest-Checkliste
 
-### 12.1 Authentifizierung
-
-| Test | Erwartung | Getestet | Status |
-|------|-----------|----------|--------|
-| Login mit Email/Passwort | Erfolgreich einloggen | [ ] | - |
-| Registrierung | Account erstellen | [ ] | - |
-| Logout | Session beenden, Redirect | [ ] | - |
-| Session Persistenz | Nach Reload eingeloggt bleiben | [ ] | - |
-| Protected Routes | Redirect zu Login wenn nicht auth | [ ] | - |
-
-### 12.2 Dashboard
+### 10.1 Moduswechsel (NEU)
 
 | Test | Erwartung | Getestet | Status |
 |------|-----------|----------|--------|
-| Session-Widget zeigt aktuelle Session | Korrekte Session für aktuelle Zeit | [ ] | - |
-| Zeitplan-Widget mit rotem Dot | Dot bewegt sich mit Uhrzeit | [ ] | - |
-| Aufgaben-Widget zeigt Tagesaufgaben | Aufgaben für heute sichtbar | [ ] | - |
-| Timer-Widget funktioniert | Alle 3 Modi starten | [ ] | - |
-| Tagesziel berechnet korrekt | Basiert auf Blöcken des Tages | [ ] | - |
+| Examen → Normal (mit Lernplan) auf Profil-Seite | Dialog erscheint | [ ] | - |
+| Examen → Normal (mit Lernplan) in Einstellungen | Dialog erscheint | [ ] | - |
+| Nach Bestätigung: ContentPlan archiviert | Themenliste erstellt | [ ] | - |
+| Nach Bestätigung: Kalender leer | blocksByDate geleert | [ ] | - |
+| Normal → Examen (ohne Lernplan) | Modus wechselt direkt | [ ] | - |
 
-### 12.3 Lernplan-Wizard
+### 10.2 Dashboard Themenliste-Toggle (NEU)
 
 | Test | Erwartung | Getestet | Status |
 |------|-----------|----------|--------|
-| Schritt 1-10 durchlaufen | Alle Schritte erreichbar | [ ] | - |
+| Toggle erscheint im Normalmodus | Sichtbar | [ ] | - |
+| Wechsel zu "Themenliste" | Dropdown erscheint | [ ] | - |
+| Themenliste auswählen | Hierarchie wird angezeigt | [ ] | - |
+| Aufgabe abhaken in Themenliste | Status ändert sich | [ ] | - |
+
+### 10.3 Lernplan-Wizard
+
+| Test | Erwartung | Getestet | Status |
+|------|-----------|----------|--------|
+| Schritt 1-22 durchlaufen (Manual Path) | Alle Schritte erreichbar | [ ] | - |
 | Draft wird automatisch gespeichert | Nach 500ms zu Supabase | [ ] | - |
-| Zurück-Navigation | Vorherige Schritte behalten Daten | [ ] | - |
-| Wizard abschließen | Lernplan wird erstellt | [ ] | - |
-| KI-Generierung | OpenAI generiert Plan | [ ] | - |
+| Zurück-Navigation | Abhängige Daten werden zurückgesetzt | [ ] | - |
+| Step 12: RG-Tabs klickbar | Freie Navigation zwischen RGs | [ ] | - |
+| Step 15: Block-Budget korrekt | Pro RG nach Gewichtung | [ ] | - |
+| Step 21: Swaps erhalten in Step 22 | User-Änderungen nicht verloren | [ ] | - |
 
-### 12.4 Kalender
+### 10.4 Kalender
 
 | Test | Erwartung | Getestet | Status |
 |------|-----------|----------|--------|
 | Monatsansicht Navigation | Vor/Zurück funktioniert | [ ] | - |
 | Wochenansicht Navigation | Vor/Zurück funktioniert | [ ] | - |
 | Block erstellen (Tagesthema) | Block erscheint im Kalender | [ ] | - |
-| Block erstellen (Privat) | Privater Block erscheint | [ ] | - |
-| Serientermin erstellen (täglich) | Mehrere Blöcke erstellt | [ ] | - |
-| Serientermin erstellen (wöchentlich) | Blöcke im Wochenrhythmus | [ ] | - |
-| Serientermin erstellen (monatlich) | Blöcke im Monatsrhythmus | [ ] | - |
-| Serientermin erstellen (custom) | Blöcke an gewählten Tagen | [ ] | - |
+| Serientermin erstellen | Mehrere Blöcke erstellt | [ ] | - |
 | Block bearbeiten | Änderungen gespeichert | [ ] | - |
 | Block löschen | Block entfernt | [ ] | - |
-| Serie löschen | Alle Blöcke der Serie entfernt | [ ] | - |
 
-### 12.5 Aufgaben
-
-| Test | Erwartung | Getestet | Status |
-|------|-----------|----------|--------|
-| Aufgabe erstellen | Neue Aufgabe erscheint | [ ] | - |
-| Aufgabe abhaken | Status ändert sich | [ ] | - |
-| Priorität ändern | Priorität aktualisiert | [ ] | - |
-| Aufgabe löschen | Aufgabe entfernt | [ ] | - |
-| Aufgabe zu Block zuordnen | Verknüpfung funktioniert | [ ] | - |
-
-### 12.6 Timer
-
-| Test | Erwartung | Getestet | Status |
-|------|-----------|----------|--------|
-| Pomodoro starten | 25 Min Timer läuft | [ ] | - |
-| Pomodoro Pause | 5 Min Pause startet | [ ] | - |
-| Countdown starten | Gewählte Zeit läuft ab | [ ] | - |
-| Count-up starten | Zeit zählt hoch | [ ] | - |
-| Timer pausieren | Timer hält an | [ ] | - |
-| Timer fortsetzen | Timer läuft weiter | [ ] | - |
-| Timer beenden | Session wird gespeichert | [ ] | - |
-| Logbuch Eintrag | Manuelle Zeit erfasst | [ ] | - |
-
-### 12.7 Mentor & Check-In
-
-| Test | Erwartung | Getestet | Status |
-|------|-----------|----------|--------|
-| Mentor aktivieren | Dialog erscheint, Aktivierung | [ ] | - |
-| Check-In morgens | Formular ausfüllbar | [ ] | - |
-| Check-In abends | Formular ausfüllbar | [ ] | - |
-| Statistiken anzeigen | Daten korrekt berechnet | [ ] | - |
-| Heatmap funktioniert | Farben korrekt | [ ] | - |
-
-### 12.8 Leistungen/Übungsklausuren
-
-| Test | Erwartung | Getestet | Status |
-|------|-----------|----------|--------|
-| Klausur hinzufügen | Eintrag erscheint | [ ] | - |
-| Klausur bearbeiten | Änderungen gespeichert | [ ] | - |
-| Klausur löschen | Eintrag entfernt | [ ] | - |
-| Notensystem Punkte | 0-18 Punkte funktioniert | [ ] | - |
-| Notensystem Noten | 1.0-5.0 funktioniert | [ ] | - |
-| Auswertung (Examen) | Diagramme anzeigen | [ ] | - |
-
-### 12.9 Supabase Sync
+### 10.5 Supabase Sync
 
 | Test | Erwartung | Getestet | Status |
 |------|-----------|----------|--------|
 | Daten laden bei Login | Supabase-Daten erscheinen | [ ] | - |
 | Änderungen speichern | Zu Supabase synchronisiert | [ ] | - |
 | Offline-Fallback | LocalStorage funktioniert | [ ] | - |
-| Migration LocalStorage → Supabase | Alte Daten übernommen | [ ] | - |
-
-### 12.10 Themenlisten
-
-| Test | Erwartung | Getestet | Status |
-|------|-----------|----------|--------|
-| Themenliste erstellen | Neue Liste erscheint | [ ] | - |
-| Themen hinzufügen | Themen in Liste | [ ] | - |
-| Template importieren | Vordefinierte Liste | [ ] | - |
-| JSON exportieren | Datei heruntergeladen | [ ] | - |
-| JSON importieren | Liste importiert | [ ] | - |
-| Community veröffentlichen | Liste in Community | [ ] | - |
-
----
-
-## 13. Code Quality Tasks
-
-### 13.1 ESLint Fixes (Priorität: Hoch)
-
-```bash
-# Betroffene Dateien (49 Errors, 27 Warnings):
-src/components/common/loading-screen.jsx
-src/components/dashboard/timer/countdown-settings-dialog.jsx
-src/components/dashboard/timer/pomodoro-settings-dialog.jsx
-src/components/dashboard/timer/timer-logbuch-dialog.jsx
-src/components/dashboard/timer/timer-main-dialog.jsx
-src/components/dashboard/timer/timer-selection-dialog.jsx
-src/components/dashboard/zeitplan-widget.jsx
-src/components/layout/profile-icon.jsx
-src/contexts/calendar-context.jsx
-src/contexts/onboarding-context.jsx
-src/features/calendar/components/calendar-view.jsx
-src/hooks/use-dashboard.js
-src/hooks/use-supabase-sync.js
-src/pages/dashboard.jsx
-src/pages/onboarding.jsx
-src/pages/profil.jsx
-```
-
-**Häufigste Fehler:**
-- `'React' is defined but never used` - React 17+ JSX Transform
-- `'X' is assigned a value but never used` - Unused destructuring
-- React Hook dependency warnings
-
-### 13.2 Bundle Optimierung (Priorität: Mittel)
-
-Aktuell: 1,466 kB (gzip: 368 kB)
-Ziel: < 500 kB
-
-**Optionen:**
-- [ ] Code-Splitting mit dynamic imports
-- [ ] Tree-shaking verbessern
-- [ ] Große Dependencies analysieren
-
----
-
-## 14. Priorisierte Aufgabenliste
-
-### Sofort
-
-1. [ ] ESLint-Fehler in geänderten Dateien fixen
-2. [ ] Unused imports entfernen (React, etc.)
-3. [ ] Serientermine testen (neues Feature)
-
-### Diese Woche
-
-4. [ ] Alle Funktionstests durchführen
-5. [ ] React Hook Dependency Warnungen fixen
-6. [ ] Supabase Sync validieren
-
-### Später
-
-7. [ ] Bundle-Größe optimieren
-8. [ ] Performance-Profiling
-9. [ ] Accessibility-Audit
-
----
-
-## 15. Test-Protokoll
-
-| Datum | Tester | Bereich | Ergebnis | Notizen |
-|-------|--------|---------|----------|---------|
-| - | - | - | - | - |
 
 ---
 
@@ -771,16 +855,17 @@ Ziel: < 500 kB
 
 ---
 
-## 16. Strategische Ziele
+## 11. Strategische Ziele
 
-1. **Eigenes Backend** - Migration von Supabase zu eigenem TypeScript-Backend
-2. **Mobile App** - React Native Version für iOS/Android
-3. **Community Features** - Lerngruppen, geteilte Inhalte
-4. **Premium-Modell** - Monetarisierung durch erweiterte Features
+1. **Phase 2 Moduswechsel** - Wizard erstellt ContentPlan bei Abschluss
+2. **Eigenes Backend** - Migration von Supabase zu eigenem TypeScript-Backend
+3. **Mobile App** - React Native Version für iOS/Android
+4. **Community Features** - Lerngruppen, geteilte Inhalte
+5. **Premium-Modell** - Monetarisierung
 
 ---
 
-## 17. Phasen-Übersicht
+## 12. Phasen-Übersicht
 
 ```
 Q1 2026: Stabilisierung & Backend-Planung
@@ -791,377 +876,211 @@ Q4 2026: Community & Premium Features
 
 ---
 
-## 18. Phase 1: Stabilisierung (Q1 2026)
+## 13. Nächste Schritte
 
-### 18.1 Technische Schulden
+### Sofort (Phase 2 Moduswechsel)
+
+| Task | Beschreibung | Aufwand |
+|------|--------------|---------|
+| Wizard erstellt ContentPlan | Bei `completeWizard()` zusätzlich ContentPlan erstellen | 3-4h |
+| Migration bestehender Lernpläne | `blocksByDate` → ContentPlan konvertieren | 2h |
+| ContentPlan-basierte Archivierung | `archived: true` statt Neukonvertierung | 1h |
+
+### Diese Woche
+
+| Task | Beschreibung |
+|------|--------------|
+| Funktionstests durchführen | Alle Checklisten-Items testen |
+| CalendarPlanEditCard fertigstellen | Hierarchische Bearbeitung auf /lernplan |
+| Rule-Validation implementieren | Gewichtung + Verteilungsmodus prüfen |
+
+### Später
+
+| Task | Beschreibung |
+|------|--------------|
+| Bundle-Größe optimieren | < 500 kB |
+| TypeScript Migration | Schrittweise Umstellung |
+| E2E Tests | Playwright/Cypress |
+
+---
+
+## 14. Technische Schulden
 
 | Task | Priorität | Aufwand |
 |------|-----------|---------|
 | ESLint-Fehler komplett beheben | Hoch | 2-3h |
 | Bundle-Größe optimieren (< 500kb) | Mittel | 4-6h |
-| TypeScript Migration starten | Mittel | 20-40h |
-| Test-Suite aufbauen (Jest/Vitest) | Mittel | 10-20h |
-| E2E Tests (Playwright/Cypress) | Niedrig | 10-15h |
-
-### 18.2 UX-Verbesserungen
-
-| Feature | Beschreibung | Aufwand |
-|---------|--------------|---------|
-| Mobile Optimierung | Responsive für < 768px | 10-15h |
-| Keyboard Shortcuts | Schnellnavigation | 4-6h |
-| Dark Mode | Dunkles Farbschema | 6-8h |
-| Loading States | Skeleton Screens | 4-6h |
-| Error Boundaries | Bessere Fehlerbehandlung | 3-4h |
-
-### 18.3 Backend-Vorbereitung
-
-| Task | Beschreibung |
-|------|--------------|
-| API-Spezifikation | OpenAPI/Swagger Schema definieren |
-| Datenmodell finalisieren | ERD für eigenes Backend |
-| Auth-Strategie | JWT vs Session-based |
-| Hosting evaluieren | Railway, Render, Fly.io, etc. |
+| React Hook Dependency Warnings fixen | Mittel | 2-3h |
+| TypeScript Migration starten | Niedrig | 20-40h |
 
 ---
 
-## 19. Phase 2: Eigenes Backend (Q2-Q3 2026)
+# Teil 4: Architektur-Dokumentation
 
-### 19.1 Technologie-Stack (Vorschlag)
+---
 
-| Komponente | Option A | Option B |
-|------------|----------|----------|
-| Runtime | Node.js | Bun |
-| Framework | Express.js | Hono |
-| ORM | Prisma | Drizzle |
-| Datenbank | PostgreSQL | PostgreSQL |
-| Auth | Passport.js | Lucia |
-| Validation | Zod | Zod |
-| API Style | REST | tRPC |
+## 15. Wizard vs. ContentPlan Architektur
 
-### 19.2 Migration von Supabase
-
-**Phase 2a: Parallelbetrieb**
-1. Eigenes Backend aufsetzen
-2. Doppelte Schreibvorgänge (Supabase + Eigenes)
-3. Lesevorgänge noch von Supabase
-4. Datenintegrität validieren
-
-**Phase 2b: Umstellung**
-1. Lesevorgänge auf eigenes Backend
-2. Supabase nur noch Backup
-3. Supabase-Hooks entfernen
-4. Auth-Migration (eigene User-Tabelle)
-
-**Phase 2c: Cleanup**
-1. Supabase komplett entfernen
-2. LocalStorage-Fallback anpassen
-3. Dokumentation aktualisieren
-
-### 19.3 Neue API-Struktur
+### Aktueller Zustand (Problem)
 
 ```
-/api/v1/
-├── auth/
-│   ├── login
-│   ├── register
-│   ├── logout
-│   └── refresh
-├── users/
-│   ├── me
-│   └── settings
-├── lernplaene/
-│   ├── [id]
-│   └── [id]/blocks
-├── calendar/
-│   ├── blocks
-│   ├── tasks
-│   └── private-sessions
-├── timer/
-│   ├── sessions
-│   └── logbuch
-├── leistungen/
-└── community/
-    └── themenlisten
+┌─────────────────────────────────────────────────────────────────┐
+│                    AKTUELLE ARCHITEKTUR                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  WIZARD PATH (Lernplan erstellen):                             │
+│  ═══════════════════════════════════                           │
+│  wizardState → generateBlocks() → blocksByDate + metadata      │
+│                                                                 │
+│  KEINE ContentPlan-Erstellung!                                 │
+│                                                                 │
+│  ─────────────────────────────────────────────────────────────  │
+│                                                                 │
+│  THEMENLISTEN PATH (Manuell erstellen):                        │
+│  ═══════════════════════════════════════                       │
+│  createContentPlan() → contentPlans Array                      │
+│                                                                 │
+│  Hat hierarchische Struktur:                                   │
+│  Plan → Rechtsgebiete → URGs → Kapitel → Themen → Aufgaben    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Workaround (Implementiert)
+
+`archiveAndConvertToThemenliste()` extrahiert Themen-Struktur aus `blocksByDate` und erstellt eine ContentPlan nachträglich.
+
+### Ziel-Architektur (Phase 2)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ZIEL-ARCHITEKTUR                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  WIZARD PATH:                                                  │
+│  wizardState → completeWizard() →                              │
+│    ├── ContentPlan (type: 'lernplan', archived: false)        │
+│    └── blocksByDate (mit contentPlanId)                       │
+│                                                                 │
+│  ARCHIVIERUNG:                                                 │
+│  contentPlan.archived = true                                   │
+│  blocksByDate gefiltert nach contentPlanId                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 20. Phase 3: Mobile App (Q3-Q4 2026)
+## 16. Block-Datenstruktur
 
-### 20.1 Optionen
+### CalendarContext blocksByDate
 
-| Option | Vorteile | Nachteile |
-|--------|----------|-----------|
-| React Native | Code-Sharing, bekanntes Ökosystem | Performance |
-| Expo | Schneller Start, OTA Updates | Limitierungen |
-| PWA | Kein App Store, Web-Codebase | Weniger native Features |
-| Flutter | Performance, eine Codebase | Neues Framework lernen |
-
-**Empfehlung:** Expo (React Native) für maximales Code-Sharing
-
-### 20.2 Mobile-First Features
-
-| Feature | Beschreibung |
-|---------|--------------|
-| Push Notifications | Timer-Erinnerungen, Check-In |
-| Offline-First | Vollständiger Offline-Modus |
-| Quick Actions | Widgets, App Shortcuts |
-| Biometric Auth | Face ID, Fingerprint |
-| Apple Watch/WearOS | Timer auf Smartwatch |
-
----
-
-## 21. Phase 4: Community & Premium (Q4 2026)
-
-### 21.1 Community Features
-
-| Feature | Beschreibung | Aufwand |
-|---------|--------------|---------|
-| Lerngruppen | Gemeinsame Lernpläne | 40-60h |
-| Geteilte Themenlisten | Cloud-basierte Bibliothek | 20-30h |
-| Leaderboards | Gamification (opt-in) | 15-20h |
-| Chat/Nachrichten | Kommunikation in Gruppen | 30-40h |
-| Mentoring | Erfahrene helfen Anfängern | 20-30h |
-
-### 21.2 Premium Features (Monetarisierung)
-
-| Tier | Features | Preis |
-|------|----------|-------|
-| Free | Basis-Features, 1 Lernplan | 0€ |
-| Pro | Unbegrenzte Pläne, Statistiken | 5€/Monat |
-| Team | Lerngruppen, Shared Plans | 10€/Monat |
-
-**Premium-exklusive Features:**
-- Erweiterte Statistiken & Trends
-- KI-Lernplan-Generierung (unbegrenzt)
-- Cloud-Sync über Geräte
-- Prioritäts-Support
-- Früher Zugang zu neuen Features
-
-### 21.3 Rechtsdatenbank-Integration
-
-| Integration | Beschreibung |
-|-------------|--------------|
-| Beck Online | Direkte Links zu Kommentaren |
-| Juris | Rechtsprechungssuche |
-| Alpmann Schmidt | Lernmaterial-Verknüpfung |
-
----
-
-## 22. Technische Roadmap
-
-### 22.1 Infrastruktur
-
-```
-Aktuell:
-[Vercel CDN] → [React SPA] → [Supabase]
-
-
-
-### 22.2 CI/CD Pipeline
-
-| Phase | Tool | Beschreibung |
-|-------|------|--------------|
-| Lint | ESLint | Code-Qualität |
-| Type Check | TypeScript | Typ-Sicherheit |
-| Unit Tests | Vitest | Komponenten-Tests |
-| E2E Tests | Playwright | User-Flow Tests |
-| Build | Vite | Production Build |
-| Deploy | Vercel/Railway | Automatisches Deployment |
-
-### 22.3 Monitoring & Analytics
-
-| Tool | Zweck |
-|------|-------|
-| Sentry | Error Tracking |
-| PostHog | Product Analytics |
-| Uptime Robot | Availability Monitoring |
-| Grafana | Backend Metrics |
-
----
-
-## 23. Risiken & Mitigationen
-
-
----
-
-# Teil 4: Architektur-Analyse (Januar 2026)
-
----
-
-## 24. Analyse-Übersicht
-
-Diese Analyse wurde durchgeführt um die Ursachen für wiederkehrende Bugs zu identifizieren.
-Die meisten Bugs in der To-Do-Liste sind **Symptome tieferliegender Architektur-Probleme**.
-
-### Analysierte Bereiche
-
-| Bereich | Status | Kritische Probleme |
-|---------|--------|-------------------|
-| Slot/Block-Modell | ⚠️ Unklar | Konzepte vermischt |
-| Serientermine | 🔴 Kritisch | Datenverlust nach Reload |
-| Kalender-Views | 🟠 Inkonsistent | Monat ≠ Woche |
-| Examenmodus | ⚠️ Unvollständig | Keine manuelle Kontrolle |
-
----
-
-## 25. Block/Session/Content-Modell
-
-### 25.1 Aktuelle Struktur
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          DATENMODELL                                 │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  calendar_blocks (Supabase)         private_sessions (Supabase)     │
-│  ─────────────────────────          ────────────────────────        │
-│  • 4 Positionen pro Tag             • Freie Uhrzeiten               │
-│  • position: 1-4                    • start_time / end_time         │
-│  • session_type: lernblock|exam|rep • session_type: immer 'private' │
-│  • content_id → verweist auf        • Eigenständig (kein Content)   │
-│    Themenlisten-Inhalt              • Wiederholung möglich          │
-│  • Wiederholung möglich                                              │
-│           │                                    │                     │
-│           ▼                                    ▼                     │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │                   CalendarContext                            │    │
-│  │  • blocksByDate: { "2026-01-02": [block1, block2, ...] }    │    │
-│  │  • privateSessionsByDate: { "2026-01-02": [session1, ...] } │    │
-│  │  • contentsById: { "content-123": { title, ... } }          │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-│                         │                                            │
-│                         ▼                                            │
-│               buildSessionFromBlock()                                │
-│               ─────────────────────                                  │
-│               Block + Content = Display-Session                      │
-│                         │                                            │
-│                         ▼                                            │
-│  ┌─────────────┐              ┌─────────────┐                       │
-│  │ Monatsansicht│              │ Wochenansicht│                       │
-│  │ (Positionen) │              │ (Uhrzeiten)  │                       │
-│  └─────────────┘              └─────────────┘                       │
-└─────────────────────────────────────────────────────────────────────┘
+```javascript
+blocksByDate = {
+  '2026-01-15': [
+    {
+      id: '2026-01-15-block-0',
+      date: '2026-01-15',
+      position: 1,                    // 1-4
+      blockType: 'lernblock',         // 'lernblock' | 'repetition' | 'exam'
+      topicTitle: 'BGB AT - Vertrag',
+      rechtsgebiet: 'zivilrecht',
+      unterrechtsgebiet: 'bgb-at',    // URG-ID
+      thema: {
+        id: 'thema-123',
+        name: 'Vertragsschluss',
+        aufgaben: [...],
+        urgId: 'bgb-at'               // WICHTIG: urgId im thema-Objekt
+      },
+      tasks: [
+        { id: 't1', name: 'Definition', completed: false, priority: 'hoch' }
+      ],
+      metadata: {
+        themaId: 'thema-123',
+        rgId: 'zivilrecht',
+        urgId: 'bgb-at',              // BACKUP: urgId auch in metadata
+        source: 'wizard-thema'
+      },
+      startTime: '08:00',
+      endTime: '10:00',
+      isLocked: false,
+      isFromLernplan: true            // Unterscheidung zu manuell erstellten
+    }
+  ]
+}
 ```
 
-### 25.2 Position → Uhrzeit Mapping
+### lernplanMetadata
 
-| Position | Startzeit | Endzeit | Dauer |
-|----------|-----------|---------|-------|
-| 1 | 08:00 | 10:00 | 2h |
-| 2 | 10:00 | 12:00 | 2h |
-| 3 | 14:00 | 16:00 | 2h |
-| 4 | 16:00 | 18:00 | 2h |
-
-**Problem:** Wenn `hasTime: true`, können Blöcke benutzerdefinierte Zeiten haben, die von Positionen abweichen.
-
-### 25.3 Identifizierte Probleme
-
-| Problem | Schweregrad | Auswirkung |
-|---------|-------------|------------|
-| `topicId` vs `contentId` vs `id` | 🟠 Hoch | Inkonsistentes ID-Matching |
-| `title` vs `topicTitle` | 🟡 Mittel | Doppelte Felder |
-| Block ≠ Session nicht klar definiert | 🟠 Hoch | Verwirrende Begriffe im Code |
-| Private Sessions haben kein `position` | 🟡 Mittel | Unterschiedliche Zeitlogik |
-
-### 25.4 Empfohlene Lösung
-
-**Einheitliches Session-Interface:**
-
-```typescript
-interface CalendarSession {
-  id: string;
-  type: 'lernblock' | 'repetition' | 'exam' | 'private';
-
-  // Zeit
-  date: string;              // YYYY-MM-DD
-  startTime: string;         // HH:MM
-  endTime: string;           // HH:MM
-  position?: 1 | 2 | 3 | 4;  // Optional für Lern-Sessions
-
-  // Inhalt
-  title: string;
-  contentId?: string;        // Nur für Lern-Sessions
-  rechtsgebiet?: string;
-  unterrechtsgebiet?: string;
-
-  // Serie
-  seriesId?: string;
-  repeatEnabled: boolean;
-  repeatType?: 'daily' | 'weekly' | 'monthly' | 'custom';
-  repeatCount?: number;
-  customDays?: number[];
-
-  // Meta
-  isLocked: boolean;
-  createdAt: string;
-  updatedAt: string;
+```javascript
+lernplanMetadata = {
+  name: 'Lernplan 01.01.2026 - 01.06.2026',
+  startDate: '2026-01-01',
+  endDate: '2026-06-01',
+  blocksPerDay: 3,
+  weekStructure: {
+    montag: ['lernblock', 'lernblock', 'lernblock'],
+    dienstag: ['lernblock', 'lernblock', 'lernblock'],
+    // ...
+  },
+  selectedRechtsgebiete: ['zivilrecht', 'strafrecht', 'oeffentliches-recht'],
+  rechtsgebieteGewichtung: {
+    'zivilrecht': 40,
+    'strafrecht': 30,
+    'oeffentliches-recht': 30
+  },
+  verteilungsmodus: 'gemischt',
+  creationMethod: 'manual',
+  createdAt: '2026-01-01T10:00:00Z'
 }
 ```
 
 ---
 
-## 26. Serientermine - KRITISCH
+## 17. URG-ID Lookup
 
-### 26.1 Aktueller Zustand
+URG-IDs werden an mehreren Stellen gespeichert. Die Priorität für Lookup ist:
 
-**Implementierungsmodell:** "Explosions-Modell"
-- Jede Wiederholung wird als **separate Datenbankzeile** gespeichert
-- Alle Einträge einer Serie teilen sich eine `seriesId`
-- Original-Block hat `repeatEnabled: true`, Kopien haben `repeatEnabled: false`
+1. `block.thema?.urgId` (Wizard Step 12/15)
+2. `block.metadata?.urgId` (Migrierte Daten)
+3. `block.unterrechtsgebiet` (Legacy/Alternative)
 
-### 26.2 Wiederholungsfelder im Schema
-
-| Feld | Frontend | Supabase Schema | Status |
-|------|----------|-----------------|--------|
-| `series_id` | ✅ Verwendet | ✅ Vorhanden | ✅ OK |
-| `custom_days` | ✅ Verwendet | ✅ Vorhanden | ✅ OK |
-| `repeat_enabled` | ✅ | ✅ | ✅ OK |
-| `repeat_type` | ✅ | ✅ | ✅ OK |
-| `repeat_count` | ✅ | ✅ | ✅ OK |
-
-**Schema-Tabellen mit Wiederholungsfeldern:**
-- `private_sessions` - series_id, custom_days
-- `calendar_blocks` - series_id, custom_days
-- `time_sessions` - series_id, custom_days
-
-**Indizes:** Alle Tabellen haben `idx_*_series_id` für performante Abfragen.
-
-### 26.3 Serien-Operationen
-
-```
-Szenario 1: Benutzer erstellt Serientermin
-├─ Frontend: Erstellt N Sessions mit gemeinsamer seriesId
-├─ Supabase-Sync: Speichert alle mit seriesId + custom_days
-├─ Browser-Reload: Sessions korrekt als Serie geladen
-└─ Ergebnis: Serie bleibt intakt ✅
-
-Szenario 2: Benutzer löscht eine Session aus Serie
-├─ handleDelete() löscht nur DIESE Session
-├─ Die anderen Sessions der Serie bleiben bestehen
-└─ Ergebnis: Teilweise Serie (gewünschtes Verhalten) ✅
+```javascript
+// Korrekter URG-Lookup
+const urgId = block.thema?.urgId || block.metadata?.urgId || block.unterrechtsgebiet;
 ```
 
-### 26.4 Fehlende UI-Logik
+---
 
-| Feature | Status | Impact |
-|---------|--------|--------|
-| "Nur diese" vs. "Ganze Serie" Dialog | ❌ Fehlt | User kann Serie nicht steuern |
-| Visuelle Kennzeichnung von Serien | ❌ Fehlt | User erkennt Wiederholungen nicht |
-| `deleteSeriesPrivateSessions()` | ⚠️ Dead Code | Existiert, wird nie aufgerufen |
-| Update-Logik für Serien | ❌ Fehlt | Keine Massen-Änderung möglich |
+# Anhang
 
-### 26.5 Erforderliche Schema-Erweiterung
+## A. Dateien-Referenz
 
-```sql
--- SOFORT erforderlich:
-ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS series_id UUID;
-ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS custom_days JSONB;
+| Datei | Zweck |
+|-------|-------|
+| `src/contexts/calendar-context.jsx` | Kalender-State, blocksByDate, archiveAndConvertToThemenliste |
+| `src/contexts/appmode-context.jsx` | App-Modus, activeLernplaene |
+| `src/contexts/wizard-context.jsx` | Wizard-State, completeWizard |
+| `src/features/lernplan-wizard/steps/*.jsx` | Wizard-Steps |
+| `src/components/dashboard/session-widget.jsx` | Dashboard To-Dos/Themenliste |
+| `src/components/lernplan/calendar-plan-edit-card.jsx` | Lernplan-Bearbeitung |
+| `src/pages/profil.jsx` | Profil mit Moduswechsel |
+| `src/hooks/use-supabase-sync.js` | Supabase-Synchronisation |
 
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS series_id UUID;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS custom_days JSONB;
+## B. Glossar
 
--- Indizes für Performance:
-CREATE INDEX IF NOT EXISTS idx_private_sessions_series_id ON private_sessions(series_id);
-CREATE INDEX IF NOT EXISTS idx_calendar_blocks_series_id ON calendar_blocks(series_id);
-```
+| Begriff | Bedeutung |
+|---------|-----------|
+| BlockAllocation | Kapazitätsplanung auf Tagesebene (Monatsansicht) |
+| Session | Zeitraum-basierter Termin (Woche/Startseite) |
+| ContentPlan | Hierarchische Themenliste oder Lernplan |
+| wizardState | Temporärer Zustand während Wizard-Durchlauf |
+| lernplanMetadata | Permanente Lernplan-Konfiguration nach Wizard |
+| blocksByDate | Kalender-Blöcke gruppiert nach Datum |
+| themenDraft | Themen mit Aufgaben pro URG (Wizard Step 12) |
+| lernbloeckeDraft | Blöcke mit zugewiesenen Themen (Wizard Step 15) |
+| generatedCalendar | Verteilte Blöcke mit Daten (Wizard Step 21) |
+
+---
+
+**Dokument-Ende**

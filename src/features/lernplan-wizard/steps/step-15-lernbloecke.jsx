@@ -24,7 +24,8 @@ const calculateLearningDays = (startDate, endDate, bufferDays, vacationDays, wee
 
   const start = new Date(startDate);
   const end = new Date(endDate);
-  const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+  // +1 to include both start and end date (inclusive range)
+  const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
   // Count free days per week
   const freeDaysPerWeek = weekStructure

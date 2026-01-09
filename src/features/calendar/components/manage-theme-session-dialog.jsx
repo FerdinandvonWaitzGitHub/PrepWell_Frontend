@@ -29,11 +29,14 @@ const ManageThemeBlockDialog = ({
   block,
   onSave,
   onDelete,
-  availableSlots = 4,
+  availableBlocks = 4,
+  availableSlots, // Legacy alias
   // Task sources
   availableTasks = [],      // To-Dos
   themeLists = [],          // Themenlisten
 }) => {
+  // Support legacy prop name
+  const maxBlocks = availableSlots ?? availableBlocks;
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

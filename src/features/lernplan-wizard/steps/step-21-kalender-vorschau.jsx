@@ -699,12 +699,12 @@ const MultiWeekView = ({
                       return (
                         <div
                           key={block.id}
-                          onClick={() => editMode && onBlockClick?.(block, dayData.date)}
+                          onClick={() => onBlockClick?.(block, dayData.date)}
                           onMouseEnter={() => editMode && onBlockHover?.(block, dayData.date)}
                           onMouseLeave={() => editMode && onBlockHover?.(null, null)}
                           className={`
                             ${colorClass} text-white text-[10px] px-1 py-0.5 rounded mb-0.5 relative
-                            ${editMode && !isLocked ? 'cursor-pointer hover:brightness-110' : ''}
+                            cursor-pointer hover:brightness-110
                             ${isSelected ? 'ring-2 ring-offset-1 ring-primary-600 scale-[1.02] z-10' : ''}
                             ${previewBorder}
                             ${isLocked ? 'opacity-70' : ''}
@@ -961,7 +961,9 @@ const Step21KalenderVorschau = () => {
     if (!startDate || !endDate) return 1;
     const start = new Date(startDate);
     const end = new Date(endDate);
-    return Math.ceil((end - start) / (7 * 24 * 60 * 60 * 1000));
+    // +1 day to include both start and end date, then divide by 7 for weeks
+    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    return Math.ceil(totalDays / 7);
   }, [startDate, endDate]);
 
   const totalWeekBlocks = Math.ceil(totalWeeks / WEEKS_PER_VIEW);
@@ -1012,6 +1014,11 @@ const Step21KalenderVorschau = () => {
 
   // Handle block click for swap functionality with validation
   const handleBlockClick = useCallback((block, dayDate) => {
+    // Auto-enable edit mode when clicking a block
+    if (!editMode) {
+      setEditMode(true);
+    }
+
     if (!selectedBlock) {
       // First click - select this block (unless locked)
       if (block.isLocked) {
@@ -1065,7 +1072,7 @@ const Step21KalenderVorschau = () => {
       setSelectedBlock(null);
       setSwapPreview(null);
     }
-  }, [selectedBlock, calendarDays, updateWizardData, verteilungsmodus, rechtsgebieteGewichtung, pushToHistory]);
+  }, [editMode, selectedBlock, calendarDays, updateWizardData, verteilungsmodus, rechtsgebieteGewichtung, pushToHistory]);
 
   // Toggle lock on a block
   const handleToggleLock = useCallback((blockId) => {

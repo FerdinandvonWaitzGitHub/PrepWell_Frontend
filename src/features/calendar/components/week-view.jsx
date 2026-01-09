@@ -12,29 +12,29 @@ import ManageExamSessionDialog from './manage-exam-session-dialog';
 import ManagePrivateSessionDialog from './manage-private-session-dialog';
 import { useCalendar } from '../../../contexts/calendar-context';
 import { useAppMode } from '../../../contexts/appmode-context';
-import { slotsToLearningBlocks } from '../../../utils/slotUtils';
+import { blocksToLearningSessions } from '../../../utils/blockUtils';
 
 /**
  * WeekView component
  * Weekly calendar view for exam mode
  * Displays week schedule with time-based blocks
  *
- * Data flow: CalendarContext (slotsByDate + privateBlocksByDate) → WeekView
+ * Data flow: CalendarContext (blocksByDate + privateBlocksByDate) → WeekView
  */
 const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const [currentDate, setCurrentDate] = useState(initialDate);
 
-  // BUG-023 FIX: Get app mode to control slot visibility
-  // In Normal mode: Hide Lernplan slots (only show private blocks)
-  // In Exam mode: Show Lernplan slots in header bar
+  // BUG-023 FIX: Get app mode to control block visibility
+  // In Normal mode: Hide Lernplan blocks (only show private blocks)
+  // In Exam mode: Show Lernplan blocks in header bar
   const { isExamMode } = useAppMode();
 
   // Get data from CalendarContext (Single Source of Truth)
   // BUG-023 FIX: Use timeBlocksByDate for user-created blocks (time-based)
-  // Use visibleSlotsByDate only for Lernplan-generated slots (position-based, header only)
+  // Use visibleBlocksByDate only for Lernplan-generated blocks (position-based, header only)
   const {
     slotsByDate,
-    visibleSlotsByDate, // BUG-010 FIX: Filtered Lernplan slots for header display
+    visibleSlotsByDate, // BUG-010 FIX: Filtered Lernplan blocks for header display
     privateBlocksByDate,
     timeBlocksByDate, // BUG-023 FIX: Time-based blocks for Week/Dashboard
     updateDaySlots,
@@ -83,36 +83,36 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     return date.toISOString().split('T')[0];
   };
 
-  // Helper: Get position-based time slots
+  // Helper: Get position-based time blocks
   const getTimeForPosition = (position) => {
-    const timeSlots = {
+    const timeBlocks = {
       1: { startTime: '08:00', endTime: '10:00' },
       2: { startTime: '10:00', endTime: '12:00' },
       3: { startTime: '14:00', endTime: '16:00' },
       4: { startTime: '16:00', endTime: '18:00' },
     };
-    return timeSlots[position] || { startTime: '08:00', endTime: '10:00' };
+    return timeBlocks[position] || { startTime: '08:00', endTime: '10:00' };
   };
 
-  // Helper: Find slot by ID (supports both contentId and topicId patterns)
-  const findSlotById = (slots, blockId) => {
-    return slots.find(s =>
-      s.contentId === blockId ||
-      s.topicId === blockId ||
-      s.id === blockId
+  // Helper: Find block by ID (supports both contentId and topicId patterns)
+  const findBlockById = (blocks, blockId) => {
+    return blocks.find(b =>
+      b.contentId === blockId ||
+      b.topicId === blockId ||
+      b.id === blockId
     );
   };
 
-  // Transform CalendarContext slots to week view format
-  // BUG-023 FIX: Combine time blocks (user-created) with Lernplan slots
+  // Transform CalendarContext blocks to week view format
+  // BUG-023 FIX: Combine time blocks (user-created) with Lernplan blocks
   // - Time blocks: Stored in timeBlocksByDate, always shown in time grid
-  // - Lernplan slots: Stored in visibleSlotsByDate
+  // - Lernplan blocks: Stored in visibleSlotsByDate
   //   - Normal mode: Hidden
   //   - Exam mode: Shown in header bar (not time grid)
-  const { blocks, lernplanSlots } = useMemo(() => {
+  const { blocks, lernplanBlocks } = useMemo(() => {
     const { monday, sunday } = getWeekDateRange(currentDate);
     const weekBlocks = [];
-    const weekLernplanSlots = []; // For Exam mode header bar
+    const weekLernplanBlocks = []; // For Exam mode header bar
 
     // Iterate through each day of the week
     for (let d = new Date(monday); d <= sunday; d.setDate(d.getDate() + 1)) {
@@ -144,53 +144,53 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         });
       });
 
-      // Process Lernplan slots (only in Exam mode, for header bar)
+      // Process Lernplan blocks (only in Exam mode, for header bar)
       if (isExamMode) {
         // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
-        const daySlots = visibleSlotsByDate[dateKey] || [];
+        const dayBlocks = visibleSlotsByDate[dateKey] || [];
 
-        // Convert slots to learning blocks for this day
-        const learningBlocks = slotsToLearningBlocks(daySlots);
+        // Convert blocks to learning sessions for this day
+        const learningSessions = blocksToLearningSessions(dayBlocks);
 
         // Transform to week view format with times
-        learningBlocks.forEach(block => {
-          if (block.isAddButton) return; // Skip add buttons
+        learningSessions.forEach(session => {
+          if (session.isAddButton) return; // Skip add buttons
 
-          // Find the original slot to get position and other data
-          const originalSlot = findSlotById(daySlots, block.id);
+          // Find the original block to get position and other data
+          const originalBlock = findBlockById(dayBlocks, session.id);
 
-          // Check if this slot is from Lernplan wizard
-          const isFromLernplan = originalSlot?.isFromLernplan === true;
+          // Check if this block is from Lernplan wizard
+          const isFromLernplan = originalBlock?.isFromLernplan === true;
 
-          // Only Lernplan slots go to header bar in Exam mode
+          // Only Lernplan blocks go to header bar in Exam mode
           if (isFromLernplan) {
-            const position = originalSlot?.position || 1;
+            const position = originalBlock?.position || 1;
             const defaultTimes = getTimeForPosition(position);
-            const startTime = originalSlot?.startTime || defaultTimes.startTime;
-            const endTime = originalSlot?.endTime || defaultTimes.endTime;
+            const startTime = originalBlock?.startTime || defaultTimes.startTime;
+            const endTime = originalBlock?.endTime || defaultTimes.endTime;
 
-            weekLernplanSlots.push({
-              id: block.id,
-              contentId: block.contentId || originalSlot?.contentId,
-              topicId: block.topicId || originalSlot?.topicId,
-              title: block.title,
-              blockType: block.blockType || 'lernblock',
-              blockSize: block.blockSize || 1,
+            weekLernplanBlocks.push({
+              id: session.id,
+              contentId: session.contentId || originalBlock?.contentId,
+              topicId: session.topicId || originalBlock?.topicId,
+              title: session.title,
+              blockType: session.blockType || 'lernblock',
+              blockSize: session.blockSize || 1,
               startDate: dateKey,
               startTime,
               endTime,
               isMultiDay: false,
-              description: block.description || '',
-              rechtsgebiet: block.rechtsgebiet,
-              unterrechtsgebiet: block.unterrechtsgebiet,
-              hasTime: originalSlot?.hasTime || false,
-              startHour: originalSlot?.startHour,
-              duration: originalSlot?.duration,
-              repeatEnabled: originalSlot?.repeatEnabled || false,
-              repeatType: originalSlot?.repeatType,
-              repeatCount: originalSlot?.repeatCount,
-              customDays: originalSlot?.customDays,
-              tasks: originalSlot?.tasks || [],
+              description: session.description || '',
+              rechtsgebiet: session.rechtsgebiet,
+              unterrechtsgebiet: session.unterrechtsgebiet,
+              hasTime: originalBlock?.hasTime || false,
+              startHour: originalBlock?.startHour,
+              duration: originalBlock?.duration,
+              repeatEnabled: originalBlock?.repeatEnabled || false,
+              repeatType: originalBlock?.repeatType,
+              repeatCount: originalBlock?.repeatCount,
+              customDays: originalBlock?.customDays,
+              tasks: originalBlock?.tasks || [],
               isFromLernplan: true,
               position, // Include position for header bar display
             });
@@ -199,7 +199,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       }
     }
 
-    return { blocks: weekBlocks, lernplanSlots: weekLernplanSlots };
+    return { blocks: weekBlocks, lernplanBlocks: weekLernplanBlocks };
   }, [currentDate, timeBlocksByDate, visibleSlotsByDate, isExamMode]);
 
   // Transform CalendarContext private blocks to week view format
@@ -302,7 +302,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
   };
 
-  // Handle slot click - open add block dialog
+  // Handle time slot click - open add block dialog
   const handleSlotClick = (date, time) => {
     setSelectedDate(date);
     setSelectedTime(time);
@@ -538,7 +538,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         currentDate={currentDate}
         blocks={blocks}
         privateBlocks={privateBlocks}
-        lernplanSlots={lernplanSlots}
+        lernplanBlocks={lernplanBlocks}
         onBlockClick={handleBlockClick}
         onSlotClick={handleSlotClick}
       />
@@ -551,7 +551,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={4}
+        availableBlocks={4}
       />
 
       {/* Manage Repetition Session Dialog */}
@@ -562,7 +562,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={4}
+        availableBlocks={4}
       />
 
       {/* Manage Exam Session Dialog */}
@@ -573,7 +573,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={4}
+        availableBlocks={4}
       />
 
       {/* Manage Private Session Dialog */}
@@ -601,7 +601,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onOpenChange={setIsCreateThemeOpen}
         date={selectedDate}
         onSave={handleAddBlock}
-        availableSlots={4}
+        availableBlocks={4}
       />
 
       {/* Create Repetition Session Dialog */}
@@ -610,7 +610,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onOpenChange={setIsCreateRepetitionOpen}
         date={selectedDate}
         onSave={handleAddBlock}
-        availableSlots={4}
+        availableBlocks={4}
       />
 
       {/* Create Exam Session Dialog */}
@@ -619,7 +619,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onOpenChange={setIsCreateExamOpen}
         date={selectedDate}
         onSave={handleAddBlock}
-        availableSlots={4}
+        availableBlocks={4}
       />
 
       {/* Create Private Session Dialog */}

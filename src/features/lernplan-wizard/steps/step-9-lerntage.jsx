@@ -103,7 +103,8 @@ const Step9Lerntage = () => {
           setItems(templateLearningDays);
           setGenerationSource('template');
           setMetadata({
-            totalCalendarDays: Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)),
+            // +1 to include both start and end date (inclusive range)
+            totalCalendarDays: Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1,
             templateName: template?.title || 'Vorlage',
             templateContentCount: templateLearningDays.length,
           });

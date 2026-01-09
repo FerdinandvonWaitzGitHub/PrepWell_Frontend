@@ -51,8 +51,11 @@ const ManageExamBlockDialog = ({
   block,
   onSave,
   onDelete,
-  availableSlots = 4
+  availableBlocks = 4,
+  availableSlots // Legacy alias
 }) => {
+  // Support legacy prop name
+  const maxBlocks = availableSlots ?? availableBlocks;
   // Use central Unterrechtsgebiete context
   const {
     getUnterrechtsgebieteByRechtsgebiet,
@@ -173,7 +176,7 @@ const ManageExamBlockDialog = ({
   };
 
   // Calculate total available slots (current block size + free slots)
-  const totalAvailableSlots = (block?.blockSize || 0) + availableSlots;
+  const totalAvailableBlocks = (block?.blockSize || 0) + maxBlocks;
 
   // Save and close handler
   const handleSaveAndClose = () => {
@@ -357,7 +360,7 @@ const ManageExamBlockDialog = ({
           {showDetails && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-neutral-900">
-                Blockgröße <span className="text-xs text-neutral-500">({totalAvailableSlots} Slot{totalAvailableSlots !== 1 ? 's' : ''} verfügbar)</span>
+                Blockgröße <span className="text-xs text-neutral-500">({totalAvailableBlocks} Block{totalAvailableBlocks !== 1 ? 's' : ''} verfügbar)</span>
               </label>
               <div className="inline-flex">
                 <button
@@ -373,8 +376,8 @@ const ManageExamBlockDialog = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setBlockSize(Math.min(totalAvailableSlots, blockSize + 1))}
-                  disabled={blockSize >= totalAvailableSlots}
+                  onClick={() => setBlockSize(Math.min(totalAvailableBlocks, blockSize + 1))}
+                  disabled={blockSize >= totalAvailableBlocks}
                   className="w-9 h-9 bg-white rounded-r-lg shadow-sm border border-neutral-200 flex items-center justify-center disabled:opacity-50"
                 >
                   <PlusIcon size={16} className="text-neutral-900" />

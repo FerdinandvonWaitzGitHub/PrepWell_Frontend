@@ -32,7 +32,8 @@ const calculateRecommendedVacationDays = (startDate, endDate, learningDaysPerWee
   if (!startDate || !endDate) return 0;
   const start = new Date(startDate);
   const end = new Date(endDate);
-  const calendarDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+  // +1 to include both start and end date (inclusive range)
+  const calendarDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
   const learningWeeks = calendarDays / 7;
   const vacationWeeks = Math.ceil(learningWeeks / 6);
   return vacationWeeks * learningDaysPerWeek;
@@ -122,8 +123,9 @@ const initialWizardState = {
   currentBlockRgIndex: 0,
   // Track which Rechtsgebiete have their blocks configured
   blockRgProgress: {}, // { 'zivilrecht': true, ... }
-  // Step 15/18: Lernblöcke per Rechtsgebiet (consolidated - see WIZARD_DATA_ISSUES.md P1)
-  lernbloeckeDraft: {}, // { 'zivilrecht': [{ id, size, themen: [] }], ... }
+  // Step 15: Lernblöcke per Rechtsgebiet (consolidated - see WIZARD_DATA_ISSUES.md P1)
+  // Structure: { [rgId]: [{ id, thema: { id, name, aufgaben, urgId } | null, aufgaben: [] }] }
+  lernbloeckeDraft: {},
   // NOTE: lernplanBloecke (URG-keyed) was removed - Step 19 now uses lernbloeckeDraft
 
   // === Steps 20-22: Verteilung & Abschluss ===
@@ -153,6 +155,121 @@ const POSITION_TO_TIME = {
   2: { startTime: '10:00', endTime: '12:00' },
   3: { startTime: '14:00', endTime: '16:00' },
   4: { startTime: '16:00', endTime: '18:00' },
+};
+
+/**
+ * Helper: Format date to YYYY-MM-DD key
+ */
+const formatDateKey = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+/**
+ * BUG-P1 FIX: Convert Step 21's generatedCalendar to CalendarContext format
+ * This ensures all user edits from Step 21 (swaps, locks) are preserved
+ *
+ * Input format (Step 21):
+ * [{ date: Date, blocks: [{ id, rechtsgebiet, thema, aufgaben, displayName, ... }] }]
+ *
+ * Output format (CalendarContext):
+ * { [dateKey]: [{ id, date, position, status, blockType, tasks, metadata, ... }] }
+ */
+const convertGeneratedCalendarToBlocks = (generatedCalendar, weekStructure) => {
+  if (!generatedCalendar || generatedCalendar.length === 0) {
+    return {};
+  }
+
+  const calendarBlocks = {};
+  const now = new Date().toISOString();
+
+  generatedCalendar.forEach(dayData => {
+    const date = new Date(dayData.date);
+    const dateKey = formatDateKey(date);
+
+    // Get weekday to determine block types from weekStructure
+    const dayOfWeek = date.getDay();
+    const adjustedIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const dayKey = WEEKDAY_KEYS[adjustedIndex];
+    const dayBlockTypes = weekStructure?.[dayKey] || [];
+
+    const blocks = dayData.blocks.map((block, index) => {
+      const position = index + 1;
+      const timeInfo = POSITION_TO_TIME[position] || POSITION_TO_TIME[1];
+      const blockType = dayBlockTypes[index] || 'lernblock';
+
+      // Build tasks array from block content
+      let tasks = [];
+      let topicTitle = block.displayName || '';
+      let metadata = {};
+
+      if (block.thema) {
+        // Theme assigned - extract aufgaben as tasks
+        tasks = (block.thema.aufgaben || []).map(a => ({
+          id: a.id,
+          name: a.name,
+          completed: false,
+          priority: a.priority || 'normal',
+        }));
+        metadata = {
+          themaId: block.thema.id,
+          themaName: block.thema.name,
+          rgId: block.rechtsgebiet,
+          urgId: block.thema.urgId,
+          source: 'wizard-thema',
+        };
+      } else if (block.aufgaben && block.aufgaben.length > 0) {
+        // Individual aufgaben assigned
+        tasks = block.aufgaben.map(a => ({
+          id: a.id,
+          name: a.name,
+          completed: false,
+          priority: a.priority || 'normal',
+        }));
+        metadata = {
+          rgId: block.rechtsgebiet,
+          source: 'wizard-aufgaben',
+        };
+      }
+
+      return {
+        id: `${dateKey}-block-${index}`,
+        date: dateKey,
+        position,
+        status: 'topic',
+        blockType,
+        topicId: `${dateKey}-block-${index}`,
+        topicTitle,
+        groupId: `${dateKey}-group-${index}`,
+        groupSize: 1,
+        groupIndex: 0,
+        isFromTemplate: true,
+        isFromLernplan: true,
+        // Time information
+        startTime: timeInfo.startTime,
+        endTime: timeInfo.endTime,
+        hasTime: true,
+        // Content from Step 21
+        tasks,
+        metadata,
+        // Preserve lock state from Step 21
+        isLocked: block.isLocked || false,
+        // Rechtsgebiet info for styling/filtering
+        rechtsgebiet: block.rechtsgebiet,
+        // Timestamps
+        createdAt: now,
+        updatedAt: now,
+      };
+    });
+
+    if (blocks.length > 0) {
+      calendarBlocks[dateKey] = blocks;
+    }
+  });
+
+  return calendarBlocks;
 };
 
 export const WizardProvider = ({ children }) => {
@@ -229,26 +346,11 @@ export const WizardProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wizardState.creationMethod]);
 
-  // Auto-recalculate vacationDays when weekStructure changes (after Step 5)
-  const prevWeekStructureRef = React.useRef(JSON.stringify(wizardState.weekStructure));
-  useEffect(() => {
-    const currentWeekStructure = JSON.stringify(wizardState.weekStructure);
-    // Only recalculate if weekStructure actually changed and we have dates
-    if (prevWeekStructureRef.current !== currentWeekStructure &&
-        wizardState.startDate &&
-        wizardState.endDate &&
-        wizardState.vacationDays !== null) { // Only if user has already seen Step 3
-      const learningDaysPerWeek = getLearningDaysPerWeek(wizardState.weekStructure);
-      const newVacationDays = calculateRecommendedVacationDays(
-        wizardState.startDate,
-        wizardState.endDate,
-        learningDaysPerWeek
-      );
-      setWizardState(prev => ({ ...prev, vacationDays: newVacationDays }));
-    }
-    prevWeekStructureRef.current = currentWeekStructure;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wizardState.weekStructure, wizardState.startDate, wizardState.endDate]);
+  // NOTE: Auto-recalculate of vacationDays when weekStructure changes was REMOVED
+  // Reason: This caused BUG where user-set vacation days (including 0) were overwritten
+  // when the user changed weekStructure in Step 5.
+  // The user explicitly sets vacation days in Step 3 and expects them to stay fixed.
+  // See Ticket 2: "Urlaubstage werden trotz fehlender Einstellung automatisch eingeplant"
 
   // Auto-save on state change (debounced to avoid too many Supabase calls)
   const saveTimeoutRef = useRef(null);
@@ -484,6 +586,12 @@ export const WizardProvider = ({ children }) => {
         // Keep blocks, just allow re-weighting
         // No cleanup needed
 
+        // Going back from Step 21 to Step 20
+        // Reset generatedCalendar so it will be regenerated
+        if (prev.currentStep === 21 && newStep === 20) {
+          updates.generatedCalendar = [];
+        }
+
         // Going back from Step 20 to Step 15 (skip Steps 16-19 which were removed)
         if (prev.currentStep === 20) {
           updates.currentStep = 15;
@@ -491,9 +599,9 @@ export const WizardProvider = ({ children }) => {
           return { ...prev, ...updates };
         }
 
-        // Going back from Step 20+ to earlier steps
+        // Going back from Step 22+ to earlier steps
         // Reset calendar preview so it regenerates
-        if (prev.currentStep > 20 && newStep < 20) {
+        if (prev.currentStep > 21 && newStep <= 20) {
           updates.generatedCalendar = [];
         }
       }
@@ -869,6 +977,7 @@ export const WizardProvider = ({ children }) => {
                 themaId: content.thema.id,
                 themaName: content.thema.name,
                 rgId: content.rgId,
+                urgId: content.thema.urgId, // BUG FIX: Include URG ID from theme
                 source: 'wizard-thema',
               };
             } else if (content.aufgaben && content.aufgaben.length > 0) {
@@ -884,6 +993,7 @@ export const WizardProvider = ({ children }) => {
               }));
               metadata = {
                 rgId: content.rgId,
+                urgId: content.aufgaben[0]?.urgId, // BUG FIX: Include URG ID from first aufgabe
                 source: 'wizard-aufgaben',
               };
             }
@@ -909,6 +1019,9 @@ export const WizardProvider = ({ children }) => {
             // BUG-P7 FIX: Include tasks and metadata
             tasks,
             metadata,
+            // BUG FIX: Include full thema object for URG lookup
+            thema: content?.thema || null,
+            rechtsgebiet: content?.rgId || null,
             createdAt: now,
             updatedAt: now,
           };
@@ -1069,15 +1182,26 @@ export const WizardProvider = ({ children }) => {
   }, [clearDraftFromSupabase]);
 
   // Complete manual calendar wizard - shows loading/success flow
+  // BUG-P1 FIX: Now uses generatedCalendar from Step 21 to preserve all user edits
   const completeManualCalendar = useCallback(async () => {
     setCalendarCreationStatus('loading');
     setCalendarCreationErrors([]);
 
     try {
-      // Generate blocks from wizard state BEFORE showing loading
-      // This ensures blocks are created immediately, not relying on Step8Calendar unmount
-      const blocks = generateBlocksFromWizardState();
-      console.log('Wizard: Generated', Object.keys(blocks).length, 'days of blocks');
+      const { generatedCalendar, weekStructure } = wizardState;
+
+      // BUG-P1 FIX: Use generatedCalendar from Step 21 if available
+      // This preserves all user edits (swaps, locks) made in the preview
+      let blocks;
+      if (generatedCalendar && generatedCalendar.length > 0) {
+        // Convert Step 21 format to CalendarContext format
+        blocks = convertGeneratedCalendarToBlocks(generatedCalendar, weekStructure);
+        console.log('Wizard: Using generatedCalendar from Step 21 -', Object.keys(blocks).length, 'days');
+      } else {
+        // Fallback: Generate blocks fresh (only if Step 21 wasn't completed)
+        blocks = generateBlocksFromWizardState();
+        console.log('Wizard: Fallback to generateBlocksFromWizardState -', Object.keys(blocks).length, 'days');
+      }
 
       // Create metadata for this Lernplan
       const metadata = {
@@ -1086,6 +1210,10 @@ export const WizardProvider = ({ children }) => {
         endDate: wizardState.endDate,
         blocksPerDay: wizardState.blocksPerDay,
         weekStructure: wizardState.weekStructure,
+        // BUG-P1 FIX: Include additional metadata from wizard
+        verteilungsmodus: wizardState.verteilungsmodus,
+        selectedRechtsgebiete: wizardState.selectedRechtsgebiete,
+        rechtsgebieteGewichtung: wizardState.rechtsgebieteGewichtung,
       };
 
       // Save to CalendarContext - wait for this to complete

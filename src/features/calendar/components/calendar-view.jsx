@@ -9,15 +9,15 @@ import CreateExamSessionDialog from './create-exam-session-dialog';
 import CreatePrivateSessionDialog from './create-private-session-dialog';
 import { useCalendar } from '../../../contexts/calendar-context';
 import {
-  createDaySlots,
-  createEmptySlot,
+  createDayBlocks,
+  createEmptyBlock,
   formatDateKey,
   canPlaceTopic,
-  getAvailableSlotPositions,
-  createTopicSlots,
-  updateDaySlots,
-  slotsToLearningBlocks
-} from '../../../utils/slotUtils';
+  getAvailableBlockPositions,
+  createTopicBlocks,
+  updateDayBlocks,
+  blocksToLearningSessions
+} from '../../../utils/blockUtils';
 
 /**
  * CalendarView component
@@ -40,13 +40,17 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
   // Use CalendarContext for shared calendar data
   // This data comes from the wizard Step 8 and persists in localStorage
   const {
-    slotsByDate,
-    visibleSlotsByDate, // BUG-010 FIX: Use filtered slots for display
+    blocksByDate,
+    visibleBlocksByDate, // BUG-010 FIX: Use filtered blocks for display
     privateBlocksByDate,
-    updateDaySlots: updateContextDaySlots,
+    updateDayBlocks: updateContextDayBlocks,
     addPrivateBlock,
     deletePrivateBlock,
   } = useCalendar();
+
+  // Use context data directly
+  const allBlocksByDate = blocksByDate;
+  const displayBlocksByDate = visibleBlocksByDate || blocksByDate || {};
 
   // Update an existing learning block or private block
   const handleUpdateBlock = (date, updatedBlockData) => {
@@ -63,45 +67,45 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
       return;
     }
 
-    const currentSlots = slotsByDate[dateKey];
-    if (!currentSlots) return;
+    const currentBlocks = allBlocksByDate[dateKey];
+    if (!currentBlocks) return;
 
-    // Find the slots belonging to this block - support multiple ID patterns
-    const blockSlots = currentSlots.filter(s =>
+    // Find the block items belonging to this block - support multiple ID patterns
+    const blockItems = currentBlocks.filter(s =>
       s.topicId === updatedBlockData.id ||
       s.contentId === updatedBlockData.id ||
       s.id === updatedBlockData.id
     );
-    if (blockSlots.length === 0) return;
+    if (blockItems.length === 0) return;
 
-    const oldBlockSize = blockSlots.length;
+    const oldBlockSize = blockItems.length;
     const newBlockSize = updatedBlockData.blockSize || oldBlockSize;
 
-    // If size changed, we need to recalculate slots
+    // If size changed, we need to recalculate blocks
     if (newBlockSize !== oldBlockSize) {
-      // First, clear the old slots - match by multiple ID patterns
-      let updatedSlots = currentSlots.map(slot => {
-        if (slot.topicId === updatedBlockData.id ||
-            slot.contentId === updatedBlockData.id ||
-            slot.id === updatedBlockData.id) {
-          return createEmptySlot(date, slot.position);
+      // First, clear the old blocks - match by multiple ID patterns
+      let updatedBlocks = currentBlocks.map(block => {
+        if (block.topicId === updatedBlockData.id ||
+            block.contentId === updatedBlockData.id ||
+            block.id === updatedBlockData.id) {
+          return createEmptyBlock(date, block.position);
         }
-        return slot;
+        return block;
       });
 
       // Check if we can place the new size
-      const freeSlots = updatedSlots.filter(s => s.status === 'empty').length;
-      if (freeSlots < newBlockSize) {
-        console.warn(`Cannot resize block: Not enough free slots. Need ${newBlockSize}, have ${freeSlots}`);
+      const freeBlocks = updatedBlocks.filter(s => s.status === 'empty').length;
+      if (freeBlocks < newBlockSize) {
+        console.warn(`Cannot resize block: Not enough free blocks. Need ${newBlockSize}, have ${freeBlocks}`);
         return;
       }
 
       // Get positions for new size
-      const positions = getAvailableSlotPositions(updatedSlots, newBlockSize);
+      const positions = getAvailableBlockPositions(updatedBlocks, newBlockSize);
       if (!positions) return;
 
-      // Create new topic slots with updated data
-      const topicSlots = createTopicSlots(date, positions, {
+      // Create new topic blocks with updated data
+      const topicBlocks = createTopicBlocks(date, positions, {
         id: updatedBlockData.id,
         title: updatedBlockData.title,
         blockType: updatedBlockData.blockType,
@@ -112,18 +116,18 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         tasks: updatedBlockData.tasks
       });
 
-      updatedSlots = updateDaySlots(updatedSlots, topicSlots);
+      updatedBlocks = updateDayBlocks(updatedBlocks, topicBlocks);
 
       // Save to CalendarContext (persists to localStorage)
-      updateContextDaySlots(dateKey, updatedSlots);
+      updateContextDayBlocks(dateKey, updatedBlocks);
     } else {
-      // Size unchanged, just update the data in existing slots - match by multiple ID patterns
-      const updatedSlots = currentSlots.map(slot => {
-        if (slot.topicId === updatedBlockData.id ||
-            slot.contentId === updatedBlockData.id ||
-            slot.id === updatedBlockData.id) {
+      // Size unchanged, just update the data in existing blocks - match by multiple ID patterns
+      const updatedBlocks = currentBlocks.map(block => {
+        if (block.topicId === updatedBlockData.id ||
+            block.contentId === updatedBlockData.id ||
+            block.id === updatedBlockData.id) {
           return {
-            ...slot,
+            ...block,
             title: updatedBlockData.title,
             topicTitle: updatedBlockData.title,
             blockType: updatedBlockData.blockType,
@@ -132,11 +136,11 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
             updatedAt: new Date().toISOString()
           };
         }
-        return slot;
+        return block;
       });
 
       // Save to CalendarContext (persists to localStorage)
-      updateContextDaySlots(dateKey, updatedSlots);
+      updateContextDayBlocks(dateKey, updatedBlocks);
     }
   };
 
@@ -154,47 +158,47 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
       return;
     }
 
-    // Delete learning block (slot-based)
-    const currentSlots = slotsByDate[dateKey];
-    if (!currentSlots) return;
+    // Delete learning block (block-based)
+    const currentBlocks = allBlocksByDate[dateKey];
+    if (!currentBlocks) return;
 
-    // Replace block slots with empty slots
-    const updatedSlots = currentSlots.map(slot => {
-      if (slot.topicId === blockId || slot.contentId === blockId || slot.id === blockId) {
-        return createEmptySlot(date, slot.position);
+    // Replace block items with empty blocks
+    const updatedBlocks = currentBlocks.map(block => {
+      if (block.topicId === blockId || block.contentId === blockId || block.id === blockId) {
+        return createEmptyBlock(date, block.position);
       }
-      return slot;
+      return block;
     });
 
     // Save to CalendarContext (persists to localStorage)
-    updateContextDaySlots(dateKey, updatedSlots);
+    updateContextDayBlocks(dateKey, updatedBlocks);
   };
 
-  // Add a learning block to a specific date (Slot-based)
+  // Add a learning block to a specific date (Block-based)
   const handleAddBlock = (date, blockData) => {
     const dateKey = formatDateKey(date);
 
-    // Get current slots for this day, or create empty ones
-    const currentSlots = slotsByDate[dateKey] || createDaySlots(date);
+    // Get current blocks for this day, or create empty ones
+    const currentBlocks = allBlocksByDate[dateKey] || createDayBlocks(date);
 
-    // Check if we have enough free slots
+    // Check if we have enough free blocks
     const sizeNeeded = blockData.blockSize || 1;
 
-    if (!canPlaceTopic(currentSlots, sizeNeeded)) {
-      console.warn(`Cannot add block: Not enough free slots. Need ${sizeNeeded}, but day is full.`);
+    if (!canPlaceTopic(currentBlocks, sizeNeeded)) {
+      console.warn(`Cannot add block: Not enough free blocks. Need ${sizeNeeded}, but day is full.`);
       // TODO: Show user error message
       return;
     }
 
-    // Get available slot positions
-    const positions = getAvailableSlotPositions(currentSlots, sizeNeeded);
+    // Get available block positions
+    const positions = getAvailableBlockPositions(currentBlocks, sizeNeeded);
     if (!positions) {
       console.warn('Cannot get available positions');
       return;
     }
 
-    // Create new topic slots
-    const topicSlots = createTopicSlots(date, positions, {
+    // Create new topic blocks
+    const topicBlocks = createTopicBlocks(date, positions, {
       id: blockData.id || `topic-${Date.now()}`,
       title: blockData.title,
       blockType: blockData.blockType,
@@ -205,11 +209,11 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
       tasks: blockData.tasks
     });
 
-    // Update day slots
-    const updatedSlots = updateDaySlots(currentSlots, topicSlots);
+    // Update day blocks
+    const updatedBlocks = updateDayBlocks(currentBlocks, topicBlocks);
 
     // Save to CalendarContext (persists to localStorage)
-    updateContextDaySlots(dateKey, updatedSlots);
+    updateContextDayBlocks(dateKey, updatedBlocks);
   };
 
   // Add a private block (with repeat support)
@@ -298,26 +302,26 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     return days;
   };
 
-  // Learning blocks - convert from slots only (no private blocks in month view)
-  // BUG-023 FIX: Monatsansicht shows only Slots, no Blöcke (private, lernblock, etc.)
+  // Learning blocks - convert from block allocations only (no private sessions in month view)
+  // BUG-023 FIX: Monatsansicht shows only BlockAllocations, no Sessions
   const getSampleLearningBlocks = (day) => {
     // Create date for this day
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dateKey = formatDateKey(date);
 
-    // Get slots for this date, or create empty ones
-    // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
-    const slots = visibleSlotsByDate[dateKey] || createDaySlots(date);
+    // Get blocks for this date, or create empty ones
+    // BUG-010 FIX: Use displayBlocksByDate to exclude archived content plans
+    const dayBlocks = displayBlocksByDate[dateKey] || createDayBlocks(date);
 
-    // Convert slots to learning blocks for display
-    // Note: Private blocks are NOT shown in month view (BUG-023)
-    let blocks = slotsToLearningBlocks(slots);
+    // Convert block allocations to learning sessions for display
+    // Note: Private sessions are NOT shown in month view (BUG-023)
+    let blocks = blocksToLearningSessions(dayBlocks);
 
-    // Count free slots to determine if plus button should be shown
-    const freeSlots = slots.filter(s => s.status === 'empty').length;
+    // Count free blocks to determine if plus button should be shown
+    const freeBlocks = dayBlocks.filter(s => s.status === 'empty').length;
 
-    // If there are free slots (less than 3 slots occupied), add a plus button
-    if (freeSlots > 0) {
+    // If there are free blocks (less than 3 blocks occupied), add a plus button
+    if (freeBlocks > 0) {
       blocks = [...blocks, { isAddButton: true }];
     }
 
@@ -374,24 +378,24 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     setIsAddDialogOpen(true);
   };
 
-  // Get available slots for a specific date
-  const getAvailableSlotsForDate = (date) => {
+  // Get available blocks for a specific date
+  const getAvailableBlocksForDate = (date) => {
     if (!date) return 3;
     const dateKey = formatDateKey(date);
-    const slots = slotsByDate[dateKey] || createDaySlots(date);
-    return slots.filter(s => s.status === 'empty').length;
+    const dayBlocks = allBlocksByDate[dateKey] || createDayBlocks(date);
+    return dayBlocks.filter(s => s.status === 'empty').length;
   };
 
-  // Get learning blocks for a specific date (computed from slots only)
-  // BUG-023 FIX: Monatsansicht shows only Slots, no Blöcke
+  // Get learning blocks for a specific date (computed from block allocations only)
+  // BUG-023 FIX: Monatsansicht shows only BlockAllocations, no Sessions
   const getBlocksForDate = (date) => {
     if (!date) return [];
     const dateKey = formatDateKey(date);
-    // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
-    const slots = visibleSlotsByDate[dateKey] || createDaySlots(date);
-    const blocks = slotsToLearningBlocks(slots);
+    // BUG-010 FIX: Use displayBlocksByDate to exclude archived content plans
+    const dayBlocks = displayBlocksByDate[dateKey] || createDayBlocks(date);
+    const blocks = blocksToLearningSessions(dayBlocks);
 
-    // Note: Private blocks are NOT shown in month view (BUG-023)
+    // Note: Private sessions are NOT shown in month view (BUG-023)
     return blocks;
   };
 
@@ -420,7 +424,7 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         learningBlocks={getBlocksForDate(selectedDay?.date)}
         onUpdateBlock={handleUpdateBlock}
         onDeleteBlock={handleDeleteBlock}
-        availableSlots={getAvailableSlotsForDate(selectedDay?.date)}
+        availableBlocks={getAvailableBlocksForDate(selectedDay?.date)}
       />
 
       {/* Add Theme Dialog */}
@@ -453,44 +457,44 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         }}
       />
 
-      {/* Create Theme Session Dialog - BUG-023: Use slot mode for Month view */}
+      {/* Create Theme Session Dialog - BUG-023: Use block mode for Month view */}
       <CreateThemeSessionDialog
         open={isCreateThemeDialogOpen}
         onOpenChange={setIsCreateThemeDialogOpen}
         date={selectedThemeDay}
         onSave={handleAddBlock}
-        availableSlots={getAvailableSlotsForDate(selectedThemeDay)}
-        mode="slot"
+        availableBlocks={getAvailableBlocksForDate(selectedThemeDay)}
+        mode="block"
       />
 
-      {/* Create Repetition Session Dialog - BUG-023: Use slot mode for Month view */}
+      {/* Create Repetition Session Dialog - BUG-023: Use block mode for Month view */}
       <CreateRepetitionSessionDialog
         open={isCreateRepetitionDialogOpen}
         onOpenChange={setIsCreateRepetitionDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
-        availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
-        mode="slot"
+        availableBlocks={getAvailableBlocksForDate(selectedBlockDay)}
+        mode="block"
       />
 
-      {/* Create Exam Session Dialog - BUG-023: Use slot mode for Month view */}
+      {/* Create Exam Session Dialog - BUG-023: Use block mode for Month view */}
       <CreateExamSessionDialog
         open={isCreateExamDialogOpen}
         onOpenChange={setIsCreateExamDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
-        availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
-        mode="slot"
+        availableBlocks={getAvailableBlocksForDate(selectedBlockDay)}
+        mode="block"
       />
 
-      {/* Create Private Session Dialog - BUG-023: Use slot mode for Month view */}
+      {/* Create Private Session Dialog - BUG-023: Use block mode for Month view */}
       <CreatePrivateSessionDialog
         open={isCreatePrivateDialogOpen}
         onOpenChange={setIsCreatePrivateDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddPrivateBlock}
-        availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
-        mode="slot"
+        availableBlocks={getAvailableBlocksForDate(selectedBlockDay)}
+        mode="block"
       />
     </div>
   );

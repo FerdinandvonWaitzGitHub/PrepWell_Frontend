@@ -45,12 +45,12 @@ const WarningIcon = () => (
 const Step3Urlaubstage = () => {
   const { vacationDays, bufferDays, startDate, endDate, updateWizardData } = useWizard();
 
-  // Calculate calendar days
+  // Calculate calendar days (+1 to include both start and end date)
   const calendarDays = (() => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
-    return Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
   })();
 
   // Calculate and set recommended vacation days on mount (if not yet set)

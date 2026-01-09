@@ -35,18 +35,22 @@ const weekdayOptions = [
  * Create Repetition Block Dialog Component
  * Form for creating a new repetition learning block
  *
- * @param {string} mode - 'block' for time-based (Week/Dashboard), 'slot' for position-based (Month)
+ * @param {string} mode - 'session' for time-based (Week/Dashboard), 'block' for position-based (Month)
  */
 const CreateRepetitionBlockDialog = ({
   open,
   onOpenChange,
   date,
   onSave,
-  availableSlots = 4,
-  mode = 'block' // 'block' = Uhrzeiten (Week/Dashboard), 'slot' = Slot-Größe (Month)
+  availableBlocks = 4,
+  availableSlots, // Legacy alias
+  mode = 'session' // PRD §3.1: 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
 }) => {
-  const [slotSize, setSlotSize] = useState(1); // For slot mode
-  const [blockSize, setBlockSize] = useState(2);
+  // Support legacy prop name
+  const maxBlocks = availableSlots ?? availableBlocks;
+
+  const [allocationSize, setAllocationSize] = useState(1); // For allocation mode (Month)
+  const [sessionBlockSize, setSessionBlockSize] = useState(2); // For session mode (Week)
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
@@ -84,8 +88,8 @@ const CreateRepetitionBlockDialog = ({
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
-      setSlotSize(Math.min(1, availableSlots)); // Reset slot size for slot mode
-      setBlockSize(Math.min(2, availableSlots));
+      setAllocationSize(Math.min(1, maxBlocks)); // Reset block size for allocation mode
+      setSessionBlockSize(Math.min(2, maxBlocks));
       setTitle('');
       setDescription('');
       setStartTime('09:00');
@@ -99,7 +103,7 @@ const CreateRepetitionBlockDialog = ({
       setNewTaskText('');
       setNewTaskDifficulty(0);
     }
-  }, [open, availableSlots]);
+  }, [open, maxBlocks]);
 
   // Toggle custom day
   const toggleCustomDay = (dayId) => {
@@ -202,10 +206,10 @@ const CreateRepetitionBlockDialog = ({
       };
 
       // Add mode-specific data
-      if (mode === 'block') {
-        // Block mode: time-based (Week/Dashboard)
+      if (mode === 'session') {
+        // Session mode: time-based (Week/Dashboard)
         Object.assign(baseData, {
-          blockSize,
+          blockSize: sessionBlockSize,
           hasTime: true,
           startTime,
           endTime,
@@ -213,11 +217,11 @@ const CreateRepetitionBlockDialog = ({
           duration: calculateDuration(),
         });
       } else {
-        // Slot mode: position-based (Month)
+        // Allocation mode: position-based (Month)
         Object.assign(baseData, {
-          blockSize: slotSize,
+          blockSize: allocationSize,
           hasTime: false,
-          isFromLernplan: false, // Manually created slot
+          isFromLernplan: false, // Manually created block
         });
       }
 
@@ -242,28 +246,28 @@ const CreateRepetitionBlockDialog = ({
         </DialogHeader>
 
         <DialogBody className="space-y-6">
-          {/* Slot-Größe Field - Only in slot mode (Month view) */}
-          {mode === 'slot' && (
+          {/* Block-Größe Field - Only in block mode (Month view) */}
+          {mode === 'block' && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-neutral-900">
-                Slot-Größe <span className="text-xs text-neutral-500">({availableSlots} Slot{availableSlots !== 1 ? 's' : ''} verfügbar)</span>
+                Block-Größe <span className="text-xs text-neutral-500">({maxBlocks} Block{maxBlocks !== 1 ? 's' : ''} verfügbar)</span>
               </label>
               <div className="flex gap-2">
                 {[1, 2, 3, 4].map((size) => (
                   <button
                     key={size}
                     type="button"
-                    onClick={() => setSlotSize(size)}
-                    disabled={size > availableSlots}
+                    onClick={() => setAllocationSize(size)}
+                    disabled={size > maxBlocks}
                     className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                      slotSize === size
+                      allocationSize === size
                         ? 'bg-neutral-900 text-white'
-                        : size > availableSlots
+                        : size > maxBlocks
                           ? 'bg-neutral-100 text-neutral-300 cursor-not-allowed'
                           : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                     }`}
                   >
-                    {size} Slot{size !== 1 ? 's' : ''}
+                    {size} Block{size !== 1 ? 's' : ''}
                   </button>
                 ))}
               </div>
@@ -294,8 +298,8 @@ const CreateRepetitionBlockDialog = ({
             />
           </div>
 
-          {/* Uhrzeit - Only in block mode (Week/Dashboard) */}
-          {mode === 'block' && (
+          {/* Uhrzeit - Only in session mode (Week/Dashboard) */}
+          {mode === 'session' && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-neutral-900">
                 Uhrzeit <span className="text-red-500">*</span>

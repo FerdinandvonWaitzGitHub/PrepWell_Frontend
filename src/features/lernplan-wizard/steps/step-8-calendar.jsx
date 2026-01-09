@@ -8,17 +8,17 @@ import CreateRepetitionSessionDialog from '../../calendar/components/create-repe
 import CreateExamSessionDialog from '../../calendar/components/create-exam-session-dialog';
 import CreatePrivateSessionDialog from '../../calendar/components/create-private-session-dialog';
 
-// Import slot utilities
+// Import block utilities
 import {
-  createDaySlots,
-  createEmptySlot,
+  createDayBlocks,
+  createEmptyBlock,
   formatDateKey,
   canPlaceTopic,
-  getAvailableSlotPositions,
-  createTopicSlots,
-  updateDaySlots,
-  slotsToLearningBlocks
-} from '../../../utils/slotUtils';
+  getAvailableBlockPositions,
+  createTopicBlocks,
+  updateDayBlocks,
+  blocksToLearningSessions
+} from '../../../utils/blockUtils';
 
 /**
  * Step 8 - Manual Path: Calendar Creation
@@ -220,8 +220,8 @@ const Step8Calendar = () => {
     return { year: now.getFullYear(), month: now.getMonth() };
   });
 
-  // Slot-based calendar entries for user customizations
-  const [slotsByDate, setSlotsByDate] = useState({});
+  // Block-based calendar entries for user customizations
+  const [blocksByDate, setBlocksByDate] = useState({});
 
   // Dialog states for editing blocks
   const [selectedDay, setSelectedDay] = useState(null);
@@ -243,39 +243,39 @@ const Step8Calendar = () => {
   const learningEnd = parseLocalDate(endDate);
 
   /**
-   * Generate full calendar slots for all days in learning period
+   * Generate full calendar blocks for all days in learning period
    * Combines weekStructure defaults with user customizations
    */
-  const generateFullCalendarSlots = useCallback(() => {
+  const generateFullCalendarBlocks = useCallback(() => {
     if (!learningStart || !learningEnd) return {};
 
-    const fullSlots = { ...slotsByDate };
+    const fullBlocks = { ...blocksByDate };
 
     // Iterate through all days in the learning period
     const currentDate = new Date(learningStart);
     while (currentDate <= learningEnd) {
       const dateKey = formatDateKey(currentDate);
 
-      // Only generate default slots if user hasn't customized this day
-      if (!fullSlots[dateKey]) {
+      // Only generate default blocks if user hasn't customized this day
+      if (!fullBlocks[dateKey]) {
         const dayOfWeek = currentDate.getDay();
         const adjustedIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         const dayKey = WEEKDAY_KEYS[adjustedIndex];
-        const dayBlocks = weekStructure[dayKey] || [];
+        const dayBlockTypes = weekStructure[dayKey] || [];
         const now = new Date().toISOString();
 
-        // Create slots from weekStructure with correct format for slotsToLearningBlocks
-        const slots = dayBlocks.map((blockType, index) => {
+        // Create blocks from weekStructure with correct format for blocksToLearningSessions
+        const blocks = dayBlockTypes.map((blockType, index) => {
           const groupId = `${dateKey}-group-${index}`;
           return {
-            id: `${dateKey}-slot-${index}`,
+            id: `${dateKey}-block-${index}`,
             date: dateKey,
             position: index + 1, // Positions are 1-indexed
-            status: 'topic', // Must be 'topic' for slotsToLearningBlocks
+            status: 'topic', // Must be 'topic' for blocksToLearningSessions
             blockType: blockType,
             topicId: `${dateKey}-block-${index}`,
             topicTitle: '',
-            groupId: groupId, // Required for slotsToLearningBlocks
+            groupId: groupId, // Required for blocksToLearningSessions
             groupSize: 1,
             groupIndex: 0,
             isFromTemplate: true,
@@ -285,8 +285,8 @@ const Step8Calendar = () => {
           };
         });
 
-        if (slots.length > 0) {
-          fullSlots[dateKey] = slots;
+        if (blocks.length > 0) {
+          fullBlocks[dateKey] = blocks;
         }
       }
 
@@ -294,11 +294,11 @@ const Step8Calendar = () => {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    return fullSlots;
-  }, [learningStart, learningEnd, slotsByDate, weekStructure]);
+    return fullBlocks;
+  }, [learningStart, learningEnd, blocksByDate, weekStructure]);
 
   // Note: We no longer save on unmount - wizard-context.completeManualCalendar
-  // now handles slot generation and saving directly, ensuring proper timing
+  // now handles block generation and saving directly, ensuring proper timing
 
   // Check if a date is within learning period (inclusive)
   const isInLearningPeriod = (year, month, day) => {
@@ -326,36 +326,36 @@ const Step8Calendar = () => {
     const dateKey = formatDateKey(date);
 
     // If user has customized this day, use their customizations
-    if (slotsByDate[dateKey]) {
-      return slotsToLearningBlocks(slotsByDate[dateKey]);
+    if (blocksByDate[dateKey]) {
+      return blocksToLearningSessions(blocksByDate[dateKey]);
     }
 
     // Otherwise, use the weekStructure from Step 5 as default
     const dayKey = getDayKey(year, month, day);
-    const dayBlocks = weekStructure[dayKey] || [];
+    const dayBlockTypes = weekStructure[dayKey] || [];
 
     // Convert weekStructure block types to display format
-    return dayBlocks.map((blockType, index) => ({
+    return dayBlockTypes.map((blockType, index) => ({
       id: `${dateKey}-block-${index}`,
       blockType: blockType, // 'lernblock', 'exam', 'repetition', 'free', 'private'
       title: '', // No title yet - user can add optionally
-      progress: `${index + 1}/${dayBlocks.length}`,
+      progress: `${index + 1}/${dayBlockTypes.length}`,
       blockSize: 1,
       isFromTemplate: true, // Mark as coming from weekStructure template
     }));
   };
 
-  // Get available slots for a specific date
-  const getAvailableSlotsForDate = (date) => {
+  // Get available blocks for a specific date
+  const getAvailableBlocksForDate = (date) => {
     if (!date) return blocksPerDay;
     const dateKey = formatDateKey(date);
 
-    // If user has customized this day, check actual slots
-    if (slotsByDate[dateKey]) {
-      return slotsByDate[dateKey].filter(s => s.status === 'empty').length;
+    // If user has customized this day, check actual blocks
+    if (blocksByDate[dateKey]) {
+      return blocksByDate[dateKey].filter(b => b.status === 'empty').length;
     }
 
-    // Otherwise, slots are "available" for editing but prefilled from template
+    // Otherwise, blocks are "available" for editing but prefilled from template
     // Return the number of blocks that can still be added
     const dayKey = getDayKey(date.getFullYear(), date.getMonth(), date.getDate());
     const existingBlocks = weekStructure[dayKey]?.length || 0;
@@ -366,26 +366,26 @@ const Step8Calendar = () => {
   const handleAddBlock = (date, blockData) => {
     const dateKey = formatDateKey(date);
 
-    // Get current slots for this day, or create empty ones
-    const currentSlots = slotsByDate[dateKey] || createDaySlots(date);
+    // Get current blocks for this day, or create empty ones
+    const currentBlocks = blocksByDate[dateKey] || createDayBlocks(date);
 
-    // Check if we have enough free slots
+    // Check if we have enough free blocks
     const sizeNeeded = blockData.blockSize || 1;
 
-    if (!canPlaceTopic(currentSlots, sizeNeeded)) {
-      console.warn(`Cannot add block: Not enough free slots. Need ${sizeNeeded}, but day is full.`);
+    if (!canPlaceTopic(currentBlocks, sizeNeeded)) {
+      console.warn(`Cannot add block: Not enough free blocks. Need ${sizeNeeded}, but day is full.`);
       return;
     }
 
-    // Get available slot positions
-    const positions = getAvailableSlotPositions(currentSlots, sizeNeeded);
+    // Get available block positions
+    const positions = getAvailableBlockPositions(currentBlocks, sizeNeeded);
     if (!positions) {
       console.warn('Cannot get available positions');
       return;
     }
 
-    // Create new topic slots
-    const topicSlots = createTopicSlots(date, positions, {
+    // Create new topic blocks
+    const topicBlocks = createTopicBlocks(date, positions, {
       id: blockData.id || `topic-${Date.now()}`,
       title: blockData.title,
       blockType: blockData.blockType,
@@ -397,53 +397,53 @@ const Step8Calendar = () => {
       isFromLernplan: true, // Marks as wizard-created
     });
 
-    // Update day slots
-    const updatedSlots = updateDaySlots(currentSlots, topicSlots);
+    // Update day blocks
+    const updatedBlocks = updateDayBlocks(currentBlocks, topicBlocks);
 
     // Save to state
-    setSlotsByDate(prev => ({
+    setBlocksByDate(prev => ({
       ...prev,
-      [dateKey]: updatedSlots
+      [dateKey]: updatedBlocks
     }));
   };
 
   // Update an existing learning block
   const handleUpdateBlock = (date, updatedBlockData) => {
     const dateKey = formatDateKey(date);
-    const currentSlots = slotsByDate[dateKey];
+    const currentBlocks = blocksByDate[dateKey];
 
-    if (!currentSlots) return;
+    if (!currentBlocks) return;
 
-    // Find the slots belonging to this block
-    const blockSlots = currentSlots.filter(s => s.topicId === updatedBlockData.id);
-    if (blockSlots.length === 0) return;
+    // Find the blocks belonging to this topic
+    const topicBlocks = currentBlocks.filter(b => b.topicId === updatedBlockData.id);
+    if (topicBlocks.length === 0) return;
 
-    const oldBlockSize = blockSlots.length;
+    const oldBlockSize = topicBlocks.length;
     const newBlockSize = updatedBlockData.blockSize || oldBlockSize;
 
-    // If size changed, we need to recalculate slots
+    // If size changed, we need to recalculate blocks
     if (newBlockSize !== oldBlockSize) {
-      // First, clear the old slots
-      let updatedSlots = currentSlots.map(slot => {
-        if (slot.topicId === updatedBlockData.id) {
-          return createEmptySlot(date, slot.position);
+      // First, clear the old blocks
+      let updatedBlocks = currentBlocks.map(block => {
+        if (block.topicId === updatedBlockData.id) {
+          return createEmptyBlock(date, block.position);
         }
-        return slot;
+        return block;
       });
 
       // Check if we can place the new size
-      const freeSlots = updatedSlots.filter(s => s.status === 'empty').length;
-      if (freeSlots < newBlockSize) {
-        console.warn(`Cannot resize block: Not enough free slots.`);
+      const freeBlocks = updatedBlocks.filter(b => b.status === 'empty').length;
+      if (freeBlocks < newBlockSize) {
+        console.warn(`Cannot resize block: Not enough free blocks.`);
         return;
       }
 
       // Get positions for new size
-      const positions = getAvailableSlotPositions(updatedSlots, newBlockSize);
+      const positions = getAvailableBlockPositions(updatedBlocks, newBlockSize);
       if (!positions) return;
 
-      // Create new topic slots with updated data
-      const topicSlots = createTopicSlots(date, positions, {
+      // Create new topic blocks with updated data
+      const newTopicBlocks = createTopicBlocks(date, positions, {
         id: updatedBlockData.id,
         title: updatedBlockData.title,
         blockType: updatedBlockData.blockType,
@@ -455,18 +455,18 @@ const Step8Calendar = () => {
         isFromLernplan: true, // Marks as wizard-created
       });
 
-      updatedSlots = updateDaySlots(updatedSlots, topicSlots);
+      updatedBlocks = updateDayBlocks(updatedBlocks, newTopicBlocks);
 
-      setSlotsByDate(prev => ({
+      setBlocksByDate(prev => ({
         ...prev,
-        [dateKey]: updatedSlots
+        [dateKey]: updatedBlocks
       }));
     } else {
-      // Size unchanged, just update the data in existing slots
-      const updatedSlots = currentSlots.map(slot => {
-        if (slot.topicId === updatedBlockData.id) {
+      // Size unchanged, just update the data in existing blocks
+      const updatedBlocks = currentBlocks.map(block => {
+        if (block.topicId === updatedBlockData.id) {
           return {
-            ...slot,
+            ...block,
             topicTitle: updatedBlockData.title,
             blockType: updatedBlockData.blockType,
             progress: updatedBlockData.progress,
@@ -474,12 +474,12 @@ const Step8Calendar = () => {
             updatedAt: new Date().toISOString()
           };
         }
-        return slot;
+        return block;
       });
 
-      setSlotsByDate(prev => ({
+      setBlocksByDate(prev => ({
         ...prev,
-        [dateKey]: updatedSlots
+        [dateKey]: updatedBlocks
       }));
     }
   };
@@ -487,21 +487,21 @@ const Step8Calendar = () => {
   // Delete a learning block
   const handleDeleteBlock = (date, blockId) => {
     const dateKey = formatDateKey(date);
-    const currentSlots = slotsByDate[dateKey];
+    const currentBlocks = blocksByDate[dateKey];
 
-    if (!currentSlots) return;
+    if (!currentBlocks) return;
 
-    // Replace block slots with empty slots
-    const updatedSlots = currentSlots.map(slot => {
-      if (slot.topicId === blockId) {
-        return createEmptySlot(date, slot.position);
+    // Replace topic blocks with empty blocks
+    const updatedBlocks = currentBlocks.map(block => {
+      if (block.topicId === blockId) {
+        return createEmptyBlock(date, block.position);
       }
-      return slot;
+      return block;
     });
 
-    setSlotsByDate(prev => ({
+    setBlocksByDate(prev => ({
       ...prev,
-      [dateKey]: updatedSlots
+      [dateKey]: updatedBlocks
     }));
   };
 
@@ -729,7 +729,7 @@ const Step8Calendar = () => {
         onOpenChange={setIsCreateThemeDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
-        availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
+        availableSlots={getAvailableBlocksForDate(selectedBlockDay)}
       />
 
       {/* Edit Repetition Session Dialog (for Wiederholung) */}
@@ -738,7 +738,7 @@ const Step8Calendar = () => {
         onOpenChange={setIsCreateRepetitionDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
-        availableSlots={getAvailableSlotsForDate(selectedBlockDay)}
+        availableSlots={getAvailableBlocksForDate(selectedBlockDay)}
       />
 
       {/* Edit Exam Session Dialog (for Klausur) */}

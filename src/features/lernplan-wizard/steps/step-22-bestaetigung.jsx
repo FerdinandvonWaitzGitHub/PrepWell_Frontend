@@ -11,9 +11,59 @@ import {
   AlertTriangle,
   LayoutGrid,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Archive,
+  X
 } from 'lucide-react';
 import { RECHTSGEBIET_LABELS, RECHTSGEBIET_COLORS } from '../../../data/unterrechtsgebiete-data';
+
+/**
+ * Confirmation Dialog for archiving existing plan
+ */
+const ArchiveConfirmationDialog = ({ isOpen, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-xl">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-full bg-amber-100">
+            <Archive className="w-6 h-6 text-amber-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+              Aktuellen Lernplan archivieren?
+            </h3>
+            <p className="text-sm text-neutral-600 mb-4">
+              Du hast bereits einen aktiven Lernplan. Wenn du fortfährst, wird dieser automatisch archiviert.
+              Du kannst ihn später in den Einstellungen wiederherstellen.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={onCancel}
+                className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={onConfirm}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                Archivieren & Fortfahren
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={onCancel}
+            className="p-1 text-neutral-400 hover:text-neutral-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /**
  * Step 22: Finale Bestätigung
@@ -178,10 +228,15 @@ const Step22Bestaetigung = () => {
     rechtsgebieteGewichtung,
     verteilungsmodus,
     completeWizard,
-    isLoading
+    isLoading,
+    hasActiveLernplan
   } = useWizard();
 
   const [isCreating, setIsCreating] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+
+  // Check if there's an active plan
+  const hasExistingPlan = hasActiveLernplan?.() ?? false;
 
   // Format dates
   const formatDate = (date) => {
@@ -229,6 +284,17 @@ const Step22Bestaetigung = () => {
   }, [lernbloeckeDraft]);
 
   const handleCreate = async () => {
+    // If there's an existing plan, show confirmation dialog first
+    if (hasExistingPlan) {
+      setShowArchiveDialog(true);
+      return;
+    }
+    // Otherwise, proceed directly
+    await doCreate();
+  };
+
+  const doCreate = async () => {
+    setShowArchiveDialog(false);
     setIsCreating(true);
     try {
       await completeWizard();
@@ -303,6 +369,22 @@ const Step22Bestaetigung = () => {
         />
       </div>
 
+      {/* Warning: Existing plan will be archived */}
+      {hasExistingPlan && (
+        <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex gap-3">
+            <Archive className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-blue-900">Aktiver Lernplan vorhanden</h4>
+              <p className="text-sm text-blue-700">
+                Du hast bereits einen aktiven Lernplan. Dieser wird automatisch archiviert, wenn du den neuen Plan erstellst.
+                Du kannst archivierte Pläne jederzeit in den Einstellungen wiederherstellen.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Warnings */}
       {totalThemes === 0 && (
         <div className="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
@@ -356,6 +438,13 @@ const Step22Bestaetigung = () => {
           Du kannst deinen Lernplan jederzeit im Kalender anpassen.
         </p>
       </div>
+
+      {/* Archive Confirmation Dialog */}
+      <ArchiveConfirmationDialog
+        isOpen={showArchiveDialog}
+        onConfirm={doCreate}
+        onCancel={() => setShowArchiveDialog(false)}
+      />
     </div>
   );
 };

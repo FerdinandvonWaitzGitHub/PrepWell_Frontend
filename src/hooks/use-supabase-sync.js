@@ -1156,8 +1156,11 @@ export function useCalendarBlocksSync() {
   return {
     blocksByDate,
     setBlocksByDate: saveAllSlots,
-    saveDaySlots,
-    clearAllSlots,
+    setSlotsByDate: saveAllSlots, // Legacy alias
+    saveDayBlocks: saveDaySlots,
+    saveDaySlots, // Legacy alias
+    clearAllBlocks: clearAllSlots,
+    clearAllSlots, // Legacy alias
     loading,
     isAuthenticated,
     isSupabaseEnabled,

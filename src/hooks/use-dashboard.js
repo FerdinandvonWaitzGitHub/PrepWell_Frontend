@@ -4,8 +4,8 @@
  *
  * Data Model:
  * - CONTENT: What to learn (timeless) - stored in contentsById
- * - SLOT: When to learn (date + position) - stored in slotsByDate
- * - BLOCK: How to display (derived from Slot + Content)
+ * - BLOCK: When to learn (date + position) - stored in blocksByDate
+ * - SESSION: How to display (derived from Block + Content)
  *
  * Data flow: CalendarContext → useDashboard → Startseite
  */
@@ -137,10 +137,10 @@ export function useDashboard() {
     });
   }, [dateString, timeBlocksByDate]);
 
-  // Get blocks for today from CalendarContext (uses new Content→Slot→Block model)
-  // BUG-023 FIX: Combine Lernplan slots (position-based) with time blocks (time-based)
-  const todaySlots = useMemo(() => {
-    // getBlocksForDate returns derived blocks from slotsByDate (Lernplan)
+  // Get blocks for today from CalendarContext (uses new Content→Block→Session model)
+  // BUG-023 FIX: Combine Lernplan blocks (position-based) with time blocks (time-based)
+  const todayBlocks = useMemo(() => {
+    // getBlocksForDate returns derived blocks from blocksByDate (Lernplan)
     const lernplanBlocks = getBlocksForDate(dateString);
 
     // Transform Lernplan blocks to zeitplan widget format
@@ -173,10 +173,10 @@ export function useDashboard() {
     return [...lernplanFormatted, ...todayTimeBlocks];
   }, [dateString, getBlocksForDate, todayTimeBlocks]);
 
-  // Check if there are "real" Lernplan slots (from wizard, not manual)
-  const hasRealLernplanSlots = useMemo(() => {
-    return todaySlots.some(slot => slot.isFromLernplan === true);
-  }, [todaySlots]);
+  // Check if there are "real" Lernplan blocks (from wizard, not manual)
+  const hasRealLernplanBlocks = useMemo(() => {
+    return todayBlocks.some(block => block.isFromLernplan === true);
+  }, [todayBlocks]);
 
   // Get private blocks for today
   const todayPrivateBlocks = useMemo(() => {
@@ -296,10 +296,10 @@ export function useDashboard() {
     const total = aufgaben.length;
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    // Estimate hours based on slots
-    const slotsCompleted = todaySlots.filter(s => s.isBlocked).length;
-    const hoursCompleted = slotsCompleted * 2;
-    const hoursTarget = todaySlots.length * 2 || 8;
+    // Estimate hours based on blocks
+    const blocksCompleted = todayBlocks.filter(b => b.isBlocked).length;
+    const hoursCompleted = blocksCompleted * 2;
+    const hoursTarget = todayBlocks.length * 2 || 8;
 
     return {
       tasksCompleted: completed,
@@ -308,33 +308,33 @@ export function useDashboard() {
       hoursTarget,
       percentage,
     };
-  }, [aufgaben, todaySlots]);
+  }, [aufgaben, todayBlocks]);
 
   // Current lernblock (based on current time)
   const currentLernblock = useMemo(() => {
     const currentHour = new Date().getHours();
-    const activeSlot = todaySlots.find(slot => {
-      const slotEnd = slot.startHour + slot.duration;
-      return currentHour >= slot.startHour && currentHour < slotEnd && !slot.isBlocked;
+    const activeBlock = todayBlocks.find(block => {
+      const blockEnd = block.startHour + block.duration;
+      return currentHour >= block.startHour && currentHour < blockEnd && !block.isBlocked;
     });
 
-    if (activeSlot) {
+    if (activeBlock) {
       return {
-        blockType: activeSlot.tags?.[0] || activeSlot.blockType || 'Lernblock',
-        title: activeSlot.title,
-        description: activeSlot.description,
-        subject: activeSlot.tags?.[0] || activeSlot.blockType || '',
+        blockType: activeBlock.tags?.[0] || activeBlock.blockType || 'Lernblock',
+        title: activeBlock.title,
+        description: activeBlock.description,
+        subject: activeBlock.tags?.[0] || activeBlock.blockType || '',
       };
     }
 
-    // Fallback if no active slot
+    // Fallback if no active block
     return {
       blockType: 'Kein aktiver Block',
       title: 'Kein Lernblock geplant',
       description: 'Für diese Uhrzeit ist kein Lernblock eingeplant.',
       subject: '',
     };
-  }, [todaySlots]);
+  }, [todayBlocks]);
 
   return {
     // Date
@@ -343,7 +343,8 @@ export function useDashboard() {
     displayDate,
 
     // Data from CalendarContext
-    todaySlots,
+    todayBlocks,
+    todaySlots: todayBlocks, // Legacy alias for backward compatibility
     todayPrivateBlocks,
     aufgaben,
     currentLernblock,
@@ -355,7 +356,8 @@ export function useDashboard() {
     error: null,
     checkInDone,
     hasActiveLernplan: hasActiveLernplan(),
-    hasRealLernplanSlots, // true if wizard-created slots exist for today
+    hasRealLernplanBlocks, // true if wizard-created blocks exist for today
+    hasRealLernplanSlots: hasRealLernplanBlocks, // Legacy alias
     isMentorActivated,
     isCheckInButtonEnabled: isMentorActivated ? isCheckInButtonEnabled : !checkInDone,
     wasMorningSkipped,
