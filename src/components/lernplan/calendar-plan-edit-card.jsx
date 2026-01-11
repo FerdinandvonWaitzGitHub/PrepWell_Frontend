@@ -389,7 +389,7 @@ const CalendarPlanEditCard = ({
           return {
             ...b,
             topicTitle: themaData.title,
-            tasks: themaData.aufgaben || [],
+            tasks: themaData?.aufgaben || [],
             unterrechtsgebiet: themaData.unterrechtsgebietId || b.unterrechtsgebiet,
             // Store URG name in metadata for display
             metadata: {

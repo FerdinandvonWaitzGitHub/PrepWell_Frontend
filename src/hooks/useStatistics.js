@@ -198,7 +198,8 @@ export const useStatistics = () => {
           rg.unterrechtsgebiete?.forEach(urg => {
             urg.kapitel?.forEach(kap => {
               kap.themen?.forEach(thema => {
-                thema.aufgaben?.forEach(aufgabe => {
+                // Guard: thema could be undefined if array has holes
+                thema?.aufgaben?.forEach(aufgabe => {
                   totalAufgaben++;
                   if (aufgabe.completed) completedAufgaben++;
                 });
@@ -285,6 +286,8 @@ export const useStatistics = () => {
             let kapCompleted = 0;
 
             kap.themen?.forEach(thema => {
+              // Guard: thema could be undefined if array has holes
+              if (!thema) return;
               totalThemen++;
               let themaCompleted = true;
 

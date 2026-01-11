@@ -758,6 +758,9 @@ export const WizardProvider = ({ children }) => {
             const themes = themenDraft[urg.id] || [];
 
             for (const thema of themes) {
+              // Guard: thema could be undefined if array has holes
+              if (!thema) continue;
+
               // If theme is assigned as whole, it's covered
               if (assignedThemeIds.has(thema.id)) continue;
 

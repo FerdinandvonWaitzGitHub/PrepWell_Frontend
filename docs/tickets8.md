@@ -1,249 +1,299 @@
 # Ticket 8: TypeError - Cannot read properties of undefined (reading 'aufgaben')
 
-**Status: OFFEN**
-**Priorität: KRITISCH**
-**Erstellt: 2026-01-11**
+**Status: KRITISCH - Ungelöst**
+**Fehler tritt auf bei: Klick auf "neuen Lernplan"**
+**Letzte Analyse: 2026-01-11**
 
-## Fehlerbeschreibung
+---
 
-Beim Klicken auf "Neuer Lernplan" tritt folgender Fehler auf:
+## Fehlermeldung
 
 ```
 TypeError: Cannot read properties of undefined (reading 'aufgaben')
-    at Bn (index-DPdBxtVe.js:129:1475)
-    at ru (vendor-react-CUbn0OJn.js:30:16996)
-    at wd (vendor-react-CUbn0OJn.js:32:43918)
-    ...
+    at index-DPVdjg6k.js:129:1475
 ```
 
-Der Fehler tritt in einem minifizierten Bundle auf (`index-DPdBxtVe.js`), was auf eine Komponente im Hauptindex-Bundle hinweist (nicht calendar-week).
+---
 
-## Bisherige Fixes (nicht erfolgreich)
+## Root Cause Analyse
 
-### Commit 2eb5bf3 - timeBlocksByDate Null-Checks
-```javascript
-// Geändert in week-view.jsx, dashboard.jsx, use-dashboard.js
-const dayTimeBlocks = (timeBlocksByDate || {})[dateKey] || [];
-```
-
-### Commit 712b560 - Weitere *ByDate Null-Checks
-```javascript
-// visibleSlotsByDate, slotsByDate, privateBlocksByDate, blocksByDate, tasksByDate
-const dayBlocks = (visibleSlotsByDate || {})[dateKey] || [];
-```
-
-### Commit 0e7776d - aufgaben Null-Checks in calendar-context.jsx
-```javascript
-// 6 Stellen geändert
-aufgaben: [...(t.aufgaben || []), newAufgabe],
-aufgaben: (t.aufgaben || []).map(a => ...),
-aufgaben: (t.aufgaben || []).filter(a => ...),
-```
-
-## Tiefgehende Analyse
-
-### Potenzielle Fehlerquellen
+### Das eigentliche Problem
 
 Der Fehler `Cannot read properties of undefined (reading 'aufgaben')` bedeutet:
-- Ein Objekt (z.B. `thema`, `block`, `content`) ist `undefined`
-- Auf diesem undefined Objekt wird `.aufgaben` aufgerufen
+- **NICHT**, dass `aufgaben` undefined ist
+- **SONDERN**, dass das **PARENT-Objekt** (z.B. `thema`, `t`, `block`) undefined ist
 
-### Verdächtige Code-Stellen
+### Warum passiert das?
 
-#### 1. `src/features/lernplan-wizard/steps/step-7-automatic.jsx`
-
-**Zeile 114 - KRITISCH:**
+Wenn Arrays wie `k.themen` "Löcher" enthalten (undefined-Elemente), z.B.:
 ```javascript
-const addAufgabe = (lerntagIndex, themaIndex) => {
-  const thema = newLernplan.rechtsgebiete[selectedRechtsgebiet]
-    .unterrechtsgebiete[selectedUnterrechtsgebiet]
-    .lerntage[lerntagIndex]
-    .themen[themaIndex];
-  thema.aufgaben.push({...}); // ← Kein Check ob aufgaben existiert!
-};
+k.themen = [undefined, thema1, thema2]
+// oder
+k.themen = [null, thema1]
 ```
 
-**Zeile 302 - KRITISCH:**
+Dann iteriert `forEach` oder `map` über diese undefined-Elemente:
 ```javascript
-{thema.aufgaben.map((aufgabe, aufgabeIndex) => (
-  // ← Kein Check ob aufgaben existiert!
-))}
+k.themen?.forEach(t => {
+  t.aufgaben?.forEach(...)  // CRASH! t ist undefined
+})
 ```
 
-**Problem:** `thema.aufgaben` wird NIEMALS auf Existenz geprüft.
+**WICHTIG:** Die `?.` bei `t.aufgaben?.forEach` schützt nur dagegen, dass `aufgaben` undefined ist, **NICHT** dagegen, dass `t` undefined ist!
 
-#### 2. `src/features/lernplan-wizard/steps/step-15-lernbloecke.jsx`
+---
 
-**Zeile 300:**
+## Vollständige Analyse aller `.aufgaben` Zugriffe
+
+### KATEGORIE A: KRITISCH - Noch nicht gefixt
+
+| # | Datei | Zeile | Code | Problem |
+|---|-------|-------|------|---------|
+| 1 | `useStatistics.js` | 201 | `thema.aufgaben?.forEach(...)` | `thema` kann undefined sein |
+| 2 | `useStatistics.js` | 291 | `thema.aufgaben?.forEach(...)` | `thema` kann undefined sein |
+| 3 | `useStatistics.js` | 297 | `thema.aufgaben?.length` | `thema` kann undefined sein |
+| 4 | `lernplan-content.jsx` | 473 | `t.aufgaben?.map(...)` | `t` kann undefined sein |
+| 5 | `create-theme-session-dialog.jsx` | 138 | `t.aufgaben?.forEach(...)` | `t` kann undefined sein |
+| 6 | `manage-theme-session-dialog.jsx` | 131 | `t.aufgaben?.forEach(...)` | `t` kann undefined sein |
+| 7 | `calendar-plan-edit-card.jsx` | 392 | `themaData.aufgaben \|\| []` | `themaData` kann undefined sein |
+| 8 | `wizard-context.jsx` | 765 | `thema.aufgaben \|\| []` | `thema` kann undefined (for-loop) |
+| 9 | `step-15-lernbloecke.jsx` | 217 | `block.thema.aufgaben \|\| []` | `block.thema` kann null sein |
+| 10 | `step-15-lernbloecke.jsx` | 478 | `dragData.thema.aufgaben \|\| []` | `dragData.thema` kann undefined sein |
+
+### KATEGORIE B: Bereits gefixt (vorherige Commits)
+
+| Datei | Zeile | Status |
+|-------|-------|--------|
+| `session-widget.jsx` | 379, 441 | ✅ `t?.aufgaben?.forEach` |
+| `session-widget.jsx` | 491 | ✅ Guard: `if (!thema) return null` |
+| `dashboard.jsx` | 146 | ✅ `(t?.aufgaben \|\| []).map` |
+| `dashboard.jsx` | 209 | ✅ `t?.aufgaben?.forEach` |
+| `step-12-themen-edit.jsx` | 210 | ✅ Guard: `if (!thema) return null` |
+| `step-15-lernbloecke.jsx` | 94 | ✅ Guard: `if (!thema) return null` |
+| `content-plan-edit-card.jsx` | 109, 845 | ✅ Guards |
+
+### KATEGORIE C: Sicher (innerhalb von Bedingungen)
+
+| Datei | Zeile | Warum sicher |
+|-------|-------|--------------|
+| `wizard-context.jsx` | 210 | Innerhalb `if (block.thema)` |
+| `wizard-context.jsx` | 970 | Innerhalb `if (content.thema)` |
+| `calendar-context.jsx` | 450 | Innerhalb `if (thema)` |
+
+---
+
+## Empfohlene Fixes (10 kritische Stellen)
+
+### Fix 1: useStatistics.js (3 Stellen)
+
 ```javascript
-{hasAufgaben && (
-  <div className="space-y-1">
-    {block.aufgaben.map(aufgabe => (
+// VORHER (Zeile 200-201):
+kap.themen?.forEach(thema => {
+  thema.aufgaben?.forEach(aufgabe => {
+
+// NACHHER:
+kap.themen?.forEach(thema => {
+  thema?.aufgaben?.forEach(aufgabe => {  // <-- ?.
 ```
 
-**Problem:** `hasAufgaben` Check ist vorhanden, aber wenn sich `block.aufgaben` zwischen Check und Render ändert (Race Condition), kann der Fehler auftreten.
-
-#### 3. `src/features/lernplan-wizard/steps/step-21-kalender-vorschau.jsx`
-
-**Zeilen 161-165:**
 ```javascript
-} else if (hasAufgaben) {
-  pool.push({
-    aufgaben: block.aufgaben,
-    displayName: block.aufgaben.length === 1
-      ? block.aufgaben[0].name
-      : `${block.aufgaben.length} Aufgaben`,
-    aufgabenCount: block.aufgaben.length,
-  });
+// VORHER (Zeile 290-291):
+kap.themen?.forEach(thema => {
+  thema.aufgaben?.forEach(aufgabe => {
+
+// NACHHER:
+kap.themen?.forEach(thema => {
+  thema?.aufgaben?.forEach(aufgabe => {  // <-- ?.
+```
+
+```javascript
+// VORHER (Zeile 297):
+if (themaCompleted && thema.aufgaben?.length > 0) completedThemen++;
+
+// NACHHER:
+if (themaCompleted && thema?.aufgaben?.length > 0) completedThemen++;  // <-- ?.
+```
+
+### Fix 2: lernplan-content.jsx
+
+```javascript
+// VORHER (Zeile 472-473):
+const topics = k.themen?.map(t => {
+  const tasks = t.aufgaben?.map(a => {
+
+// NACHHER:
+const topics = (k.themen || []).filter(t => t).map(t => {  // Filter undefined
+  const tasks = (t?.aufgaben || []).map(a => {
+```
+
+### Fix 3: create-theme-session-dialog.jsx
+
+```javascript
+// VORHER (Zeile 137-138):
+k.themen?.forEach(t => {
+  t.aufgaben?.forEach(a => {
+
+// NACHHER:
+k.themen?.forEach(t => {
+  t?.aufgaben?.forEach(a => {  // <-- ?.
+```
+
+### Fix 4: manage-theme-session-dialog.jsx
+
+```javascript
+// VORHER (Zeile 130-131):
+k.themen?.forEach(t => {
+  t.aufgaben?.forEach(a => {
+
+// NACHHER:
+k.themen?.forEach(t => {
+  t?.aufgaben?.forEach(a => {  // <-- ?.
+```
+
+### Fix 5: calendar-plan-edit-card.jsx
+
+```javascript
+// VORHER (Zeile 392):
+tasks: themaData.aufgaben || [],
+
+// NACHHER:
+tasks: themaData?.aufgaben || [],  // <-- ?.
+```
+
+### Fix 6: wizard-context.jsx (validateManualStep)
+
+```javascript
+// VORHER (Zeile 760-765):
+for (const thema of themes) {
+  if (assignedThemeIds.has(thema.id)) continue;
+  const aufgaben = thema.aufgaben || [];
+
+// NACHHER:
+for (const thema of themes) {
+  if (!thema) continue;  // <-- Guard hinzufügen
+  if (assignedThemeIds.has(thema.id)) continue;
+  const aufgaben = thema.aufgaben || [];
+```
+
+### Fix 7: step-15-lernbloecke.jsx (Zeile 217)
+
+```javascript
+// VORHER:
+const displayAufgaben = hasThema
+  ? (block.thema.aufgaben || [])
+
+// NACHHER:
+const displayAufgaben = hasThema
+  ? (block.thema?.aufgaben || [])  // <-- ?.
+```
+
+### Fix 8: step-15-lernbloecke.jsx (Zeile 478)
+
+```javascript
+// VORHER:
+aufgaben: dragData.thema.aufgaben || [],
+
+// NACHHER:
+aufgaben: dragData.thema?.aufgaben || [],  // <-- ?.
+```
+
+---
+
+## Pattern für zukünftigen Code
+
+**FALSCH (häufigster Fehler):**
+```javascript
+array?.forEach(item => {
+  item.property?.forEach(...)  // CRASH wenn item undefined
+})
+```
+
+**RICHTIG:**
+```javascript
+// Option 1: Optional chaining auf item
+array?.forEach(item => {
+  item?.property?.forEach(...)
+})
+
+// Option 2: Filter undefined elements
+(array || []).filter(item => item).forEach(item => {
+  item.property?.forEach(...)  // item ist garantiert nicht undefined
+})
+
+// Option 3: Early return in Komponenten
+const Component = ({ item }) => {
+  if (!item) return null;
+  // Ab hier ist item garantiert definiert
+  return <div>{item.property.map(...)}</div>
 }
 ```
 
-**Zeile 273:**
+---
+
+## Debugging: Fehlerquelle finden
+
+### Methode 1: Source Maps aktivieren
+
+In `vite.config.js`:
 ```javascript
-count += block.aufgaben.length; // ← Kein null-Check!
-```
-
-#### 4. `src/features/lernplan-wizard/steps/step-22-bestaetigung.jsx`
-
-**Zeile 193:**
-```javascript
-? block.aufgaben[0].name // ← Kein null-Check für aufgaben oder [0]
-```
-
-#### 5. `src/features/lernplan-wizard/context/wizard-context.jsx`
-
-**Zeilen 223-225:**
-```javascript
-} else if (block.aufgaben && block.aufgaben.length > 0) {
-  tasks = block.aufgaben.map(a => ({ // Check vorhanden, aber...
-```
-
-**Zeilen 983-996:**
-```javascript
-} else if (content.aufgaben && content.aufgaben.length > 0) {
-  topicTitle = content.aufgaben.length === 1
-    ? content.aufgaben[0].name
-    : `${content.aufgaben.length} Aufgaben`;
-  tasks = content.aufgaben.map(a => ({
-```
-
-### Kategorisierung der Probleme
-
-| Datei | Zeile | Risiko | Check vorhanden? |
-|-------|-------|--------|------------------|
-| step-7-automatic.jsx | 114 | KRITISCH | Nein |
-| step-7-automatic.jsx | 302 | KRITISCH | Nein |
-| step-15-lernbloecke.jsx | 300 | MITTEL | Ja, aber Race Condition möglich |
-| step-21-kalender-vorschau.jsx | 161-165 | MITTEL | Ja, aber innerhalb else-if |
-| step-21-kalender-vorschau.jsx | 273 | HOCH | Nein |
-| step-22-bestaetigung.jsx | 193 | HOCH | Teilweise |
-| content-plan-edit-card.jsx | 873 | NIEDRIG | Ja (?.length Check) |
-
-## Vermutete Hauptursache
-
-**Der wahrscheinlichste Kandidat ist `step-7-automatic.jsx`:**
-
-1. Diese Datei wird beim Wizard "Neuer Lernplan" verwendet
-2. Sie hat KEINE null-Checks für `thema.aufgaben`
-3. Wenn ein Thema ohne initialisiertes `aufgaben`-Array existiert, crasht die App
-
-### Warum tritt der Fehler jetzt auf?
-
-Mögliche Gründe:
-1. **Daten-Migration:** LocalStorage-Daten haben inkonsistentes Format
-2. **Wizard-State:** Initialer State hat keine `aufgaben`-Arrays
-3. **Race Condition:** Daten werden geladen bevor sie vollständig initialisiert sind
-
-## Empfohlene Fixes
-
-### Fix 1: step-7-automatic.jsx (PRIORITÄT 1)
-
-```javascript
-// Zeile 114: Sicherstellen dass aufgaben Array existiert
-const addAufgabe = (lerntagIndex, themaIndex) => {
-  if (!selectedUnterrechtsgebiet) return;
-  const newLernplan = { ...lernplan };
-  const thema = newLernplan.rechtsgebiete[selectedRechtsgebiet]
-    .unterrechtsgebiete[selectedUnterrechtsgebiet]
-    .lerntage[lerntagIndex]
-    .themen[themaIndex];
-
-  // FIX: Initialisiere aufgaben wenn nicht vorhanden
-  if (!thema.aufgaben) {
-    thema.aufgaben = [];
+export default defineConfig({
+  build: {
+    sourcemap: true,
   }
-
-  thema.aufgaben.push({...});
-  updateLernplan(newLernplan);
-};
-
-// Zeile 302: Optional Chaining + Fallback
-{(thema.aufgaben || []).map((aufgabe, aufgabeIndex) => (
+})
 ```
 
-### Fix 2: step-21-kalender-vorschau.jsx (PRIORITÄT 2)
+### Methode 2: Error Boundary mit Stack Trace
+
+```jsx
+// src/components/ErrorBoundary.jsx
+class ErrorBoundary extends React.Component {
+  componentDidCatch(error, info) {
+    console.error('Component Stack:', info.componentStack);
+    console.error('Error:', error);
+  }
+}
+```
+
+### Methode 3: Console logging in verdächtigen forEach/map
 
 ```javascript
-// Zeile 273
-count += (block.aufgaben || []).length;
-
-// Zeilen 161-165: Defensive Checks
-const aufgabenArray = block.aufgaben || [];
-pool.push({
-  aufgaben: aufgabenArray,
-  displayName: aufgabenArray.length === 1
-    ? aufgabenArray[0]?.name || 'Aufgabe'
-    : `${aufgabenArray.length} Aufgaben`,
-  aufgabenCount: aufgabenArray.length,
-});
+k.themen?.forEach((t, index) => {
+  if (!t) {
+    console.error('[DEBUG] Undefined thema at index:', index);
+    console.error('[DEBUG] themen array:', k.themen);
+    return;
+  }
+  t.aufgaben?.forEach(...)
+})
 ```
 
-### Fix 3: step-22-bestaetigung.jsx (PRIORITÄT 2)
+---
+
+## Checkliste für Fixes
+
+- [ ] `useStatistics.js:201` - `thema?.aufgaben`
+- [ ] `useStatistics.js:291` - `thema?.aufgaben`
+- [ ] `useStatistics.js:297` - `thema?.aufgaben`
+- [ ] `lernplan-content.jsx:473` - `t?.aufgaben` + filter
+- [ ] `create-theme-session-dialog.jsx:138` - `t?.aufgaben`
+- [ ] `manage-theme-session-dialog.jsx:131` - `t?.aufgaben`
+- [ ] `calendar-plan-edit-card.jsx:392` - `themaData?.aufgaben`
+- [ ] `wizard-context.jsx:765` - `if (!thema) continue`
+- [ ] `step-15-lernbloecke.jsx:217` - `block.thema?.aufgaben`
+- [ ] `step-15-lernbloecke.jsx:478` - `dragData.thema?.aufgaben`
+
+---
+
+## Zusammenfassung
+
+Das Problem ist ein konsistentes Anti-Pattern in der Codebase:
 
 ```javascript
-// Zeile 193
-? (block.aufgaben?.[0]?.name || 'Aufgabe')
+// Dieses Pattern ist ÜBERALL und verursacht den Fehler:
+array?.forEach(item => {
+  item.property  // CRASH wenn array ein undefined-Element enthält
+})
 ```
 
-### Fix 4: step-15-lernbloecke.jsx (PRIORITÄT 3)
-
-```javascript
-// Zeile 300
-{(block.aufgaben || []).map(aufgabe => (
-```
-
-## Systemische Lösung
-
-Langfristig sollte ein **Zod-Schema** für alle Wizard-Datenstrukturen implementiert werden:
-
-```typescript
-const ThemaSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  aufgaben: z.array(AufgabeSchema).default([]), // ← Immer Array
-});
-
-const BlockSchema = z.object({
-  id: z.string(),
-  thema: ThemaSchema.optional(),
-  aufgaben: z.array(AufgabeSchema).default([]), // ← Immer Array
-});
-```
-
-## Test-Szenario
-
-1. LocalStorage leeren (`localStorage.clear()`)
-2. App neu laden
-3. Auf "Neuer Lernplan" klicken
-4. Wizard durchlaufen bis Schritt 7 (Automatische Aufteilung)
-5. Prüfen ob Fehler auftritt
-
-## Betroffene Dateien (zur Überprüfung)
-
-- [ ] `src/features/lernplan-wizard/steps/step-7-automatic.jsx`
-- [ ] `src/features/lernplan-wizard/steps/step-15-lernbloecke.jsx`
-- [ ] `src/features/lernplan-wizard/steps/step-21-kalender-vorschau.jsx`
-- [ ] `src/features/lernplan-wizard/steps/step-22-bestaetigung.jsx`
-- [ ] `src/features/lernplan-wizard/context/wizard-context.jsx`
-- [ ] `src/components/lernplan/content-plan-edit-card.jsx`
-- [ ] `src/components/dashboard/session-widget.jsx`
+Die 10 identifizierten kritischen Stellen müssen alle gefixt werden, damit der Fehler nicht mehr auftritt. Der Fehler kann von JEDER dieser Stellen kommen, da sie alle beim Wizard-Flow oder Dashboard-Rendering aufgerufen werden können.

@@ -213,8 +213,9 @@ const LernblockCard = ({
   const isEmpty = !hasThema && !hasAufgaben;
 
   // BUG-P5 FIX: Get aufgaben directly from block.thema (stored when dropped)
+  // Guard: block.thema could be null even when hasThema check passed (race condition)
   const themaAufgaben = hasThema
-    ? (block.thema.aufgaben || [])
+    ? (block.thema?.aufgaben || [])
     : [];
 
   const handleDragOver = (e) => {
@@ -470,12 +471,13 @@ const Step15Lernbloecke = () => {
         if ((block.aufgaben || []).length > 0) return block;
 
         // BUG-P5 FIX: Store full aufgaben array directly in block.thema
+        // Guard: dragData.thema could be undefined
         return {
           ...block,
           thema: {
             id: dragData.thema.id,
             name: dragData.thema.name,
-            aufgaben: dragData.thema.aufgaben || [], // Full aufgaben array for display
+            aufgaben: dragData.thema?.aufgaben || [], // Full aufgaben array for display
             urgId: dragData.thema.urgId
           },
           aufgaben: []

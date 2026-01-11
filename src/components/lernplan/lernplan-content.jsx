@@ -469,14 +469,15 @@ const convertToLegacyFormat = (plan) => {
   plan.rechtsgebiete?.forEach(rg => {
     rg.unterrechtsgebiete?.forEach(urg => {
       urg.kapitel?.forEach(k => {
-        const topics = k.themen?.map(t => {
-          const tasks = t.aufgaben?.map(a => {
+        // Filter out undefined themen elements and guard aufgaben access
+        const topics = (k.themen || []).filter(t => t).map(t => {
+          const tasks = (t?.aufgaben || []).map(a => {
             totalTasks++;
             if (a.completed) completedTasks++;
             return { id: a.id, title: a.title, completed: a.completed };
-          }) || [];
+          });
           return { id: t.id, title: t.title, tasks, completed: t.completed || false };
-        }) || [];
+        });
         chapters.push({ id: k.id, title: k.title, topics });
       });
     });
