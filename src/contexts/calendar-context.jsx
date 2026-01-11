@@ -2053,7 +2053,7 @@ export const CalendarProvider = ({ children }) => {
                       };
                       return {
                         ...t,
-                        aufgaben: [...t.aufgaben, newAufgabe],
+                        aufgaben: [...(t.aufgaben || []), newAufgabe],
                       };
                     }),
                   };
@@ -2093,7 +2093,7 @@ export const CalendarProvider = ({ children }) => {
                       if (t.id !== themaId) return t;
                       return {
                         ...t,
-                        aufgaben: t.aufgaben.map(a =>
+                        aufgaben: (t.aufgaben || []).map(a =>
                           a.id === aufgabeId ? { ...a, ...updates } : a
                         ),
                       };
@@ -2135,7 +2135,7 @@ export const CalendarProvider = ({ children }) => {
                       if (t.id !== themaId) return t;
                       return {
                         ...t,
-                        aufgaben: t.aufgaben.map(a =>
+                        aufgaben: (t.aufgaben || []).map(a =>
                           a.id === aufgabeId ? { ...a, completed: !a.completed } : a
                         ),
                       };
@@ -2177,7 +2177,7 @@ export const CalendarProvider = ({ children }) => {
                       if (t.id !== themaId) return t;
                       return {
                         ...t,
-                        aufgaben: t.aufgaben.filter(a => a.id !== aufgabeId),
+                        aufgaben: (t.aufgaben || []).filter(a => a.id !== aufgabeId),
                       };
                     }),
                   };
@@ -2212,7 +2212,7 @@ export const CalendarProvider = ({ children }) => {
               ...k,
               themen: k.themen.map(t => ({
                 ...t,
-                aufgaben: t.aufgaben.map(a => {
+                aufgaben: (t.aufgaben || []).map(a => {
                   if (a.id === aufgabeId) {
                     found = true;
                     return {
@@ -2259,7 +2259,7 @@ export const CalendarProvider = ({ children }) => {
               ...k,
               themen: k.themen.map(t => ({
                 ...t,
-                aufgaben: t.aufgaben.map(a => {
+                aufgaben: (t.aufgaben || []).map(a => {
                   if (a.id === aufgabeId && a.scheduledInBlock) {
                     found = true;
                     const { scheduledInBlock, ...rest } = a;
