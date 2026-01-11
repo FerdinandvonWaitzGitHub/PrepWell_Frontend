@@ -89,6 +89,10 @@ const ThemeCard = ({
   onDragStart
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Guard: thema could be undefined if parent array has holes
+  if (!thema) return null;
+
   const aufgaben = thema.aufgaben || [];
   const aufgabenCount = aufgaben.length;
 

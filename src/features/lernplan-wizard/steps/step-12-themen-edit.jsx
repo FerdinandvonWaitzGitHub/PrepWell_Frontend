@@ -206,6 +206,9 @@ const ThemaCard = ({
   const [isExpanded, setIsExpanded] = useState(true);
   const [newAufgabeName, setNewAufgabeName] = useState('');
 
+  // Guard: thema could be undefined if parent array has holes
+  if (!thema) return null;
+
   const handleAddAufgabe = () => {
     if (newAufgabeName.trim()) {
       onAddAufgabe({

@@ -105,7 +105,8 @@ const ContentPlanEditCard = ({
       rg.unterrechtsgebiete?.forEach(urg => {
         urg.kapitel?.forEach(k => {
           k.themen?.forEach(t => {
-            t.aufgaben?.forEach(a => {
+            // Guard: t could be undefined if array has holes
+            t?.aufgaben?.forEach(a => {
               total++;
               if (a.completed) completed++;
             });
@@ -841,6 +842,9 @@ const ThemaSection = ({
   toggleAufgabeInPlan,
   deleteAufgabeFromPlan,
 }) => {
+  // Guard: thema could be undefined if parent array has holes
+  if (!thema) return null;
+
   const { aufgabeLabel, aufgabePluralLabel } = hierarchyLabels;
 
   return (

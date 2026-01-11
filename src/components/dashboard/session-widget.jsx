@@ -375,7 +375,8 @@ const ThemeListUnterrechtsgebietRow = ({
   let totalCount = 0;
   unterrechtsgebiet.kapitel?.forEach(k => {
     k.themen?.forEach(t => {
-      t.aufgaben?.forEach(a => {
+      // Guard: t could be undefined if array has holes
+      t?.aufgaben?.forEach(a => {
         totalCount++;
         if (a.completed) completedCount++;
       });
@@ -436,7 +437,8 @@ const ThemeListKapitelRow = ({
   let completedCount = 0;
   let totalCount = 0;
   kapitel.themen?.forEach(t => {
-    t.aufgaben?.forEach(a => {
+    // Guard: t could be undefined if array has holes
+    t?.aufgaben?.forEach(a => {
       totalCount++;
       if (a.completed) completedCount++;
     });
@@ -486,6 +488,9 @@ const ThemeListThemaRow = ({
   onToggleAufgabe,
   kapitelTitle = '',
 }) => {
+  // Guard: thema could be undefined if parent array has holes
+  if (!thema) return null;
+
   // Only count non-scheduled aufgaben for progress
   const availableAufgaben = thema.aufgaben?.filter(a => !a.scheduledInBlock) || [];
   const completedCount = availableAufgaben.filter(a => a.completed).length;

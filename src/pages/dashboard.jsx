@@ -140,8 +140,10 @@ const DashboardPage = () => {
             const kapitel = [];
 
             urg.kapitel?.forEach(k => {
-              const themen = k.themen?.map(t => {
-                const aufgaben = t.aufgaben?.map(a => {
+              // Filter out undefined elements and map
+              const themen = (k.themen || []).filter(t => t).map(t => {
+                // Guard: use optional chaining for aufgaben access
+                const aufgaben = (t?.aufgaben || []).map(a => {
                   totalAufgaben++;
                   if (a.completed) completedAufgaben++;
                   return {
@@ -151,7 +153,7 @@ const DashboardPage = () => {
                     // Include scheduling info for UI display
                     scheduledInBlock: a.scheduledInBlock || null,
                   };
-                }) || [];
+                });
                 return {
                   id: t.id,
                   title: t.title,
@@ -159,7 +161,7 @@ const DashboardPage = () => {
                   completed: t.completed || false,
                   aufgaben,
                 };
-              }) || [];
+              });
 
               if (themen.length > 0) {
                 kapitel.push({
@@ -203,7 +205,8 @@ const DashboardPage = () => {
       rg.unterrechtsgebiete?.forEach(urg => {
         urg.kapitel?.forEach(k => {
           k.themen?.forEach(t => {
-            t.aufgaben?.forEach(a => {
+            // Guard: t could be undefined if array has holes
+            t?.aufgaben?.forEach(a => {
               if (a.id === aufgabeId) {
                 a.completed = !a.completed;
               }
