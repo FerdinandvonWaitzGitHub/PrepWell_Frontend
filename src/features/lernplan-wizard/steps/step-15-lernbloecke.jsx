@@ -297,7 +297,8 @@ const LernblockCard = ({
           {/* Individual Aufgaben Content */}
           {hasAufgaben && (
             <div className="space-y-1">
-              {block.aufgaben.map(aufgabe => (
+              {/* TICKET-8 FIX: Defensive null check */}
+              {(block.aufgaben || []).map(aufgabe => (
                 <div key={aufgabe.id} className="flex items-center gap-2 group">
                   <div className="w-3 h-3 border border-neutral-300 rounded flex-shrink-0" />
                   <span className="text-sm text-neutral-700 flex-1">{aufgabe.name}</span>

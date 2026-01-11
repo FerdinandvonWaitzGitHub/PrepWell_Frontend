@@ -187,10 +187,11 @@ const BlockAssignmentsSummary = ({ lernbloeckeDraft, selectedRechtsgebiete }) =>
                 {rgStats.blocks.length > 0 && (
                   <div className="pl-4 space-y-1">
                     {rgStats.blocks.map((block, idx) => {
+                      // TICKET-8 FIX: Defensive null check for aufgaben
                       const displayName = block.thema
                         ? block.thema.name
                         : block.aufgaben?.length === 1
-                          ? block.aufgaben[0].name
+                          ? (block.aufgaben?.[0]?.name || 'Aufgabe')
                           : `${block.aufgaben?.length || 0} Aufgaben`;
 
                       return (

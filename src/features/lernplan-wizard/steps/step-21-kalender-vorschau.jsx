@@ -154,15 +154,17 @@ const flattenBlocksToPool = (lernbloeckeDraft, selectedRechtsgebiete) => {
         });
       } else if (hasAufgaben) {
         // Block has individual tasks assigned
+        // TICKET-8 FIX: Defensive null check for aufgaben
+        const aufgabenArray = block.aufgaben || [];
         pool.push({
           originalBlockId: block.id,
           rechtsgebiet: rgId,
           type: 'aufgaben',
-          aufgaben: block.aufgaben,
-          displayName: block.aufgaben.length === 1
-            ? block.aufgaben[0].name
-            : `${block.aufgaben.length} Aufgaben`,
-          aufgabenCount: block.aufgaben.length,
+          aufgaben: aufgabenArray,
+          displayName: aufgabenArray.length === 1
+            ? (aufgabenArray[0]?.name || 'Aufgabe')
+            : `${aufgabenArray.length} Aufgaben`,
+          aufgabenCount: aufgabenArray.length,
         });
       }
       // Empty blocks are not added to the pool
@@ -270,7 +272,7 @@ const countAssignedPerRg = (lernbloeckeDraft, selectedRechtsgebiete) => {
       if (block.thema) {
         count += block.thema.aufgabenCount || 1;
       } else if (block.aufgaben?.length > 0) {
-        count += block.aufgaben.length;
+        count += (block.aufgaben || []).length;
       }
     });
     counts[rgId] = count;

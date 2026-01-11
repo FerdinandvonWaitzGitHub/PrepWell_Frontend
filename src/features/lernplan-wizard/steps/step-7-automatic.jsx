@@ -111,6 +111,10 @@ const Step7Automatic = () => {
     if (!selectedUnterrechtsgebiet) return;
     const newLernplan = { ...lernplan };
     const thema = newLernplan.rechtsgebiete[selectedRechtsgebiet].unterrechtsgebiete[selectedUnterrechtsgebiet].lerntage[lerntagIndex].themen[themaIndex];
+    // TICKET-8 FIX: Ensure aufgaben array exists
+    if (!thema.aufgaben) {
+      thema.aufgaben = [];
+    }
     thema.aufgaben.push({
       id: `auf-${Date.now()}`,
       titel: 'Neue Aufgabe',
@@ -299,7 +303,7 @@ const Step7Automatic = () => {
                           <div className="w-0 h-full border-l-2 border-neutral-200" />
                         </div>
                         <div className="flex flex-col gap-2.5">
-                          {thema.aufgaben.map((aufgabe, aufgabeIndex) => (
+                          {(thema.aufgaben || []).map((aufgabe, aufgabeIndex) => (
                             <div
                               key={aufgabe.id}
                               className="w-96 p-2.5 rounded-lg border border-neutral-200 flex justify-between items-center"
