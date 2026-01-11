@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { useTimer } from '../../../contexts/timer-context';
 import TimerDisplay from './timer-display';
-import TimerSelectionDialog from './timer-selection-dialog';
-import PomodoroSettingsDialog from './pomodoro-settings-dialog';
-import CountdownSettingsDialog from './countdown-settings-dialog';
 import TimerMainDialog from './timer-main-dialog';
 
 /**
@@ -14,50 +11,11 @@ import TimerMainDialog from './timer-main-dialog';
  * - Pomodoro Timer
  * - Countdown Timer
  * - Count-up Timer (Stoppuhr)
- * - Unified timer control dialog with settings and logbuch access
+ * - Unified timer control dialog with integrated settings (no separate dialogs)
  */
 const TimerButton = ({ className = '' }) => {
-  const { isActive, startPomodoro, startCountdown, startCountup, stopTimer: _stopTimer, pomodoroSettings } = useTimer();
-  void _stopTimer; // Reserved for future use
-
-  // Dialog states
-  const [showSelectionDialog, setShowSelectionDialog] = useState(false);
-  const [showPomodoroSettings, setShowPomodoroSettings] = useState(false);
-  const [showCountdownSettings, setShowCountdownSettings] = useState(false);
+  const { isActive } = useTimer();
   const [showTimerMain, setShowTimerMain] = useState(false);
-
-  // Handle timer type selection
-  const handleSelectType = (type) => {
-    switch (type) {
-      case 'pomodoro':
-        setShowPomodoroSettings(true);
-        break;
-      case 'countdown':
-        setShowCountdownSettings(true);
-        break;
-      case 'countup':
-        startCountup();
-        break;
-    }
-  };
-
-  // Handle Pomodoro start
-  const handleStartPomodoro = (settings, sessions) => {
-    startPomodoro(settings, sessions);
-  };
-
-  // Handle Countdown start
-  const handleStartCountdown = (durationMinutes) => {
-    startCountdown(durationMinutes);
-  };
-
-  // Handle settings click from main dialog - show selection (don't stop timer)
-  const handleSettingsClick = () => {
-    // Don't stop the timer - let user reconfigure while timer runs
-    // User can explicitly stop via "Session beenden" button
-    setShowTimerMain(false);
-    setShowSelectionDialog(true);
-  };
 
   // If timer is active, show the display
   if (isActive) {
@@ -68,39 +26,16 @@ const TimerButton = ({ className = '' }) => {
         <TimerMainDialog
           open={showTimerMain}
           onOpenChange={setShowTimerMain}
-          onSettingsClick={handleSettingsClick}
-        />
-
-        {/* Timer Type Selection Dialog (accessible via settings) */}
-        <TimerSelectionDialog
-          open={showSelectionDialog}
-          onOpenChange={setShowSelectionDialog}
-          onSelectType={handleSelectType}
-        />
-
-        {/* Pomodoro Settings Dialog */}
-        <PomodoroSettingsDialog
-          open={showPomodoroSettings}
-          onOpenChange={setShowPomodoroSettings}
-          onStart={handleStartPomodoro}
-          initialSettings={pomodoroSettings}
-        />
-
-        {/* Countdown Settings Dialog */}
-        <CountdownSettingsDialog
-          open={showCountdownSettings}
-          onOpenChange={setShowCountdownSettings}
-          onStart={handleStartCountdown}
         />
       </div>
     );
   }
 
-  // Otherwise show the start button (clock icon)
+  // Otherwise show the start button (clock icon) - opens main dialog
   return (
     <div className={className}>
       <button
-        onClick={() => setShowSelectionDialog(true)}
+        onClick={() => setShowTimerMain(true)}
         className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
         title="Timer starten"
       >
@@ -118,26 +53,10 @@ const TimerButton = ({ className = '' }) => {
         </svg>
       </button>
 
-      {/* Timer Type Selection Dialog */}
-      <TimerSelectionDialog
-        open={showSelectionDialog}
-        onOpenChange={setShowSelectionDialog}
-        onSelectType={handleSelectType}
-      />
-
-      {/* Pomodoro Settings Dialog */}
-      <PomodoroSettingsDialog
-        open={showPomodoroSettings}
-        onOpenChange={setShowPomodoroSettings}
-        onStart={handleStartPomodoro}
-        initialSettings={pomodoroSettings}
-      />
-
-      {/* Countdown Settings Dialog */}
-      <CountdownSettingsDialog
-        open={showCountdownSettings}
-        onOpenChange={setShowCountdownSettings}
-        onStart={handleStartCountdown}
+      {/* Main Timer Dialog - handles everything inline */}
+      <TimerMainDialog
+        open={showTimerMain}
+        onOpenChange={setShowTimerMain}
       />
     </div>
   );

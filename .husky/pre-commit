@@ -1,1 +1,5 @@
+# Run lint-staged (ESLint auf staged files)
 npx lint-staged
+
+# Run tests (nur wenn Tests existieren)
+npm run test:run

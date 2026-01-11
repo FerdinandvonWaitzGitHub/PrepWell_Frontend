@@ -2,15 +2,12 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, DashboardLayout } from '../components/layout';
 import { LernblockWidget, ZeitplanWidget, DashboardSubHeader } from '../components/dashboard';
-import TimerSelectionDialog from '../components/dashboard/timer/timer-selection-dialog';
-import PomodoroSettingsDialog from '../components/dashboard/timer/pomodoro-settings-dialog';
-import CountdownSettingsDialog from '../components/dashboard/timer/countdown-settings-dialog';
 import TimerMainDialog from '../components/dashboard/timer/timer-main-dialog';
 import { useDashboard } from '../hooks';
 import { useCalendar } from '../contexts/calendar-context';
 import { useCheckIn } from '../contexts/checkin-context';
 import { useMentor } from '../contexts/mentor-context';
-import { useTimer, TIMER_TYPES } from '../contexts/timer-context';
+import { useTimer } from '../contexts/timer-context';
 import { useAppMode } from '../contexts/appmode-context';
 
 // Dialog components (same as WeekView)
@@ -35,7 +32,8 @@ const DashboardPage = () => {
   const navigate = useNavigate();
 
   // CheckIn and Mentor contexts for redirect logic
-  const { isCheckInNeeded, getCurrentPeriod: _getCurrentPeriod } = useCheckIn();
+  // BUG-C FIX: Also get loading state to prevent redirect during data fetch
+  const { isCheckInNeeded, loading: checkInLoading, getCurrentPeriod: _getCurrentPeriod } = useCheckIn();
   void _getCurrentPeriod; // Reserved for future use
   const { isActivated: mentorIsActivated } = useMentor();
 
@@ -44,28 +42,13 @@ const DashboardPage = () => {
 
   // Timer context for sub-header and learning progress
   const {
-    saveTimerConfig,
-    pomodoroSettings,
     timerHistory,
     elapsedSeconds,
     isActive,
-    startPomodoro,
-    startCountdown,
-    startCountup
   } = useTimer();
 
-  // Timer dialog states
-  const [showTimerSelection, setShowTimerSelection] = useState(false);
-  const [showPomodoroSettings, setShowPomodoroSettings] = useState(false);
-  const [showCountdownSettings, setShowCountdownSettings] = useState(false);
+  // Timer dialog state
   const [showTimerMain, setShowTimerMain] = useState(false);
-
-  // Handle settings click from timer main dialog - show selection dialog
-  const handleTimerSettingsClick = () => {
-    console.log('handleTimerSettingsClick: closing main, opening selection');
-    setShowTimerMain(false);
-    setShowTimerSelection(true);
-  };
 
   const {
     displayDate,
@@ -77,6 +60,7 @@ const DashboardPage = () => {
     dayProgress,
     loading: _loading,
     checkInDone,
+    checkInStatus, // TICKET-1: Detailed check-in status
     isMentorActivated: _isMentorActivated,
     wasMorningSkipped: _wasMorningSkipped,
     hasRealLernplanBlocks: _hasRealLernplanBlocks, // true if wizard-created blocks exist
@@ -100,11 +84,15 @@ const DashboardPage = () => {
   void _doCheckIn;
 
   // Redirect to check-in page if mentor is activated and check-in is needed
+  // BUG-C FIX: Wait for check-in data to be loaded before deciding to redirect
   useEffect(() => {
+    // Don't redirect while data is still loading (e.g. from Supabase)
+    if (checkInLoading) return;
+
     if (mentorIsActivated && isCheckInNeeded) {
       navigate('/checkin');
     }
-  }, [mentorIsActivated, isCheckInNeeded, navigate]);
+  }, [mentorIsActivated, isCheckInNeeded, checkInLoading, navigate]);
 
   // CalendarContext for CRUD operations
   // BUG-023 FIX: Use timeBlocksByDate and addTimeBlock for user-created blocks
@@ -125,6 +113,7 @@ const DashboardPage = () => {
     // Content Plans (Themenlisten)
     contentPlans,
     updateContentPlan,
+    archiveContentPlan, // TICKET-12: Archive themenliste
     // Aufgabe Scheduling (for drag & drop)
     scheduleAufgabeToBlock,
   } = useCalendar();
@@ -281,10 +270,12 @@ const DashboardPage = () => {
     }
   }, []);
 
-  // Handle timeline click - open add block dialog
+  // Handle timeline click - navigate to week view instead of opening dialog
+  // TICKET-9: Navigate to week view for session creation
   const handleTimelineClick = useCallback(() => {
-    setIsAddDialogOpen(true);
-  }, []);
+    // Navigate to week view with current date
+    navigate(`/kalender/woche?date=${dateString}`);
+  }, [navigate, dateString]);
 
   // Handle block type selection from AddThemeDialog
   const handleSelectBlockType = useCallback((type) => {
@@ -459,12 +450,35 @@ const DashboardPage = () => {
 
   // Handle dropping a task onto a block
   // Supports both contentId and topicId patterns for cross-view compatibility
+  // TICKET-7: Ensures a task can only be scheduled to ONE block at a time
   const handleDropTaskToBlock = useCallback((block, droppedTask, source) => {
     const dayBlocks = blocksByDate[dateString] || [];
     let taskWasAdded = false;
     let targetBlockId = null;
 
-    const updatedBlocks = dayBlocks.map(blk => {
+    // TICKET-7: First, remove the task from ALL other blocks where it might exist
+    // This ensures a task can only be in one block at a time
+    const blocksWithTaskRemoved = dayBlocks.map(blk => {
+      const existingTasks = blk.tasks || [];
+      const taskExistsHere = existingTasks.some(t =>
+        t.sourceId === droppedTask.id || t.id === droppedTask.id
+      );
+
+      if (taskExistsHere) {
+        // Remove the task from this block
+        return {
+          ...blk,
+          tasks: existingTasks.filter(t =>
+            t.sourceId !== droppedTask.id && t.id !== droppedTask.id
+          ),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return blk;
+    });
+
+    // Now add the task to the target block
+    const updatedBlocks = blocksWithTaskRemoved.map(blk => {
       // Match by contentId, topicId, or id (supports both patterns)
       const isMatch =
         blk.contentId === block.id ||
@@ -476,7 +490,7 @@ const DashboardPage = () => {
       if (isMatch) {
         // Add the task to this block's tasks array
         const existingTasks = blk.tasks || [];
-        // Check if task already exists (by sourceId or id)
+        // Check if task already exists (by sourceId or id) - shouldn't happen after removal above
         const alreadyExists = existingTasks.some(t =>
           t.sourceId === droppedTask.id || t.id === droppedTask.id
         );
@@ -705,6 +719,7 @@ const DashboardPage = () => {
         learningMinutesCompleted={completedLearningMinutes}
         learningMinutesGoal={dailyLearningGoalMinutes}
         checkInDone={checkInDone}
+        checkInStatus={checkInStatus}
         onTimerClick={() => {
           // Always show timer main dialog - it handles all states
           setShowTimerMain(true);
@@ -728,6 +743,7 @@ const DashboardPage = () => {
                 selectedThemeListId={selectedThemeListId}
                 onSelectThemeList={setSelectedThemeListId}
                 onToggleThemeListAufgabe={handleToggleThemeListAufgabe}
+                onArchiveThemeList={archiveContentPlan}
                 isExamMode={isExamMode}
               />
             }
@@ -844,65 +860,10 @@ const DashboardPage = () => {
         onSave={handleAddPrivateBlock}
       />
 
-      {/* Timer Selection Dialog */}
-      <TimerSelectionDialog
-        open={showTimerSelection}
-        onOpenChange={setShowTimerSelection}
-        onSelectType={(type) => {
-          setShowTimerSelection(false);
-          switch (type) {
-            case 'pomodoro':
-              setShowPomodoroSettings(true);
-              break;
-            case 'countdown':
-              setShowCountdownSettings(true);
-              break;
-            case 'countup':
-              // Start countup timer immediately
-              saveTimerConfig({ timerType: TIMER_TYPES.COUNTUP });
-              startCountup();
-              setShowTimerMain(true);
-              break;
-          }
-        }}
-      />
-
-      {/* Pomodoro Settings Dialog */}
-      <PomodoroSettingsDialog
-        open={showPomodoroSettings}
-        onOpenChange={(open) => {
-          setShowPomodoroSettings(open);
-          if (!open) {
-            // When closing settings, return to main dialog
-            setShowTimerMain(true);
-          }
-        }}
-        onStart={(settings, sessions) => {
-          startPomodoro(settings, sessions);
-        }}
-        initialSettings={pomodoroSettings}
-      />
-
-      {/* Countdown Settings Dialog */}
-      <CountdownSettingsDialog
-        open={showCountdownSettings}
-        onOpenChange={(open) => {
-          setShowCountdownSettings(open);
-          if (!open) {
-            // When closing settings, return to main dialog
-            setShowTimerMain(true);
-          }
-        }}
-        onStart={(durationMinutes) => {
-          startCountdown(durationMinutes);
-        }}
-      />
-
-      {/* Timer Main Dialog */}
+      {/* Timer Main Dialog - handles timer selection and settings inline */}
       <TimerMainDialog
         open={showTimerMain}
         onOpenChange={setShowTimerMain}
-        onSettingsClick={handleTimerSettingsClick}
         dailyLearningGoalMinutes={dailyLearningGoalMinutes}
       />
     </div>

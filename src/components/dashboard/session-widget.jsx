@@ -201,9 +201,7 @@ const TaskItem = ({
         className={`px-1.5 py-0.5 rounded text-sm font-semibold transition-colors ${
           priorityLevel === 0
             ? 'text-neutral-300 hover:text-neutral-500'
-            : priorityLevel === 1
-            ? 'text-yellow-600 bg-yellow-50'
-            : 'text-red-600 bg-red-50'
+            : 'text-neutral-700 hover:text-neutral-900'
         }`}
         title={priorityLevel === 0 ? 'Keine Priorität' : priorityLevel === 1 ? 'Mittlere Priorität' : 'Hohe Priorität'}
       >
@@ -225,6 +223,7 @@ const TaskItem = ({
 /**
  * TaskList component - Liste von Aufgaben
  * Figma Design: Simple "Neue Aufgabe" button without border box
+ * TICKET-5: Tasks are now editable via double-click
  */
 const TaskList = ({
   tasks,
@@ -233,9 +232,35 @@ const TaskList = ({
   onTogglePriority,
   onAddTask,
   onRemoveTask,
+  onEditTask, // TICKET-5: Edit task callback
 }) => {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
+
+  // TICKET-5: Edit state for inline editing
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editTaskText, setEditTaskText] = useState('');
+
+  // TICKET-5: Start editing a task
+  const handleStartEdit = useCallback((task) => {
+    setEditingTaskId(task.id);
+    setEditTaskText(task.text || '');
+  }, []);
+
+  // TICKET-5: Submit edit
+  const handleEditSubmit = useCallback(() => {
+    if (editingTaskId && editTaskText.trim() && onEditTask) {
+      onEditTask(editingTaskId, editTaskText.trim());
+    }
+    setEditingTaskId(null);
+    setEditTaskText('');
+  }, [editingTaskId, editTaskText, onEditTask]);
+
+  // TICKET-5: Cancel edit
+  const handleEditCancel = useCallback(() => {
+    setEditingTaskId(null);
+    setEditTaskText('');
+  }, []);
 
   const stats = useMemo(() => {
     const total = tasks.length;
@@ -271,16 +296,22 @@ const TaskList = ({
         </span>
       </div>
 
-      {/* Task Items */}
+      {/* Task Items - TICKET-5: Double-click to edit */}
       <div className="flex flex-col gap-2">
         {tasks.map((task) => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            onToggle={onToggleTask}
-            onTogglePriority={onTogglePriority}
-            onDelete={onRemoveTask}
-          />
+          <div key={task.id} onDoubleClick={() => handleStartEdit(task)}>
+            <TaskItem
+              task={task}
+              onToggle={onToggleTask}
+              onTogglePriority={onTogglePriority}
+              onDelete={onRemoveTask}
+              isEditing={editingTaskId === task.id}
+              editText={editingTaskId === task.id ? editTaskText : ''}
+              onEditChange={setEditTaskText}
+              onEditSubmit={handleEditSubmit}
+              onEditCancel={handleEditCancel}
+            />
+          </div>
         ))}
 
         {tasks.length === 0 && !isAddingNew && (
@@ -812,16 +843,20 @@ const NoTopicsView = ({
   onTogglePriority,
   onAddTask,
   onRemoveTask,
+  onEditTask, // TICKET-5: Edit task callback
   // Themenliste props
   themeLists = [],
   selectedThemeListId,
   onSelectThemeList,
   onToggleThemeListAufgabe,
+  onArchiveThemeList, // TICKET-12: Archive callback
 }) => {
   const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themenliste'
   const [expandedUnterrechtsgebietId, setExpandedUnterrechtsgebietId] = useState(null);
   const [expandedKapitelId, setExpandedKapitelId] = useState(null);
   const [expandedThemaId, setExpandedThemaId] = useState(null);
+  // TICKET-12: Collapsed state for themenliste
+  const [isThemeListCollapsed, setIsThemeListCollapsed] = useState(false);
 
   // Get selected Themenliste
   const selectedThemeList = themeLists.find(tl => tl.id === selectedThemeListId);
@@ -869,7 +904,7 @@ const NoTopicsView = ({
 
         {/* Themenliste Dropdown - only show when in themenliste mode */}
         {viewMode === 'themenliste' && themeLists.length > 0 && (
-          <div className="flex justify-center">
+          <div className="flex justify-center items-center gap-2">
             <select
               value={selectedThemeListId || ''}
               onChange={(e) => onSelectThemeList?.(e.target.value)}
@@ -881,6 +916,43 @@ const NoTopicsView = ({
                 </option>
               ))}
             </select>
+
+            {/* TICKET-12: Collapse/Expand button */}
+            <button
+              type="button"
+              onClick={() => setIsThemeListCollapsed(!isThemeListCollapsed)}
+              className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
+              title={isThemeListCollapsed ? 'Ausklappen' : 'Einklappen'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className={`transition-transform ${isThemeListCollapsed ? '' : 'rotate-180'}`}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+
+            {/* TICKET-12: Archive button */}
+            {selectedThemeListId && onArchiveThemeList && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Themenliste archivieren? Sie wird aus dieser Ansicht entfernt.')) {
+                    onArchiveThemeList(selectedThemeListId);
+                    // Select next themelist or clear selection
+                    const remainingLists = themeLists.filter(tl => tl.id !== selectedThemeListId);
+                    onSelectThemeList?.(remainingLists.length > 0 ? remainingLists[0].id : null);
+                  }
+                }}
+                className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
+                title="Archivieren"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="21 8 21 21 3 21 3 8" />
+                  <rect x="1" y="3" width="22" height="5" />
+                  <line x1="10" y1="12" x2="14" y2="12" />
+                </svg>
+              </button>
+            )}
           </div>
         )}
 
@@ -903,6 +975,7 @@ const NoTopicsView = ({
           onTogglePriority={onTogglePriority}
           onAddTask={onAddTask}
           onRemoveTask={onRemoveTask}
+          onEditTask={onEditTask}
         />
       ) : (
         // Themenliste View
@@ -914,6 +987,12 @@ const NoTopicsView = ({
         ) : !selectedThemeList ? (
           <div className="text-sm text-neutral-500 py-4 text-center">
             Wähle eine Themenliste aus dem Dropdown.
+          </div>
+        ) : isThemeListCollapsed ? (
+          // TICKET-12: Collapsed state - show summary only
+          <div className="text-sm text-neutral-500 py-4 text-center">
+            <p className="font-medium text-neutral-700">{selectedThemeList.name}</p>
+            <p>{selectedThemeList.progress?.completed || 0}/{selectedThemeList.progress?.total || 0} Aufgaben erledigt</p>
           </div>
         ) : (
           <ThemeListView
@@ -945,6 +1024,7 @@ const ExamModeView = ({
   onTogglePriority,
   onAddTask,
   onRemoveTask,
+  onEditTask, // TICKET-5: Edit task callback
 }) => {
   const [viewMode, setViewMode] = useState('lernplan'); // 'lernplan' or 'todos'
 
@@ -1031,6 +1111,7 @@ const ExamModeView = ({
           onTogglePriority={onTogglePriority}
           onAddTask={onAddTask}
           onRemoveTask={onRemoveTask}
+          onEditTask={onEditTask}
         />
       )}
     </div>
@@ -1052,11 +1133,13 @@ const SessionWidget = ({
   onTogglePriority,
   onAddTask,
   onRemoveTask,
+  onEditTask, // TICKET-5: Edit task callback
   // Themenliste props
   themeLists = [],
   selectedThemeListId,
   onSelectThemeList,
   onToggleThemeListAufgabe,
+  onArchiveThemeList, // TICKET-12: Archive themenliste callback
   // Mode prop
   isExamMode = false,
 }) => {
@@ -1085,6 +1168,7 @@ const SessionWidget = ({
             onTogglePriority={onTogglePriority}
             onAddTask={onAddTask}
             onRemoveTask={onRemoveTask}
+            onEditTask={onEditTask}
           />
         ) : (
           // Normal Mode: To-Dos/Themenliste toggle
@@ -1094,10 +1178,12 @@ const SessionWidget = ({
             onTogglePriority={onTogglePriority}
             onAddTask={onAddTask}
             onRemoveTask={onRemoveTask}
+            onEditTask={onEditTask}
             themeLists={themeLists}
             selectedThemeListId={selectedThemeListId}
             onSelectThemeList={onSelectThemeList}
             onToggleThemeListAufgabe={onToggleThemeListAufgabe}
+            onArchiveThemeList={onArchiveThemeList}
           />
         )}
       </div>
