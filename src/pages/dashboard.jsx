@@ -336,7 +336,7 @@ const DashboardPage = () => {
     }
 
     // BUG-023 FIX: Check if this is a time block
-    const dayTimeBlocks = timeBlocksByDate[dateString] || [];
+    const dayTimeBlocks = (timeBlocksByDate || {})[dateString] || [];
     const isTimeBlock = dayTimeBlocks.some(block => block.id === updatedBlock.id) || updatedBlock.isTimeBlock;
 
     if (isTimeBlock) {
@@ -417,7 +417,7 @@ const DashboardPage = () => {
     }
 
     // BUG-023 FIX: Check if it's a time block
-    const dayTimeBlocks = timeBlocksByDate[dateString] || [];
+    const dayTimeBlocks = (timeBlocksByDate || {})[dateString] || [];
     const isTimeBlock = dayTimeBlocks.some(b => b.id === blockId);
 
     if (isTimeBlock) {

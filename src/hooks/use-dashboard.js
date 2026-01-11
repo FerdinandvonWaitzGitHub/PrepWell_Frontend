@@ -55,6 +55,7 @@ export function useDashboard() {
     isCheckInButtonEnabled,
     wasMorningSkipped,
     todayCheckIn,
+    checkInCount, // TICKET-3: Number of check-ins per day (1 or 2)
   } = useCheckIn();
 
   // Mentor context for activation status
@@ -105,7 +106,7 @@ export function useDashboard() {
 
   // BUG-023 FIX: Get time blocks for today (user-created in Dashboard/Week)
   const todayTimeBlocks = useMemo(() => {
-    const blocks = timeBlocksByDate[dateString] || [];
+    const blocks = (timeBlocksByDate || {})[dateString] || [];
     return blocks.map(block => {
       // Calculate startHour and duration from startTime and endTime
       const [startH, startM] = (block.startTime || '09:00').split(':').map(Number);
@@ -195,17 +196,55 @@ export function useDashboard() {
     }));
   }, [dateString, tasksByDate]);
 
-  // Check-in is done if mentor is activated and today's check-in is completed (not skipped)
-  const checkInDone = useMemo(() => {
+  // Check-in status - differentiate between one and both check-ins completed
+  // TICKET-1 FIX: Correctly track check-in completion status
+  // TICKET-3: Respect checkInCount setting (1 or 2 check-ins per day)
+  const checkInStatus = useMemo(() => {
     if (!isMentorActivated) {
       // If mentor is not activated, use legacy check-in tracking
       const lastCheckIn = localStorage.getItem('prepwell_last_checkin');
-      return lastCheckIn === dateString;
+      const isDone = lastCheckIn === dateString;
+      return {
+        morningDone: isDone,
+        eveningDone: isDone,
+        anyDone: isDone,
+        allDone: isDone, // Legacy mode: single check-in counts as all
+        count: isDone ? 1 : 0,
+        expectedCount: 1, // Legacy mode expects 1 check-in
+      };
     }
-    // Check if any period has been completed (not skipped)
-    return (todayCheckIn.morning?.answers && !todayCheckIn.morning?.skipped) ||
-           (todayCheckIn.evening?.answers && !todayCheckIn.evening?.skipped);
-  }, [isMentorActivated, dateString, todayCheckIn]);
+
+    // Check morning and evening separately
+    const morningDone = !!(todayCheckIn.morning?.answers && !todayCheckIn.morning?.skipped);
+    const eveningDone = !!(todayCheckIn.evening?.answers && !todayCheckIn.evening?.skipped);
+
+    // TICKET-3: Calculate allDone based on checkInCount setting
+    // If checkInCount is 1, only morning needs to be done for "all done"
+    const expectedCount = checkInCount || 2;
+    const actualCount = (morningDone ? 1 : 0) + (eveningDone ? 1 : 0);
+    const allDone = expectedCount === 1
+      ? morningDone
+      : morningDone && eveningDone;
+
+    // TICKET-4: Track skipped status for neutral display
+    const morningSkipped = todayCheckIn.morning?.skipped === true;
+    const eveningSkipped = todayCheckIn.evening?.skipped === true;
+
+    return {
+      morningDone,
+      eveningDone,
+      morningSkipped,
+      eveningSkipped,
+      anyDone: morningDone || eveningDone,
+      anySkipped: morningSkipped || eveningSkipped, // TICKET-4: For soft hint display
+      allDone,
+      count: actualCount,
+      expectedCount,
+    };
+  }, [isMentorActivated, dateString, todayCheckIn, checkInCount]);
+
+  // Legacy compatibility: checkInDone = at least one check-in completed
+  const checkInDone = checkInStatus.anyDone;
 
   /**
    * Navigate to previous day
@@ -355,6 +394,7 @@ export function useDashboard() {
     loading: false, // No loading state needed - data is reactive
     error: null,
     checkInDone,
+    checkInStatus, // TICKET-1: Detailed check-in status for correct icon display
     hasActiveLernplan: hasActiveLernplan(),
     hasRealLernplanBlocks, // true if wizard-created blocks exist for today
     hasRealLernplanSlots: hasRealLernplanBlocks, // Legacy alias

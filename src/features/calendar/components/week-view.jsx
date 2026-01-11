@@ -119,7 +119,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       const dateKey = formatDateKey(d);
 
       // BUG-023 FIX: Add time blocks (user-created in Week/Dashboard)
-      const dayTimeBlocks = timeBlocksByDate[dateKey] || [];
+      const dayTimeBlocks = (timeBlocksByDate || {})[dateKey] || [];
       dayTimeBlocks.forEach(block => {
         weekBlocks.push({
           id: block.id,
@@ -369,7 +369,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       }
     } else {
       // BUG-023 FIX: Check if this is a time block or a Lernplan slot
-      const dayTimeBlocks = timeBlocksByDate[dateKey] || [];
+      const dayTimeBlocks = (timeBlocksByDate || {})[dateKey] || [];
       const isTimeBlock = dayTimeBlocks.some(block => block.id === updatedBlock.id);
 
       if (isTimeBlock) {
@@ -439,7 +439,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
 
     // BUG-023 FIX: Check if it's a time block
-    const dayTimeBlocks = timeBlocksByDate[dateKey] || [];
+    const dayTimeBlocks = (timeBlocksByDate || {})[dateKey] || [];
     const isTimeBlock = dayTimeBlocks.some(b => b.id === blockId);
 
     if (isTimeBlock) {
