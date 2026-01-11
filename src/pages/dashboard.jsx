@@ -356,7 +356,7 @@ const DashboardPage = () => {
     }
 
     // Legacy: Update Lernplan block (for backwards compatibility)
-    const dayBlocks = blocksByDate[dateString] || [];
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
     const updatedBlocks = dayBlocks.map(block => {
       const isMatch =
         block.contentId === updatedBlock.id ||
@@ -408,7 +408,7 @@ const DashboardPage = () => {
   // Delete a block (removes Block, Content remains for potential reuse)
   // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan blocks
   const handleDeleteBlock = useCallback(async (_date, blockId) => {
-    const dayPrivateBlocks = privateBlocksByDate[dateString] || [];
+    const dayPrivateBlocks = (privateBlocksByDate || {})[dateString] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
 
     if (isPrivate) {
@@ -427,7 +427,7 @@ const DashboardPage = () => {
     }
 
     // Legacy: Delete Lernplan block (for backwards compatibility)
-    const dayBlocks = blocksByDate[dateString] || [];
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
     const updatedBlocks = dayBlocks.filter(block => {
       const isMatch =
         block.contentId === blockId ||
@@ -452,7 +452,7 @@ const DashboardPage = () => {
   // Supports both contentId and topicId patterns for cross-view compatibility
   // TICKET-7: Ensures a task can only be scheduled to ONE block at a time
   const handleDropTaskToBlock = useCallback((block, droppedTask, source) => {
-    const dayBlocks = blocksByDate[dateString] || [];
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
     let taskWasAdded = false;
     let targetBlockId = null;
 

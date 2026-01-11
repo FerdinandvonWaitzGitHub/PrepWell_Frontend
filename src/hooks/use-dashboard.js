@@ -86,7 +86,7 @@ export function useDashboard() {
    * @param newPriority - The new priority value ('none', 'medium', 'high')
    */
   const toggleTaskPriority = useCallback((taskId, newPriority) => {
-    const dayTasks = tasksByDate[dateString] || [];
+    const dayTasks = (tasksByDate || {})[dateString] || [];
     const task = dayTasks.find(t => t.id === taskId);
     if (task) {
       updateTaskInContext(dateString, taskId, { priority: newPriority });
@@ -181,12 +181,12 @@ export function useDashboard() {
 
   // Get private blocks for today
   const todayPrivateBlocks = useMemo(() => {
-    return privateBlocksByDate[dateString] || [];
+    return (privateBlocksByDate || {})[dateString] || [];
   }, [dateString, privateBlocksByDate]);
 
   // Get tasks for today from CalendarContext
   const aufgaben = useMemo(() => {
-    const dayTasks = tasksByDate[dateString] || [];
+    const dayTasks = (tasksByDate || {})[dateString] || [];
     return dayTasks.map(task => ({
       id: task.id,
       text: task.text || task.title,

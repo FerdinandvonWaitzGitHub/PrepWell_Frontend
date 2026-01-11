@@ -147,7 +147,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       // Process Lernplan blocks (only in Exam mode, for header bar)
       if (isExamMode) {
         // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
-        const dayBlocks = visibleSlotsByDate[dateKey] || [];
+        const dayBlocks = (visibleSlotsByDate || {})[dateKey] || [];
 
         // Convert blocks to learning sessions for this day
         const learningSessions = blocksToLearningSessions(dayBlocks);
@@ -338,7 +338,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
 
     if (updatedBlock.blockType === 'private') {
       // Check if we need to create/update a series
-      const originalBlock = (privateBlocksByDate[dateKey] || []).find(b => b.id === updatedBlock.id);
+      const originalBlock = ((privateBlocksByDate || {})[dateKey] || []).find(b => b.id === updatedBlock.id);
       const hadSeries = originalBlock?.seriesId != null;
       const wantsSeries = updatedBlock.repeatEnabled && updatedBlock.repeatType && updatedBlock.repeatCount > 0;
 
@@ -387,7 +387,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         });
       } else {
         // Legacy: Update Lernplan slot (for backwards compatibility)
-        const daySlots = slotsByDate[dateKey] || [];
+        const daySlots = (slotsByDate || {})[dateKey] || [];
         const updatedSlots = daySlots.map(slot => {
           const isMatch =
             (updatedBlock.id && (slot.contentId === updatedBlock.id || slot.topicId === updatedBlock.id || slot.id === updatedBlock.id)) ||
@@ -430,7 +430,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     if (!dateKey) return;
 
     // Check if it's a private block
-    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    const dayPrivateBlocks = (privateBlocksByDate || {})[dateKey] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
 
     if (isPrivate) {
@@ -449,7 +449,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
 
     // Legacy: Delete Lernplan slot (for backwards compatibility)
-    const daySlots = slotsByDate[dateKey] || [];
+    const daySlots = (slotsByDate || {})[dateKey] || [];
     const updatedSlots = daySlots.filter(slot => {
       const isMatch =
         slot.contentId === blockId ||
