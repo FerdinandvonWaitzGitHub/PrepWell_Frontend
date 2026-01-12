@@ -170,23 +170,83 @@ const ChapterRow = ({ chapter }) => {
       {isOpen && chapter.topics && (
         <div className="px-6 pb-2">
           {chapter.topics.map((topic, idx) => (
+            <TopicRow key={topic.id || idx} topic={topic} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * TopicRow component
+ * Expandable topic row with tasks (Aufgaben)
+ */
+const TopicRow = ({ topic }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasTasks = topic.tasks && topic.tasks.length > 0;
+
+  // Count completed tasks
+  const completedCount = topic.tasks?.filter(t => t.completed).length || 0;
+  const totalCount = topic.tasks?.length || 0;
+
+  return (
+    <div className="pl-5">
+      {/* Topic Header */}
+      <div
+        className={`flex items-center gap-2 py-1.5 ${hasTasks ? 'cursor-pointer hover:bg-neutral-100 -mx-2 px-2 rounded' : ''}`}
+        onClick={() => hasTasks && setIsOpen(!isOpen)}
+      >
+        {/* Expand icon (only if has tasks) */}
+        {hasTasks && (
+          <ChevronDownIcon
+            size={10}
+            className={`text-neutral-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
+        )}
+        {/* Checkbox */}
+        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+          topic.completed
+            ? 'bg-neutral-900 border-neutral-900'
+            : 'border-neutral-300'
+        }`}>
+          {topic.completed && (
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </div>
+        {/* Title */}
+        <span className={`text-sm flex-1 ${topic.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'}`}>
+          {topic.title}
+        </span>
+        {/* Task count */}
+        {hasTasks && (
+          <span className="text-xs text-neutral-400">{completedCount}/{totalCount}</span>
+        )}
+      </div>
+
+      {/* Tasks (Aufgaben) */}
+      {isOpen && hasTasks && (
+        <div className="pl-6 pb-1">
+          {topic.tasks.map((task, idx) => (
             <div
-              key={topic.id || idx}
-              className="flex items-center gap-2 py-1.5 pl-5"
+              key={task.id || idx}
+              className="flex items-center gap-2 py-1 pl-3"
             >
-              <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                topic.completed
-                  ? 'bg-neutral-900 border-neutral-900'
+              <div className={`w-3 h-3 rounded border flex items-center justify-center ${
+                task.completed
+                  ? 'bg-neutral-600 border-neutral-600'
                   : 'border-neutral-300'
               }`}>
-                {topic.completed && (
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                {task.completed && (
+                  <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}
               </div>
-              <span className={`text-sm ${topic.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'}`}>
-                {topic.title}
+              <span className={`text-xs ${task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'}`}>
+                {task.title}
               </span>
             </div>
           ))}
