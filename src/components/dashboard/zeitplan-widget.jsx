@@ -40,6 +40,7 @@ const ZeitplanWidget = ({
   const [isDraggingTimeRange, setIsDraggingTimeRange] = useState(false);
   const [dragStartY, setDragStartY] = useState(null);
   const [dragCurrentY, setDragCurrentY] = useState(null);
+  const dragJustCompletedRef = useRef(false); // Prevents click event after successful drag
 
   // BUG-007 FIX: Current time state that updates every minute
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -170,7 +171,8 @@ const ZeitplanWidget = ({
     if (!onTimeRangeSelect) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const y = e.clientY - rect.top + (timelineContainerRef.current?.scrollTop || 0);
+    // getBoundingClientRect already accounts for scroll - DO NOT add scrollTop
+    const y = e.clientY - rect.top;
 
     setIsDraggingTimeRange(true);
     setDragStartY(y);
@@ -186,7 +188,8 @@ const ZeitplanWidget = ({
     const rect = timelineAreaRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const y = e.clientY - rect.top + (timelineContainerRef.current?.scrollTop || 0);
+    // getBoundingClientRect already accounts for scroll - DO NOT add scrollTop
+    const y = e.clientY - rect.top;
     // Clamp to timeline bounds
     const clampedY = Math.max(0, Math.min(totalTimelineHeight, y));
     setDragCurrentY(clampedY);
@@ -228,6 +231,12 @@ const ZeitplanWidget = ({
         return;
       }
     }
+
+    // Mark that a drag just completed - prevents click event from firing
+    dragJustCompletedRef.current = true;
+    setTimeout(() => {
+      dragJustCompletedRef.current = false;
+    }, 0);
 
     // Call callback with the selected time range
     if (onTimeRangeSelect) {
@@ -308,8 +317,8 @@ const ZeitplanWidget = ({
       {/* Timeline - Scrollbar bei Bedarf */}
       <div ref={timelineContainerRef} className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
         <div className="relative" style={{ height: `${totalTimelineHeight}px` }}>
-          {/* Hour Labels and Grid Lines */}
-          <div className="relative" style={{ height: `${totalTimelineHeight}px` }}>
+          {/* Hour Labels and Grid Lines - pointer-events-none so clicks pass through to timelineArea */}
+          <div className="relative pointer-events-none" style={{ height: `${totalTimelineHeight}px` }}>
             {hours.map((hour, index) => (
               <div
                 key={hour}
@@ -349,8 +358,8 @@ const ZeitplanWidget = ({
             className={`absolute top-0 bottom-0 ${isDraggingTimeRange ? 'cursor-ns-resize' : 'cursor-pointer'}`}
             style={{ left: `${timeLabelsWidth}px`, right: 0 }}
             onClick={(e) => {
-              // Only trigger if clicking on empty area, not on a block, and not dragging
-              if (e.target === e.currentTarget && onTimelineClick && !isDraggingTimeRange) {
+              // Only trigger if clicking on empty area, not on a block, not dragging, and no drag just completed
+              if (e.target === e.currentTarget && onTimelineClick && !isDraggingTimeRange && !dragJustCompletedRef.current) {
                 onTimelineClick();
               }
             }}
