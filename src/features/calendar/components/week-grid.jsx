@@ -623,292 +623,317 @@ const WeekGrid = memo(function WeekGrid({
               </tr>
             )}
           </thead>
+        </table>
 
-          {/* Body */}
-          <tbody>
-            {/* "+X more" row if needed (scrolls with content) */}
-            {hiddenRowsCount > 0 && (
-              <tr className="h-6 border-b border-neutral-200">
-                <td className="border-r border-neutral-100 bg-white" />
-                {weekDates.map((date, dayIndex) => {
-                  const hiddenBlocks = multiDayRows.slice(2).flat().filter(block => {
-                    const dateKey = formatDateKey(date);
-                    return block.startDate <= dateKey && block.endDate >= dateKey;
-                  });
-
-                  return (
-                    <td
-                      key={`more-${dayIndex}`}
-                      className="border-r border-neutral-100 last:border-r-0 text-center"
-                    >
-                      {hiddenBlocks.length > 0 && (
-                        <button className="text-xs text-neutral-600 hover:text-neutral-900">
-                          +{hiddenBlocks.length} mehr
-                        </button>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            )}
-
-            {/* Time slots */}
+        {/* T9 FIX: Div-based time grid (replaces table tbody) */}
+        {/* This allows proper drag-to-select across multiple hours */}
+        <div className="flex" style={{ height: `${24 * hourHeight}px` }}>
+          {/* Time Labels Column */}
+          <div className="w-10 flex-shrink-0 bg-white border-r border-neutral-100">
             {timeSlots.map((hour) => (
-              <tr key={hour} style={{ height: `${getRowHeight(hour)}px` }}>
-                {/* Time Label */}
-                <td className="align-top text-right pr-2 pt-1 text-xs text-neutral-400 border-r border-b border-neutral-100 bg-white">
-                  {hour}
-                </td>
+              <div
+                key={hour}
+                className="text-right pr-2 text-xs text-neutral-400 border-b border-neutral-100"
+                style={{ height: `${hourHeight}px`, paddingTop: '4px' }}
+              >
+                {hour}
+              </div>
+            ))}
+          </div>
 
-                {/* Day Cells */}
-                {weekDates.map((date, dayIndex) => {
-                  const dayBlocks = getBlocksForDateAndHour(date, hour);
-                  const isTodayColumn = dayIndex === getTodayColumnIndex;
-                  const selectionOverlay = getSelectionOverlay(dayIndex);
+          {/* Day Columns */}
+          {weekDates.map((date, dayIndex) => {
+            const dateKey = formatDateKey(date);
+            const isTodayColumn = dayIndex === getTodayColumnIndex;
+            const selectionOverlay = getSelectionOverlay(dayIndex);
+
+            // Get ALL blocks for this day (not just per hour)
+            const dayBlocks = regularBlocks.filter(block => {
+              const blockDate = block.startDate || block.date;
+              return blockDate === dateKey && block.startTime;
+            });
+
+            return (
+              <div
+                key={`day-${dayIndex}`}
+                className={`flex-1 relative border-r border-neutral-100 last:border-r-0 ${
+                  dragState.isDragging && dragState.dayIndex === dayIndex ? 'cursor-ns-resize' : 'cursor-pointer'
+                }`}
+                onMouseDown={(e) => {
+                  if (!onTimeRangeSelect) return;
+                  if (e.target !== e.currentTarget) return;
+
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const y = e.clientY - rect.top;
+
+                  setDragState({
+                    isDragging: true,
+                    dayIndex,
+                    startY: y,
+                    currentY: y,
+                  });
+                  e.preventDefault();
+                }}
+                onMouseMove={(e) => {
+                  if (!dragState.isDragging || dragState.dayIndex !== dayIndex) return;
+
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const y = e.clientY - rect.top;
+                  const clampedY = Math.max(0, Math.min(24 * hourHeight, y));
+
+                  setDragState(prev => ({ ...prev, currentY: clampedY }));
+                }}
+                onMouseUp={() => handleDragEnd(dayIndex)}
+                onMouseLeave={() => {
+                  if (dragState.isDragging && dragState.dayIndex === dayIndex) {
+                    setDragState({ isDragging: false, dayIndex: null, startY: null, currentY: null });
+                  }
+                }}
+                onClick={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (dragJustCompletedRef.current) return;
+
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const y = e.clientY - rect.top;
+                  const hour = Math.floor(y / hourHeight);
+                  handleSlotClick(date, hour);
+                }}
+              >
+                {/* Hour grid lines */}
+                {timeSlots.map((hour) => (
+                  <div
+                    key={hour}
+                    className="absolute left-0 right-0 border-b border-neutral-100"
+                    style={{ top: `${hour * hourHeight}px`, height: `${hourHeight}px` }}
+                  />
+                ))}
+
+                {/* T9: Current time indicator */}
+                {isTodayColumn && (
+                  <div
+                    className="absolute left-0 right-0 z-30 pointer-events-none flex items-center"
+                    style={{ top: `${currentTimePosition}px` }}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
+                    <div className="flex-1 h-0.5 bg-red-500" />
+                  </div>
+                )}
+
+                {/* T9: Drag-to-select overlay */}
+                {selectionOverlay && (
+                  <div
+                    className={`absolute left-1 right-1 rounded-lg border-2 border-dashed z-20 flex items-center justify-center pointer-events-none ${
+                      selectionOverlay.isValid
+                        ? 'bg-blue-100/70 border-blue-400'
+                        : 'bg-red-100/70 border-red-400'
+                    }`}
+                    style={{
+                      top: `${selectionOverlay.top}px`,
+                      height: `${selectionOverlay.height}px`,
+                    }}
+                  >
+                    <div className={`text-xs font-medium px-2 py-1 rounded ${
+                      selectionOverlay.isValid ? 'text-blue-700 bg-blue-50' : 'text-red-700 bg-red-50'
+                    }`}>
+                      {selectionOverlay.isValid ? (
+                        <>
+                          {formatTimeFromHour(selectionOverlay.startTime)} - {formatTimeFromHour(selectionOverlay.endTime)}
+                        </>
+                      ) : selectionOverlay.collision ? (
+                        'Überschneidung!'
+                      ) : (
+                        'Mind. 15 Min.'
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Blocks */}
+                {dayBlocks.map((block) => {
+                  const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.theme;
+                  const isDragOver = dragOverBlockId === block.id;
+
+                  // Calculate block position and height
+                  const [startH, startM] = block.startTime.split(':').map(Number);
+                  const blockTopPx = (startH + startM / 60) * hourHeight;
+
+                  let durationHours = 1;
+                  if (block.endTime) {
+                    const [endH, endM] = block.endTime.split(':').map(Number);
+                    durationHours = (endH + endM / 60) - (startH + startM / 60);
+                  } else if (block.duration) {
+                    durationHours = block.duration;
+                  }
+                  const blockHeight = Math.max(44, durationHours * hourHeight - 8);
+
+                  // T9: Drag & Drop handlers
+                  const handleBlockDragOver = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'copy';
+                    setDragOverBlockId(block.id);
+                  };
+
+                  const handleBlockDragLeave = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverBlockId(null);
+                  };
+
+                  const handleBlockDrop = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverBlockId(null);
+
+                    try {
+                      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                      if (onDropTaskToBlock) {
+                        if (data.type === 'task') {
+                          onDropTaskToBlock(block, data.task, data.source, 'task');
+                        } else if (data.type === 'thema') {
+                          onDropTaskToBlock(block, data.thema, data.source, 'thema');
+                        }
+                      }
+                    } catch (err) {
+                      console.error('Drop error:', err);
+                    }
+                  };
+
+                  // T9: Blocked state rendering
+                  if (block.isBlocked) {
+                    return (
+                      <div
+                        key={block.id}
+                        className="absolute left-1 right-1 rounded-lg border-2 border-neutral-300 p-2 flex flex-col items-center justify-center cursor-pointer z-10 bg-neutral-100"
+                        style={{
+                          top: `${blockTopPx + 4}px`,
+                          height: `${blockHeight}px`,
+                          backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(163, 163, 163, 0.1) 10px, rgba(163, 163, 163, 0.1) 20px)',
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onBlockClick) onBlockClick(block, date);
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-neutral-400" />
+                          <span className="text-xs font-medium text-neutral-500">Blockiert</span>
+                        </div>
+                        {block.title && (
+                          <p className="text-xs text-neutral-400 mt-0.5 truncate max-w-full">{block.title}</p>
+                        )}
+                      </div>
+                    );
+                  }
 
                   return (
-                    <td
-                      key={`${hour}-${dayIndex}`}
-                      onClick={() => {
-                        if (dayBlocks.length === 0 && !dragJustCompletedRef.current) {
-                          handleSlotClick(date, hour);
-                        }
+                    <div
+                      key={block.id}
+                      className={`absolute left-1 right-1 rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-all z-10 select-none ${
+                        isDragOver
+                          ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300'
+                          : `${colorClass} hover:shadow-md`
+                      }`}
+                      style={{
+                        top: `${blockTopPx + 4}px`,
+                        height: `${blockHeight}px`,
                       }}
-                      onMouseDown={(e) => handleDragStart(e, dayIndex, e.currentTarget)}
-                      onMouseMove={(e) => handleDragMove(e, dayIndex, e.currentTarget)}
-                      onMouseUp={() => handleDragEnd(dayIndex)}
-                      onMouseLeave={() => {
-                        if (dragState.isDragging && dragState.dayIndex === dayIndex) {
-                          setDragState({ isDragging: false, dayIndex: null, startY: null, currentY: null });
-                        }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onBlockClick) onBlockClick(block, date);
                       }}
-                      className={`relative border-r border-b border-neutral-100 last:border-r-0 p-1 align-top overflow-visible ${
-                        dayBlocks.length === 0 ? 'hover:bg-neutral-50 cursor-pointer' : ''
-                      } ${dragState.isDragging && dragState.dayIndex === dayIndex ? 'cursor-ns-resize' : ''}`}
+                      onDragOver={handleBlockDragOver}
+                      onDragEnter={handleBlockDragOver}
+                      onDragLeave={handleBlockDragLeave}
+                      onDrop={handleBlockDrop}
                     >
-                      {/* T9: Current time indicator (only for today column, only in first hour row that contains it) */}
-                      {isTodayColumn && hour === Math.floor(currentTime.getHours()) && (
-                        <div
-                          className="absolute left-0 right-0 z-30 pointer-events-none flex items-center"
-                          style={{ top: `${(currentTime.getMinutes() / 60) * hourHeight}px` }}
-                        >
-                          <div className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
-                          <div className="flex-1 h-0.5 bg-red-500" />
+                      {/* Drop indicator overlay */}
+                      {isDragOver && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-blue-100/90 rounded-lg z-10 pointer-events-none">
+                          <span className="text-xs font-medium text-blue-600">Hier ablegen</span>
                         </div>
                       )}
 
-                      {/* T9: Drag-to-select overlay */}
-                      {selectionOverlay && hour === 0 && (
-                        <div
-                          className={`absolute left-1 right-1 rounded-lg border-2 border-dashed z-20 flex items-center justify-center pointer-events-none ${
-                            selectionOverlay.isValid
-                              ? 'bg-blue-100/70 border-blue-400'
-                              : 'bg-red-100/70 border-red-400'
-                          }`}
-                          style={{
-                            top: `${selectionOverlay.top}px`,
-                            height: `${selectionOverlay.height}px`,
-                          }}
-                        >
-                          <div className={`text-xs font-medium px-2 py-1 rounded ${
-                            selectionOverlay.isValid ? 'text-blue-700 bg-blue-50' : 'text-red-700 bg-red-50'
-                          }`}>
-                            {selectionOverlay.isValid ? (
-                              <>
-                                {formatTimeFromHour(selectionOverlay.startTime)} - {formatTimeFromHour(selectionOverlay.endTime)}
-                              </>
-                            ) : selectionOverlay.collision ? (
-                              'Überschneidung!'
-                            ) : (
-                              'Mind. 15 Min.'
-                            )}
-                          </div>
+                      {/* Block content */}
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs font-medium text-neutral-900 truncate flex-1">
+                          {block.title}
                         </div>
-                      )}
+                        {block.startTime && block.endTime && blockHeight > 40 && (
+                          <span className="text-xs text-neutral-500 shrink-0">
+                            {block.startTime}-{block.endTime}
+                          </span>
+                        )}
+                        {/* T9: Task progress indicator */}
+                        {block.tasks && block.tasks.length > 0 && (
+                          <span className="text-xs text-neutral-500 shrink-0">
+                            {block.tasks.filter(t => t.completed).length}/{block.tasks.length}
+                          </span>
+                        )}
+                      </div>
 
-                      {/* Blocks */}
-                      {dayBlocks.map((block) => {
-                        const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.theme;
-                        const isDragOver = dragOverBlockId === block.id;
-
-                        // Calculate block height
-                        let durationHours = 1;
-                        if (block.startTime && block.endTime) {
-                          const [startH, startM] = block.startTime.split(':').map(Number);
-                          const [endH, endM] = block.endTime.split(':').map(Number);
-                          durationHours = (endH + endM / 60) - (startH + startM / 60);
-                        } else if (block.duration) {
-                          durationHours = block.duration;
-                        }
-                        const blockHeight = Math.max(44, durationHours * hourHeight - 8);
-
-                        // T9: Drag & Drop handlers
-                        const handleBlockDragOver = (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          e.dataTransfer.dropEffect = 'copy';
-                          setDragOverBlockId(block.id);
-                        };
-
-                        const handleBlockDragLeave = (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setDragOverBlockId(null);
-                        };
-
-                        const handleBlockDrop = (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setDragOverBlockId(null);
-
-                          try {
-                            const data = JSON.parse(e.dataTransfer.getData('application/json'));
-                            if (onDropTaskToBlock) {
-                              if (data.type === 'task') {
-                                onDropTaskToBlock(block, data.task, data.source, 'task');
-                              } else if (data.type === 'thema') {
-                                onDropTaskToBlock(block, data.thema, data.source, 'thema');
-                              }
-                            }
-                          } catch (err) {
-                            console.error('Drop error:', err);
-                          }
-                        };
-
-                        // T9: Blocked state rendering
-                        if (block.isBlocked) {
-                          return (
-                            <div
-                              key={block.id}
-                              className="absolute top-1 left-1 right-1 rounded-lg border-2 border-neutral-300 p-2 flex flex-col items-center justify-center cursor-pointer z-10 bg-neutral-100"
-                              style={{
-                                height: `${blockHeight}px`,
-                                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(163, 163, 163, 0.1) 10px, rgba(163, 163, 163, 0.1) 20px)',
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (onBlockClick) onBlockClick(block, date);
-                              }}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <Lock className="w-3.5 h-3.5 text-neutral-400" />
-                                <span className="text-xs font-medium text-neutral-500">Blockiert</span>
-                              </div>
-                              {block.title && (
-                                <p className="text-xs text-neutral-400 mt-0.5 truncate max-w-full">{block.title}</p>
-                              )}
-                            </div>
-                          );
-                        }
-
+                      {/* T9: Progress bar */}
+                      {block.tasks && block.tasks.length > 0 && blockHeight > 50 && (() => {
+                        const completedCount = block.tasks.filter(t => t.completed).length;
+                        const totalCount = block.tasks.length;
+                        const progressPercent = Math.round((completedCount / totalCount) * 100);
                         return (
-                          <div
-                            key={block.id}
-                            className={`absolute top-1 left-1 right-1 rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-all z-10 select-none ${
-                              isDragOver
-                                ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300'
-                                : `${colorClass} hover:shadow-md`
-                            }`}
-                            style={{ height: `${blockHeight}px` }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (onBlockClick) onBlockClick(block, date);
-                            }}
-                            onDragOver={handleBlockDragOver}
-                            onDragEnter={handleBlockDragOver}
-                            onDragLeave={handleBlockDragLeave}
-                            onDrop={handleBlockDrop}
-                          >
-                            {/* Drop indicator overlay */}
-                            {isDragOver && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-blue-100/90 rounded-lg z-10 pointer-events-none">
-                                <span className="text-xs font-medium text-blue-600">Hier ablegen</span>
-                              </div>
-                            )}
-
-                            {/* Block content */}
-                            <div className="flex items-center gap-2">
-                              <div className="text-xs font-medium text-neutral-900 truncate flex-1">
-                                {block.title}
-                              </div>
-                              {block.startTime && block.endTime && blockHeight > 40 && (
-                                <span className="text-xs text-neutral-500 shrink-0">
-                                  {block.startTime}-{block.endTime}
-                                </span>
-                              )}
-                              {/* T9: Task progress indicator */}
-                              {block.tasks && block.tasks.length > 0 && (
-                                <span className="text-xs text-neutral-500 shrink-0">
-                                  {block.tasks.filter(t => t.completed).length}/{block.tasks.length}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* T9: Progress bar */}
-                            {block.tasks && block.tasks.length > 0 && blockHeight > 50 && (() => {
-                              const completedCount = block.tasks.filter(t => t.completed).length;
-                              const totalCount = block.tasks.length;
-                              const progressPercent = Math.round((completedCount / totalCount) * 100);
-                              return (
-                                <div className="w-full bg-neutral-200 rounded-full h-1 mt-1">
-                                  <div
-                                    className={`h-1 rounded-full transition-all ${
-                                      progressPercent === 100 ? 'bg-green-500' : 'bg-neutral-600'
-                                    }`}
-                                    style={{ width: `${progressPercent}%` }}
-                                  />
-                                </div>
-                              );
-                            })()}
-
-                            {/* T9: Tasks list */}
-                            {block.tasks && block.tasks.length > 0 && blockHeight > 70 && (
-                              <div className="flex flex-col gap-0.5 mt-1.5">
-                                {block.tasks.slice(0, Math.min(3, Math.floor((blockHeight - 50) / 18))).map((task, taskIndex) => (
-                                  <div key={task.id || taskIndex} className="flex items-center gap-1.5 group/task">
-                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                      task.completed ? 'bg-green-500' : 'bg-neutral-400'
-                                    }`} />
-                                    <span className={`text-xs truncate flex-1 ${
-                                      task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'
-                                    }`}>
-                                      {task.themaTitle && (
-                                        <span className="text-neutral-400 mr-0.5">{task.themaTitle}:</span>
-                                      )}
-                                      {task.text}
-                                    </span>
-                                    {/* X button to remove task */}
-                                    {onRemoveTaskFromBlock && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onRemoveTaskFromBlock(block, task);
-                                        }}
-                                        className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0"
-                                        title="Aus Session entfernen"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </div>
-                                ))}
-                                {block.tasks.length > 3 && (
-                                  <span className="text-xs text-neutral-400">
-                                    +{block.tasks.length - 3} weitere
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                          <div className="w-full bg-neutral-200 rounded-full h-1 mt-1">
+                            <div
+                              className={`h-1 rounded-full transition-all ${
+                                progressPercent === 100 ? 'bg-green-500' : 'bg-neutral-600'
+                              }`}
+                              style={{ width: `${progressPercent}%` }}
+                            />
                           </div>
                         );
-                      })}
-                    </td>
+                      })()}
+
+                      {/* T9: Tasks list */}
+                      {block.tasks && block.tasks.length > 0 && blockHeight > 70 && (
+                        <div className="flex flex-col gap-0.5 mt-1.5">
+                          {block.tasks.slice(0, Math.min(3, Math.floor((blockHeight - 50) / 18))).map((task, taskIndex) => (
+                            <div key={task.id || taskIndex} className="flex items-center gap-1.5 group/task">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                task.completed ? 'bg-green-500' : 'bg-neutral-400'
+                              }`} />
+                              <span className={`text-xs truncate flex-1 ${
+                                task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'
+                              }`}>
+                                {task.themaTitle && (
+                                  <span className="text-neutral-400 mr-0.5">{task.themaTitle}:</span>
+                                )}
+                                {task.text}
+                              </span>
+                              {/* X button to remove task */}
+                              {onRemoveTaskFromBlock && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveTaskFromBlock(block, task);
+                                  }}
+                                  className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0"
+                                  title="Aus Session entfernen"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {block.tasks.length > 3 && (
+                            <span className="text-xs text-neutral-400">
+                              +{block.tasks.length - 3} weitere
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
