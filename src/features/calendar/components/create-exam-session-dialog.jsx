@@ -433,8 +433,9 @@ const CreateExamBlockDialog = ({
             )}
           </div>
 
-          {/* Blockgröße Field - Only shown when details toggle is ON */}
-          {showDetails && (
+          {/* Blockgröße Field - Only shown in BLOCK mode (Monatsansicht) when details toggle is ON */}
+          {/* PRD §3.1: Sessions (Wochenansicht) haben KEINE blockSize! */}
+          {mode === 'block' && showDetails && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-neutral-900">
                 Blockgröße <span className="text-xs text-neutral-500">({maxBlocks} Block{maxBlocks !== 1 ? 's' : ''} verfügbar)</span>

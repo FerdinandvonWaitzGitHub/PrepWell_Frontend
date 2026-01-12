@@ -273,12 +273,12 @@ const DashboardPage = () => {
     }
   }, []);
 
-  // Handle timeline click - navigate to week view instead of opening dialog
-  // TICKET-9: Navigate to week view for session creation
+  // T6.5 FIX: Handle timeline click - open session creation dialog
+  // Previously navigated to week view (TICKET-9), but user expects dialog
   const handleTimelineClick = useCallback(() => {
-    // Navigate to week view with current date
-    navigate(`/kalender/woche?date=${dateString}`);
-  }, [navigate, dateString]);
+    // Open add dialog to let user choose session type
+    setIsAddDialogOpen(true);
+  }, []);
 
   // Handle block type selection from AddThemeDialog
   const handleSelectBlockType = useCallback((type) => {

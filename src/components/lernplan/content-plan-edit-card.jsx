@@ -847,10 +847,33 @@ const ThemaSection = ({
 
   const { aufgabeLabel, aufgabePluralLabel } = hierarchyLabels;
 
+  // T5.7 FIX: Toggle thema completed status
+  const handleThemaToggle = () => {
+    updateThemaInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id, {
+      completed: !thema.completed
+    });
+  };
+
   return (
     <div className="border-l border-neutral-200 pl-3">
       {/* Header */}
       <div className="flex items-center py-0.5">
+        {/* T5.7 FIX: Checkbox for marking theme as completed */}
+        <button
+          onClick={handleThemaToggle}
+          className={`w-3.5 h-3.5 mr-2 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${
+            thema.completed
+              ? 'bg-neutral-900 border-neutral-900'
+              : 'border-neutral-300 hover:border-neutral-400'
+          }`}
+          title={thema.completed ? 'Als nicht erledigt markieren' : 'Als erledigt markieren'}
+        >
+          {thema.completed && (
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </button>
         <button onClick={onToggle} className="p-0.5 mr-1 hover:bg-neutral-100 rounded">
           <ChevronDownIcon size={10} className={`text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
@@ -858,7 +881,9 @@ const ThemaSection = ({
           type="text"
           value={thema.title}
           onChange={(e) => updateThemaInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id, { title: e.target.value })}
-          className="flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
+          className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
+            thema.completed ? 'text-neutral-400 line-through' : ''
+          }`}
         />
         <button
           onClick={() => deleteThemaFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id)}

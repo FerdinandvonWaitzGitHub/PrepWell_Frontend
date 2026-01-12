@@ -52,7 +52,8 @@ const ManageExamBlockDialog = ({
   onSave,
   onDelete,
   availableBlocks = 4,
-  availableSlots // Legacy alias
+  availableSlots, // Legacy alias
+  mode = 'block' // 'block' = Monatsansicht (has blockSize), 'session' = Wochenansicht (NO blockSize per PRD §3.1)
 }) => {
   // Support legacy prop name
   const maxBlocks = availableSlots ?? availableBlocks;
@@ -189,7 +190,8 @@ const ManageExamBlockDialog = ({
       ...block,
       title: selectedUnterrechtsgebiet?.name || block.title || 'Klausur',
       blockType: 'exam',
-      blockSize: showDetails ? blockSize : 1,
+      // PRD §3.1: blockSize nur in BLOCK mode (Monatsansicht), NICHT in session mode (Wochenansicht)
+      ...(mode === 'block' ? { blockSize: showDetails ? blockSize : 1 } : {}),
       hasDetails: showDetails,
       // Time settings
       hasTime: true,
@@ -404,8 +406,9 @@ const ManageExamBlockDialog = ({
             )}
           </div>
 
-          {/* Blockgröße Field - Only shown when details toggle is ON */}
-          {showDetails && (
+          {/* Blockgröße Field - Only shown in BLOCK mode (Monatsansicht) when details toggle is ON */}
+          {/* PRD §3.1: Sessions (Wochenansicht) haben KEINE blockSize! */}
+          {mode === 'block' && showDetails && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-neutral-900">
                 Blockgröße <span className="text-xs text-neutral-500">({totalAvailableBlocks} Block{totalAvailableBlocks !== 1 ? 's' : ''} verfügbar)</span>
