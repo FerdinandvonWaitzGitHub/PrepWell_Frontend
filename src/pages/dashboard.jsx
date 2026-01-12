@@ -447,6 +447,7 @@ const DashboardPage = () => {
 
   // Update a block (updates both Block and Content)
   // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan blocks
+  // T5.4 FIX: Unschedule removed tasks so they become available in themenliste again
   const handleUpdateBlock = useCallback(async (_date, updatedBlock) => {
     if (updatedBlock.blockType === 'private') {
       updatePrivateBlock(dateString, updatedBlock.id, updatedBlock);
@@ -455,7 +456,39 @@ const DashboardPage = () => {
 
     // BUG-023 FIX: Check if this is a time block
     const dayTimeBlocks = (timeBlocksByDate || {})[dateString] || [];
+    const dayLernplanBlocks = (blocksByDate || {})[dateString] || [];
     const isTimeBlock = dayTimeBlocks.some(block => block.id === updatedBlock.id) || updatedBlock.isTimeBlock;
+
+    // T5.4 FIX: Find original block to compare tasks
+    let originalBlock = null;
+    if (isTimeBlock) {
+      originalBlock = dayTimeBlocks.find(b => b.id === updatedBlock.id);
+    } else {
+      originalBlock = dayLernplanBlocks.find(b =>
+        b.id === updatedBlock.id ||
+        b.contentId === updatedBlock.id ||
+        b.contentId === updatedBlock.contentId ||
+        b.topicId === updatedBlock.id ||
+        b.topicId === updatedBlock.topicId
+      );
+    }
+
+    // T5.4 FIX: Find tasks that were removed and unschedule them
+    if (originalBlock) {
+      const oldTasks = originalBlock.tasks || [];
+      const newTasks = updatedBlock.tasks || [];
+      const newTaskIds = new Set(newTasks.map(t => t.id));
+
+      // Find removed tasks
+      const removedTasks = oldTasks.filter(t => !newTaskIds.has(t.id));
+
+      // Unschedule each removed task that came from themenliste
+      removedTasks.forEach(task => {
+        if (task.sourceId && task.source === 'themenliste' && unscheduleAufgabeFromBlock) {
+          unscheduleAufgabeFromBlock(task.sourceId);
+        }
+      });
+    }
 
     if (isTimeBlock) {
       // Update time block (user-created in Dashboard/Week)
@@ -521,10 +554,11 @@ const DashboardPage = () => {
       return block;
     });
     updateDayBlocks(dateString, updatedBlocks);
-  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updatePrivateBlock, updateTimeBlock, saveContent]);
+  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updatePrivateBlock, updateTimeBlock, saveContent, unscheduleAufgabeFromBlock]);
 
   // Delete a block (removes Block, Content remains for potential reuse)
   // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan blocks
+  // T5.4 FIX: Unschedule all tasks in the block before deletion
   const handleDeleteBlock = useCallback(async (_date, blockId) => {
     const dayPrivateBlocks = (privateBlocksByDate || {})[dateString] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
@@ -536,7 +570,29 @@ const DashboardPage = () => {
 
     // BUG-023 FIX: Check if it's a time block
     const dayTimeBlocks = (timeBlocksByDate || {})[dateString] || [];
+    const dayLernplanBlocks = (blocksByDate || {})[dateString] || [];
     const isTimeBlock = dayTimeBlocks.some(b => b.id === blockId);
+
+    // T5.4 FIX: Find block and unschedule all its tasks before deletion
+    let blockToDelete = null;
+    if (isTimeBlock) {
+      blockToDelete = dayTimeBlocks.find(b => b.id === blockId);
+    } else {
+      blockToDelete = dayLernplanBlocks.find(b =>
+        b.contentId === blockId ||
+        b.topicId === blockId ||
+        b.id === blockId
+      );
+    }
+
+    // Unschedule all tasks from themenliste
+    if (blockToDelete?.tasks && unscheduleAufgabeFromBlock) {
+      blockToDelete.tasks.forEach(task => {
+        if (task.sourceId && task.source === 'themenliste') {
+          unscheduleAufgabeFromBlock(task.sourceId);
+        }
+      });
+    }
 
     if (isTimeBlock) {
       console.log('[Dashboard handleDeleteBlock] BUG-023 FIX: Deleting time block');
@@ -555,7 +611,7 @@ const DashboardPage = () => {
     });
     updateDayBlocks(dateString, updatedBlocks);
     // Note: Content is NOT deleted - it can be reused later
-  }, [dateString, blocksByDate, timeBlocksByDate, privateBlocksByDate, updateDayBlocks, deletePrivateBlock, deleteTimeBlock]);
+  }, [dateString, blocksByDate, timeBlocksByDate, privateBlocksByDate, updateDayBlocks, deletePrivateBlock, deleteTimeBlock, unscheduleAufgabeFromBlock]);
 
   // Add a new private block
   const handleAddPrivateBlock = useCallback((_date, blockData) => {
