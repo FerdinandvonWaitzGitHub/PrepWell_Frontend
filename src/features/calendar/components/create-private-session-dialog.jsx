@@ -43,6 +43,7 @@ const CreatePrivateBlockDialog = ({
   date,
   onSave,
   initialTime = null, // Optional: wenn vom Wochenansicht-Klick
+  initialEndTime = null, // T4.1: Optional end time from drag-to-select
   availableBlocks = 4,
   availableSlots, // Legacy alias
   mode = 'session' // 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
@@ -78,10 +79,14 @@ const CreatePrivateBlockDialog = ({
       setStartDate(formatDateForInput(date));
       setStartTime(initialTime || '09:00');
       setEndDate(formatDateForInput(date));
-      // Set end time 1 hour after start
-      const startHour = parseInt((initialTime || '09:00').split(':')[0]);
-      const endHour = Math.min(startHour + 1, 23);
-      setEndTime(`${endHour.toString().padStart(2, '0')}:00`);
+      // T4.1: Use initialEndTime if provided, otherwise calculate +1 hour from start
+      if (initialEndTime) {
+        setEndTime(initialEndTime);
+      } else {
+        const startHour = parseInt((initialTime || '09:00').split(':')[0]);
+        const endHour = Math.min(startHour + 1, 23);
+        setEndTime(`${endHour.toString().padStart(2, '0')}:00`);
+      }
       // Reset repeat settings
       setRepeatEnabled(false);
       setRepeatType('weekly');
@@ -89,7 +94,7 @@ const CreatePrivateBlockDialog = ({
       setCustomDays([1, 3, 5]);
       setIsRepeatTypeOpen(false);
     }
-  }, [open, date, initialTime]);
+  }, [open, date, initialTime, initialEndTime]);
 
   // Toggle custom day
   const toggleCustomDay = (dayId) => {

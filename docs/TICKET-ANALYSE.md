@@ -25,11 +25,11 @@
 | ✅ | T5.7 | Themen nicht abhakbar im Normal-Modus | Bug | ERLEDIGT (2026-01-12) |
 | ✅ | T6.5 | Zeitplan-Klick → Wochenansicht statt Session | Bug | ERLEDIGT (2026-01-12) |
 | ✅ | TNEU | Normal-Modus: Funktionen prüfen vs PRD | Investigation | ERLEDIGT (2026-01-12) |
-| 🟡 | T5.1 | Fortschrittsberechnung + Abhakbarkeits-Logik | Feature | Mittel |
-| 🟡 | T5.3 | Themenlisten nicht einklappbar | UX | Klein |
-| 🟡 | T5.4 | Themenlisten nicht archivierbar | UX | Mittel |
-| 🟡 | T6.3 | Drag & Drop auf Startseite fehlt | UX | Mittel |
-| 🟡 | T4.1 | Session per Zeitbereich-Markierung (Google Cal) | UX | Mittel |
+| ✅ | T5.1 | Fortschrittsberechnung + Abhakbarkeits-Logik | Feature | ERLEDIGT |
+| ✅ | T5.3 | Themenlisten nicht einklappbar | UX | ERLEDIGT |
+| ✅ | T5.4 | Themenlisten nicht archivierbar | UX | ERLEDIGT |
+| ✅ | T6.3 | Drag & Drop auf Startseite fehlt | UX | ERLEDIGT |
+| ✅ | T4.1 | Session per Zeitbereich-Markierung (Google Cal) | UX | ERLEDIGT |
 | 🟡 | T4.2 | Wiederholung Enddatum fehlt | Feature | Mittel |
 | 🟡 | T-SET-1 | Zusätzliche Rechtsgebiete in Einstellungen | Feature | Mittel |
 | 🟡 | T-DASH-1 | Dashboard: Aufgaben erstellen + Themen→Session kopieren | Feature | Groß |
@@ -682,6 +682,15 @@ const CreateSessionDialog = ({ open, initialData, onClose }) => {
 5. Vorausgefüllte Zeiten aus Drag-Selektion
 
 **Aufwand:** Mittel (4-5h)
+
+**Status:** ✅ ERLEDIGT
+
+**Implementiert:**
+- `zeitplan-widget.jsx`: Drag-to-select mit Mouse-Events (mousedown, mousemove, mouseup)
+- Helper-Funktionen: `yToTime()` (15min Snap), `hasCollision()`, `findMaxEndWithoutCollision()`
+- Visuelles Feedback: Selection Overlay mit Zeitanzeige, Kollisionswarnung (rot)
+- `dashboard.jsx`: `handleTimeRangeSelect` Callback öffnet AddThemeDialog mit vorausgefüllten Zeiten
+- Alle Create-Dialogs akzeptieren `initialStartTime` / `initialEndTime` Props
 
 ---
 

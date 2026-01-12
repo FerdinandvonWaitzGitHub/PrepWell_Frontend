@@ -337,6 +337,9 @@ const DashboardPage = () => {
   // Dialog states
   const [selectedBlock, setSelectedBlock] = useState(null);
 
+  // T4.1: Selected time range from drag-to-select
+  const [selectedTimeRange, setSelectedTimeRange] = useState(null);
+
   // Add block dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
@@ -391,6 +394,25 @@ const DashboardPage = () => {
   // T6.5 FIX: Handle timeline click - open session creation dialog
   // Previously navigated to week view (TICKET-9), but user expects dialog
   const handleTimelineClick = useCallback(() => {
+    // Clear any previously selected time range
+    setSelectedTimeRange(null);
+    // Open add dialog to let user choose session type
+    setIsAddDialogOpen(true);
+  }, []);
+
+  // T4.1: Handle time range selection from drag-to-select in ZeitplanWidget
+  const handleTimeRangeSelect = useCallback((startHour, endHour) => {
+    // Convert hours to HH:MM format
+    const formatHour = (h) => {
+      const hours = Math.floor(h);
+      const minutes = Math.round((h - hours) * 60);
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    };
+
+    setSelectedTimeRange({
+      startTime: formatHour(startHour),
+      endTime: formatHour(endHour),
+    });
     // Open add dialog to let user choose session type
     setIsAddDialogOpen(true);
   }, []);
@@ -1090,6 +1112,7 @@ const DashboardPage = () => {
                 onNextDay={nextDay}
                 onBlockClick={handleBlockClick}
                 onTimelineClick={handleTimelineClick}
+                onTimeRangeSelect={handleTimeRangeSelect}
                 onDropTaskToBlock={handleDropTaskToBlock}
                 onRemoveTaskFromBlock={handleRemoveTaskFromBlock}
               />
@@ -1168,6 +1191,8 @@ const DashboardPage = () => {
         availableSlots={4}
         availableTasks={aufgaben}
         themeLists={themeLists}
+        initialStartTime={selectedTimeRange?.startTime}
+        initialEndTime={selectedTimeRange?.endTime}
       />
 
       {/* Create Repetition Session Dialog */}
@@ -1177,6 +1202,8 @@ const DashboardPage = () => {
         date={currentDateObj}
         onSave={handleAddBlock}
         availableSlots={4}
+        initialStartTime={selectedTimeRange?.startTime}
+        initialEndTime={selectedTimeRange?.endTime}
       />
 
       {/* Create Exam Session Dialog */}
@@ -1186,6 +1213,8 @@ const DashboardPage = () => {
         date={currentDateObj}
         onSave={handleAddBlock}
         availableSlots={4}
+        initialStartTime={selectedTimeRange?.startTime}
+        initialEndTime={selectedTimeRange?.endTime}
       />
 
       {/* Create Private Session Dialog */}
@@ -1193,7 +1222,8 @@ const DashboardPage = () => {
         open={isCreatePrivateOpen}
         onOpenChange={setIsCreatePrivateOpen}
         date={currentDateObj}
-        initialTime="09:00"
+        initialTime={selectedTimeRange?.startTime || "09:00"}
+        initialEndTime={selectedTimeRange?.endTime}
         onSave={handleAddPrivateBlock}
       />
 

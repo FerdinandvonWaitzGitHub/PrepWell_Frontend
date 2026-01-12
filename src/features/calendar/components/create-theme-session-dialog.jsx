@@ -37,6 +37,9 @@ const CreateThemeBlockDialog = ({
   // Task sources
   availableTasks = [],      // To-Dos
   themeLists = [],          // Themenlisten
+  // T4.1: Initial time values from drag-to-select
+  initialStartTime,
+  initialEndTime,
 }) => {
   // Support legacy prop name
   const maxBlocks = availableSlots ?? availableBlocks;
@@ -76,8 +79,9 @@ const CreateThemeBlockDialog = ({
     if (open) {
       setTitle('');
       setDescription('');
-      setStartTime('09:00');
-      setEndTime('11:00');
+      // T4.1: Use initial time values if provided (from drag-to-select)
+      setStartTime(initialStartTime || '09:00');
+      setEndTime(initialEndTime || '11:00');
       setBlockSize(1); // BUG-023: Reset block size
       setRepeatEnabled(false);
       setRepeatType('weekly');
@@ -93,7 +97,7 @@ const CreateThemeBlockDialog = ({
       setSelectedThemeListId(null);
       setIsRepeatTypeOpen(false);
     }
-  }, [open]);
+  }, [open, initialStartTime, initialEndTime]);
 
   // Format date for display
   const formatDate = (date) => {

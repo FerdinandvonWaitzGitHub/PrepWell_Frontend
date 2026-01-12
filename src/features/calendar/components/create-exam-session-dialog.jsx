@@ -54,7 +54,10 @@ const CreateExamBlockDialog = ({
   onSave,
   availableBlocks = 4,
   availableSlots, // Legacy alias
-  mode = 'session' // PRD §3.1: 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
+  mode = 'session', // PRD §3.1: 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
+  // T4.1: Initial time values from drag-to-select
+  initialStartTime,
+  initialEndTime,
 }) => {
   // Use central Unterrechtsgebiete context
   const {
@@ -107,8 +110,9 @@ const CreateExamBlockDialog = ({
       setDetailBlockSize(1);
       setSelectedRechtsgebiet(null);
       setSelectedUnterrechtsgebiet(null);
-      setStartTime('09:00');
-      setEndTime('11:00');
+      // T4.1: Use initial time values if provided (from drag-to-select)
+      setStartTime(initialStartTime || '09:00');
+      setEndTime(initialEndTime || '11:00');
       setRepeatEnabled(false);
       setRepeatType('weekly');
       setRepeatCount(20);
@@ -117,7 +121,7 @@ const CreateExamBlockDialog = ({
       setIsCreatingUnterrechtsgebiet(false);
       setNewUnterrechtsgebietName('');
     }
-  }, [open]);
+  }, [open, initialStartTime, initialEndTime]);
 
   // Toggle custom day
   const toggleCustomDay = (dayId) => {

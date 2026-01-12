@@ -27,12 +27,19 @@ const ZeitplanWidget = ({
   onNextDay,
   onBlockClick,
   onTimelineClick,
+  onTimeRangeSelect, // T4.1: Callback when user drags to select a time range (startTime, endTime)
   onDropTaskToBlock, // Callback when a task is dropped onto a block
   onRemoveTaskFromBlock, // Callback when a task is removed from a block (for unscheduling)
 }) => {
   const [blocks, setBlocks] = useState(data?.blocks || []);
   const [dragOverBlockId, setDragOverBlockId] = useState(null);
   const timelineContainerRef = useRef(null);
+  const timelineAreaRef = useRef(null);
+
+  // T4.1: State for drag-to-select time range
+  const [isDraggingTimeRange, setIsDraggingTimeRange] = useState(false);
+  const [dragStartY, setDragStartY] = useState(null);
+  const [dragCurrentY, setDragCurrentY] = useState(null);
 
   // BUG-007 FIX: Current time state that updates every minute
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -106,6 +113,161 @@ const ZeitplanWidget = ({
   const currentTimePositionPx = isInRange
     ? (currentHour - baseStartHour + currentMinute / 60) * hourHeight
     : null;
+
+  // T4.1: Helper function - Y-Position to hour (snapped to 15min intervals)
+  const yToTime = (y) => {
+    const rawHour = y / hourHeight;
+    // Snap to 0.25 (15min intervals)
+    const snapped = Math.round(rawHour * 4) / 4;
+    // Clamp to valid range
+    return Math.max(baseStartHour, Math.min(baseEndHour, snapped));
+  };
+
+  // T4.1: Helper function - Format hour as HH:MM string
+  const formatTimeFromHour = (hour) => {
+    const h = Math.floor(hour);
+    const m = Math.round((hour - h) * 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+
+  // T4.1: Helper function - Check collision with existing blocks
+  const hasCollision = (startHour, endHour) => {
+    return blocks.some(block => {
+      const blockEnd = block.startHour + block.duration;
+      return startHour < blockEnd && endHour > block.startHour;
+    });
+  };
+
+  // T4.1: Helper function - Find the maximum endHour without collision (for clamping)
+  const findMaxEndWithoutCollision = (startHour) => {
+    let maxEnd = baseEndHour;
+    blocks.forEach(block => {
+      // If block starts after our start, it limits our end
+      if (block.startHour > startHour && block.startHour < maxEnd) {
+        maxEnd = block.startHour;
+      }
+    });
+    return maxEnd;
+  };
+
+  // T4.1: Helper function - Find the minimum startHour without collision (for clamping when dragging upward)
+  const findMinStartWithoutCollision = (endHour) => {
+    let minStart = baseStartHour;
+    blocks.forEach(block => {
+      const blockEnd = block.startHour + block.duration;
+      // If block ends before our end but after current minStart, it limits our start
+      if (blockEnd <= endHour && blockEnd > minStart) {
+        minStart = blockEnd;
+      }
+    });
+    return minStart;
+  };
+
+  // T4.1: Mouse event handlers for drag-to-select
+  const handleTimelineMouseDown = (e) => {
+    // Only start drag if clicking on empty area (not on a block)
+    if (e.target !== e.currentTarget) return;
+    if (!onTimeRangeSelect) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top + (timelineContainerRef.current?.scrollTop || 0);
+
+    setIsDraggingTimeRange(true);
+    setDragStartY(y);
+    setDragCurrentY(y);
+
+    // Prevent text selection during drag
+    e.preventDefault();
+  };
+
+  const handleTimelineMouseMove = (e) => {
+    if (!isDraggingTimeRange) return;
+
+    const rect = timelineAreaRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const y = e.clientY - rect.top + (timelineContainerRef.current?.scrollTop || 0);
+    // Clamp to timeline bounds
+    const clampedY = Math.max(0, Math.min(totalTimelineHeight, y));
+    setDragCurrentY(clampedY);
+  };
+
+  const handleTimelineMouseUp = (e) => {
+    if (!isDraggingTimeRange) return;
+
+    const startTime = yToTime(Math.min(dragStartY, dragCurrentY));
+    const endTime = yToTime(Math.max(dragStartY, dragCurrentY));
+
+    // Reset drag state
+    setIsDraggingTimeRange(false);
+    setDragStartY(null);
+    setDragCurrentY(null);
+
+    // Minimum duration: 15 minutes (0.25 hours)
+    if (endTime - startTime < 0.25) return;
+
+    // Check for collision - if collision exists, clamp the selection
+    let finalStart = startTime;
+    let finalEnd = endTime;
+
+    if (hasCollision(startTime, endTime)) {
+      // Find the valid range based on where user started dragging
+      const anchorTime = yToTime(dragStartY);
+      const dragDirection = dragCurrentY > dragStartY ? 'down' : 'up';
+
+      if (dragDirection === 'down') {
+        // User dragged downward - clamp end to first block
+        finalEnd = Math.min(endTime, findMaxEndWithoutCollision(startTime));
+      } else {
+        // User dragged upward - clamp start to last block end
+        finalStart = Math.max(startTime, findMinStartWithoutCollision(endTime));
+      }
+
+      // If still collision or too short, abort
+      if (hasCollision(finalStart, finalEnd) || finalEnd - finalStart < 0.25) {
+        return;
+      }
+    }
+
+    // Call callback with the selected time range
+    if (onTimeRangeSelect) {
+      onTimeRangeSelect(finalStart, finalEnd);
+    }
+  };
+
+  // T4.1: Handle mouse leave to cancel drag if mouse exits timeline area
+  const handleTimelineMouseLeave = () => {
+    if (isDraggingTimeRange) {
+      setIsDraggingTimeRange(false);
+      setDragStartY(null);
+      setDragCurrentY(null);
+    }
+  };
+
+  // T4.1: Calculate selection overlay position and state
+  const selectionOverlay = (() => {
+    if (!isDraggingTimeRange || dragStartY === null || dragCurrentY === null) {
+      return null;
+    }
+
+    const topY = Math.min(dragStartY, dragCurrentY);
+    const bottomY = Math.max(dragStartY, dragCurrentY);
+    const height = bottomY - topY;
+
+    const startTime = yToTime(topY);
+    const endTime = yToTime(bottomY);
+    const collision = hasCollision(startTime, endTime);
+    const tooShort = endTime - startTime < 0.25;
+
+    return {
+      top: topY,
+      height: Math.max(height, hourHeight / 4), // Minimum visual height
+      startTime,
+      endTime,
+      isValid: !collision && !tooShort,
+      collision,
+    };
+  })();
 
   return (
     <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden ${className}`}>
@@ -181,17 +343,50 @@ const ZeitplanWidget = ({
             </div>
           )}
 
-          {/* Clickable Timeline Area - Opens add dialog when clicked */}
+          {/* Clickable Timeline Area - Opens add dialog when clicked, supports drag-to-select */}
           <div
-            className="absolute top-0 bottom-0 cursor-pointer"
+            ref={timelineAreaRef}
+            className={`absolute top-0 bottom-0 ${isDraggingTimeRange ? 'cursor-ns-resize' : 'cursor-pointer'}`}
             style={{ left: `${timeLabelsWidth}px`, right: 0 }}
             onClick={(e) => {
-              // Only trigger if clicking on empty area, not on a block
-              if (e.target === e.currentTarget && onTimelineClick) {
+              // Only trigger if clicking on empty area, not on a block, and not dragging
+              if (e.target === e.currentTarget && onTimelineClick && !isDraggingTimeRange) {
                 onTimelineClick();
               }
             }}
+            onMouseDown={handleTimelineMouseDown}
+            onMouseMove={handleTimelineMouseMove}
+            onMouseUp={handleTimelineMouseUp}
+            onMouseLeave={handleTimelineMouseLeave}
           >
+            {/* T4.1: Selection Overlay during drag */}
+            {selectionOverlay && (
+              <div
+                className={`absolute left-2 right-2 rounded-lg border-2 border-dashed transition-colors pointer-events-none z-20 flex items-center justify-center ${
+                  selectionOverlay.isValid
+                    ? 'bg-blue-100/70 border-blue-400'
+                    : 'bg-red-100/70 border-red-400'
+                }`}
+                style={{
+                  top: `${selectionOverlay.top}px`,
+                  height: `${selectionOverlay.height}px`,
+                }}
+              >
+                <div className={`text-sm font-medium px-2 py-1 rounded ${
+                  selectionOverlay.isValid ? 'text-blue-700 bg-blue-50' : 'text-red-700 bg-red-50'
+                }`}>
+                  {selectionOverlay.isValid ? (
+                    <>
+                      {formatTimeFromHour(selectionOverlay.startTime)} - {formatTimeFromHour(selectionOverlay.endTime)}
+                    </>
+                  ) : selectionOverlay.collision ? (
+                    'Überschneidung!'
+                  ) : (
+                    'Mindestens 15 Min.'
+                  )}
+                </div>
+              </div>
+            )}
             {/* Scheduled Blocks */}
             {scheduledBlocks.map((block, index) => {
               const isBlocked = block.isBlocked;
