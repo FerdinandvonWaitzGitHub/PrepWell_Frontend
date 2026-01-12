@@ -186,6 +186,24 @@ export const CalendarProvider = ({ children }) => {
     setContentPlansLocal(newData);
   }, [setContentPlansLocal]);
 
+  /**
+   * Helper to persist contentPlan changes to both localStorage AND Supabase
+   * This fixes the critical data loss bug where nested CRUD operations only saved to localStorage
+   * @param {Array} updated - The full updated contentPlans array
+   * @param {string|null} planId - The ID of the plan that was modified (null for multi-plan updates)
+   */
+  const persistContentPlans = useCallback((updated, planId) => {
+    setContentPlans(updated);
+    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+    // Sync to Supabase
+    if (planId) {
+      const updatedPlan = updated.find(p => p.id === planId);
+      if (updatedPlan) {
+        saveContentPlanToSupabase(updatedPlan);
+      }
+    }
+  }, [setContentPlans, saveContentPlanToSupabase]);
+
   // Wrapper to set blocksByDate (for compatibility)
   const setBlocksByDate = useCallback((newData) => {
     setBlocksByDateSync(newData);
@@ -1467,8 +1485,10 @@ export const CalendarProvider = ({ children }) => {
     const updated = [newPlan, ...contentPlans];
     setContentPlans(updated);
     saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+    // Sync new plan to Supabase
+    saveContentPlanToSupabase(newPlan);
     return newPlan;
-  }, [contentPlans]);
+  }, [contentPlans, saveContentPlanToSupabase]);
 
   /**
    * Export a Themenliste as JSON file for sharing
@@ -1688,9 +1708,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Remove a Rechtsgebiet from a plan
@@ -1706,9 +1725,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   // ============================================
   // NESTED CRUD: Unterrechtsgebiete
@@ -1741,9 +1759,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Remove an Unterrechtsgebiet from a plan
@@ -1763,9 +1780,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   // ============================================
   // NESTED CRUD: Kapitel
@@ -1800,9 +1816,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Update a Kapitel
@@ -1830,9 +1845,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Delete a Kapitel
@@ -1858,9 +1872,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Flatten all Kapitel in all content plans
@@ -1910,9 +1923,16 @@ export const CalendarProvider = ({ children }) => {
       return plan;
     });
 
+    // flattenAllKapitel affects all plans, so sync each modified plan to Supabase
     setContentPlans(updated);
     saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    // Sync all modified plans to Supabase
+    updated.forEach(plan => {
+      if (plan.updatedAt) {
+        saveContentPlanToSupabase(plan);
+      }
+    });
+  }, [contentPlans, saveContentPlanToSupabase]);
 
   // ============================================
   // NESTED CRUD: Themen
@@ -1953,9 +1973,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Update a Thema
@@ -1989,9 +2008,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Delete a Thema
@@ -2023,9 +2041,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   // ============================================
   // NESTED CRUD: Aufgaben
@@ -2072,9 +2089,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Update an Aufgabe
@@ -2114,9 +2130,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Toggle Aufgabe completion
@@ -2156,9 +2171,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Delete an Aufgabe
@@ -2196,9 +2210,8 @@ export const CalendarProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
     });
-    setContentPlans(updated);
-    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    persistContentPlans(updated, planId);
+  }, [contentPlans, persistContentPlans]);
 
   /**
    * Schedule an Aufgabe to a Block (marks it as scheduled in the themenliste)
@@ -2244,9 +2257,15 @@ export const CalendarProvider = ({ children }) => {
       }
       return updatedPlan;
     });
+    // scheduleAufgabeToBlock affects unknown plan, sync all modified plans
     setContentPlans(updated);
     saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    updated.forEach(plan => {
+      if (plan.updatedAt) {
+        saveContentPlanToSupabase(plan);
+      }
+    });
+  }, [contentPlans, saveContentPlanToSupabase]);
 
   /**
    * Unschedule an Aufgabe from a Block (removes the scheduledInBlock marker)
@@ -2284,9 +2303,15 @@ export const CalendarProvider = ({ children }) => {
       }
       return updatedPlan;
     });
+    // unscheduleAufgabeFromBlock affects unknown plan, sync all modified plans
     setContentPlans(updated);
     saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
-  }, [contentPlans]);
+    updated.forEach(plan => {
+      if (plan.updatedAt) {
+        saveContentPlanToSupabase(plan);
+      }
+    });
+  }, [contentPlans, saveContentPlanToSupabase]);
 
   // ============================================
   // CUSTOM UNTERRECHTSGEBIETE (Global)
