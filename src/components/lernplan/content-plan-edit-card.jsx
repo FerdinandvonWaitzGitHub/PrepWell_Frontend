@@ -63,8 +63,21 @@ const ContentPlanEditCard = ({
     }
   });
 
+  // T5.1: Progress calculation setting - 'aufgaben' or 'themen'
+  const [progressCalculation, setProgressCalculation] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+      return settings.learning?.progressCalculation ?? 'aufgaben';
+    } catch {
+      return 'aufgaben';
+    }
+  });
+
   // Chapter level is only enabled for Jura students AND when setting is enabled
   const chapterLevelEnabled = isJura && chapterLevelEnabledSetting;
+
+  // T5.1: Thema checkbox only visible when progressCalculation is 'themen'
+  const showThemaCheckbox = progressCalculation === 'themen';
 
   // Listen for storage changes (when settings are updated)
   useEffect(() => {
@@ -72,8 +85,10 @@ const ContentPlanEditCard = ({
       try {
         const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
         setChapterLevelEnabledSetting(settings.jura?.chapterLevelEnabled ?? false);
+        setProgressCalculation(settings.learning?.progressCalculation ?? 'aufgaben');
       } catch {
         setChapterLevelEnabledSetting(false);
+        setProgressCalculation('aufgaben');
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -83,8 +98,10 @@ const ContentPlanEditCard = ({
       try {
         const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
         setChapterLevelEnabledSetting(settings.jura?.chapterLevelEnabled ?? false);
+        setProgressCalculation(settings.learning?.progressCalculation ?? 'aufgaben');
       } catch {
         setChapterLevelEnabledSetting(false);
+        setProgressCalculation('aufgaben');
       }
     };
 
@@ -409,6 +426,8 @@ const ContentPlanEditCard = ({
                     toggleThema={toggleThema}
                     // Chapter level setting
                     chapterLevelEnabled={chapterLevelEnabled}
+                    // T5.1: Progress calculation setting
+                    showThemaCheckbox={showThemaCheckbox}
                     // Hierarchy labels
                     hierarchyLabels={{ level2, level2Plural, level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura }}
                     // Pass CRUD functions
@@ -477,6 +496,7 @@ const RechtsgebietSection = ({
   expandedThemen,
   toggleThema,
   chapterLevelEnabled,
+  showThemaCheckbox, // T5.1
   hierarchyLabels,
   removeUnterrechtsgebietFromPlan,
   addKapitelToPlan,
@@ -531,6 +551,7 @@ const RechtsgebietSection = ({
                   expandedThemen={expandedThemen}
                   toggleThema={toggleThema}
                   chapterLevelEnabled={chapterLevelEnabled}
+                  showThemaCheckbox={showThemaCheckbox}
                   hierarchyLabels={{ level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura }}
                   addKapitelToPlan={addKapitelToPlan}
                   updateKapitelInPlan={updateKapitelInPlan}
@@ -577,6 +598,7 @@ const UnterrechtsgebietSection = ({
   expandedThemen,
   toggleThema,
   chapterLevelEnabled,
+  showThemaCheckbox, // T5.1
   hierarchyLabels,
   addKapitelToPlan,
   updateKapitelInPlan,
@@ -668,6 +690,7 @@ const UnterrechtsgebietSection = ({
                       onToggle={() => toggleKapitel(kapitel.id)}
                       expandedThemen={expandedThemen}
                       toggleThema={toggleThema}
+                      showThemaCheckbox={showThemaCheckbox}
                       hierarchyLabels={{ themaLabel, themaPluralLabel, aufgabeLabel, aufgabePluralLabel }}
                       updateKapitelInPlan={updateKapitelInPlan}
                       deleteKapitelFromPlan={deleteKapitelFromPlan}
@@ -707,6 +730,7 @@ const UnterrechtsgebietSection = ({
                       thema={thema}
                       isExpanded={expandedThemen.has(thema.id)}
                       onToggle={() => toggleThema(thema.id)}
+                      showThemaCheckbox={showThemaCheckbox}
                       hierarchyLabels={{ aufgabeLabel, aufgabePluralLabel }}
                       updateThemaInPlan={updateThemaInPlan}
                       deleteThemaFromPlan={deleteThemaFromPlan}
@@ -747,6 +771,7 @@ const KapitelSection = ({
   onToggle,
   expandedThemen,
   toggleThema,
+  showThemaCheckbox, // T5.1
   hierarchyLabels,
   updateKapitelInPlan,
   deleteKapitelFromPlan,
@@ -797,6 +822,7 @@ const KapitelSection = ({
                   thema={thema}
                   isExpanded={expandedThemen.has(thema.id)}
                   onToggle={() => toggleThema(thema.id)}
+                  showThemaCheckbox={showThemaCheckbox}
                   hierarchyLabels={{ aufgabeLabel, aufgabePluralLabel }}
                   updateThemaInPlan={updateThemaInPlan}
                   deleteThemaFromPlan={deleteThemaFromPlan}
@@ -834,6 +860,7 @@ const ThemaSection = ({
   thema,
   isExpanded,
   onToggle,
+  showThemaCheckbox = false, // T5.1: Only show checkbox when progressCalculation is 'themen'
   hierarchyLabels,
   updateThemaInPlan,
   deleteThemaFromPlan,
@@ -858,22 +885,24 @@ const ThemaSection = ({
     <div className="border-l border-neutral-200 pl-3">
       {/* Header */}
       <div className="flex items-center py-0.5">
-        {/* T5.7 FIX: Checkbox for marking theme as completed */}
-        <button
-          onClick={handleThemaToggle}
-          className={`w-3.5 h-3.5 mr-2 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${
-            thema.completed
-              ? 'bg-neutral-900 border-neutral-900'
-              : 'border-neutral-300 hover:border-neutral-400'
-          }`}
-          title={thema.completed ? 'Als nicht erledigt markieren' : 'Als erledigt markieren'}
-        >
-          {thema.completed && (
-            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
-        </button>
+        {/* T5.1: Checkbox for marking theme as completed - only when showThemaCheckbox is true */}
+        {showThemaCheckbox && (
+          <button
+            onClick={handleThemaToggle}
+            className={`w-3.5 h-3.5 mr-2 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${
+              thema.completed
+                ? 'bg-neutral-900 border-neutral-900'
+                : 'border-neutral-300 hover:border-neutral-400'
+            }`}
+            title={thema.completed ? 'Als nicht erledigt markieren' : 'Als erledigt markieren'}
+          >
+            {thema.completed && (
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </button>
+        )}
         <button onClick={onToggle} className="p-0.5 mr-1 hover:bg-neutral-100 rounded">
           <ChevronDownIcon size={10} className={`text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>

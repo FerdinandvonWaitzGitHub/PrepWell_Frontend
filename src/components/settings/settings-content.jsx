@@ -50,6 +50,8 @@ const defaultSettings = {
     breakDuration: 15,
     pomodoroEnabled: true,
     pomodoroDuration: 25,
+    // T5.1: Fortschrittsberechnung - 'aufgaben' = nur Aufgaben abhakbar, 'themen' = Themen UND Aufgaben abhakbar
+    progressCalculation: 'aufgaben',
   },
   display: {
     theme: 'light',
@@ -725,6 +727,42 @@ const SettingsContent = ({ className = '' }) => {
                 </select>
               </div>
             )}
+          </div>
+
+          {/* T5.1: Fortschrittsberechnung */}
+          <div className="py-3 border-t border-neutral-100">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <Layers className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Fortschrittsberechnung</p>
+                  <p className="text-xs text-neutral-500">Bestimmt, wie der Lernfortschritt berechnet wird</p>
+                </div>
+              </div>
+              <select
+                value={settings.learning.progressCalculation || 'aufgaben'}
+                onChange={(e) => handleSettingChange('learning', 'progressCalculation', e.target.value)}
+                className="px-3 py-2 text-sm border border-neutral-200 rounded-lg"
+              >
+                <option value="aufgaben">Nach Aufgaben</option>
+                <option value="themen">Nach Themen</option>
+              </select>
+            </div>
+            <div className="ml-8 mt-2 p-3 bg-neutral-50 rounded-lg">
+              <p className="text-xs text-neutral-600">
+                {settings.learning.progressCalculation === 'themen' ? (
+                  <>
+                    <strong>Nach Themen:</strong> Du kannst Themen und Aufgaben abhaken.
+                    Wenn du ein Thema abhakst, werden alle zugehörigen Aufgaben als erledigt markiert.
+                  </>
+                ) : (
+                  <>
+                    <strong>Nach Aufgaben:</strong> Du kannst nur Aufgaben abhaken.
+                    Der Fortschritt wird anhand der erledigten Aufgaben berechnet.
+                  </>
+                )}
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -35,6 +35,8 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     // New Content Plans (Lernpläne & Themenlisten)
     contentPlans,
     createContentPlan,
+    archiveContentPlan, // T5.4: Archive function
+    deleteContentPlan,  // T5.4: Delete function
   } = useCalendar();
 
   // State for editing calendar plan name
@@ -69,20 +71,45 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     return { filteredLernplaene: lernplaeneOnly, filteredThemenlisten: themenlistenOnly };
   }, [contentPlans, showArchived]);
 
-  // Auto-expand if only one plan
-  const shouldAutoExpand = filteredLernplaene.length === 1 || filteredThemenlisten.length === 1;
+  // T5.3 FIX: Track manually collapsed items to allow collapsing even with auto-expand
+  const [manuallyCollapsed, setManuallyCollapsed] = useState(new Set());
 
-  // Toggle expand
+  // Toggle expand - T5.3 FIX: Also track manual collapses
   const handleToggleExpand = (id) => {
     setExpandedIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
         newSet.delete(id);
+        // T5.3: Track that user manually collapsed this item
+        setManuallyCollapsed(prevCollapsed => new Set([...prevCollapsed, id]));
       } else {
         newSet.add(id);
+        // T5.3: Remove from manually collapsed when expanding
+        setManuallyCollapsed(prevCollapsed => {
+          const newCollapsed = new Set(prevCollapsed);
+          newCollapsed.delete(id);
+          return newCollapsed;
+        });
       }
       return newSet;
     });
+  };
+
+  // T5.3 FIX: Helper to check if item should be expanded
+  // Auto-expand single items UNLESS user has manually collapsed them
+  const shouldBeExpanded = (planId) => {
+    // If user manually collapsed, respect that
+    if (manuallyCollapsed.has(planId)) {
+      return false;
+    }
+    // Auto-expand if only one Themenliste or Lernplan
+    const isOnlyThemenliste = filteredThemenlisten.length === 1 && filteredThemenlisten[0]?.id === planId;
+    const isOnlyLernplan = filteredLernplaene.length === 1 && filteredLernplaene[0]?.id === planId;
+    if (isOnlyThemenliste || isOnlyLernplan) {
+      return true;
+    }
+    // Otherwise use expandedIds
+    return expandedIds.has(planId);
   };
 
   // Create new content plan
@@ -381,7 +408,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                   <ContentPlanEditCard
                     key={plan.id}
                     plan={plan}
-                    isExpanded={shouldAutoExpand || expandedIds.has(plan.id)}
+                    isExpanded={shouldBeExpanded(plan.id)}
                     onToggleExpand={handleToggleExpand}
                     isNew={newPlanId === plan.id}
                   />
@@ -389,8 +416,10 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                   <LernplanCard
                     key={plan.id}
                     lernplan={convertToLegacyFormat(plan)}
-                    isExpanded={shouldAutoExpand || expandedIds.has(plan.id)}
+                    isExpanded={shouldBeExpanded(plan.id)}
                     onToggleExpand={handleToggleExpand}
+                    onArchive={archiveContentPlan}
+                    onDelete={deleteContentPlan}
                   />
                 )
               ))}
@@ -412,7 +441,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                   <ContentPlanEditCard
                     key={plan.id}
                     plan={plan}
-                    isExpanded={shouldAutoExpand || expandedIds.has(plan.id)}
+                    isExpanded={shouldBeExpanded(plan.id)}
                     onToggleExpand={handleToggleExpand}
                     isNew={newPlanId === plan.id}
                   />
@@ -420,8 +449,10 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                   <LernplanCard
                     key={plan.id}
                     lernplan={convertToLegacyFormat(plan)}
-                    isExpanded={shouldAutoExpand || expandedIds.has(plan.id)}
+                    isExpanded={shouldBeExpanded(plan.id)}
                     onToggleExpand={handleToggleExpand}
+                    onArchive={archiveContentPlan}
+                    onDelete={deleteContentPlan}
                   />
                 )
               ))}

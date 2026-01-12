@@ -19,7 +19,9 @@ const TAG_COLORS = {
 const LernplanCard = ({
   lernplan,
   isExpanded = false,
-  onToggleExpand
+  onToggleExpand,
+  onArchive, // T5.4: Archive callback
+  onDelete,  // T5.4: Delete callback
 }) => {
   // Calculate progress - count Aufgaben (tasks) for consistency with edit mode
   let completedTasks = 0;
@@ -71,8 +73,39 @@ const LernplanCard = ({
           </div>
         </div>
 
-        {/* Right Side: Expand */}
-        <div className="flex items-center flex-shrink-0 ml-4">
+        {/* Right Side: Actions + Expand */}
+        <div className="flex items-center gap-1 flex-shrink-0 ml-4">
+          {/* T5.4: Archive Button */}
+          {onArchive && (
+            <button
+              onClick={() => onArchive(lernplan.id)}
+              className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
+              title={lernplan.archived ? 'Wiederherstellen' : 'Archivieren'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="21 8 21 21 3 21 3 8" />
+                <rect x="1" y="3" width="22" height="5" />
+                <line x1="10" y1="12" x2="14" y2="12" />
+              </svg>
+            </button>
+          )}
+          {/* T5.4: Delete Button */}
+          {onDelete && (
+            <button
+              onClick={() => {
+                if (confirm(`"${lernplan.title || 'Unbenannt'}" wirklich löschen?`)) {
+                  onDelete(lernplan.id);
+                }
+              }}
+              className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              title="Löschen"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </button>
+          )}
           {/* Expand/Collapse Button */}
           <button
             onClick={() => onToggleExpand?.(lernplan.id)}
