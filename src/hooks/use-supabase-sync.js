@@ -189,16 +189,50 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       setLoading(true);
 
       try {
-        // Try to sync local data first (for new users)
+        // Get local data first
         const localData = loadFromStorage(storageKey, defaultValue);
+
+        // Try to sync local data to Supabase (for new users)
         await syncToSupabase(localData);
 
         // Then fetch from Supabase
         const supabaseData = await fetchFromSupabase();
 
         if (supabaseData !== null) {
-          setData(supabaseData);
-          saveToStorage(storageKey, supabaseData); // Keep local cache
+          // BUGFIX: Merge local and Supabase data instead of overwriting
+          // This prevents data loss when Supabase save hasn't completed yet
+          if (Array.isArray(supabaseData) && Array.isArray(localData)) {
+            const supabaseIds = new Set(supabaseData.map(item => item.id));
+            // Find local items that are NOT in Supabase (pending saves)
+            const localOnlyItems = localData.filter(item => !supabaseIds.has(item.id));
+
+            if (localOnlyItems.length > 0) {
+              console.log(`[useSupabaseSync] Found ${localOnlyItems.length} local-only items, syncing to Supabase...`);
+              // Sync these items to Supabase
+              for (const item of localOnlyItems) {
+                try {
+                  await supabase
+                    .from(tableName)
+                    .upsert({
+                      ...transformToSupabase(item),
+                      user_id: user.id,
+                    });
+                } catch (syncErr) {
+                  console.error(`Failed to sync local item ${item.id}:`, syncErr);
+                }
+              }
+              // Merge: Supabase data + local-only items
+              const mergedData = [...supabaseData, ...localOnlyItems];
+              setData(mergedData);
+              saveToStorage(storageKey, mergedData);
+            } else {
+              setData(supabaseData);
+              saveToStorage(storageKey, supabaseData);
+            }
+          } else {
+            setData(supabaseData);
+            saveToStorage(storageKey, supabaseData);
+          }
           syncedRef.current = true;
         }
       } catch (err) {
@@ -209,7 +243,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     };
 
     initData();
-  }, [isSupabaseEnabled, isAuthenticated, fetchFromSupabase, syncToSupabase, storageKey, defaultValue]);
+  }, [isSupabaseEnabled, isAuthenticated, fetchFromSupabase, syncToSupabase, storageKey, defaultValue, tableName, transformToSupabase, user]);
 
   // Save data (to Supabase if authenticated, always to LocalStorage)
   const save = useCallback(async (newData, operation = 'upsert') => {
