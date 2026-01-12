@@ -6,15 +6,20 @@ import { useHierarchyLabels } from '../../hooks/use-hierarchy-labels';
 import UnterrechtsgebietPicker from './unterrechtsgebiet-picker';
 
 /**
- * ContentPlanEditCard - Unified editor for Lernpläne and Themenlisten
- * New hierarchical structure:
+ * ContentPlanEditCard - Unified component for Lernpläne and Themenlisten
+ * Supports both Edit and View modes with consistent hierarchy:
  * Plan → Rechtsgebiete → Unterrechtsgebiete → Kapitel → Themen → Aufgaben
+ *
+ * @param {boolean} viewMode - When true, shows read-only view with only "+ Aufgabe" action
  */
 const ContentPlanEditCard = ({
   plan,
   isExpanded,
   onToggleExpand,
   isNew = false,
+  viewMode = false, // New prop: when true, shows simplified view mode
+  onArchive, // Optional: archive handler for view mode
+  onDelete,  // Optional: delete handler for view mode
 }) => {
   const {
     updateContentPlan,
@@ -246,15 +251,21 @@ const ContentPlanEditCard = ({
           </span>
         )}
 
-        {/* Title Input */}
-        <input
-          type="text"
-          value={plan.name}
-          onChange={(e) => updateContentPlan(plan.id, { name: e.target.value })}
-          onClick={(e) => e.stopPropagation()}
-          placeholder={plan.type === 'themenliste' ? 'Themenliste Titel...' : 'Lernplan Titel...'}
-          className="flex-1 min-w-0 px-2 py-1 text-base font-medium text-neutral-900 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
-        />
+        {/* Title - Input in edit mode, text in view mode */}
+        {viewMode ? (
+          <h3 className="flex-1 min-w-0 px-2 py-1 text-base font-medium text-neutral-900 truncate">
+            {plan.name || (plan.type === 'themenliste' ? 'Themenliste' : 'Lernplan')}
+          </h3>
+        ) : (
+          <input
+            type="text"
+            value={plan.name}
+            onChange={(e) => updateContentPlan(plan.id, { name: e.target.value })}
+            onClick={(e) => e.stopPropagation()}
+            placeholder={plan.type === 'themenliste' ? 'Themenliste Titel...' : 'Lernplan Titel...'}
+            className="flex-1 min-w-0 px-2 py-1 text-base font-medium text-neutral-900 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
+          />
+        )}
 
         {/* Progress Bar */}
         <div className="flex items-center gap-3 ml-4 flex-shrink-0">
@@ -271,8 +282,8 @@ const ContentPlanEditCard = ({
 
         {/* Actions */}
         <div className="flex items-center gap-1 ml-4 flex-shrink-0">
-          {/* Export Button (only for Themenlisten) */}
-          {plan.type === 'themenliste' && (
+          {/* Export Button (only for Themenlisten in edit mode) */}
+          {!viewMode && plan.type === 'themenliste' && (
             <button
               onClick={(e) => { e.stopPropagation(); exportThemenlisteAsJson(plan.id); }}
               className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
@@ -281,8 +292,8 @@ const ContentPlanEditCard = ({
               <ExportIcon size={16} />
             </button>
           )}
-          {/* Publish/Unpublish Button (only for Themenlisten) */}
-          {plan.type === 'themenliste' && (
+          {/* Publish/Unpublish Button (only for Themenlisten in edit mode) */}
+          {!viewMode && plan.type === 'themenliste' && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -302,18 +313,31 @@ const ContentPlanEditCard = ({
               <PublishIcon size={16} filled={plan.isPublished} />
             </button>
           )}
+          {/* Archive Button */}
           <button
-            onClick={(e) => { e.stopPropagation(); archiveContentPlan(plan.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (viewMode && onArchive) {
+                onArchive(plan.id);
+              } else {
+                archiveContentPlan(plan.id);
+              }
+            }}
             className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
             title={plan.archived ? 'Wiederherstellen' : 'Archivieren'}
           >
             <ArchiveIcon size={16} />
           </button>
+          {/* Delete Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               if (confirm(`"${plan.name || 'Unbenannt'}" wirklich löschen?`)) {
-                deleteContentPlan(plan.id);
+                if (viewMode && onDelete) {
+                  onDelete(plan.id);
+                } else {
+                  deleteContentPlan(plan.id);
+                }
               }
             }}
             className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -327,84 +351,93 @@ const ContentPlanEditCard = ({
       {/* Expanded Content */}
       {isExpanded && (
         <div className="border-t border-neutral-100 bg-neutral-50 p-4">
-          {/* Basic Info */}
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            {/* Description */}
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Beschreibung</label>
-              <textarea
-                value={plan.description || ''}
-                onChange={(e) => updateContentPlan(plan.id, { description: e.target.value })}
-                placeholder="Beschreibung..."
-                rows={2}
-                className="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
-              />
-            </div>
+          {/* Basic Info - only in edit mode */}
+          {!viewMode && (
+            <>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                {/* Description */}
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">Beschreibung</label>
+                  <textarea
+                    value={plan.description || ''}
+                    onChange={(e) => updateContentPlan(plan.id, { description: e.target.value })}
+                    placeholder="Beschreibung..."
+                    rows={2}
+                    className="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
+                  />
+                </div>
 
-            {/* Mode (only for Lernplan) */}
-            {plan.type === 'lernplan' && (
-              <div className="relative">
-                <label className="block text-xs font-medium text-neutral-500 mb-1">Modus</label>
-                <button
-                  onClick={() => setShowModeDropdown(!showModeDropdown)}
-                  className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50"
-                >
-                  <span>{plan.mode === 'examen' ? 'Examen' : 'Standard'}</span>
-                  <ChevronDownIcon size={14} className="text-neutral-400" />
-                </button>
-                {showModeDropdown && (
-                  <div className="absolute z-20 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
+                {/* Mode (only for Lernplan) */}
+                {plan.type === 'lernplan' && (
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-neutral-500 mb-1">Modus</label>
                     <button
-                      onClick={() => { updateContentPlan(plan.id, { mode: 'standard' }); setShowModeDropdown(false); }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${plan.mode === 'standard' ? 'bg-primary-50 text-primary-700' : ''}`}
+                      onClick={() => setShowModeDropdown(!showModeDropdown)}
+                      className="w-full flex items-center justify-between px-2 py-1.5 text-sm border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50"
                     >
-                      Standard
+                      <span>{plan.mode === 'examen' ? 'Examen' : 'Standard'}</span>
+                      <ChevronDownIcon size={14} className="text-neutral-400" />
                     </button>
-                    <button
-                      onClick={() => { updateContentPlan(plan.id, { mode: 'examen' }); setShowModeDropdown(false); }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${plan.mode === 'examen' ? 'bg-primary-50 text-primary-700' : ''}`}
-                    >
-                      Examen
-                    </button>
+                    {showModeDropdown && (
+                      <div className="absolute z-20 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg">
+                        <button
+                          onClick={() => { updateContentPlan(plan.id, { mode: 'standard' }); setShowModeDropdown(false); }}
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${plan.mode === 'standard' ? 'bg-primary-50 text-primary-700' : ''}`}
+                        >
+                          Standard
+                        </button>
+                        <button
+                          onClick={() => { updateContentPlan(plan.id, { mode: 'examen' }); setShowModeDropdown(false); }}
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 ${plan.mode === 'examen' ? 'bg-primary-50 text-primary-700' : ''}`}
+                        >
+                          Examen
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Exam Date (if examen mode) */}
-          {plan.type === 'lernplan' && plan.mode === 'examen' && (
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Examenstermin</label>
-              <input
-                type="date"
-                value={plan.examDate || ''}
-                onChange={(e) => updateContentPlan(plan.id, { examDate: e.target.value })}
-                className="px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-              />
-            </div>
+              {/* Exam Date (if examen mode) */}
+              {plan.type === 'lernplan' && plan.mode === 'examen' && (
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">Examenstermin</label>
+                  <input
+                    type="date"
+                    value={plan.examDate || ''}
+                    onChange={(e) => updateContentPlan(plan.id, { examDate: e.target.value })}
+                    className="px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {/* Rechtsgebiete/Fächer Section */}
-          <div className="border-t border-neutral-200 pt-4 mt-2">
+          <div className={viewMode ? '' : 'border-t border-neutral-200 pt-4 mt-2'}>
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium text-neutral-700">{level1Plural} & Inhalte</h4>
-              <button
-                onClick={() => setShowRechtsgebietPicker(true)}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded transition-colors"
-              >
-                <PlusIcon size={12} />
-                {level1}
-              </button>
+              {/* Add Rechtsgebiet button - only in edit mode */}
+              {!viewMode && (
+                <button
+                  onClick={() => setShowRechtsgebietPicker(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                >
+                  <PlusIcon size={12} />
+                  {level1}
+                </button>
+              )}
             </div>
 
             {/* Rechtsgebiete/Fächer List */}
             {(!plan.rechtsgebiete || plan.rechtsgebiete.length === 0) ? (
-              <EmptyState
-                message={`Noch keine ${level1Plural} hinzugefügt`}
-                actionLabel={`${level1} hinzufügen`}
-                onAction={() => setShowRechtsgebietPicker(true)}
-              />
+              !viewMode && (
+                <EmptyState
+                  message={`Noch keine ${level1Plural} hinzugefügt`}
+                  actionLabel={`${level1} hinzufügen`}
+                  onAction={() => setShowRechtsgebietPicker(true)}
+                />
+              )
             ) : (
               <div className="space-y-3">
                 {plan.rechtsgebiete.map((rechtsgebiet) => (
@@ -428,6 +461,8 @@ const ContentPlanEditCard = ({
                     chapterLevelEnabled={chapterLevelEnabled}
                     // T5.1: Progress calculation setting
                     showThemaCheckbox={showThemaCheckbox}
+                    // View mode
+                    viewMode={viewMode}
                     // Hierarchy labels
                     hierarchyLabels={{ level2, level2Plural, level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura }}
                     // Pass CRUD functions
@@ -497,6 +532,7 @@ const RechtsgebietSection = ({
   toggleThema,
   chapterLevelEnabled,
   showThemaCheckbox, // T5.1
+  viewMode = false, // View mode prop
   hierarchyLabels,
   removeUnterrechtsgebietFromPlan,
   addKapitelToPlan,
@@ -523,13 +559,16 @@ const RechtsgebietSection = ({
         <span className="text-xs text-neutral-500 mr-2">
           {rechtsgebiet?.unterrechtsgebiete?.length || 0} {level2Plural}
         </span>
-        <button
-          onClick={onRemove}
-          className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
-          title="Entfernen"
-        >
-          <TrashIcon size={14} />
-        </button>
+        {/* Delete button - only in edit mode */}
+        {!viewMode && (
+          <button
+            onClick={onRemove}
+            className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
+            title="Entfernen"
+          >
+            <TrashIcon size={14} />
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -552,6 +591,7 @@ const RechtsgebietSection = ({
                   toggleThema={toggleThema}
                   chapterLevelEnabled={chapterLevelEnabled}
                   showThemaCheckbox={showThemaCheckbox}
+                  viewMode={viewMode}
                   hierarchyLabels={{ level3, level3Plural, level4, level4Plural, level5, level5Plural, isJura }}
                   addKapitelToPlan={addKapitelToPlan}
                   updateKapitelInPlan={updateKapitelInPlan}
@@ -569,13 +609,16 @@ const RechtsgebietSection = ({
           ) : (
             <p className="text-xs text-neutral-400 py-2">Keine {level2Plural}</p>
           )}
-          <button
-            onClick={onAddUnterrechtsgebiet}
-            className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
-          >
-            <PlusIcon size={10} />
-            {level2}
-          </button>
+          {/* Add Unterrechtsgebiet button - only in edit mode */}
+          {!viewMode && (
+            <button
+              onClick={onAddUnterrechtsgebiet}
+              className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
+            >
+              <PlusIcon size={10} />
+              {level2}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -599,6 +642,7 @@ const UnterrechtsgebietSection = ({
   toggleThema,
   chapterLevelEnabled,
   showThemaCheckbox, // T5.1
+  viewMode = false, // View mode prop
   hierarchyLabels,
   addKapitelToPlan,
   updateKapitelInPlan,
@@ -662,13 +706,16 @@ const UnterrechtsgebietSection = ({
             <span className="ml-2 text-xs text-neutral-400">({unterrechtsgebiet.kategorie})</span>
           )}
         </div>
-        <button
-          onClick={onRemove}
-          className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
-          title="Entfernen"
-        >
-          <TrashIcon size={12} />
-        </button>
+        {/* Delete button - only in edit mode */}
+        {!viewMode && (
+          <button
+            onClick={onRemove}
+            className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
+            title="Entfernen"
+          >
+            <TrashIcon size={12} />
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -691,6 +738,7 @@ const UnterrechtsgebietSection = ({
                       expandedThemen={expandedThemen}
                       toggleThema={toggleThema}
                       showThemaCheckbox={showThemaCheckbox}
+                      viewMode={viewMode}
                       hierarchyLabels={{ themaLabel, themaPluralLabel, aufgabeLabel, aufgabePluralLabel }}
                       updateKapitelInPlan={updateKapitelInPlan}
                       deleteKapitelFromPlan={deleteKapitelFromPlan}
@@ -707,13 +755,16 @@ const UnterrechtsgebietSection = ({
               ) : (
                 <p className="text-xs text-neutral-400 py-1">Keine {level3Plural}</p>
               )}
-              <button
-                onClick={() => addKapitelToPlan(planId, rechtsgebietId, unterrechtsgebiet.id)}
-                className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
-              >
-                <PlusIcon size={10} />
-                {level3}
-              </button>
+              {/* Add Kapitel button - only in edit mode */}
+              {!viewMode && (
+                <button
+                  onClick={() => addKapitelToPlan(planId, rechtsgebietId, unterrechtsgebiet.id)}
+                  className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
+                >
+                  <PlusIcon size={10} />
+                  {level3}
+                </button>
+              )}
             </>
           ) : (
             // Kapitel-Ebene deaktiviert oder nicht-Jura: Zeige Themen direkt
@@ -731,6 +782,7 @@ const UnterrechtsgebietSection = ({
                       isExpanded={expandedThemen.has(thema.id)}
                       onToggle={() => toggleThema(thema.id)}
                       showThemaCheckbox={showThemaCheckbox}
+                      viewMode={viewMode}
                       hierarchyLabels={{ aufgabeLabel, aufgabePluralLabel }}
                       updateThemaInPlan={updateThemaInPlan}
                       deleteThemaFromPlan={deleteThemaFromPlan}
@@ -744,13 +796,16 @@ const UnterrechtsgebietSection = ({
               ) : (
                 <p className="text-xs text-neutral-400 py-1">Keine {themaPluralLabel}</p>
               )}
-              <button
-                onClick={handleAddThemaFlat}
-                className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
-              >
-                <PlusIcon size={10} />
-                {themaLabel}
-              </button>
+              {/* Add Thema button - only in edit mode */}
+              {!viewMode && (
+                <button
+                  onClick={handleAddThemaFlat}
+                  className="flex items-center gap-1 px-2 py-1 mt-2 text-xs text-primary-600 hover:bg-primary-50 rounded"
+                >
+                  <PlusIcon size={10} />
+                  {themaLabel}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -772,6 +827,7 @@ const KapitelSection = ({
   expandedThemen,
   toggleThema,
   showThemaCheckbox, // T5.1
+  viewMode = false, // View mode prop
   hierarchyLabels,
   updateKapitelInPlan,
   deleteKapitelFromPlan,
@@ -792,19 +848,29 @@ const KapitelSection = ({
         <button onClick={onToggle} className="p-0.5 mr-1.5 hover:bg-neutral-100 rounded">
           <ChevronDownIcon size={12} className={`text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
-        <input
-          type="text"
-          value={kapitel.title}
-          onChange={(e) => updateKapitelInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id, { title: e.target.value })}
-          className="flex-1 px-1.5 py-0.5 text-sm font-medium bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
-        />
-        <button
-          onClick={() => deleteKapitelFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id)}
-          className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
-          title="Löschen"
-        >
-          <TrashIcon size={12} />
-        </button>
+        {/* Title - input in edit mode, text in view mode */}
+        {viewMode ? (
+          <span className="flex-1 px-1.5 py-0.5 text-sm font-medium text-neutral-900">
+            {kapitel.title || 'Kapitel'}
+          </span>
+        ) : (
+          <input
+            type="text"
+            value={kapitel.title}
+            onChange={(e) => updateKapitelInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id, { title: e.target.value })}
+            className="flex-1 px-1.5 py-0.5 text-sm font-medium bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none"
+          />
+        )}
+        {/* Delete button - only in edit mode */}
+        {!viewMode && (
+          <button
+            onClick={() => deleteKapitelFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id)}
+            className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
+            title="Löschen"
+          >
+            <TrashIcon size={12} />
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -823,6 +889,7 @@ const KapitelSection = ({
                   isExpanded={expandedThemen.has(thema.id)}
                   onToggle={() => toggleThema(thema.id)}
                   showThemaCheckbox={showThemaCheckbox}
+                  viewMode={viewMode}
                   hierarchyLabels={{ aufgabeLabel, aufgabePluralLabel }}
                   updateThemaInPlan={updateThemaInPlan}
                   deleteThemaFromPlan={deleteThemaFromPlan}
@@ -836,13 +903,16 @@ const KapitelSection = ({
           ) : (
             <p className="text-xs text-neutral-400 py-1">Keine {themaPluralLabel}</p>
           )}
-          <button
-            onClick={() => addThemaToPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id)}
-            className="flex items-center gap-1 px-1.5 py-1 mt-1 text-xs text-primary-600 hover:bg-primary-50 rounded"
-          >
-            <PlusIcon size={10} />
-            {themaLabel}
-          </button>
+          {/* Add Thema button - only in edit mode */}
+          {!viewMode && (
+            <button
+              onClick={() => addThemaToPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitel.id)}
+              className="flex items-center gap-1 px-1.5 py-1 mt-1 text-xs text-primary-600 hover:bg-primary-50 rounded"
+            >
+              <PlusIcon size={10} />
+              {themaLabel}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -851,6 +921,7 @@ const KapitelSection = ({
 
 /**
  * ThemaSection - Collapsible Thema with Aufgaben
+ * In viewMode: shows "+ Aufgabe" button for adding tasks (user requirement)
  */
 const ThemaSection = ({
   planId,
@@ -861,6 +932,7 @@ const ThemaSection = ({
   isExpanded,
   onToggle,
   showThemaCheckbox = false, // T5.1: Only show checkbox when progressCalculation is 'themen'
+  viewMode = false, // View mode prop
   hierarchyLabels,
   updateThemaInPlan,
   deleteThemaFromPlan,
@@ -906,27 +978,37 @@ const ThemaSection = ({
         <button onClick={onToggle} className="p-0.5 mr-1 hover:bg-neutral-100 rounded">
           <ChevronDownIcon size={10} className={`text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
-        <input
-          type="text"
-          value={thema.title}
-          onChange={(e) => updateThemaInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id, { title: e.target.value })}
-          className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
-            thema.completed ? 'text-neutral-400 line-through' : ''
-          }`}
-        />
-        <button
-          onClick={() => deleteThemaFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id)}
-          className="p-0.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
-          title="Löschen"
-        >
-          <TrashIcon size={10} />
-        </button>
+        {/* Title - input in edit mode, text in view mode */}
+        {viewMode ? (
+          <span className={`flex-1 px-1 py-0.5 text-xs ${thema.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'}`}>
+            {thema.title || 'Thema'}
+          </span>
+        ) : (
+          <input
+            type="text"
+            value={thema.title}
+            onChange={(e) => updateThemaInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id, { title: e.target.value })}
+            className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
+              thema.completed ? 'text-neutral-400 line-through' : ''
+            }`}
+          />
+        )}
+        {/* Delete button - only in edit mode */}
+        {!viewMode && (
+          <button
+            onClick={() => deleteThemaFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id)}
+            className="p-0.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded"
+            title="Löschen"
+          >
+            <TrashIcon size={10} />
+          </button>
+        )}
       </div>
 
-      {/* Aufgaben */}
+      {/* Aufgaben - always expandable, even if empty (to show + Aufgabe button) */}
       {isExpanded && (
         <div className="ml-4 py-1">
-          {thema.aufgaben?.length > 0 ? (
+          {thema.aufgaben?.length > 0 && (
             <div className="space-y-0.5">
               {thema.aufgaben.map((aufgabe) => (
                 <AufgabeItem
@@ -938,15 +1020,15 @@ const ThemaSection = ({
                   themaId={thema.id}
                   aufgabe={aufgabe}
                   aufgabeLabel={aufgabeLabel}
+                  viewMode={viewMode}
                   updateAufgabeInPlan={updateAufgabeInPlan}
                   toggleAufgabeInPlan={toggleAufgabeInPlan}
                   deleteAufgabeFromPlan={deleteAufgabeFromPlan}
                 />
               ))}
             </div>
-          ) : (
-            <p className="text-xs text-neutral-400">Keine {aufgabePluralLabel}</p>
           )}
+          {/* Add Aufgabe button - ALWAYS visible (including in view mode per user requirement) */}
           <button
             onClick={() => addAufgabeToPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, thema.id)}
             className="flex items-center gap-1 px-1 py-0.5 mt-1 text-xs text-primary-600 hover:bg-primary-50 rounded"
@@ -971,34 +1053,47 @@ const AufgabeItem = ({
   themaId,
   aufgabe,
   aufgabeLabel,
+  viewMode = false, // View mode prop
   updateAufgabeInPlan,
   toggleAufgabeInPlan,
   deleteAufgabeFromPlan,
 }) => {
   return (
     <div className="flex items-center gap-2 py-0.5 group">
+      {/* Checkbox - always interactive */}
       <input
         type="checkbox"
         checked={aufgabe.completed}
         onChange={() => toggleAufgabeInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id)}
         className="w-3.5 h-3.5 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
       />
-      <input
-        type="text"
-        value={aufgabe.title}
-        onChange={(e) => updateAufgabeInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id, { title: e.target.value })}
-        placeholder={`${aufgabeLabel} eingeben...`}
-        className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
-          aufgabe.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'
-        }`}
-      />
-      <button
-        onClick={() => deleteAufgabeFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id)}
-        className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Löschen"
-      >
-        <TrashIcon size={10} />
-      </button>
+      {/* Title - input in edit mode OR when title is empty (to allow typing new task), text otherwise in view mode */}
+      {viewMode && aufgabe.title ? (
+        <span className={`flex-1 px-1 py-0.5 text-xs ${aufgabe.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'}`}>
+          {aufgabe.title}
+        </span>
+      ) : (
+        <input
+          type="text"
+          value={aufgabe.title}
+          onChange={(e) => updateAufgabeInPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id, { title: e.target.value })}
+          placeholder={`${aufgabeLabel} eingeben...`}
+          autoFocus={!aufgabe.title}
+          className={`flex-1 px-1 py-0.5 text-xs bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary-400 focus:outline-none ${
+            aufgabe.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'
+          }`}
+        />
+      )}
+      {/* Delete button - only in edit mode */}
+      {!viewMode && (
+        <button
+          onClick={() => deleteAufgabeFromPlan(planId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabe.id)}
+          className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Löschen"
+        >
+          <TrashIcon size={10} />
+        </button>
+      )}
     </div>
   );
 };

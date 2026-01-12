@@ -1,9 +1,7 @@
 import { useState, useMemo, forwardRef, useImperativeHandle } from 'react';
-import LernplanCard from './lernplan-card';
 import ContentPlanEditCard from './content-plan-edit-card';
 import CalendarPlanEditCard from './calendar-plan-edit-card';
 import { Button, PlusIcon } from '../ui';
-// BUG-P2 FIX: Removed ChevronDownIcon import - no longer needed after removing Mode Dropdown
 import { useCalendar } from '../../contexts/calendar-context';
 
 /**
@@ -404,24 +402,16 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
             <h3 className="text-sm font-medium text-neutral-700 mb-3">Themenlisten</h3>
             <div className="flex flex-col gap-3">
               {filteredThemenlisten.map((plan) => (
-                isEditMode ? (
-                  <ContentPlanEditCard
-                    key={plan.id}
-                    plan={plan}
-                    isExpanded={shouldBeExpanded(plan.id)}
-                    onToggleExpand={handleToggleExpand}
-                    isNew={newPlanId === plan.id}
-                  />
-                ) : (
-                  <LernplanCard
-                    key={plan.id}
-                    lernplan={convertToLegacyFormat(plan)}
-                    isExpanded={shouldBeExpanded(plan.id)}
-                    onToggleExpand={handleToggleExpand}
-                    onArchive={archiveContentPlan}
-                    onDelete={deleteContentPlan}
-                  />
-                )
+                <ContentPlanEditCard
+                  key={plan.id}
+                  plan={plan}
+                  isExpanded={shouldBeExpanded(plan.id)}
+                  onToggleExpand={handleToggleExpand}
+                  isNew={newPlanId === plan.id}
+                  viewMode={!isEditMode}
+                  onArchive={archiveContentPlan}
+                  onDelete={deleteContentPlan}
+                />
               ))}
             </div>
           </div>
@@ -437,24 +427,16 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
             ) : null}
             <div className="flex flex-col gap-3">
               {filteredLernplaene.map((plan) => (
-                isEditMode ? (
-                  <ContentPlanEditCard
-                    key={plan.id}
-                    plan={plan}
-                    isExpanded={shouldBeExpanded(plan.id)}
-                    onToggleExpand={handleToggleExpand}
-                    isNew={newPlanId === plan.id}
-                  />
-                ) : (
-                  <LernplanCard
-                    key={plan.id}
-                    lernplan={convertToLegacyFormat(plan)}
-                    isExpanded={shouldBeExpanded(plan.id)}
-                    onToggleExpand={handleToggleExpand}
-                    onArchive={archiveContentPlan}
-                    onDelete={deleteContentPlan}
-                  />
-                )
+                <ContentPlanEditCard
+                  key={plan.id}
+                  plan={plan}
+                  isExpanded={shouldBeExpanded(plan.id)}
+                  onToggleExpand={handleToggleExpand}
+                  isNew={newPlanId === plan.id}
+                  viewMode={!isEditMode}
+                  onArchive={archiveContentPlan}
+                  onDelete={deleteContentPlan}
+                />
               ))}
             </div>
           </>
@@ -486,61 +468,6 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     </div>
   );
 });
-
-/**
- * Convert new hierarchical format to legacy format for LernplanCard
- * This is a temporary adapter until LernplanCard is updated
- */
-const convertToLegacyFormat = (plan) => {
-  // Guard: plan must exist
-  if (!plan) return null;
-
-  // Calculate progress
-  let completedTasks = 0;
-  let totalTasks = 0;
-  const chapters = [];
-
-  plan.rechtsgebiete?.forEach(rg => {
-    rg?.unterrechtsgebiete?.forEach(urg => {
-      urg?.kapitel?.forEach(k => {
-        // Filter out undefined themen elements and guard aufgaben access
-        const topics = (k?.themen || []).filter(t => t).map(t => {
-          const tasks = (t?.aufgaben || []).filter(a => a).map(a => {
-            totalTasks++;
-            if (a?.completed) completedTasks++;
-            return { id: a?.id, title: a?.title || '', completed: a?.completed || false };
-          });
-          return { id: t?.id, title: t?.title || '', tasks, completed: t?.completed || false };
-        });
-        chapters.push({ id: k?.id, title: k?.title || '', topics });
-      });
-    });
-  });
-
-  // Get first Rechtsgebiet for tag
-  const firstRg = plan.rechtsgebiete?.[0];
-  const tagMap = {
-    'zivilrecht': 'Zivilrecht',
-    'oeffentliches-recht': 'Öffentliches Recht',
-    'strafrecht': 'Strafrecht',
-    'querschnitt': 'Querschnitt',
-  };
-
-  return {
-    id: plan?.id,
-    title: plan?.name || 'Lernplan',
-    description: plan?.description || '',
-    tags: firstRg ? [tagMap[firstRg?.rechtsgebietId] || firstRg?.name || 'Rechtsgebiet'] : [],
-    rechtsgebiet: firstRg?.rechtsgebietId,
-    mode: plan?.mode,
-    examDate: plan?.examDate,
-    archived: plan?.archived,
-    chapters,
-    type: plan?.type,
-    // Progress info
-    _progress: { completed: completedTasks, total: totalTasks },
-  };
-};
 
 LernplanContent.displayName = 'LernplanContent';
 
