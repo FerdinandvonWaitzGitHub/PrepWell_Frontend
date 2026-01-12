@@ -117,12 +117,42 @@ const DashboardPage = () => {
     addAufgabeToPlan, // For adding aufgaben from dashboard
     updateAufgabeInPlan, // For editing aufgaben from dashboard
     deleteAufgabeFromPlan, // For deleting aufgaben from dashboard
+    updateThemaInPlan, // For toggling thema completed status
     // Aufgabe Scheduling (for drag & drop)
     scheduleAufgabeToBlock,
   } = useCalendar();
 
   // Selected theme list state
   const [selectedThemeListId, setSelectedThemeListId] = useState(null);
+
+  // T5.1: Progress calculation setting - determines if thema checkboxes are shown
+  const [showThemaCheckbox, setShowThemaCheckbox] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+      return settings.learning?.progressCalculation === 'themen';
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for settings changes (when user changes progressCalculation in settings)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+        setShowThemaCheckbox(settings.learning?.progressCalculation === 'themen');
+      } catch {
+        setShowThemaCheckbox(false);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    // Also listen for custom event from settings page
+    window.addEventListener('prepwell-settings-changed', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('prepwell-settings-changed', handleStorageChange);
+    };
+  }, []);
 
   // Convert contentPlans (type='themenliste') to the format expected by LernblockWidget
   // Preserves full hierarchy: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
@@ -250,6 +280,35 @@ const DashboardPage = () => {
     const nextPriority = priorityMap[currentPriority] || 'medium';
     updateAufgabeInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabeId, { priority: nextPriority });
   }, [selectedThemeListId, updateAufgabeInPlan]);
+
+  // T5.1: Handle toggling Thema completed status in the selected theme list
+  const handleToggleThemaCompleted = useCallback((unterrechtsgebietId, kapitelId, themaId, rechtsgebietId) => {
+    if (!selectedThemeListId) return;
+    // Find current thema to toggle its completed status
+    const plan = contentPlans?.find(p => p.id === selectedThemeListId);
+    if (!plan) return;
+
+    let currentCompleted = false;
+    plan.rechtsgebiete?.forEach(rg => {
+      if (rg.id === rechtsgebietId) {
+        rg.unterrechtsgebiete?.forEach(urg => {
+          if (urg.id === unterrechtsgebietId) {
+            urg.kapitel?.forEach(k => {
+              if (k.id === kapitelId) {
+                k.themen?.forEach(t => {
+                  if (t?.id === themaId) {
+                    currentCompleted = t.completed || false;
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+
+    updateThemaInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, { completed: !currentCompleted });
+  }, [selectedThemeListId, contentPlans, updateThemaInPlan]);
 
   // Dialog states
   const [selectedBlock, setSelectedBlock] = useState(null);
@@ -782,6 +841,8 @@ const DashboardPage = () => {
                 onUpdateThemeListAufgabe={handleUpdateThemeListAufgabe}
                 onDeleteThemeListAufgabe={handleDeleteThemeListAufgabe}
                 onToggleThemeListAufgabePriority={handleToggleThemeListAufgabePriority}
+                onToggleThemaCompleted={handleToggleThemaCompleted}
+                showThemaCheckbox={showThemaCheckbox}
                 onArchiveThemeList={archiveContentPlan}
                 isExamMode={isExamMode}
               />

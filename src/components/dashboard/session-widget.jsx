@@ -373,6 +373,8 @@ const ThemeListUnterrechtsgebietRow = ({
   onUpdateAufgabe, // Update aufgabe callback
   onDeleteAufgabe, // Delete aufgabe callback
   onToggleAufgabePriority, // Toggle aufgabe priority callback
+  onToggleThemaCompleted, // T5.1: Toggle thema completed callback
+  showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
 }) => {
   // Calculate progress for this unterrechtsgebiet
   let completedCount = 0;
@@ -424,6 +426,8 @@ const ThemeListUnterrechtsgebietRow = ({
               onUpdateAufgabe={onUpdateAufgabe}
               onDeleteAufgabe={onDeleteAufgabe}
               onToggleAufgabePriority={onToggleAufgabePriority}
+              onToggleThemaCompleted={onToggleThemaCompleted}
+              showThemaCheckbox={showThemaCheckbox}
             />
           ))}
         </div>
@@ -448,6 +452,8 @@ const ThemeListKapitelRow = ({
   onUpdateAufgabe, // Update aufgabe callback
   onDeleteAufgabe, // Delete aufgabe callback
   onToggleAufgabePriority, // Toggle aufgabe priority callback
+  onToggleThemaCompleted, // T5.1: Toggle thema completed callback
+  showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
 }) => {
   // Calculate progress for this kapitel
   let completedCount = 0;
@@ -491,6 +497,8 @@ const ThemeListKapitelRow = ({
               onUpdateAufgabe={onUpdateAufgabe}
               onDeleteAufgabe={onDeleteAufgabe}
               onToggleAufgabePriority={onToggleAufgabePriority}
+              onToggleThemaCompleted={onToggleThemaCompleted}
+              showThemaCheckbox={showThemaCheckbox}
               kapitelTitle={kapitel.title}
             />
           ))}
@@ -517,6 +525,8 @@ const ThemeListThemaRow = ({
   onUpdateAufgabe, // Update aufgabe callback
   onDeleteAufgabe, // Delete aufgabe callback
   onToggleAufgabePriority, // Toggle aufgabe priority callback
+  onToggleThemaCompleted, // T5.1: Toggle thema completed callback
+  showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
   kapitelTitle = '',
 }) => {
   // Local state for editing mode - prevents input->span switch during typing
@@ -592,13 +602,38 @@ const ThemeListThemaRow = ({
   return (
     <div className="border-b border-neutral-50 last:border-b-0">
       {/* Thema Header */}
-      <button
-        onClick={onToggleExpand}
-        className="w-full flex items-center justify-between px-8 py-2 hover:bg-neutral-50 transition-colors"
-      >
+      <div className="w-full flex items-center justify-between px-8 py-2 hover:bg-neutral-50 transition-colors">
         <div className="flex items-center gap-3">
-          <ChevronDownIcon className={`text-neutral-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-          <span className="text-sm text-neutral-600">{thema.title}</span>
+          {/* T5.1: Thema checkbox - only show when showThemaCheckbox is true */}
+          {showThemaCheckbox && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleThemaCompleted?.(unterrechtsgebietId, kapitelId, thema.id, rechtsgebietId);
+              }}
+              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${
+                thema.completed
+                  ? 'bg-neutral-900 border-neutral-900'
+                  : 'border-neutral-300 hover:border-neutral-400'
+              }`}
+              title={thema.completed ? 'Als nicht erledigt markieren' : 'Als erledigt markieren'}
+            >
+              {thema.completed && (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className="flex items-center gap-2"
+          >
+            <ChevronDownIcon className={`text-neutral-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+            <span className={`text-sm ${thema.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'}`}>{thema.title}</span>
+          </button>
         </div>
         <div className="flex items-center gap-2">
           {scheduledCount > 0 && (
@@ -608,7 +643,7 @@ const ThemeListThemaRow = ({
           )}
           <span className="text-xs text-neutral-400">{completedCount}/{totalCount}</span>
         </div>
-      </button>
+      </div>
 
       {/* Expanded: Aufgaben - always show when expanded (even if empty) */}
       {isExpanded && (
@@ -778,6 +813,8 @@ const ThemeListView = ({
   onUpdateAufgabe, // Update aufgabe callback
   onDeleteAufgabe, // Delete aufgabe callback
   onToggleAufgabePriority, // Toggle aufgabe priority callback
+  onToggleThemaCompleted, // T5.1: Toggle thema completed callback
+  showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
 }) => {
   if (!themeList) {
     return (
@@ -827,6 +864,8 @@ const ThemeListView = ({
             onUpdateAufgabe={onUpdateAufgabe}
             onDeleteAufgabe={onDeleteAufgabe}
             onToggleAufgabePriority={onToggleAufgabePriority}
+            onToggleThemaCompleted={onToggleThemaCompleted}
+            showThemaCheckbox={showThemaCheckbox}
           />
         ))
       )}
@@ -1022,6 +1061,8 @@ const NoTopicsView = ({
   onUpdateThemeListAufgabe, // Update aufgabe title in theme list
   onDeleteThemeListAufgabe, // Delete aufgabe from theme list
   onToggleThemeListAufgabePriority, // Toggle aufgabe priority in theme list
+  onToggleThemaCompleted, // T5.1: Toggle thema completed callback
+  showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
   onArchiveThemeList, // TICKET-12: Archive callback
 }) => {
   const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themenliste'
@@ -1181,6 +1222,8 @@ const NoTopicsView = ({
             onUpdateAufgabe={onUpdateThemeListAufgabe}
             onDeleteAufgabe={onDeleteThemeListAufgabe}
             onToggleAufgabePriority={onToggleThemeListAufgabePriority}
+            onToggleThemaCompleted={onToggleThemaCompleted}
+            showThemaCheckbox={showThemaCheckbox}
           />
         )
       )}
@@ -1320,6 +1363,8 @@ const SessionWidget = ({
   onUpdateThemeListAufgabe, // Update aufgabe title in theme list
   onDeleteThemeListAufgabe, // Delete aufgabe from theme list
   onToggleThemeListAufgabePriority, // Toggle aufgabe priority in theme list
+  onToggleThemaCompleted, // T5.1: Toggle thema completed callback
+  showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
   onArchiveThemeList, // TICKET-12: Archive themenliste callback
   // Mode prop
   isExamMode = false,
@@ -1368,6 +1413,8 @@ const SessionWidget = ({
             onUpdateThemeListAufgabe={onUpdateThemeListAufgabe}
             onDeleteThemeListAufgabe={onDeleteThemeListAufgabe}
             onToggleThemeListAufgabePriority={onToggleThemeListAufgabePriority}
+            onToggleThemaCompleted={onToggleThemaCompleted}
+            showThemaCheckbox={showThemaCheckbox}
             onArchiveThemeList={onArchiveThemeList}
           />
         )}
