@@ -148,6 +148,36 @@ const ManageThemeBlockDialog = ({
     return [];
   }, [selectedSource, selectedThemeListId, availableTasks, themeLists, tasks]);
 
+  // T5.4: Lookup map for aufgabe ID -> thema title (for legacy tasks without thema property)
+  const aufgabeToThemaMap = useMemo(() => {
+    const map = new Map();
+    themeLists.forEach(list => {
+      list.unterrechtsgebiete?.forEach(urg => {
+        urg.kapitel?.forEach(k => {
+          k.themen?.forEach(t => {
+            t?.aufgaben?.forEach(a => {
+              map.set(a.id, t.title);
+            });
+          });
+        });
+      });
+    });
+    return map;
+  }, [themeLists]);
+
+  // T5.4: Get thema title for a task (handles legacy tasks without thema property)
+  const getThemaForTask = (task) => {
+    // Check direct properties first
+    if (task.themaTitle) return task.themaTitle;
+    if (task.thema) return task.thema;
+    if (task.sourceDetails?.thema) return task.sourceDetails.thema;
+    // Fallback: lookup from sourceId
+    if (task.source === 'themenliste' && task.sourceId) {
+      return aufgabeToThemaMap.get(task.sourceId) || 'Themenliste';
+    }
+    return 'Themenliste';
+  };
+
   // Toggle custom day
   const toggleCustomDay = (dayId) => {
     setCustomDays(prev => {
@@ -180,6 +210,9 @@ const ManageThemeBlockDialog = ({
       text: sourceTask.text || sourceTask.title,
       completed: sourceTask.completed || false,
       source: selectedSource,
+      // T5.4: Copy thema info directly for badge display
+      thema: sourceTask.thema,
+      kapitel: sourceTask.kapitel,
       sourceDetails: sourceTask,
     };
     setTasks(prev => [...prev, newTask]);
@@ -481,7 +514,7 @@ const ManageThemeBlockDialog = ({
                     </span>
                     {task.source && (
                       <span className="text-xs text-neutral-400 bg-neutral-200 px-2 py-0.5 rounded">
-                        {task.source === 'todos' ? 'To-Do' : task.source === 'themenliste' ? (task.themaTitle || task.thema || 'Themenliste') : 'Lernplan'}
+                        {task.source === 'todos' ? 'To-Do' : task.source === 'themenliste' ? getThemaForTask(task) : 'Lernplan'}
                       </span>
                     )}
                     <button
