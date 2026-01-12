@@ -120,6 +120,7 @@ const DashboardPage = () => {
     updateThemaInPlan, // For toggling thema completed status
     // Aufgabe Scheduling (for drag & drop)
     scheduleAufgabeToBlock,
+    unscheduleAufgabeFromBlock, // For removing tasks from blocks
     // T5.4: Thema Scheduling (for drag & drop complete thema)
     scheduleThemaToBlock,
     // T5.4: Cleanup expired schedules at midnight
@@ -762,6 +763,53 @@ const DashboardPage = () => {
     }
   }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, removeTask, scheduleAufgabeToBlock, scheduleThemaToBlock]);
 
+  // Handle removing a task from a block (for unscheduling)
+  // This removes the task from the block AND marks it as available again in themenliste
+  const handleRemoveTaskFromBlock = useCallback((block, task) => {
+    const lernplanBlocks = (blocksByDate || {})[dateString] || [];
+    const timeBlocks = (timeBlocksByDate || {})[dateString] || [];
+
+    // Helper to check if block matches target
+    const isBlockMatch = (blk, targetBlock) =>
+      blk.contentId === targetBlock.id ||
+      blk.contentId === targetBlock.contentId ||
+      blk.topicId === targetBlock.id ||
+      blk.topicId === targetBlock.topicId ||
+      blk.id === targetBlock.id;
+
+    // Check which data store contains the target block
+    const targetInTimeBlocks = timeBlocks.some(blk => isBlockMatch(blk, block));
+
+    if (targetInTimeBlocks) {
+      // Remove from time block
+      const targetTimeBlock = timeBlocks.find(blk => isBlockMatch(blk, block));
+      if (targetTimeBlock) {
+        const updatedTasks = (targetTimeBlock.tasks || []).filter(t => t.id !== task.id);
+        updateTimeBlock(dateString, targetTimeBlock.id, {
+          tasks: updatedTasks,
+        });
+      }
+    } else {
+      // Remove from Lernplan block
+      const updatedBlocks = lernplanBlocks.map(blk => {
+        if (isBlockMatch(blk, block)) {
+          return {
+            ...blk,
+            tasks: (blk.tasks || []).filter(t => t.id !== task.id),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return blk;
+      });
+      updateDayBlocks(dateString, updatedBlocks);
+    }
+
+    // Unschedule the aufgabe in themenliste (makes it available again)
+    if (task.sourceId && unscheduleAufgabeFromBlock) {
+      unscheduleAufgabeFromBlock(task.sourceId);
+    }
+  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, unscheduleAufgabeFromBlock]);
+
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);
 
@@ -987,6 +1035,7 @@ const DashboardPage = () => {
                 onBlockClick={handleBlockClick}
                 onTimelineClick={handleTimelineClick}
                 onDropTaskToBlock={handleDropTaskToBlock}
+                onRemoveTaskFromBlock={handleRemoveTaskFromBlock}
               />
             }
           />

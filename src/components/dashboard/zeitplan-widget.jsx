@@ -28,6 +28,7 @@ const ZeitplanWidget = ({
   onBlockClick,
   onTimelineClick,
   onDropTaskToBlock, // Callback when a task is dropped onto a block
+  onRemoveTaskFromBlock, // Callback when a task is removed from a block (for unscheduling)
 }) => {
   const [blocks, setBlocks] = useState(data?.blocks || []);
   const [dragOverBlockId, setDragOverBlockId] = useState(null);
@@ -321,24 +322,43 @@ const ZeitplanWidget = ({
                       );
                     })()}
 
-                    {/* Tasks - horizontal layout */}
+                    {/* Tasks - vertical layout with thema grouping */}
                     {block.tasks && block.tasks.length > 0 && (
-                      <div className="flex items-center gap-4 min-w-0 mt-2">
-                        {block.tasks.slice(0, 2).map((task, taskIndex) => (
-                          <div key={task.id || taskIndex} className="flex items-center gap-2 min-w-0">
+                      <div className="flex flex-col gap-1 min-w-0 mt-2 pointer-events-auto">
+                        {block.tasks.slice(0, 3).map((task, taskIndex) => (
+                          <div key={task.id || taskIndex} className="flex items-center gap-2 min-w-0 group/task">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${
                               task.completed ? 'bg-green-500' : 'bg-neutral-400'
                             }`} />
-                            <span className={`text-sm truncate ${
+                            <span className={`text-sm truncate flex-1 ${
                               task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'
                             }`}>
+                              {/* Show thema title if available */}
+                              {task.themaTitle && (
+                                <span className="text-neutral-400 mr-1">{task.themaTitle}:</span>
+                              )}
                               {task.text}
                             </span>
+                            {/* X button to remove task */}
+                            {onRemoveTaskFromBlock && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveTaskFromBlock(block, task);
+                                }}
+                                className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0"
+                                title="Aus Session entfernen"
+                              >
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
                         ))}
-                        {block.tasks.length > 2 && (
+                        {block.tasks.length > 3 && (
                           <span className="text-xs text-neutral-500 font-medium">
-                            +{block.tasks.length - 2} weitere
+                            +{block.tasks.length - 3} weitere
                           </span>
                         )}
                       </div>
