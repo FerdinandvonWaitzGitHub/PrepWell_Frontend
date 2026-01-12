@@ -509,6 +509,10 @@ const ThemeListThemaRow = ({
   onUpdateAufgabe, // Update aufgabe callback
   kapitelTitle = '',
 }) => {
+  // Local state for editing mode - prevents input->span switch during typing
+  const [editingAufgabeId, setEditingAufgabeId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState('');
+
   // Guard: thema could be undefined if parent array has holes
   if (!thema) return null;
 
@@ -517,6 +521,27 @@ const ThemeListThemaRow = ({
   const completedCount = availableAufgaben.filter(a => a.completed).length;
   const totalCount = availableAufgaben.length;
   const scheduledCount = (thema.aufgaben?.length || 0) - availableAufgaben.length;
+
+  // Start editing an aufgabe
+  const handleStartEdit = (aufgabe) => {
+    setEditingAufgabeId(aufgabe.id);
+    setEditingTitle(aufgabe.title || '');
+  };
+
+  // Save and exit edit mode
+  const handleSaveEdit = (aufgabeId) => {
+    if (editingTitle.trim()) {
+      onUpdateAufgabe?.(unterrechtsgebietId, kapitelId, thema.id, aufgabeId, { title: editingTitle.trim() }, rechtsgebietId);
+    }
+    setEditingAufgabeId(null);
+    setEditingTitle('');
+  };
+
+  // Cancel edit mode
+  const handleCancelEdit = () => {
+    setEditingAufgabeId(null);
+    setEditingTitle('');
+  };
 
   const handleAufgabeDragStart = (e, aufgabe) => {
     // Don't allow dragging scheduled aufgaben
@@ -545,7 +570,12 @@ const ThemeListThemaRow = ({
 
   const handleAddAufgabe = () => {
     if (onAddAufgabe) {
+      // Add the aufgabe first
       onAddAufgabe(unterrechtsgebietId, kapitelId, thema.id, rechtsgebietId);
+      // Note: The new aufgabe will be created with empty title and auto-focused
+      // We set editing state to 'new' to track that a new aufgabe is being created
+      setEditingAufgabeId('new');
+      setEditingTitle('');
     }
   };
 
@@ -579,6 +609,9 @@ const ThemeListThemaRow = ({
               {thema.aufgaben.map((aufgabe) => {
                 const isScheduled = !!aufgabe.scheduledInBlock;
                 const hasTitle = !!aufgabe.title;
+                // Check if this aufgabe is being edited OR is a new aufgabe being created
+                const isEditing = editingAufgabeId === aufgabe.id ||
+                  (editingAufgabeId === 'new' && !aufgabe.title);
 
                 return (
                   <div
@@ -586,20 +619,20 @@ const ThemeListThemaRow = ({
                     className={`flex items-center gap-3 py-1.5 pl-4 rounded transition-colors group ${
                       isScheduled
                         ? 'opacity-50 cursor-default'
-                        : hasTitle ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-100' : ''
+                        : hasTitle && !isEditing ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-100' : ''
                     }`}
-                    draggable={!isScheduled && hasTitle}
+                    draggable={!isScheduled && hasTitle && !isEditing}
                     onDragStart={(e) => handleAufgabeDragStart(e, aufgabe)}
                     onDragEnd={handleAufgabeDragEnd}
                     title={isScheduled ? `Eingeplant: ${aufgabe.scheduledInBlock.blockTitle} (${aufgabe.scheduledInBlock.date})` : undefined}
                   >
-                    {/* Drag Handle - hidden for scheduled or new (empty) aufgaben */}
+                    {/* Drag Handle - hidden for scheduled or editing aufgaben */}
                     <span className={`flex-shrink-0 ${isScheduled ? 'text-neutral-200' : 'text-neutral-300 group-hover:text-neutral-400'}`}>
                       {isScheduled ? (
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                      ) : hasTitle ? (
+                      ) : hasTitle && !isEditing ? (
                         <DragHandleIcon />
                       ) : (
                         <span className="w-3" />
@@ -610,31 +643,50 @@ const ThemeListThemaRow = ({
                       checked={aufgabe.completed}
                       onChange={() => onToggleAufgabe(aufgabe.id)}
                       onClick={(e) => e.stopPropagation()}
-                      disabled={isScheduled || !hasTitle}
+                      disabled={isScheduled || !hasTitle || isEditing}
                       className={`h-4 w-4 rounded border-neutral-300 focus:ring-neutral-500 ${
                         isScheduled ? 'text-neutral-400' : 'text-neutral-900'
                       }`}
                     />
-                    {/* Show input for new/empty aufgaben, text for existing */}
-                    {hasTitle ? (
-                      <span className={`text-sm ${
-                        isScheduled
-                          ? 'text-neutral-400 italic'
-                          : aufgabe.completed
-                            ? 'text-neutral-400 line-through'
-                            : 'text-neutral-700'
-                      }`}>
-                        {aufgabe.title}
-                      </span>
-                    ) : (
+                    {/* Show input when editing, span otherwise */}
+                    {isEditing ? (
                       <input
                         type="text"
-                        value={aufgabe.title || ''}
-                        onChange={(e) => onUpdateAufgabe?.(unterrechtsgebietId, kapitelId, thema.id, aufgabe.id, { title: e.target.value }, rechtsgebietId)}
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onBlur={() => handleSaveEdit(aufgabe.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSaveEdit(aufgabe.id);
+                          } else if (e.key === 'Escape') {
+                            handleCancelEdit();
+                          }
+                        }}
                         placeholder="Aufgabe eingeben..."
                         autoFocus
                         className="flex-1 text-sm bg-transparent border-b border-neutral-300 focus:border-primary-400 focus:outline-none py-0.5"
                       />
+                    ) : hasTitle ? (
+                      <span
+                        className={`text-sm flex-1 ${
+                          isScheduled
+                            ? 'text-neutral-400 italic'
+                            : aufgabe.completed
+                              ? 'text-neutral-400 line-through'
+                              : 'text-neutral-700'
+                        }`}
+                        onDoubleClick={() => !isScheduled && handleStartEdit(aufgabe)}
+                        title={!isScheduled ? 'Doppelklick zum Bearbeiten' : undefined}
+                      >
+                        {aufgabe.title}
+                      </span>
+                    ) : (
+                      <span
+                        className="text-sm text-neutral-400 flex-1 cursor-pointer"
+                        onClick={() => handleStartEdit(aufgabe)}
+                      >
+                        Aufgabe eingeben...
+                      </span>
                     )}
                     {isScheduled && (
                       <span className="text-xs text-blue-400 ml-auto">
