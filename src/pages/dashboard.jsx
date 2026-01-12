@@ -135,14 +135,26 @@ const DashboardPage = () => {
     }
   });
 
-  // Listen for settings changes (when user changes progressCalculation in settings)
+  // Option C: chapterLevelEnabled setting - determines if Kapitel level is shown in hierarchy
+  const [chapterLevelEnabled, setChapterLevelEnabled] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+      return settings.jura?.chapterLevelEnabled ?? false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for settings changes (when user changes settings)
   useEffect(() => {
     const handleStorageChange = () => {
       try {
         const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
         setShowThemaCheckbox(settings.learning?.progressCalculation === 'themen');
+        setChapterLevelEnabled(settings.jura?.chapterLevelEnabled ?? false);
       } catch {
         setShowThemaCheckbox(false);
+        setChapterLevelEnabled(false);
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -843,6 +855,7 @@ const DashboardPage = () => {
                 onToggleThemeListAufgabePriority={handleToggleThemeListAufgabePriority}
                 onToggleThemaCompleted={handleToggleThemaCompleted}
                 showThemaCheckbox={showThemaCheckbox}
+                chapterLevelEnabled={chapterLevelEnabled}
                 onArchiveThemeList={archiveContentPlan}
                 isExamMode={isExamMode}
               />

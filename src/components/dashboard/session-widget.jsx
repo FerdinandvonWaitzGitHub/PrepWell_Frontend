@@ -359,6 +359,8 @@ const TaskList = ({
 
 /**
  * ThemeListUnterrechtsgebietRow - Unterrechtsgebiet mit Kapitel
+ * When chapterLevelEnabled=true: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
+ * When chapterLevelEnabled=false: Unterrechtsgebiet → Themen → Aufgaben (skips Kapitel)
  */
 const ThemeListUnterrechtsgebietRow = ({
   unterrechtsgebiet,
@@ -375,6 +377,7 @@ const ThemeListUnterrechtsgebietRow = ({
   onToggleAufgabePriority, // Toggle aufgabe priority callback
   onToggleThemaCompleted, // T5.1: Toggle thema completed callback
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
+  chapterLevelEnabled = false, // Option C: Whether to show Kapitel level in hierarchy
 }) => {
   // Calculate progress for this unterrechtsgebiet
   let completedCount = 0;
@@ -408,28 +411,54 @@ const ThemeListUnterrechtsgebietRow = ({
         <span className="text-xs text-neutral-500">{completedCount}/{totalCount}</span>
       </button>
 
-      {/* Expanded: Kapitel */}
+      {/* Expanded: Show Kapitel or Themen directly based on chapterLevelEnabled */}
       {isExpanded && unterrechtsgebiet.kapitel && (
         <div className="border-t border-neutral-100 bg-neutral-50">
-          {unterrechtsgebiet.kapitel.map((kapitel) => (
-            <ThemeListKapitelRow
-              key={kapitel.id}
-              kapitel={kapitel}
-              unterrechtsgebietId={unterrechtsgebiet.id}
-              rechtsgebietId={unterrechtsgebiet.rechtsgebietId}
-              isExpanded={expandedKapitelId === kapitel.id}
-              onToggleExpand={() => onToggleKapitel(kapitel.id)}
-              expandedThemaId={expandedThemaId}
-              onToggleThema={onToggleThema}
-              onToggleAufgabe={onToggleAufgabe}
-              onAddAufgabe={onAddAufgabe}
-              onUpdateAufgabe={onUpdateAufgabe}
-              onDeleteAufgabe={onDeleteAufgabe}
-              onToggleAufgabePriority={onToggleAufgabePriority}
-              onToggleThemaCompleted={onToggleThemaCompleted}
-              showThemaCheckbox={showThemaCheckbox}
-            />
-          ))}
+          {chapterLevelEnabled ? (
+            // Show Kapitel level (full hierarchy)
+            unterrechtsgebiet.kapitel.map((kapitel) => (
+              <ThemeListKapitelRow
+                key={kapitel.id}
+                kapitel={kapitel}
+                unterrechtsgebietId={unterrechtsgebiet.id}
+                rechtsgebietId={unterrechtsgebiet.rechtsgebietId}
+                isExpanded={expandedKapitelId === kapitel.id}
+                onToggleExpand={() => onToggleKapitel(kapitel.id)}
+                expandedThemaId={expandedThemaId}
+                onToggleThema={onToggleThema}
+                onToggleAufgabe={onToggleAufgabe}
+                onAddAufgabe={onAddAufgabe}
+                onUpdateAufgabe={onUpdateAufgabe}
+                onDeleteAufgabe={onDeleteAufgabe}
+                onToggleAufgabePriority={onToggleAufgabePriority}
+                onToggleThemaCompleted={onToggleThemaCompleted}
+                showThemaCheckbox={showThemaCheckbox}
+              />
+            ))
+          ) : (
+            // Skip Kapitel level - show Themen directly
+            unterrechtsgebiet.kapitel.flatMap((kapitel) =>
+              (kapitel.themen || []).map((thema) => (
+                <ThemeListThemaRow
+                  key={thema.id}
+                  thema={thema}
+                  kapitelId={kapitel.id}
+                  unterrechtsgebietId={unterrechtsgebiet.id}
+                  rechtsgebietId={unterrechtsgebiet.rechtsgebietId}
+                  isExpanded={expandedThemaId === thema.id}
+                  onToggleExpand={() => onToggleThema(thema.id)}
+                  onToggleAufgabe={onToggleAufgabe}
+                  onAddAufgabe={onAddAufgabe}
+                  onUpdateAufgabe={onUpdateAufgabe}
+                  onDeleteAufgabe={onDeleteAufgabe}
+                  onToggleAufgabePriority={onToggleAufgabePriority}
+                  onToggleThemaCompleted={onToggleThemaCompleted}
+                  showThemaCheckbox={showThemaCheckbox}
+                  kapitelTitle={kapitel.title}
+                />
+              ))
+            )
+          )}
         </div>
       )}
     </div>
@@ -799,6 +828,7 @@ const ThemeListThemaRow = ({
 /**
  * ThemeListView - Ansicht für eine ausgewählte Themenliste (hierarchisch)
  * Hierarchie: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
+ * When chapterLevelEnabled=false: Unterrechtsgebiet → Themen → Aufgaben (skips Kapitel)
  */
 const ThemeListView = ({
   themeList,
@@ -815,6 +845,7 @@ const ThemeListView = ({
   onToggleAufgabePriority, // Toggle aufgabe priority callback
   onToggleThemaCompleted, // T5.1: Toggle thema completed callback
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
+  chapterLevelEnabled = false, // Option C: Whether to show Kapitel level in hierarchy
 }) => {
   if (!themeList) {
     return (
@@ -866,6 +897,7 @@ const ThemeListView = ({
             onToggleAufgabePriority={onToggleAufgabePriority}
             onToggleThemaCompleted={onToggleThemaCompleted}
             showThemaCheckbox={showThemaCheckbox}
+            chapterLevelEnabled={chapterLevelEnabled}
           />
         ))
       )}
@@ -1063,6 +1095,7 @@ const NoTopicsView = ({
   onToggleThemeListAufgabePriority, // Toggle aufgabe priority in theme list
   onToggleThemaCompleted, // T5.1: Toggle thema completed callback
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
+  chapterLevelEnabled = false, // Option C: Whether to show Kapitel level in hierarchy
   onArchiveThemeList, // TICKET-12: Archive callback
 }) => {
   const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themenliste'
@@ -1224,6 +1257,7 @@ const NoTopicsView = ({
             onToggleAufgabePriority={onToggleThemeListAufgabePriority}
             onToggleThemaCompleted={onToggleThemaCompleted}
             showThemaCheckbox={showThemaCheckbox}
+            chapterLevelEnabled={chapterLevelEnabled}
           />
         )
       )}
@@ -1365,6 +1399,7 @@ const SessionWidget = ({
   onToggleThemeListAufgabePriority, // Toggle aufgabe priority in theme list
   onToggleThemaCompleted, // T5.1: Toggle thema completed callback
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
+  chapterLevelEnabled = false, // Option C: Whether to show Kapitel level in hierarchy
   onArchiveThemeList, // TICKET-12: Archive themenliste callback
   // Mode prop
   isExamMode = false,
@@ -1415,6 +1450,7 @@ const SessionWidget = ({
             onToggleThemeListAufgabePriority={onToggleThemeListAufgabePriority}
             onToggleThemaCompleted={onToggleThemaCompleted}
             showThemaCheckbox={showThemaCheckbox}
+            chapterLevelEnabled={chapterLevelEnabled}
             onArchiveThemeList={onArchiveThemeList}
           />
         )}
