@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 
 /**
- * GoodNightScreen - Shown after completing evening Check-Out
+ * GoodNightScreen - Shown after completing Abend-Check-in
+ * TICKET-2: Renamed from Check-Out to Abend-Check-in
  *
  * Simple centered message with logout option
  */

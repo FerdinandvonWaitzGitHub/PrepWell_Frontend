@@ -289,7 +289,31 @@ const ZeitplanWidget = ({
                           {block.startTime} - {block.endTime}
                         </span>
                       )}
+
+                      {/* TICKET-11: Task-based progress indicator */}
+                      {block.tasks && block.tasks.length > 0 && (
+                        <span className="text-xs text-neutral-500 font-medium ml-auto">
+                          {block.tasks.filter(t => t.completed).length}/{block.tasks.length}
+                        </span>
+                      )}
                     </div>
+
+                    {/* TICKET-11: Progress bar based on completed tasks */}
+                    {block.tasks && block.tasks.length > 0 && (() => {
+                      const completedCount = block.tasks.filter(t => t.completed).length;
+                      const totalCount = block.tasks.length;
+                      const progressPercent = Math.round((completedCount / totalCount) * 100);
+                      return (
+                        <div className="w-full bg-neutral-200 rounded-full h-1 mt-1.5">
+                          <div
+                            className={`h-1 rounded-full transition-all ${
+                              progressPercent === 100 ? 'bg-green-500' : 'bg-neutral-600'
+                            }`}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      );
+                    })()}
 
                     {/* Tasks - horizontal layout */}
                     {block.tasks && block.tasks.length > 0 && (

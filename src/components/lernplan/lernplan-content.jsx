@@ -461,24 +461,27 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
  * This is a temporary adapter until LernplanCard is updated
  */
 const convertToLegacyFormat = (plan) => {
+  // Guard: plan must exist
+  if (!plan) return null;
+
   // Calculate progress
   let completedTasks = 0;
   let totalTasks = 0;
   const chapters = [];
 
   plan.rechtsgebiete?.forEach(rg => {
-    rg.unterrechtsgebiete?.forEach(urg => {
-      urg.kapitel?.forEach(k => {
+    rg?.unterrechtsgebiete?.forEach(urg => {
+      urg?.kapitel?.forEach(k => {
         // Filter out undefined themen elements and guard aufgaben access
-        const topics = (k.themen || []).filter(t => t).map(t => {
-          const tasks = (t?.aufgaben || []).map(a => {
+        const topics = (k?.themen || []).filter(t => t).map(t => {
+          const tasks = (t?.aufgaben || []).filter(a => a).map(a => {
             totalTasks++;
-            if (a.completed) completedTasks++;
-            return { id: a.id, title: a.title, completed: a.completed };
+            if (a?.completed) completedTasks++;
+            return { id: a?.id, title: a?.title || '', completed: a?.completed || false };
           });
-          return { id: t.id, title: t.title, tasks, completed: t.completed || false };
+          return { id: t?.id, title: t?.title || '', tasks, completed: t?.completed || false };
         });
-        chapters.push({ id: k.id, title: k.title, topics });
+        chapters.push({ id: k?.id, title: k?.title || '', topics });
       });
     });
   });
@@ -493,16 +496,16 @@ const convertToLegacyFormat = (plan) => {
   };
 
   return {
-    id: plan.id,
-    title: plan.name,
-    description: plan.description,
-    tags: firstRg ? [tagMap[firstRg.rechtsgebietId] || firstRg.name] : [],
+    id: plan?.id,
+    title: plan?.name || 'Lernplan',
+    description: plan?.description || '',
+    tags: firstRg ? [tagMap[firstRg?.rechtsgebietId] || firstRg?.name || 'Rechtsgebiet'] : [],
     rechtsgebiet: firstRg?.rechtsgebietId,
-    mode: plan.mode,
-    examDate: plan.examDate,
-    archived: plan.archived,
+    mode: plan?.mode,
+    examDate: plan?.examDate,
+    archived: plan?.archived,
     chapters,
-    type: plan.type,
+    type: plan?.type,
     // Progress info
     _progress: { completed: completedTasks, total: totalTasks },
   };

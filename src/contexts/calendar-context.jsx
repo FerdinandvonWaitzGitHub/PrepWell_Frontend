@@ -478,13 +478,13 @@ export const CalendarProvider = ({ children }) => {
         id: genId(),
         unterrechtsgebietId: urgId === 'unassigned' ? null : urgId,
         name: urgId === 'unassigned' ? 'Nicht zugeordnet' : '',
-        kapitel: themes.map(theme => ({
+        kapitel: themes.filter(t => t).map(theme => ({
           id: genId(),
-          title: theme.name,
-          themen: (theme.aufgaben || []).map(aufgabe => ({
+          title: theme?.name || 'Thema',
+          themen: (theme?.aufgaben || []).filter(a => a).map(aufgabe => ({
             id: genId(),
-            name: aufgabe.name || aufgabe.title || 'Aufgabe',
-            completed: aufgabe.completed || false
+            name: aufgabe?.name || aufgabe?.title || 'Aufgabe',
+            completed: aufgabe?.completed || false
           }))
         }))
       }))
@@ -1420,37 +1420,40 @@ export const CalendarProvider = ({ children }) => {
    * @returns {Object} The created plan
    */
   const importThemenlisteTemplate = useCallback((template) => {
+    // Guard: template must exist
+    if (!template) return null;
+
     // Helper to regenerate all IDs in the hierarchy
     const regenerateIds = (rechtsgebiete) => {
-      return rechtsgebiete.map(rg => ({
+      return (rechtsgebiete || []).filter(rg => rg).map(rg => ({
         id: generateId(),
         rechtsgebietId: rg.rechtsgebietId,
-        name: rg.name,
-        unterrechtsgebiete: rg.unterrechtsgebiete?.map(urg => ({
+        name: rg?.name || '',
+        unterrechtsgebiete: (rg.unterrechtsgebiete || []).filter(u => u).map(urg => ({
           id: generateId(),
-          unterrechtsgebietId: urg.id || urg.unterrechtsgebietId,
-          name: urg.name,
-          kategorie: urg.kategorie || '',
-          kapitel: urg.kapitel?.map(k => ({
+          unterrechtsgebietId: urg?.id || urg?.unterrechtsgebietId,
+          name: urg?.name || '',
+          kategorie: urg?.kategorie || '',
+          kapitel: (urg?.kapitel || []).filter(k => k).map(k => ({
             id: generateId(),
-            title: k.title,
-            themen: k.themen?.map(t => ({
+            title: k?.title || '',
+            themen: (k?.themen || []).filter(t => t).map(t => ({
               id: generateId(),
-              title: t.title,
-              aufgaben: t.aufgaben?.map(a => ({
+              title: t?.title || '',
+              aufgaben: (t?.aufgaben || []).filter(a => a).map(a => ({
                 id: generateId(),
-                title: a.title || '',
+                title: a?.title || '',
                 completed: false,
-              })) || [],
-            })) || [],
-          })) || [],
-        })) || [],
+              })),
+            })),
+          })),
+        })),
       }));
     };
 
     const newPlan = {
       id: generateId(),
-      name: template.name,
+      name: template?.name || 'Themenliste',
       type: 'themenliste',
       description: template.description || '',
       mode: template.mode || 'standard',
@@ -1511,15 +1514,15 @@ export const CalendarProvider = ({ children }) => {
 
     const exportData = {
       id: `exported-${Date.now()}`,
-      name: plan.name,
-      description: plan.description || '',
-      mode: plan.mode || 'standard',
+      name: plan?.name || 'Themenliste',
+      description: plan?.description || '',
+      mode: plan?.mode || 'standard',
       stats: {
         unterrechtsgebiete: unterrechtsgebieteCount,
         themen: themenCount,
       },
       gewichtung,
-      rechtsgebiete: plan.rechtsgebiete,
+      rechtsgebiete: plan?.rechtsgebiete,
       exportedAt: new Date().toISOString(),
       exportedFrom: 'PrepWell',
       version: '1.0',
@@ -1530,7 +1533,7 @@ export const CalendarProvider = ({ children }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${plan.name.replace(/[^a-z0-9]/gi, '_')}_themenliste.json`;
+    a.download = `${(plan?.name || 'themenliste').replace(/[^a-z0-9]/gi, '_')}_themenliste.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1608,15 +1611,15 @@ export const CalendarProvider = ({ children }) => {
     const publishedPlan = {
       id: generateId(),
       sourceId: planId,
-      name: plan.name,
-      description: plan.description || '',
-      mode: plan.mode || 'standard',
+      name: plan?.name || 'Themenliste',
+      description: plan?.description || '',
+      mode: plan?.mode || 'standard',
       stats: {
         unterrechtsgebiete: unterrechtsgebieteCount,
         themen: themenCount,
       },
       gewichtung,
-      rechtsgebiete: plan.rechtsgebiete,
+      rechtsgebiete: plan?.rechtsgebiete,
       publishedAt: new Date().toISOString(),
       tags: ['Benutzer'],
     };
@@ -1669,17 +1672,19 @@ export const CalendarProvider = ({ children }) => {
    * @param {Object} rechtsgebiet - { rechtsgebietId, name }
    */
   const addRechtsgebietToPlan = useCallback((planId, rechtsgebiet) => {
+    // Guard: rechtsgebiet must exist
+    if (!rechtsgebiet) return;
     const updated = contentPlans.map(plan => {
       if (plan.id !== planId) return plan;
       const newRg = {
         id: generateId(),
-        rechtsgebietId: rechtsgebiet.rechtsgebietId,
-        name: rechtsgebiet.name,
+        rechtsgebietId: rechtsgebiet?.rechtsgebietId,
+        name: rechtsgebiet?.name || '',
         unterrechtsgebiete: [],
       };
       return {
         ...plan,
-        rechtsgebiete: [...plan.rechtsgebiete, newRg],
+        rechtsgebiete: [...(plan.rechtsgebiete || []), newRg],
         updatedAt: new Date().toISOString(),
       };
     });
@@ -1713,22 +1718,24 @@ export const CalendarProvider = ({ children }) => {
    * Add an Unterrechtsgebiet to a Rechtsgebiet in a plan
    */
   const addUnterrechtsgebietToPlan = useCallback((planId, rechtsgebietId, unterrechtsgebiet) => {
+    // Guard: unterrechtsgebiet must exist
+    if (!unterrechtsgebiet) return;
     const updated = contentPlans.map(plan => {
       if (plan.id !== planId) return plan;
       return {
         ...plan,
-        rechtsgebiete: plan.rechtsgebiete.map(rg => {
+        rechtsgebiete: (plan.rechtsgebiete || []).map(rg => {
           if (rg.id !== rechtsgebietId) return rg;
           const newUrg = {
             id: generateId(),
-            unterrechtsgebietId: unterrechtsgebiet.unterrechtsgebietId || unterrechtsgebiet.id,
-            name: unterrechtsgebiet.name,
-            kategorie: unterrechtsgebiet.kategorie || '',
+            unterrechtsgebietId: unterrechtsgebiet?.unterrechtsgebietId || unterrechtsgebiet?.id,
+            name: unterrechtsgebiet?.name || '',
+            kategorie: unterrechtsgebiet?.kategorie || '',
             kapitel: [],
           };
           return {
             ...rg,
-            unterrechtsgebiete: [...rg.unterrechtsgebiete, newUrg],
+            unterrechtsgebiete: [...(rg.unterrechtsgebiete || []), newUrg],
           };
         }),
         updatedAt: new Date().toISOString(),
@@ -2292,10 +2299,12 @@ export const CalendarProvider = ({ children }) => {
    * @param {Object} item - { name, kategorie? }
    */
   const addCustomUnterrechtsgebiet = useCallback((rechtsgebietId, item) => {
+    // Guard: item must exist
+    if (!item) return;
     const newItem = {
       id: `custom-${Date.now()}`,
-      name: item.name,
-      kategorie: item.kategorie || 'Benutzerdefiniert',
+      name: item?.name || '',
+      kategorie: item?.kategorie || 'Benutzerdefiniert',
       isCustom: true,
     };
 

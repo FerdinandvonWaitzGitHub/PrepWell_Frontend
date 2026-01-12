@@ -724,7 +724,7 @@ const RechtsgebietSection = ({
           <button onClick={onToggle} className="p-1 mr-2 hover:bg-white/50 rounded">
             <ChevronDownIcon size={16} className={`${colors.text} transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
           </button>
-          <span className={`font-medium ${colors.text}`}>{rechtsgebiet.name}</span>
+          <span className={`font-medium ${colors.text}`}>{rechtsgebiet?.name || 'Rechtsgebiet'}</span>
         </div>
 
         {/* Budget Badge */}
@@ -843,7 +843,7 @@ const UnterrechtsgebietSection = ({
           <button onClick={onToggle} className="p-1 mr-2 hover:bg-neutral-200 rounded">
             <ChevronDownIcon size={14} className={`text-neutral-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
           </button>
-          <span className="text-sm font-medium text-neutral-700">{unterrechtsgebiet.name}</span>
+          <span className="text-sm font-medium text-neutral-700">{unterrechtsgebiet?.name || 'Unterrechtsgebiet'}</span>
         </div>
         <span className="text-xs text-neutral-500">{filledCount}/{totalCount} Blöcke</span>
       </div>
@@ -1061,8 +1061,8 @@ const AddThemaDialog = ({ block, rgId, unterrechtsgebiete, availableEmptyBlocks 
                 className="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
               >
                 <option value="">Auswählen...</option>
-                {unterrechtsgebiete.map(urg => (
-                  <option key={urg.id} value={urg.id}>{urg.name}</option>
+                {unterrechtsgebiete.filter(u => u).map(urg => (
+                  <option key={urg.id} value={urg.id}>{urg?.name || 'Unterrechtsgebiet'}</option>
                 ))}
               </select>
             </div>

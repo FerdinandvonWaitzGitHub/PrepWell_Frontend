@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CheckInQuestionnaire from '../components/mentor/checkin-questionnaire';
 import GoodNightScreen from '../components/mentor/good-night-screen';
@@ -7,13 +7,27 @@ import { useAuth } from '../contexts/auth-context';
 
 /**
  * CheckIn Page - Full-page questionnaire for Well Score
- * Shows GoodNightScreen after completing evening Check-Out
+ * TICKET-2: Shows GoodNightScreen after completing Abend-Check-in
+ * BUG-B FIX: Route guard - redirect if mentor not activated
  */
 const CheckInPage = () => {
   const navigate = useNavigate();
-  const { getCurrentPeriod } = useCheckIn();
+  const { getCurrentPeriod, isMentorActivated } = useCheckIn();
+
+  // BUG-B FIX: Route guard - redirect wenn Mentor nicht aktiviert
+  useEffect(() => {
+    if (!isMentorActivated) {
+      navigate('/', { replace: true });
+    }
+  }, [isMentorActivated, navigate]);
+
   const { getFirstName, signOut, isAuthenticated } = useAuth();
   const [showGoodNight, setShowGoodNight] = useState(false);
+
+  // BUG-B FIX: Early return wenn Mentor nicht aktiviert (nach allen Hooks!)
+  if (!isMentorActivated) {
+    return null;
+  }
 
   const handleComplete = () => {
     // If evening check-out, show Good Night screen

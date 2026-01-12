@@ -499,9 +499,9 @@ const RechtsgebietSection = ({
         <button onClick={onToggle} className="p-1 mr-2 hover:bg-white/50 rounded">
           <ChevronDownIcon size={16} className={`${colors.text} transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
-        <span className={`flex-1 font-medium ${colors.text}`}>{rechtsgebiet.name}</span>
+        <span className={`flex-1 font-medium ${colors.text}`}>{rechtsgebiet?.name || 'Rechtsgebiet'}</span>
         <span className="text-xs text-neutral-500 mr-2">
-          {rechtsgebiet.unterrechtsgebiete?.length || 0} {level2Plural}
+          {rechtsgebiet?.unterrechtsgebiete?.length || 0} {level2Plural}
         </span>
         <button
           onClick={onRemove}
@@ -635,8 +635,8 @@ const UnterrechtsgebietSection = ({
           <ChevronDownIcon size={14} className={`text-neutral-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
         <div className="flex-1">
-          <span className="text-sm font-medium text-neutral-700">{unterrechtsgebiet.name}</span>
-          {unterrechtsgebiet.kategorie && (
+          <span className="text-sm font-medium text-neutral-700">{unterrechtsgebiet?.name || 'Unterrechtsgebiet'}</span>
+          {unterrechtsgebiet?.kategorie && (
             <span className="ml-2 text-xs text-neutral-400">({unterrechtsgebiet.kategorie})</span>
           )}
         </div>

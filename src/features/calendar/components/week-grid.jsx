@@ -353,8 +353,9 @@ const WeekGrid = memo(function WeekGrid({
                             className={`border-r border-neutral-100 last:border-r-0 p-0.5 font-normal bg-white ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`}
                           >
                             <button
+                              draggable="false"
                               onClick={() => onBlockClick && onBlockClick(blockStartingHere, date)}
-                              className={`w-full h-6 rounded border px-2 text-left overflow-hidden cursor-pointer transition-colors ${colorClass}`}
+                              className={`w-full h-6 rounded border px-2 text-left overflow-hidden cursor-pointer transition-colors select-none ${colorClass}`}
                             >
                               <div className="text-xs font-medium text-neutral-900 truncate">
                                 {blockStartingHere.title}
@@ -411,8 +412,9 @@ const WeekGrid = memo(function WeekGrid({
                           return (
                             <button
                               key={block.id}
+                              draggable="false"
                               onClick={() => onBlockClick && onBlockClick(block, date)}
-                              className={`flex-1 min-w-0 h-7 rounded border px-1.5 text-left overflow-hidden cursor-pointer transition-colors ${colorClass}`}
+                              className={`flex-1 min-w-0 h-7 rounded border px-1.5 text-left overflow-hidden cursor-pointer transition-colors select-none ${colorClass}`}
                               title={`${block.title} (${block.startTime}-${block.endTime})`}
                             >
                               <div className="text-xs font-medium text-neutral-900 truncate">
@@ -497,6 +499,7 @@ const WeekGrid = memo(function WeekGrid({
                         return (
                           <button
                             key={block.id}
+                            draggable="false"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (onBlockClick) {
@@ -504,7 +507,7 @@ const WeekGrid = memo(function WeekGrid({
                               }
                             }}
                             style={{ height: `${blockHeight}px` }}
-                            className={`w-full rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-colors absolute top-1 left-1 right-1 z-10 ${colorClass}`}
+                            className={`w-full rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-colors absolute top-1 left-1 right-1 z-10 select-none ${colorClass}`}
                           >
                             <div className="text-xs font-medium text-neutral-900 truncate">
                               {block.title}

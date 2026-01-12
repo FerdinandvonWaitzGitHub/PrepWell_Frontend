@@ -237,7 +237,7 @@ const ThemaCard = ({
         </button>
 
         <h4 className="flex-1 text-base font-medium text-neutral-900">
-          {thema.name}
+          {thema?.name || 'Thema'}
         </h4>
 
         <span className="px-2 py-0.5 bg-neutral-100 text-neutral-500 text-xs rounded-full">
@@ -376,8 +376,8 @@ const Step12ThemenEdit = () => {
           incomplete.push({
             rgId,
             rgLabel,
-            urgId: urg.id,
-            urgName: urg.name
+            urgId: urg?.id,
+            urgName: urg?.name || ''
           });
         }
       }

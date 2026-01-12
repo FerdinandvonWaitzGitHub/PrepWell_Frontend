@@ -61,6 +61,10 @@ const defaultSettings = {
     // Default: alle 4 Rechtsgebiete ausgewählt (ohne Querschnitt)
     selectedRechtsgebiete: ['zivilrecht', 'strafrecht', 'oeffentliches-recht'],
   },
+  // TICKET-3: Check-in Einstellungen
+  checkin: {
+    checkInCount: 2, // 1 = nur Morgen-Check-in, 2 = Morgen- und Abend-Check-in
+  },
 };
 
 const SettingsContent = ({ className = '' }) => {
@@ -756,11 +760,37 @@ const SettingsContent = ({ className = '' }) => {
             </button>
           </div>
 
+          {/* TICKET-3: Check-in Anzahl Einstellung */}
+          {isMentorActivated && (
+            <div className="flex items-center justify-between py-3 border-t border-neutral-100">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Check-ins pro Tag</p>
+                  <p className="text-xs text-neutral-500">
+                    Wähle zwischen einem oder zwei täglichen Check-ins
+                  </p>
+                </div>
+              </div>
+              <select
+                value={settings.checkin?.checkInCount || 2}
+                onChange={(e) => handleSettingChange('checkin', 'checkInCount', parseInt(e.target.value))}
+                className="px-3 py-2 text-sm border border-neutral-200 rounded-lg"
+              >
+                <option value={1}>1 Check-in (nur Morgen)</option>
+                <option value={2}>2 Check-ins (Morgen & Abend)</option>
+              </select>
+            </div>
+          )}
+
           {isMentorActivated && (
             <div className="py-3 bg-blue-50 rounded-lg p-4">
               <p className="text-sm text-blue-700">
-                Der Mentor ist aktiv. Du erhältst morgens und abends Check-In Fragen
-                und kannst deine Statistiken im Mentor-Bereich einsehen.
+                {settings.checkin?.checkInCount === 1
+                  ? 'Der Mentor ist aktiv. Du erhältst täglich einen Morgen-Check-in.'
+                  : 'Der Mentor ist aktiv. Du erhältst morgens und abends Check-in Fragen.'
+                }
+                {' '}Du kannst deine Statistiken im Mentor-Bereich einsehen.
               </p>
             </div>
           )}
@@ -768,7 +798,7 @@ const SettingsContent = ({ className = '' }) => {
           {!isMentorActivated && (
             <div className="py-3 bg-neutral-50 rounded-lg p-4">
               <p className="text-sm text-neutral-600">
-                Aktiviere den Mentor, um tägliche Check-Ins durchzuführen und
+                Aktiviere den Mentor, um tägliche Check-ins durchzuführen und
                 detaillierte Statistiken über dein Lernverhalten zu erhalten.
               </p>
             </div>

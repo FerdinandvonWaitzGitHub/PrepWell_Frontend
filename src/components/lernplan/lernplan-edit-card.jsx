@@ -456,7 +456,7 @@ const LernplanEditCard = ({
                           localData.unterrechtsgebiet === urg.id ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'
                         }`}
                       >
-                        {urg.name}
+                        {urg?.name || 'Unterrechtsgebiet'}
                       </button>
                     ))}
                     {availableUnterrechtsgebiete.length === 0 && (

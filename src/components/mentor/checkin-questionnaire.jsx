@@ -14,7 +14,7 @@ const CheckInQuestionnaire = ({ onComplete, onSkip }) => {
   const navigate = useNavigate();
   const { submitCheckIn, skipCheckIn, getCurrentPeriod } = useCheckIn();
 
-  // Determine if morning (Check-In) or evening (Check-Out)
+  // TICKET-2: Determine if morning or evening check-in
   const currentPeriod = getCurrentPeriod();
   const isEvening = currentPeriod === 'evening';
 
@@ -36,10 +36,11 @@ const CheckInQuestionnaire = ({ onComplete, onSkip }) => {
   };
 
   // Handle submit
-  const handleSubmit = () => {
+  // BUG-A FIX: Await submitCheckIn to ensure state is persisted before navigation
+  const handleSubmit = async () => {
     if (!allAnswered) return;
 
-    submitCheckIn(answers, getCurrentPeriod());
+    await submitCheckIn(answers, getCurrentPeriod());
     if (onComplete) {
       onComplete();
     } else {
@@ -57,8 +58,8 @@ const CheckInQuestionnaire = ({ onComplete, onSkip }) => {
     }
   };
 
-  // Get titles based on period
-  const title = isEvening ? 'Dein Check-Out am Abend' : 'Dein Check-In am Morgen';
+  // TICKET-2: Get titles based on period (renamed from Check-Out to Abend-Check-in)
+  const title = isEvening ? 'Dein Abend-Check-in' : 'Dein Morgen-Check-in';
   const subtitle = isEvening
     ? 'Nimm dir einen Augenblick Zeit für dich, um zu reflektieren, wie dein Tag war.'
     : 'Nimm dir einen Augenblick Zeit für dich, um zu reflektieren, wie du heute in den Tag startest.';
@@ -105,7 +106,7 @@ const CheckInQuestionnaire = ({ onComplete, onSkip }) => {
                 onClick={handleSubmit}
                 className="px-6 lg:px-8 py-2.5 lg:py-3 bg-slate-600 text-white rounded-full text-sm font-medium hover:bg-slate-700 transition-colors"
               >
-                {isEvening ? 'Check-Out absenden' : 'Check-In absenden'}
+                {isEvening ? 'Abend-Check-in absenden' : 'Morgen-Check-in absenden'}
               </button>
             </div>
           )}

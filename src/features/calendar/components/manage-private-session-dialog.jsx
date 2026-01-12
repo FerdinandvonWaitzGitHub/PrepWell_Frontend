@@ -59,6 +59,9 @@ const ManagePrivateBlockDialog = ({
   const [repeatCount, setRepeatCount] = useState(20);
   const [customDays, setCustomDays] = useState([1, 3, 5]);
   const [isRepeatTypeOpen, setIsRepeatTypeOpen] = useState(false);
+  // TICKET-10: Repeat end mode (count OR date)
+  const [repeatEndMode, setRepeatEndMode] = useState('count');
+  const [repeatEndDate, setRepeatEndDate] = useState('');
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -195,7 +198,9 @@ const ManagePrivateBlockDialog = ({
       // Repeat settings
       repeatEnabled,
       repeatType: repeatEnabled ? repeatType : null,
-      repeatCount: repeatEnabled ? repeatCount : null,
+      repeatCount: repeatEnabled && repeatEndMode === 'count' ? repeatCount : null,
+      repeatEndMode: repeatEnabled ? repeatEndMode : null,
+      repeatEndDate: repeatEnabled && repeatEndMode === 'date' ? repeatEndDate : null,
       customDays: repeatEnabled && repeatType === 'custom' ? customDays : null,
     });
     onOpenChange(false);
@@ -394,19 +399,62 @@ const ManagePrivateBlockDialog = ({
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <label className="text-sm text-neutral-600">Anzahl Wiederholungen</label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={repeatCount}
-                        onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                        className="w-24 px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm text-center"
-                      />
-                      <span className="text-sm text-neutral-600">mal</span>
+                  {/* TICKET-10: Repeat end mode tabs */}
+                  <div className="space-y-3">
+                    <label className="text-sm text-neutral-600">Wiederholen bis</label>
+                    {/* Tab buttons */}
+                    <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setRepeatEndMode('count')}
+                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                          repeatEndMode === 'count'
+                            ? 'bg-white text-neutral-900 shadow-sm'
+                            : 'text-neutral-500 hover:text-neutral-700'
+                        }`}
+                      >
+                        Anzahl
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRepeatEndMode('date')}
+                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                          repeatEndMode === 'date'
+                            ? 'bg-white text-neutral-900 shadow-sm'
+                            : 'text-neutral-500 hover:text-neutral-700'
+                        }`}
+                      >
+                        Enddatum
+                      </button>
                     </div>
+
+                    {/* Count input (shown when repeatEndMode is 'count') */}
+                    {repeatEndMode === 'count' && (
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={repeatCount}
+                          onChange={(e) => setRepeatCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                          className="w-24 px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm text-center"
+                        />
+                        <span className="text-sm text-neutral-600">Wiederholungen</span>
+                      </div>
+                    )}
+
+                    {/* Date picker (shown when repeatEndMode is 'date') */}
+                    {repeatEndMode === 'date' && (
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="date"
+                          value={repeatEndDate}
+                          min={date ? date.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setRepeatEndDate(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

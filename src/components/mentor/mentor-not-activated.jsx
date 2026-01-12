@@ -36,7 +36,7 @@ const MentorNotActivated = ({ className = '' }) => {
 
       {/* Description */}
       <p className="text-neutral-500 text-center max-w-sm mb-8 leading-relaxed">
-        Möchtest du die Zeiterfassungsfunktionen, täglichen Check-Ins und Check-Outs sowie Analysetools nutzen, dann aktiviere den Mentor.
+        Möchtest du die Zeiterfassungsfunktionen, tägliche Morgen- und Abend-Check-ins sowie Analysetools nutzen, dann aktiviere den Mentor.
       </p>
 
       {/* CTA Button */}

@@ -171,6 +171,7 @@ const DashboardSubHeader = ({
   learningMinutesCompleted = 0,
   learningMinutesGoal = 0, // BUG-022 FIX: Default to 0, not 480 - goal comes from settings or planned slots
   checkInDone = false,
+  checkInStatus = null, // TICKET-1: Detailed check-in status { morningDone, eveningDone, count, allDone }
   onTimerClick,
 }) => {
   const navigate = useNavigate();
@@ -212,17 +213,85 @@ const DashboardSubHeader = ({
     }
   };
 
+  // TICKET-1 FIX: Helper to render correct check icon based on completion status
+  const renderCheckIcon = () => {
+    const count = checkInStatus?.count || 0;
+    const allDone = checkInStatus?.allDone || false;
+
+    // Double checkmark: only when BOTH check-ins are completed
+    if (allDone && count >= 2) {
+      return (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M20 12L9 23l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    // Single checkmark: when exactly one check-in is completed
+    if (count === 1) {
+      return (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    // No checkmark (shouldn't reach here if checkInDone is true)
+    return null;
+  };
+
+  // TICKET-1 FIX: Get status label based on completion count
+  const getCheckInStatusLabel = () => {
+    const count = checkInStatus?.count || 0;
+    const allDone = checkInStatus?.allDone || false;
+
+    if (allDone && count >= 2) {
+      return 'Check-Ins erledigt';
+    }
+    if (count === 1) {
+      return checkInStatus?.morningDone ? 'Morgen-Check-in erledigt' : 'Abend-Check-in erledigt';
+    }
+    return 'Check-Ins erledigt';
+  };
+
+  // TICKET-4: Get skipped status label
+  const getSkippedLabel = () => {
+    if (checkInStatus?.morningSkipped && checkInStatus?.eveningSkipped) {
+      return 'Check-Ins übersprungen';
+    }
+    if (checkInStatus?.morningSkipped) {
+      return 'Morgen-Check-in übersprungen';
+    }
+    if (checkInStatus?.eveningSkipped) {
+      return 'Abend-Check-in übersprungen';
+    }
+    return null;
+  };
+
   // Button label and state
   const getCheckInButton = () => {
+    // TICKET-4: Show skipped status as neutral hint (gray, not error)
+    const skippedLabel = getSkippedLabel();
+    if (skippedLabel && !checkInDone) {
+      return (
+        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-500 text-sm">
+          {/* Info icon - neutral gray */}
+          <svg className="w-4 h-4 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4M12 8h.01" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>{skippedLabel}</span>
+        </div>
+      );
+    }
+
     if (checkInDone) {
-      // Completed state
+      // TICKET-1 FIX: Show correct icon and label based on completion status
       return (
         <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-white text-neutral-500 text-sm">
-          <span>Check-Ins erledigt</span>
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M20 12L9 23l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <span>{getCheckInStatusLabel()}</span>
+          {renderCheckIcon()}
         </div>
       );
     }
@@ -231,14 +300,14 @@ const DashboardSubHeader = ({
       // Disabled state (grayed out)
       return (
         <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-400 text-sm cursor-not-allowed">
-          <span>Check-Out</span>
+          <span>Abend-Check-in</span>
           <span className="text-neutral-300">→</span>
         </div>
       );
     }
 
     // Active state
-    const label = isEvening ? 'Check-Out' : 'Check-In';
+    const label = isEvening ? 'Abend-Check-in' : 'Morgen-Check-in';
     return (
       <button
         onClick={handleCheckInClick}

@@ -144,13 +144,14 @@ const flattenBlocksToPool = (lernbloeckeDraft, selectedRechtsgebiete) => {
 
       if (hasThema) {
         // Block has a whole theme assigned
+        // Guard: use optional chaining for nested property access
         pool.push({
           originalBlockId: block.id,
           rechtsgebiet: rgId,
           type: 'thema',
           thema: block.thema,
-          displayName: block.thema.name,
-          aufgabenCount: block.thema.aufgabenCount || 0,
+          displayName: block.thema?.name || 'Thema',
+          aufgabenCount: block.thema?.aufgabenCount || 0,
         });
       } else if (hasAufgaben) {
         // Block has individual tasks assigned

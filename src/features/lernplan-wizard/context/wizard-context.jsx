@@ -207,26 +207,28 @@ const convertGeneratedCalendarToBlocks = (generatedCalendar, weekStructure) => {
 
       if (block.thema) {
         // Theme assigned - extract aufgaben as tasks
-        tasks = (block.thema.aufgaben || []).map(a => ({
+        // Guard: filter out undefined elements and use optional chaining
+        tasks = (block.thema.aufgaben || []).filter(a => a).map(a => ({
           id: a.id,
-          name: a.name,
+          name: a?.name || '',
           completed: false,
-          priority: a.priority || 'normal',
+          priority: a?.priority || 'normal',
         }));
         metadata = {
           themaId: block.thema.id,
-          themaName: block.thema.name,
+          themaName: block.thema?.name || '',
           rgId: block.rechtsgebiet,
           urgId: block.thema.urgId,
           source: 'wizard-thema',
         };
       } else if (block.aufgaben && block.aufgaben.length > 0) {
         // Individual aufgaben assigned
-        tasks = block.aufgaben.map(a => ({
+        // Guard: filter out undefined elements and use optional chaining
+        tasks = block.aufgaben.filter(a => a).map(a => ({
           id: a.id,
-          name: a.name,
+          name: a?.name || '',
           completed: false,
-          priority: a.priority || 'normal',
+          priority: a?.priority || 'normal',
         }));
         metadata = {
           rgId: block.rechtsgebiet,
@@ -969,30 +971,33 @@ export const WizardProvider = ({ children }) => {
           if (content) {
             if (content.thema) {
               // Theme assigned - use theme's aufgaben as tasks
-              topicTitle = content.thema.name || '';
-              tasks = (content.thema.aufgaben || []).map(a => ({
+              topicTitle = content.thema?.name || '';
+              // Guard: filter out undefined elements and use optional chaining
+              tasks = (content.thema.aufgaben || []).filter(a => a).map(a => ({
                 id: a.id,
-                name: a.name,
+                name: a?.name || '',
                 completed: false,
-                priority: a.priority || 'normal',
+                priority: a?.priority || 'normal',
               }));
               metadata = {
                 themaId: content.thema.id,
-                themaName: content.thema.name,
+                themaName: content.thema?.name || '',
                 rgId: content.rgId,
                 urgId: content.thema.urgId, // BUG FIX: Include URG ID from theme
                 source: 'wizard-thema',
               };
             } else if (content.aufgaben && content.aufgaben.length > 0) {
               // Individual aufgaben assigned
+              // Guard: use optional chaining for array element access
               topicTitle = content.aufgaben.length === 1
-                ? content.aufgaben[0].name
+                ? (content.aufgaben[0]?.name || 'Aufgabe')
                 : `${content.aufgaben.length} Aufgaben`;
-              tasks = content.aufgaben.map(a => ({
+              // Guard: filter out undefined elements and use optional chaining
+              tasks = content.aufgaben.filter(a => a).map(a => ({
                 id: a.id,
-                name: a.name,
+                name: a?.name || '',
                 completed: false,
-                priority: a.priority || 'normal',
+                priority: a?.priority || 'normal',
               }));
               metadata = {
                 rgId: content.rgId,

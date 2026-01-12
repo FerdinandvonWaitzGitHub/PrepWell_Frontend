@@ -107,16 +107,16 @@ const Step7Template = () => {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2.5">
-                  {stats.weights.map((weight) => (
+                  {stats.weights.filter(w => w).map((weight, idx) => (
                     <div
-                      key={weight.name}
+                      key={weight?.name || idx}
                       className="p-4 rounded-lg border border-neutral-200 flex flex-col gap-1"
                     >
                       <span className="text-neutral-900 text-sm font-medium leading-4">
-                        {weight.percentage} %
+                        {weight?.percentage || 0} %
                       </span>
                       <span className="text-neutral-500 text-sm font-normal leading-5 line-clamp-2">
-                        {weight.name}
+                        {weight?.name || 'Rechtsgebiet'}
                       </span>
                     </div>
                   ))}

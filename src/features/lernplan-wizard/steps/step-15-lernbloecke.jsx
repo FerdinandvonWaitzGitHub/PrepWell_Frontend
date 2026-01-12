@@ -66,7 +66,7 @@ const TaskItem = ({ aufgabe, themaId, themaName, urgId, isAssigned, assignedBloc
       {!isAssigned && <GripVertical className="w-3 h-3 text-neutral-400 flex-shrink-0" />}
       <div className="w-3 h-3 border border-neutral-300 rounded flex-shrink-0" />
       <span className={`text-sm flex-1 ${isAssigned ? 'line-through text-neutral-400' : 'text-neutral-700'}`}>
-        {aufgabe.name}
+        {aufgabe?.name || 'Aufgabe'}
       </span>
       {isAssigned && (
         <span className="text-xs bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded">
@@ -143,7 +143,7 @@ const ThemeCard = ({
         {/* Theme Info */}
         <div className="flex-1 min-w-0">
           <p className={`font-medium text-sm truncate ${isFullyAssigned ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
-            {thema.name}
+            {thema?.name || 'Thema'}
           </p>
           <p className={`text-xs ${isFullyAssigned ? 'text-neutral-300' : hasPartialAssignment ? 'text-amber-600' : 'text-neutral-500'}`}>
             {hasPartialAssignment
@@ -168,9 +168,9 @@ const ThemeCard = ({
             <TaskItem
               key={aufgabe.id}
               aufgabe={aufgabe}
-              themaId={thema.id}
-              themaName={thema.name}
-              urgId={thema.urgId}
+              themaId={thema?.id}
+              themaName={thema?.name || ''}
+              urgId={thema?.urgId}
               isAssigned={assignedAufgabenMap.has(aufgabe.id)}
               assignedBlockIndex={assignedAufgabenMap.get(aufgabe.id)}
               onDragStart={onDragStart}
@@ -275,7 +275,7 @@ const LernblockCard = ({
             <div className="space-y-1">
               {/* Theme Header with remove button */}
               <div className="flex items-center justify-between mb-1">
-                <p className="font-medium text-sm text-neutral-900">{block.thema.name}</p>
+                <p className="font-medium text-sm text-neutral-900">{block.thema?.name || 'Thema'}</p>
                 <button
                   type="button"
                   onClick={() => onRemoveThema(block.id)}
@@ -287,10 +287,10 @@ const LernblockCard = ({
               </div>
               {/* Aufgaben List - same style as individual aufgaben */}
               {themaAufgaben.length > 0 ? (
-                themaAufgaben.map(aufgabe => (
+                themaAufgaben.filter(a => a).map(aufgabe => (
                   <div key={aufgabe.id} className="flex items-center gap-2 group">
                     <div className="w-3 h-3 border border-neutral-300 rounded flex-shrink-0" />
-                    <span className="text-sm text-neutral-700 flex-1">{aufgabe.name}</span>
+                    <span className="text-sm text-neutral-700 flex-1">{aufgabe?.name || 'Aufgabe'}</span>
                   </div>
                 ))
               ) : (
@@ -302,12 +302,12 @@ const LernblockCard = ({
           {/* Individual Aufgaben Content */}
           {hasAufgaben && (
             <div className="space-y-1">
-              {/* TICKET-8 FIX: Defensive null check */}
-              {(block.aufgaben || []).map(aufgabe => (
+              {/* TICKET-8 FIX: Defensive null check - filter out undefined elements */}
+              {(block.aufgaben || []).filter(a => a).map(aufgabe => (
                 <div key={aufgabe.id} className="flex items-center gap-2 group">
                   <div className="w-3 h-3 border border-neutral-300 rounded flex-shrink-0" />
-                  <span className="text-sm text-neutral-700 flex-1">{aufgabe.name}</span>
-                  <span className="text-xs text-neutral-400">{aufgabe.themaName}</span>
+                  <span className="text-sm text-neutral-700 flex-1">{aufgabe?.name || 'Aufgabe'}</span>
+                  <span className="text-xs text-neutral-400">{aufgabe?.themaName || ''}</span>
                   <button
                     type="button"
                     onClick={() => onRemoveAufgabe(block.id, aufgabe.id)}
@@ -471,19 +471,22 @@ const Step15Lernbloecke = () => {
         if ((block.aufgaben || []).length > 0) return block;
 
         // BUG-P5 FIX: Store full aufgaben array directly in block.thema
-        // Guard: dragData.thema could be undefined
+        // Guard: dragData.thema could be undefined - use optional chaining
+        if (!dragData.thema) return block;
         return {
           ...block,
           thema: {
             id: dragData.thema.id,
-            name: dragData.thema.name,
+            name: dragData.thema?.name || '',
             aufgaben: dragData.thema?.aufgaben || [], // Full aufgaben array for display
-            urgId: dragData.thema.urgId
+            urgId: dragData.thema?.urgId
           },
           aufgaben: []
         };
       } else if (dragType === 'aufgabe') {
         // Dropping an aufgabe: Add to aufgaben array
+        // Guard: dragData.aufgabe could be undefined
+        if (!dragData.aufgabe) return block;
         // Check if already in this block
         if ((block.aufgaben || []).some(a => a.id === dragData.aufgabe.id)) {
           return block;
@@ -495,9 +498,9 @@ const Step15Lernbloecke = () => {
             ...(block.aufgaben || []),
             {
               id: dragData.aufgabe.id,
-              name: dragData.aufgabe.name,
+              name: dragData.aufgabe?.name || '',
               themaId: dragData.themaId,
-              themaName: dragData.themaName,
+              themaName: dragData.themaName || '',
               urgId: dragData.urgId
             }
           ]

@@ -33,7 +33,7 @@ const UrgListItem = ({ urg, onRemove }) => {
 
       {/* URG Name */}
       <div className="flex-1">
-        <p className="text-sm font-medium text-neutral-900">{urg.name}</p>
+        <p className="text-sm font-medium text-neutral-900">{urg?.name || 'Unterrechtsgebiet'}</p>
       </div>
 
       {/* Remove button */}
@@ -63,9 +63,9 @@ const AddUrgModal = ({ rechtsgebietId, currentUrgs, onAdd, onClose }) => {
   const currentUrgIds = currentUrgs.map(u => u.id);
   const availableUrgs = allUrgs.filter(u => !currentUrgIds.includes(u.id));
 
-  // Filter by search term
+  // Filter by search term (guard against undefined elements)
   const filteredUrgs = availableUrgs.filter(u =>
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
+    u && u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAddExisting = (urg) => {
@@ -110,8 +110,8 @@ const AddUrgModal = ({ rechtsgebietId, currentUrgs, onAdd, onClose }) => {
                 onClick={() => handleAddExisting(urg)}
                 className="w-full p-3 text-left bg-neutral-50 hover:bg-neutral-100 rounded-lg transition-colors"
               >
-                <p className="text-sm font-medium text-neutral-900">{urg.name}</p>
-                <p className="text-xs text-neutral-500">{urg.kategorie}</p>
+                <p className="text-sm font-medium text-neutral-900">{urg?.name || 'Unterrechtsgebiet'}</p>
+                <p className="text-xs text-neutral-500">{urg?.kategorie || ''}</p>
               </button>
             ))
           ) : (

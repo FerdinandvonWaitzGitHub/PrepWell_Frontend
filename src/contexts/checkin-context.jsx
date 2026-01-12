@@ -8,6 +8,7 @@ const CheckInContext = createContext(null);
 // LocalStorage keys
 const STORAGE_KEY_RESPONSES = 'prepwell_checkin_responses';
 const STORAGE_KEY_SETTINGS = 'prepwell_checkin_settings';
+const STORAGE_KEY_APP_SETTINGS = 'prepwell_settings'; // TICKET-3: App settings for checkInCount
 
 // Check-in questions (Morning)
 export const CHECKIN_QUESTIONS = [
@@ -57,7 +58,7 @@ export const CHECKIN_QUESTIONS = [
   }
 ];
 
-// Check-out questions (Evening)
+// TICKET-2: Abend-Check-in questions (Evening)
 export const CHECKOUT_QUESTIONS = [
   {
     id: 'productivity',
@@ -116,6 +117,32 @@ const getTodayKey = () => {
 };
 
 /**
+ * Merge local and remote check-in responses
+ * Local data takes priority (it's newer if it exists locally but not remotely)
+ * BUG-C FIX: Prevents Supabase data from overwriting unsynced local check-ins
+ */
+const mergeResponses = (local, remote) => {
+  const merged = { ...remote };
+
+  Object.entries(local).forEach(([date, periods]) => {
+    if (!merged[date]) {
+      // Date doesn't exist in remote, use local entirely
+      merged[date] = periods;
+    } else {
+      // Merge morning/evening separately - local takes priority
+      if (periods.morning) {
+        merged[date] = { ...merged[date], morning: periods.morning };
+      }
+      if (periods.evening) {
+        merged[date] = { ...merged[date], evening: periods.evening };
+      }
+    }
+  });
+
+  return merged;
+};
+
+/**
  * Determine if current time is morning or evening
  * Morning: before eveningHour (default 18:00)
  * Evening: from eveningHour onwards
@@ -170,6 +197,22 @@ export const CheckInProvider = ({ children }) => {
       return DEFAULT_SETTINGS;
     }
   });
+
+  // TICKET-3: Get checkInCount from app settings (1 or 2)
+  const getCheckInCount = useCallback(() => {
+    try {
+      const appSettings = localStorage.getItem(STORAGE_KEY_APP_SETTINGS);
+      if (appSettings) {
+        const parsed = JSON.parse(appSettings);
+        return parsed.checkin?.checkInCount || 2;
+      }
+    } catch {
+      // Ignore errors
+    }
+    return 2; // Default: 2 check-ins per day
+  }, []);
+
+  const checkInCount = getCheckInCount();
 
   // Fetch responses from Supabase
   const fetchFromSupabase = useCallback(async () => {
@@ -264,6 +307,7 @@ export const CheckInProvider = ({ children }) => {
   }, [isSupabaseEnabled, isAuthenticated, user]);
 
   // Initial load and sync
+  // BUG-C FIX: Merge local and remote data instead of overwriting
   useEffect(() => {
     const initData = async () => {
       if (!isSupabaseEnabled || !isAuthenticated || syncedRef.current) {
@@ -272,13 +316,19 @@ export const CheckInProvider = ({ children }) => {
 
       setLoading(true);
       try {
-        const localData = responses;
+        // BUG-C FIX: Keep reference to local data BEFORE any async operations
+        const localData = { ...responses };
+
+        // Try to sync local data to Supabase first
         await syncToSupabase(localData);
 
         const supabaseData = await fetchFromSupabase();
         if (supabaseData !== null) {
-          setResponses(supabaseData);
-          localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(supabaseData));
+          // BUG-C FIX: Merge instead of overwrite - local data takes priority
+          // This ensures unsynced local check-ins are not lost
+          const mergedData = mergeResponses(localData, supabaseData);
+          setResponses(mergedData);
+          localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(mergedData));
           syncedRef.current = true;
         }
       } finally {
@@ -335,8 +385,9 @@ export const CheckInProvider = ({ children }) => {
   /**
    * Submit check-in responses
    * Now syncs to Supabase when authenticated
+   * BUG-A FIX: Returns Promise to allow awaiting before navigation
    */
-  const submitCheckIn = useCallback((answers, period = null) => {
+  const submitCheckIn = useCallback(async (answers, period = null) => {
     const today = getTodayKey();
     const currentPeriod = period || getCurrentPeriod(settings) || 'morning';
 
@@ -345,16 +396,27 @@ export const CheckInProvider = ({ children }) => {
       timestamp: new Date().toISOString()
     };
 
-    setResponses(prev => ({
-      ...prev,
-      [today]: {
-        ...prev[today],
-        [currentPeriod]: checkInData
-      }
-    }));
+    // BUG-A FIX: Use Promise to ensure state is updated before returning
+    return new Promise((resolve) => {
+      setResponses(prev => {
+        const newState = {
+          ...prev,
+          [today]: {
+            ...prev[today],
+            [currentPeriod]: checkInData
+          }
+        };
+        // BUG-A FIX: Immediately persist to localStorage to prevent data loss on navigation
+        localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(newState));
+        return newState;
+      });
 
-    // Sync to Supabase
-    saveToSupabase(today, currentPeriod, checkInData);
+      // Sync to Supabase (fire and forget, but wait a tick for state to propagate)
+      saveToSupabase(today, currentPeriod, checkInData);
+
+      // BUG-A FIX: Small delay to ensure React state update propagates
+      setTimeout(resolve, 50);
+    });
   }, [settings, saveToSupabase]);
 
   /**
@@ -380,6 +442,7 @@ export const CheckInProvider = ({ children }) => {
   /**
    * Check if check-in is needed now
    * BUG-003 FIX: Only show check-in if mentor is activated
+   * TICKET-3: Respect checkInCount setting (1 or 2 check-ins per day)
    */
   const isCheckInNeeded = useMemo(() => {
     // BUG-003 FIX: Check-in requires mentor to be activated
@@ -391,6 +454,11 @@ export const CheckInProvider = ({ children }) => {
 
     // If not in a check-in period (midday), no check-in needed
     if (!currentPeriod) return false;
+
+    // TICKET-3: If only 1 check-in is configured, skip evening check-in
+    if (checkInCount === 1 && currentPeriod === 'evening') {
+      return false;
+    }
 
     // Check timing settings
     if (settings.timing === CHECKIN_TIMING.MORNING_ONLY && currentPeriod !== 'morning') {
@@ -407,7 +475,7 @@ export const CheckInProvider = ({ children }) => {
     }
 
     return true;
-  }, [responses, settings, isMentorActivated]);
+  }, [responses, settings, isMentorActivated, checkInCount]);
 
   /**
    * Check if morning check-in was skipped (for Check-in button state)
@@ -545,6 +613,7 @@ export const CheckInProvider = ({ children }) => {
     wasMorningSkipped,
     isCheckInButtonEnabled,
     isMentorActivated, // BUG-003 FIX: Expose mentor status
+    checkInCount, // TICKET-3: Number of check-ins per day (1 or 2)
     loading,
     isAuthenticated,
 

@@ -155,9 +155,10 @@ const Step8Unterrechtsgebiete = () => {
     if (!searchQuery) return items;
 
     const query = searchQuery.toLowerCase();
+    // Guard: filter out undefined elements and check name exists
     return items.filter(item =>
-      item.name.toLowerCase().includes(query) ||
-      (item.kategorie && item.kategorie.toLowerCase().includes(query))
+      item && item.name && (item.name.toLowerCase().includes(query) ||
+      (item.kategorie && item.kategorie.toLowerCase().includes(query)))
     );
   };
 
@@ -250,10 +251,10 @@ const Step8Unterrechtsgebiete = () => {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-neutral-900 truncate">{item.name}</p>
+                  <p className="font-medium text-neutral-900 truncate">{item?.name || 'Unterrechtsgebiet'}</p>
                   <p className="text-xs text-neutral-500 truncate">
-                    {getRechtsgebietLabel(item.rechtsgebiet)}
-                    {item.kategorie && ` • ${item.kategorie}`}
+                    {getRechtsgebietLabel(item?.rechtsgebiet)}
+                    {item?.kategorie && ` • ${item.kategorie}`}
                   </p>
                 </div>
 
@@ -433,7 +434,7 @@ const Step8Unterrechtsgebiete = () => {
                                 </svg>
                               )}
                             </div>
-                            <span className="text-sm">{item.name}</span>
+                            <span className="text-sm">{item?.name || 'Unterrechtsgebiet'}</span>
                           </button>
                         );
                       })}

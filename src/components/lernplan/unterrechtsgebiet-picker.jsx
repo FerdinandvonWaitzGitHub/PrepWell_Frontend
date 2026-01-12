@@ -51,12 +51,12 @@ const UnterrechtsgebietPicker = ({
     // Filter out excluded IDs
     let items = allItems.filter(item => !excludeIds.includes(item.id));
 
-    // Apply search filter
+    // Apply search filter (guard against undefined elements)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       items = items.filter(item =>
-        item.name.toLowerCase().includes(query) ||
-        (item.kategorie && item.kategorie.toLowerCase().includes(query))
+        item && item.name && (item.name.toLowerCase().includes(query) ||
+        (item.kategorie && item.kategorie.toLowerCase().includes(query)))
       );
     }
 
@@ -229,7 +229,7 @@ const UnterrechtsgebietPicker = ({
                             className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
                           />
                           <span className={`text-sm ${isSelected ? 'text-primary-700 font-medium' : 'text-neutral-700'}`}>
-                            {item.name}
+                            {item?.name || 'Unterrechtsgebiet'}
                           </span>
                           {item.isCustom && (
                             <span className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded">
