@@ -371,6 +371,8 @@ const ThemeListUnterrechtsgebietRow = ({
   onToggleAufgabe,
   onAddAufgabe, // Add aufgabe callback
   onUpdateAufgabe, // Update aufgabe callback
+  onDeleteAufgabe, // Delete aufgabe callback
+  onToggleAufgabePriority, // Toggle aufgabe priority callback
 }) => {
   // Calculate progress for this unterrechtsgebiet
   let completedCount = 0;
@@ -420,6 +422,8 @@ const ThemeListUnterrechtsgebietRow = ({
               onToggleAufgabe={onToggleAufgabe}
               onAddAufgabe={onAddAufgabe}
               onUpdateAufgabe={onUpdateAufgabe}
+              onDeleteAufgabe={onDeleteAufgabe}
+              onToggleAufgabePriority={onToggleAufgabePriority}
             />
           ))}
         </div>
@@ -442,6 +446,8 @@ const ThemeListKapitelRow = ({
   onToggleAufgabe,
   onAddAufgabe, // Add aufgabe callback
   onUpdateAufgabe, // Update aufgabe callback
+  onDeleteAufgabe, // Delete aufgabe callback
+  onToggleAufgabePriority, // Toggle aufgabe priority callback
 }) => {
   // Calculate progress for this kapitel
   let completedCount = 0;
@@ -483,6 +489,8 @@ const ThemeListKapitelRow = ({
               onToggleAufgabe={onToggleAufgabe}
               onAddAufgabe={onAddAufgabe}
               onUpdateAufgabe={onUpdateAufgabe}
+              onDeleteAufgabe={onDeleteAufgabe}
+              onToggleAufgabePriority={onToggleAufgabePriority}
               kapitelTitle={kapitel.title}
             />
           ))}
@@ -507,6 +515,8 @@ const ThemeListThemaRow = ({
   onToggleAufgabe,
   onAddAufgabe, // Add aufgabe callback
   onUpdateAufgabe, // Update aufgabe callback
+  onDeleteAufgabe, // Delete aufgabe callback
+  onToggleAufgabePriority, // Toggle aufgabe priority callback
   kapitelTitle = '',
 }) => {
   // Local state for editing mode - prevents input->span switch during typing
@@ -688,6 +698,41 @@ const ThemeListThemaRow = ({
                         Aufgabe eingeben...
                       </span>
                     )}
+                    {/* Priority indicator - cycles: none → medium (!) → high (!!) → none */}
+                    {!isScheduled && hasTitle && !isEditing && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleAufgabePriority?.(unterrechtsgebietId, kapitelId, thema.id, aufgabe.id, aufgabe.priority || 'none', rechtsgebietId);
+                        }}
+                        className={`px-1 py-0.5 rounded text-xs font-semibold transition-colors ${
+                          (aufgabe.priority || 'none') === 'none'
+                            ? 'text-neutral-300 hover:text-neutral-500 opacity-0 group-hover:opacity-100'
+                            : 'text-neutral-700 hover:text-neutral-900'
+                        }`}
+                        title={
+                          (aufgabe.priority || 'none') === 'none' ? 'Keine Priorität' :
+                          aufgabe.priority === 'medium' ? 'Mittlere Priorität' : 'Hohe Priorität'
+                        }
+                      >
+                        {(aufgabe.priority || 'none') === 'none' ? '!' : aufgabe.priority === 'medium' ? '!' : '!!'}
+                      </button>
+                    )}
+                    {/* Delete button - only visible on hover for non-scheduled tasks */}
+                    {!isScheduled && hasTitle && !isEditing && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteAufgabe?.(unterrechtsgebietId, kapitelId, thema.id, aufgabe.id, rechtsgebietId);
+                        }}
+                        className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Löschen"
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                     {isScheduled && (
                       <span className="text-xs text-blue-400 ml-auto">
                         → {aufgabe.scheduledInBlock.date}
@@ -731,6 +776,8 @@ const ThemeListView = ({
   onToggleAufgabe,
   onAddAufgabe, // Add aufgabe callback
   onUpdateAufgabe, // Update aufgabe callback
+  onDeleteAufgabe, // Delete aufgabe callback
+  onToggleAufgabePriority, // Toggle aufgabe priority callback
 }) => {
   if (!themeList) {
     return (
@@ -778,6 +825,8 @@ const ThemeListView = ({
             onToggleAufgabe={onToggleAufgabe}
             onAddAufgabe={onAddAufgabe}
             onUpdateAufgabe={onUpdateAufgabe}
+            onDeleteAufgabe={onDeleteAufgabe}
+            onToggleAufgabePriority={onToggleAufgabePriority}
           />
         ))
       )}
@@ -971,6 +1020,8 @@ const NoTopicsView = ({
   onToggleThemeListAufgabe,
   onAddThemeListAufgabe, // Add aufgabe to theme list
   onUpdateThemeListAufgabe, // Update aufgabe title in theme list
+  onDeleteThemeListAufgabe, // Delete aufgabe from theme list
+  onToggleThemeListAufgabePriority, // Toggle aufgabe priority in theme list
   onArchiveThemeList, // TICKET-12: Archive callback
 }) => {
   const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themenliste'
@@ -1128,6 +1179,8 @@ const NoTopicsView = ({
             onToggleAufgabe={onToggleThemeListAufgabe}
             onAddAufgabe={onAddThemeListAufgabe}
             onUpdateAufgabe={onUpdateThemeListAufgabe}
+            onDeleteAufgabe={onDeleteThemeListAufgabe}
+            onToggleAufgabePriority={onToggleThemeListAufgabePriority}
           />
         )
       )}
@@ -1265,6 +1318,8 @@ const SessionWidget = ({
   onToggleThemeListAufgabe,
   onAddThemeListAufgabe, // Add aufgabe to theme list
   onUpdateThemeListAufgabe, // Update aufgabe title in theme list
+  onDeleteThemeListAufgabe, // Delete aufgabe from theme list
+  onToggleThemeListAufgabePriority, // Toggle aufgabe priority in theme list
   onArchiveThemeList, // TICKET-12: Archive themenliste callback
   // Mode prop
   isExamMode = false,
@@ -1311,6 +1366,8 @@ const SessionWidget = ({
             onToggleThemeListAufgabe={onToggleThemeListAufgabe}
             onAddThemeListAufgabe={onAddThemeListAufgabe}
             onUpdateThemeListAufgabe={onUpdateThemeListAufgabe}
+            onDeleteThemeListAufgabe={onDeleteThemeListAufgabe}
+            onToggleThemeListAufgabePriority={onToggleThemeListAufgabePriority}
             onArchiveThemeList={onArchiveThemeList}
           />
         )}

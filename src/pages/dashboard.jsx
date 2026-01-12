@@ -116,6 +116,7 @@ const DashboardPage = () => {
     archiveContentPlan, // TICKET-12: Archive themenliste
     addAufgabeToPlan, // For adding aufgaben from dashboard
     updateAufgabeInPlan, // For editing aufgaben from dashboard
+    deleteAufgabeFromPlan, // For deleting aufgaben from dashboard
     // Aufgabe Scheduling (for drag & drop)
     scheduleAufgabeToBlock,
   } = useCalendar();
@@ -152,6 +153,7 @@ const DashboardPage = () => {
                     id: a.id,
                     title: a.title,
                     completed: a.completed || false,
+                    priority: a.priority || 'none', // Priority: 'none', 'medium' (!), 'high' (!!)
                     // Include scheduling info for UI display
                     scheduledInBlock: a.scheduledInBlock || null,
                   };
@@ -232,6 +234,21 @@ const DashboardPage = () => {
   const handleUpdateThemeListAufgabe = useCallback((unterrechtsgebietId, kapitelId, themaId, aufgabeId, updates, rechtsgebietId) => {
     if (!selectedThemeListId) return;
     updateAufgabeInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabeId, updates);
+  }, [selectedThemeListId, updateAufgabeInPlan]);
+
+  // Handle deleting an Aufgabe from the selected theme list
+  const handleDeleteThemeListAufgabe = useCallback((unterrechtsgebietId, kapitelId, themaId, aufgabeId, rechtsgebietId) => {
+    if (!selectedThemeListId) return;
+    deleteAufgabeFromPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabeId);
+  }, [selectedThemeListId, deleteAufgabeFromPlan]);
+
+  // Handle toggling Aufgabe priority in the selected theme list
+  // Cycles: none → medium (!) → high (!!) → none
+  const handleToggleThemeListAufgabePriority = useCallback((unterrechtsgebietId, kapitelId, themaId, aufgabeId, currentPriority, rechtsgebietId) => {
+    if (!selectedThemeListId) return;
+    const priorityMap = { none: 'medium', medium: 'high', high: 'none' };
+    const nextPriority = priorityMap[currentPriority] || 'medium';
+    updateAufgabeInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabeId, { priority: nextPriority });
   }, [selectedThemeListId, updateAufgabeInPlan]);
 
   // Dialog states
@@ -763,6 +780,8 @@ const DashboardPage = () => {
                 onToggleThemeListAufgabe={handleToggleThemeListAufgabe}
                 onAddThemeListAufgabe={handleAddThemeListAufgabe}
                 onUpdateThemeListAufgabe={handleUpdateThemeListAufgabe}
+                onDeleteThemeListAufgabe={handleDeleteThemeListAufgabe}
+                onToggleThemeListAufgabePriority={handleToggleThemeListAufgabePriority}
                 onArchiveThemeList={archiveContentPlan}
                 isExamMode={isExamMode}
               />
