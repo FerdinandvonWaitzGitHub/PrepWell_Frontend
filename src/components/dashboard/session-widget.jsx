@@ -617,6 +617,44 @@ const ThemeListThemaRow = ({
     e.currentTarget.classList.remove('opacity-50');
   };
 
+  // T5.4: Thema drag handler - drag complete thema with all available aufgaben
+  const handleThemaDragStart = (e) => {
+    // Only allow dragging if there are available (non-scheduled, non-completed) aufgaben
+    const draggableAufgaben = (thema.aufgaben || []).filter(a => !a.scheduledInBlock && !a.completed);
+    if (draggableAufgaben.length === 0) {
+      e.preventDefault();
+      return;
+    }
+
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'thema',
+      source: 'themenliste',
+      thema: {
+        id: thema.id,
+        title: thema.title,
+        kapitelId: kapitelId,
+        unterrechtsgebietId: unterrechtsgebietId,
+        rechtsgebietId: rechtsgebietId,
+        kapitelTitle: kapitelTitle,
+        aufgaben: draggableAufgaben.map(a => ({
+          id: a.id,
+          title: a.title,
+          completed: a.completed || false,
+          priority: a.priority || 'none',
+        })),
+      },
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleThemaDragEnd = (e) => {
+    e.currentTarget.classList.remove('opacity-50');
+  };
+
+  // Check if thema can be dragged (has available aufgaben)
+  const canDragThema = (thema.aufgaben || []).some(a => !a.scheduledInBlock && !a.completed);
+
   const handleAddAufgabe = () => {
     if (onAddAufgabe) {
       // Add the aufgabe first
@@ -630,9 +668,22 @@ const ThemeListThemaRow = ({
 
   return (
     <div className="border-b border-neutral-50 last:border-b-0">
-      {/* Thema Header */}
-      <div className="w-full flex items-center justify-between px-8 py-2 hover:bg-neutral-50 transition-colors">
+      {/* Thema Header - T5.4: draggable to schedule complete thema */}
+      <div
+        className={`w-full flex items-center justify-between px-8 py-2 hover:bg-neutral-50 transition-colors group ${
+          canDragThema ? 'cursor-grab active:cursor-grabbing' : ''
+        }`}
+        draggable={canDragThema}
+        onDragStart={handleThemaDragStart}
+        onDragEnd={handleThemaDragEnd}
+      >
         <div className="flex items-center gap-3">
+          {/* T5.4: Drag Handle for Thema - visible when draggable */}
+          {canDragThema && (
+            <span className="text-neutral-300 group-hover:text-neutral-400 flex-shrink-0">
+              <DragHandleIcon />
+            </span>
+          )}
           {/* T5.1: Thema checkbox - only show when showThemaCheckbox is true */}
           {showThemaCheckbox && (
             <button

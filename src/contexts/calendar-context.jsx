@@ -2313,6 +2313,178 @@ export const CalendarProvider = ({ children }) => {
     });
   }, [contentPlans, saveContentPlanToSupabase]);
 
+  /**
+   * Schedule a complete Thema to a Block (marks thema and all aufgaben as scheduled)
+   * Used when dragging a Thema from Themenliste to a Calendar Block
+   * @param {string} themaId - The Thema ID to schedule
+   * @param {Object} blockInfo - { blockId, date, blockTitle }
+   */
+  const scheduleThemaToBlock = useCallback((themaId, blockInfo) => {
+    const scheduledAt = new Date().toISOString();
+    const scheduleData = {
+      blockId: blockInfo.blockId,
+      date: blockInfo.date,
+      blockTitle: blockInfo.blockTitle,
+      scheduledAt,
+    };
+
+    const updated = contentPlans.map(plan => {
+      let found = false;
+      const updatedPlan = {
+        ...plan,
+        rechtsgebiete: plan.rechtsgebiete.map(rg => ({
+          ...rg,
+          unterrechtsgebiete: (rg.unterrechtsgebiete || []).map(urg => ({
+            ...urg,
+            kapitel: (urg.kapitel || []).map(k => ({
+              ...k,
+              themen: (k.themen || []).map(t => {
+                if (t.id === themaId) {
+                  found = true;
+                  return {
+                    ...t,
+                    scheduledInBlock: scheduleData,
+                    aufgaben: (t.aufgaben || []).map(a => ({
+                      ...a,
+                      scheduledInBlock: scheduleData,
+                    })),
+                  };
+                }
+                return t;
+              }),
+            })),
+          })),
+        })),
+      };
+      if (found) {
+        updatedPlan.updatedAt = new Date().toISOString();
+      }
+      return updatedPlan;
+    });
+    // scheduleThemaToBlock affects unknown plan, sync all modified plans
+    setContentPlans(updated);
+    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+    updated.forEach(plan => {
+      if (plan.updatedAt) {
+        saveContentPlanToSupabase(plan);
+      }
+    });
+  }, [contentPlans, saveContentPlanToSupabase]);
+
+  /**
+   * Unschedule a complete Thema from a Block (removes scheduledInBlock from thema and all aufgaben)
+   * @param {string} themaId - The Thema ID to unschedule
+   */
+  const unscheduleThemaFromBlock = useCallback((themaId) => {
+    const updated = contentPlans.map(plan => {
+      let found = false;
+      const updatedPlan = {
+        ...plan,
+        rechtsgebiete: plan.rechtsgebiete.map(rg => ({
+          ...rg,
+          unterrechtsgebiete: (rg.unterrechtsgebiete || []).map(urg => ({
+            ...urg,
+            kapitel: (urg.kapitel || []).map(k => ({
+              ...k,
+              themen: (k.themen || []).map(t => {
+                if (t.id === themaId) {
+                  found = true;
+                  const { scheduledInBlock, ...themaRest } = t;
+                  return {
+                    ...themaRest,
+                    aufgaben: (t.aufgaben || []).map(a => {
+                      const { scheduledInBlock: aufgabeSchedule, ...aufgabeRest } = a;
+                      return aufgabeRest;
+                    }),
+                  };
+                }
+                return t;
+              }),
+            })),
+          })),
+        })),
+      };
+      if (found) {
+        updatedPlan.updatedAt = new Date().toISOString();
+      }
+      return updatedPlan;
+    });
+    // unscheduleThemaFromBlock affects unknown plan, sync all modified plans
+    setContentPlans(updated);
+    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+    updated.forEach(plan => {
+      if (plan.updatedAt) {
+        saveContentPlanToSupabase(plan);
+      }
+    });
+  }, [contentPlans, saveContentPlanToSupabase]);
+
+  /**
+   * Cleanup expired schedules - removes scheduledInBlock for items where date < today and not completed
+   * Called on app mount to release items that were scheduled but not completed by midnight
+   */
+  const cleanupExpiredSchedules = useCallback(() => {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    let hasChanges = false;
+
+    const updated = contentPlans.map(plan => {
+      let planChanged = false;
+      const updatedPlan = {
+        ...plan,
+        rechtsgebiete: plan.rechtsgebiete.map(rg => ({
+          ...rg,
+          unterrechtsgebiete: (rg.unterrechtsgebiete || []).map(urg => ({
+            ...urg,
+            kapitel: (urg.kapitel || []).map(k => ({
+              ...k,
+              themen: (k.themen || []).map(t => {
+                let themaChanged = false;
+                let updatedThema = { ...t };
+
+                // Check thema-level scheduling
+                if (t.scheduledInBlock?.date && t.scheduledInBlock.date < today && !t.completed) {
+                  const { scheduledInBlock, ...themaRest } = updatedThema;
+                  updatedThema = themaRest;
+                  themaChanged = true;
+                }
+
+                // Check aufgaben-level scheduling
+                updatedThema.aufgaben = (t.aufgaben || []).map(a => {
+                  if (a.scheduledInBlock?.date && a.scheduledInBlock.date < today && !a.completed) {
+                    const { scheduledInBlock, ...aufgabeRest } = a;
+                    themaChanged = true;
+                    return aufgabeRest;
+                  }
+                  return a;
+                });
+
+                if (themaChanged) {
+                  planChanged = true;
+                  hasChanges = true;
+                }
+                return updatedThema;
+              }),
+            })),
+          })),
+        })),
+      };
+      if (planChanged) {
+        updatedPlan.updatedAt = new Date().toISOString();
+      }
+      return updatedPlan;
+    });
+
+    if (hasChanges) {
+      setContentPlans(updated);
+      saveToStorage(STORAGE_KEY_CONTENT_PLANS, updated);
+      updated.forEach(plan => {
+        if (plan.updatedAt) {
+          saveContentPlanToSupabase(plan);
+        }
+      });
+    }
+  }, [contentPlans, saveContentPlanToSupabase]);
+
   // ============================================
   // CUSTOM UNTERRECHTSGEBIETE (Global)
   // ============================================
@@ -2517,6 +2689,13 @@ export const CalendarProvider = ({ children }) => {
     // Aufgabe Scheduling (for drag & drop from Themenliste to Block)
     scheduleAufgabeToBlock,
     unscheduleAufgabeFromBlock,
+
+    // Thema Scheduling (for drag & drop complete thema to Block)
+    scheduleThemaToBlock,
+    unscheduleThemaFromBlock,
+
+    // Expired Schedule Cleanup
+    cleanupExpiredSchedules,
 
     // Custom Unterrechtsgebiete
     addCustomUnterrechtsgebiet,

@@ -217,8 +217,14 @@ const ZeitplanWidget = ({
 
                 try {
                   const data = JSON.parse(e.dataTransfer.getData('application/json'));
-                  if (data.type === 'task' && onDropTaskToBlock) {
-                    onDropTaskToBlock(block, data.task, data.source);
+                  if (onDropTaskToBlock) {
+                    if (data.type === 'task') {
+                      // Single task drop
+                      onDropTaskToBlock(block, data.task, data.source, 'task');
+                    } else if (data.type === 'thema') {
+                      // T5.4: Complete thema drop with all aufgaben
+                      onDropTaskToBlock(block, data.thema, data.source, 'thema');
+                    }
                   }
                 } catch (err) {
                   console.error('Drop error:', err);
@@ -270,7 +276,7 @@ const ZeitplanWidget = ({
                   {/* Drop indicator overlay */}
                   {isDragOver && (
                     <div className="absolute inset-0 flex items-center justify-center bg-blue-100/90 rounded-xl z-10 pointer-events-none">
-                      <span className="text-sm font-medium text-blue-600">Aufgabe hier ablegen</span>
+                      <span className="text-sm font-medium text-blue-600">Hier ablegen</span>
                     </div>
                   )}
 

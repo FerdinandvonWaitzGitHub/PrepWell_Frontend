@@ -120,6 +120,10 @@ const DashboardPage = () => {
     updateThemaInPlan, // For toggling thema completed status
     // Aufgabe Scheduling (for drag & drop)
     scheduleAufgabeToBlock,
+    // T5.4: Thema Scheduling (for drag & drop complete thema)
+    scheduleThemaToBlock,
+    // T5.4: Cleanup expired schedules at midnight
+    cleanupExpiredSchedules,
   } = useCalendar();
 
   // Selected theme list state
@@ -165,6 +169,13 @@ const DashboardPage = () => {
       window.removeEventListener('prepwell-settings-changed', handleStorageChange);
     };
   }, []);
+
+  // T5.4: Cleanup expired scheduled items on mount (midnight expiration)
+  useEffect(() => {
+    if (cleanupExpiredSchedules) {
+      cleanupExpiredSchedules();
+    }
+  }, [cleanupExpiredSchedules]);
 
   // Convert contentPlans (type='themenliste') to the format expected by LernblockWidget
   // Preserves full hierarchy: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
@@ -554,13 +565,78 @@ const DashboardPage = () => {
     });
   }, [dateString, addPrivateBlock]);
 
-  // Handle dropping a task onto a block
+  // Handle dropping a task or thema onto a block
   // Supports both contentId and topicId patterns for cross-view compatibility
   // TICKET-7: Ensures a task can only be scheduled to ONE block at a time
-  const handleDropTaskToBlock = useCallback((block, droppedTask, source) => {
+  // T5.4: Extended to support dropping complete thema with all aufgaben
+  const handleDropTaskToBlock = useCallback((block, droppedItem, source, itemType = 'task') => {
     const dayBlocks = (blocksByDate || {})[dateString] || [];
-    let taskWasAdded = false;
+    let itemsWereAdded = false;
     let targetBlockId = null;
+
+    // T5.4: Handle thema drop (complete thema with all aufgaben)
+    if (itemType === 'thema') {
+      const thema = droppedItem;
+      const aufgabenToAdd = thema.aufgaben || [];
+
+      if (aufgabenToAdd.length === 0) return;
+
+      // Create tasks from all aufgaben in the thema
+      const newTasks = aufgabenToAdd.map((a, index) => ({
+        id: `dropped-${Date.now()}-${index}`,
+        sourceId: a.id,
+        text: a.title,
+        completed: a.completed || false,
+        source: source,
+        // T5.4: Track thema association for grouped display
+        themaId: thema.id,
+        themaTitle: thema.title,
+        kapitel: thema.kapitelTitle,
+      }));
+
+      // Add all tasks to the target block
+      const updatedBlocks = dayBlocks.map(blk => {
+        const isMatch =
+          blk.contentId === block.id ||
+          blk.contentId === block.contentId ||
+          blk.topicId === block.id ||
+          blk.topicId === block.topicId ||
+          blk.id === block.id;
+
+        if (isMatch) {
+          itemsWereAdded = true;
+          targetBlockId = blk.id;
+
+          const existingTasks = blk.tasks || [];
+          // Filter out any tasks that might already be scheduled (by sourceId)
+          const tasksToAddFiltered = newTasks.filter(nt =>
+            !existingTasks.some(et => et.sourceId === nt.sourceId)
+          );
+
+          return {
+            ...blk,
+            tasks: [...existingTasks, ...tasksToAddFiltered],
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return blk;
+      });
+
+      updateDayBlocks(dateString, updatedBlocks);
+
+      // Mark the whole thema as scheduled in the themenliste
+      if (itemsWereAdded && scheduleThemaToBlock) {
+        scheduleThemaToBlock(thema.id, {
+          blockId: targetBlockId,
+          date: dateString,
+          blockTitle: block.title || 'Lernblock',
+        });
+      }
+      return;
+    }
+
+    // Original single task drop logic
+    const droppedTask = droppedItem;
 
     // TICKET-7: First, remove the task from ALL other blocks where it might exist
     // This ensures a task can only be in one block at a time
@@ -605,7 +681,7 @@ const DashboardPage = () => {
           return blk; // Don't add duplicate
         }
 
-        taskWasAdded = true;
+        itemsWereAdded = true;
         targetBlockId = blk.id;
 
         const newTask = {
@@ -633,7 +709,7 @@ const DashboardPage = () => {
     if (source === 'todos') {
       // Remove from To-Do list
       removeTask(droppedTask.id);
-    } else if (source === 'themenliste' && taskWasAdded) {
+    } else if (source === 'themenliste' && itemsWereAdded) {
       // Mark the aufgabe as scheduled in the themenliste (grays it out)
       scheduleAufgabeToBlock(droppedTask.id, {
         blockId: targetBlockId,
@@ -641,7 +717,7 @@ const DashboardPage = () => {
         blockTitle: block.title || 'Lernblock',
       });
     }
-  }, [dateString, blocksByDate, updateDayBlocks, removeTask, scheduleAufgabeToBlock]);
+  }, [dateString, blocksByDate, updateDayBlocks, removeTask, scheduleAufgabeToBlock, scheduleThemaToBlock]);
 
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);
