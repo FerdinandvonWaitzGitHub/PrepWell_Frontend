@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useCalendar } from '../../contexts/calendar-context';
 import { RECHTSGEBIET_LABELS } from '../../data/unterrechtsgebiete-data';
+import CustomSubjectsSection from './custom-subjects-section';
 
 const STORAGE_KEY = 'prepwell_settings';
 
@@ -370,6 +371,17 @@ const SettingsContent = ({ className = '' }) => {
         </div>
       </div>
 
+      {/* T-SET-1: Fächerfarben für Nicht-Juristen */}
+      {!isJura && hasStudiengang && (
+        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+          <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+            <BookOpen className="w-5 h-5" />
+            Fächer
+          </h3>
+          <CustomSubjectsSection isJura={false} />
+        </div>
+      )}
+
       {/* Jura Section - nur bei Jura-Studiengang anzeigen */}
       {isJura && (
         <div className="bg-white rounded-lg border border-neutral-200 p-6">
@@ -453,6 +465,11 @@ const SettingsContent = ({ className = '' }) => {
                   settings.jura?.chapterLevelEnabled ? 'left-7' : 'left-1'
                 }`} />
               </button>
+            </div>
+
+            {/* T-SET-1: Fächerfarben */}
+            <div className="border-t border-neutral-100 pt-4 mt-4">
+              <CustomSubjectsSection isJura={true} />
             </div>
           </div>
         </div>

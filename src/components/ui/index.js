@@ -10,6 +10,9 @@ export {
   ArrowRightIcon,
   PlusIcon,
   MinusIcon,
+  TrashIcon,
+  RotateCcwIcon,
+  PaletteIcon,
 } from './icon.jsx';
 export {
   Dialog,

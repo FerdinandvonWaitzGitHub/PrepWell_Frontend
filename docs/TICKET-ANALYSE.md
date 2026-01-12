@@ -30,7 +30,7 @@
 | ✅ | T5.4 | Themenlisten nicht archivierbar | UX | ERLEDIGT |
 | ✅ | T6.3 | Drag & Drop auf Startseite fehlt | UX | ERLEDIGT |
 | ✅ | T4.1 | Session per Zeitbereich-Markierung (Google Cal) | UX | ERLEDIGT |
-| 🟡 | T4.2 | Wiederholung Enddatum fehlt | Feature | Mittel |
+| ✅ | T4.2 | Wiederholung Enddatum fehlt | Feature | ERLEDIGT |
 | 🟡 | T-SET-1 | Zusätzliche Rechtsgebiete in Einstellungen | Feature | Mittel |
 | 🟡 | T-DASH-1 | Dashboard: Aufgaben erstellen + Themen→Session kopieren | Feature | Groß |
 | 🟢 | T6.2 | Kalender als klassischer Terminkalender | Feature | Groß |
@@ -944,10 +944,17 @@ export const getAllRechtsgebiete = (customRechtsgebiete = []) => {
 
 ### T4.2: Wiederholung Enddatum fehlt
 
+**Status:** ✅ ERLEDIGT (bereits unter TICKET-10 implementiert)
+
 **Quelle:** tickets4.md
 
 **Problem:**
 Beim Wiederholen im Tageszeitplan fehlt eine optionale Angabe, wann die Wiederholung endet (Enddatum oder Anzahl der Wiederholungen).
+
+**Implementierung:**
+Feature war bereits unter TICKET-10 implementiert:
+- `create-repetition-session-dialog.jsx`: repeatEndMode (count/date) + repeatEndDate UI vorhanden
+- `manage-repetition-session-dialog.jsx`: Bug behoben - repeatEndMode und repeatEndDate werden jetzt im useEffect geladen
 
 **Betroffene Dateien:**
 - `src/features/calendar/components/create-repetition-session-dialog.jsx`

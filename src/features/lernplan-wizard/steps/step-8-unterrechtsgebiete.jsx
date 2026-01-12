@@ -3,6 +3,7 @@ import { useWizard } from '../context/wizard-context';
 import { useUnterrechtsgebiete } from '../../../contexts/unterrechtsgebiete-context';
 import StepHeader from '../components/step-header';
 import { groupByKategorie } from '../../../data/unterrechtsgebiete-data';
+import { getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
 
 /**
  * Step 8: Unterrechtsgebiete sortieren
@@ -12,11 +13,20 @@ import { groupByKategorie } from '../../../data/unterrechtsgebiete-data';
  * - template/AI path: uses unterrechtsgebiete-context
  */
 
-// Rechtsgebiet colors for automatic path
-const MANUAL_RECHTSGEBIET_COLORS = {
-  'Zivilrecht': 'bg-blue-500',
-  'Öffentliches Recht': 'bg-green-500',
-  'Strafrecht': 'bg-red-500',
+// Map German display names to IDs for automatic path
+const NAME_TO_ID_MAP = {
+  'Zivilrecht': 'zivilrecht',
+  'Öffentliches Recht': 'oeffentliches-recht',
+  'Strafrecht': 'strafrecht',
+  'Querschnittsrecht': 'querschnitt',
+  'Querschnitt': 'querschnitt',
+};
+
+// Get color class for Rechtsgebiet by name or ID
+const getColorForRechtsgebiet = (rechtsgebiet) => {
+  const id = NAME_TO_ID_MAP[rechtsgebiet] || rechtsgebiet;
+  const colors = getRechtsgebietColor(id);
+  return `bg-${colors.color}-500`;
 };
 
 const Step8Unterrechtsgebiete = () => {
@@ -38,7 +48,7 @@ const Step8Unterrechtsgebiete = () => {
           name,
           rechtsgebiet,
           lerntageCount: unterData.lerntage?.length || 0,
-          color: MANUAL_RECHTSGEBIET_COLORS[rechtsgebiet] || 'bg-neutral-500',
+          color: getColorForRechtsgebiet(rechtsgebiet),
         });
       });
     });
@@ -412,7 +422,7 @@ const Step8Unterrechtsgebiete = () => {
                                 const newItem = {
                                   ...item,
                                   rechtsgebiet: activeRechtsgebiet,
-                                  color: unterrechtsgebieteContext?.RECHTSGEBIET_COLORS?.[activeRechtsgebiet]
+                                  color: getColorForRechtsgebiet(activeRechtsgebiet)
                                 };
                                 setItems(prev => [...prev, newItem]);
                               }

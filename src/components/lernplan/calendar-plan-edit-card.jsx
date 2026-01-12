@@ -4,6 +4,7 @@ import { useCalendar } from '../../contexts/calendar-context';
 import { useUnterrechtsgebiete } from '../../contexts/unterrechtsgebiete-context';
 import RuleViolationDialog from './rule-violation-dialog';
 import { checkRuleViolations, redistributeBlocks } from '../../utils/lernplan-rules';
+import { getRechtsgebietColor } from '../../utils/rechtsgebiet-colors';
 
 /**
  * CalendarPlanEditCard - Editor for Wizard-created Lernpläne
@@ -60,16 +61,7 @@ const CalendarPlanEditCard = ({
     return d;
   }, []);
 
-  // Colors for Rechtsgebiete
-  const getRechtsgebietColor = (rgId) => {
-    const colors = {
-      'zivilrecht': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100' },
-      'oeffentliches-recht': { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'bg-green-100' },
-      'strafrecht': { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100' },
-      'querschnitt': { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', badge: 'bg-purple-100' },
-    };
-    return colors[rgId] || { bg: 'bg-neutral-50', border: 'border-neutral-200', text: 'text-neutral-700', badge: 'bg-neutral-100' };
-  };
+  // T-SET-1: getRechtsgebietColor imported from utils/rechtsgebiet-colors.js
 
   /**
    * Group blocks by hierarchy: RG → URG → Blocks

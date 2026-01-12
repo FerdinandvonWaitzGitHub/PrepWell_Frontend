@@ -105,5 +105,24 @@ export default {
       },
     },
   },
+  // T-SET-1: Safelist für dynamische Farb-Klassen (Custom Subject Colors)
+  safelist: [
+    // Background colors (50, 100, 200, 500 variants)
+    {
+      pattern: /bg-(blue|green|red|purple|amber|teal|pink|indigo|orange|cyan|emerald|violet)-(50|100|200|500)/,
+    },
+    // Text colors (700, 800 variants)
+    {
+      pattern: /text-(blue|green|red|purple|amber|teal|pink|indigo|orange|cyan|emerald|violet)-(700|800)/,
+    },
+    // Border colors (200, 500 variants)
+    {
+      pattern: /border-(blue|green|red|purple|amber|teal|pink|indigo|orange|cyan|emerald|violet)-(200|500)/,
+    },
+    // Ring colors for color picker
+    {
+      pattern: /ring-(blue|green|red|purple|amber|teal|pink|indigo|orange|cyan|emerald|violet)-(500)/,
+    },
+  ],
   plugins: [],
 }

@@ -88,6 +88,9 @@ const ManageRepetitionBlockDialog = ({
       setRepeatType(block.repeatType || 'weekly');
       setRepeatCount(block.repeatCount || 20);
       setCustomDays(block.customDays || [1, 3, 5]);
+      // TICKET-10: Load repeat end mode and date
+      setRepeatEndMode(block.repeatEndMode || 'count');
+      setRepeatEndDate(block.repeatEndDate || '');
       setIsRepeatTypeOpen(false);
       // Load tasks
       setTasks(block.tasks || []);

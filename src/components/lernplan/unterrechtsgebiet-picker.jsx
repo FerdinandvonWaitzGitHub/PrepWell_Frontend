@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useUnterrechtsgebiete } from '../../contexts/unterrechtsgebiete-context';
 import { useHierarchyLabels } from '../../hooks/use-hierarchy-labels';
 import { groupByKategorie } from '../../data/unterrechtsgebiete-data';
+import { getRechtsgebietColor } from '../../utils/rechtsgebiet-colors';
 
 /**
  * UnterrechtsgebietPicker - Modal dialog for selecting Unterrechtsgebiete
@@ -130,15 +131,10 @@ const UnterrechtsgebietPicker = ({
     setShowCreateNew(false);
   };
 
-  // Get color for Rechtsgebiet
+  // Get color for Rechtsgebiet tab styling
   const getTabColor = (rgId) => {
-    const colors = {
-      'zivilrecht': 'border-blue-500 text-blue-700 bg-blue-50',
-      'oeffentliches-recht': 'border-green-500 text-green-700 bg-green-50',
-      'strafrecht': 'border-red-500 text-red-700 bg-red-50',
-      'querschnitt': 'border-purple-500 text-purple-700 bg-purple-50',
-    };
-    return colors[rgId] || 'border-neutral-500 text-neutral-700 bg-neutral-50';
+    const colors = getRechtsgebietColor(rgId);
+    return `border-${colors.color}-500 text-${colors.color}-700 bg-${colors.color}-50`;
   };
 
   if (!isOpen) return null;
