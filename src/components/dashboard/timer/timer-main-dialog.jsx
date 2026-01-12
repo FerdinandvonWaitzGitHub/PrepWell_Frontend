@@ -375,6 +375,7 @@ const CountdownTimerView = ({ dailyLearningGoalMinutes = 0 }) => {
     remainingSeconds,
     isPaused,
     togglePause,
+    stopTimer,
     getDisplayInfo,
   } = useTimer();
 
@@ -417,11 +418,15 @@ const CountdownTimerView = ({ dailyLearningGoalMinutes = 0 }) => {
 
       {/* Right Column - Controls */}
       <div className="inline-flex flex-col justify-center items-start gap-9">
-        {/* Pause Button */}
+        {/* Pause/Stop Buttons */}
         <div className="flex flex-col justify-start items-start gap-2">
           <OutlineButton onClick={togglePause}>
             {isPaused ? 'Timer fortsetzen' : 'Timer pausieren'}
             <PauseIcon />
+          </OutlineButton>
+          <OutlineButton onClick={stopTimer}>
+            Session beenden
+            <StopIcon />
           </OutlineButton>
         </div>
 
@@ -449,6 +454,7 @@ const CountupTimerView = ({ dailyLearningGoalMinutes = 0 }) => {
     elapsedSeconds,
     isPaused,
     togglePause,
+    stopTimer,
     getDisplayInfo,
   } = useTimer();
 
@@ -502,11 +508,15 @@ const CountupTimerView = ({ dailyLearningGoalMinutes = 0 }) => {
 
       {/* Right Column - Controls */}
       <div className="inline-flex flex-col justify-center items-start gap-9">
-        {/* Pause Button */}
+        {/* Pause/Stop Buttons */}
         <div className="flex flex-col justify-start items-start gap-2">
           <OutlineButton onClick={togglePause}>
             {isPaused ? 'Stoppuhr fortsetzen' : 'Stoppuhr pausieren'}
             <PauseIcon />
+          </OutlineButton>
+          <OutlineButton onClick={stopTimer}>
+            Session beenden
+            <StopIcon />
           </OutlineButton>
         </div>
 
