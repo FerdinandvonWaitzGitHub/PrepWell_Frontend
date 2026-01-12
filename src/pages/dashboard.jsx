@@ -569,10 +569,25 @@ const DashboardPage = () => {
   // Supports both contentId and topicId patterns for cross-view compatibility
   // TICKET-7: Ensures a task can only be scheduled to ONE block at a time
   // T5.4: Extended to support dropping complete thema with all aufgaben
+  // FIX: Now checks BOTH blocksByDate (Lernplan) AND timeBlocksByDate (manual time blocks)
   const handleDropTaskToBlock = useCallback((block, droppedItem, source, itemType = 'task') => {
-    const dayBlocks = (blocksByDate || {})[dateString] || [];
+    const lernplanBlocks = (blocksByDate || {})[dateString] || [];
+    const timeBlocks = (timeBlocksByDate || {})[dateString] || [];
     let itemsWereAdded = false;
     let targetBlockId = null;
+    let targetIsTimeBlock = false;
+
+    // Helper to check if block matches target
+    const isBlockMatch = (blk, targetBlock) =>
+      blk.contentId === targetBlock.id ||
+      blk.contentId === targetBlock.contentId ||
+      blk.topicId === targetBlock.id ||
+      blk.topicId === targetBlock.topicId ||
+      blk.id === targetBlock.id;
+
+    // Check which data store contains the target block
+    const targetInLernplan = lernplanBlocks.some(blk => isBlockMatch(blk, block));
+    const targetInTimeBlocks = timeBlocks.some(blk => isBlockMatch(blk, block));
 
     // T5.4: Handle thema drop (complete thema with all aufgaben)
     if (itemType === 'thema') {
@@ -594,35 +609,53 @@ const DashboardPage = () => {
         kapitel: thema.kapitelTitle,
       }));
 
-      // Add all tasks to the target block
-      const updatedBlocks = dayBlocks.map(blk => {
-        const isMatch =
-          blk.contentId === block.id ||
-          blk.contentId === block.contentId ||
-          blk.topicId === block.id ||
-          blk.topicId === block.topicId ||
-          blk.id === block.id;
-
-        if (isMatch) {
-          itemsWereAdded = true;
-          targetBlockId = blk.id;
-
-          const existingTasks = blk.tasks || [];
-          // Filter out any tasks that might already be scheduled (by sourceId)
+      // Try to add to time blocks first (most common case for manual blocks)
+      if (targetInTimeBlocks) {
+        const targetTimeBlock = timeBlocks.find(blk => isBlockMatch(blk, block));
+        if (targetTimeBlock) {
+          const existingTasks = targetTimeBlock.tasks || [];
           const tasksToAddFiltered = newTasks.filter(nt =>
             !existingTasks.some(et => et.sourceId === nt.sourceId)
           );
 
-          return {
-            ...blk,
-            tasks: [...existingTasks, ...tasksToAddFiltered],
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return blk;
-      });
+          if (tasksToAddFiltered.length > 0) {
+            itemsWereAdded = true;
+            targetBlockId = targetTimeBlock.id;
+            targetIsTimeBlock = true;
 
-      updateDayBlocks(dateString, updatedBlocks);
+            updateTimeBlock(dateString, targetTimeBlock.id, {
+              tasks: [...existingTasks, ...tasksToAddFiltered],
+            });
+          }
+        }
+      }
+      // Fallback to Lernplan blocks
+      else if (targetInLernplan) {
+        const updatedBlocks = lernplanBlocks.map(blk => {
+          if (isBlockMatch(blk, block)) {
+            const existingTasks = blk.tasks || [];
+            const tasksToAddFiltered = newTasks.filter(nt =>
+              !existingTasks.some(et => et.sourceId === nt.sourceId)
+            );
+
+            if (tasksToAddFiltered.length > 0) {
+              itemsWereAdded = true;
+              targetBlockId = blk.id;
+
+              return {
+                ...blk,
+                tasks: [...existingTasks, ...tasksToAddFiltered],
+                updatedAt: new Date().toISOString(),
+              };
+            }
+          }
+          return blk;
+        });
+
+        if (itemsWereAdded) {
+          updateDayBlocks(dateString, updatedBlocks);
+        }
+      }
 
       // Mark the whole thema as scheduled in the themenliste
       if (itemsWereAdded && scheduleThemaToBlock) {
@@ -638,75 +671,85 @@ const DashboardPage = () => {
     // Original single task drop logic
     const droppedTask = droppedItem;
 
-    // TICKET-7: First, remove the task from ALL other blocks where it might exist
-    // This ensures a task can only be in one block at a time
-    const blocksWithTaskRemoved = dayBlocks.map(blk => {
-      const existingTasks = blk.tasks || [];
-      const taskExistsHere = existingTasks.some(t =>
-        t.sourceId === droppedTask.id || t.id === droppedTask.id
-      );
+    // Create new task object
+    const newTask = {
+      id: `dropped-${Date.now()}`,
+      sourceId: droppedTask.id,
+      text: droppedTask.text,
+      completed: droppedTask.completed || false,
+      source: source,
+      thema: droppedTask.thema,
+      kapitel: droppedTask.kapitel,
+    };
 
-      if (taskExistsHere) {
-        // Remove the task from this block
-        return {
-          ...blk,
-          tasks: existingTasks.filter(t =>
-            t.sourceId !== droppedTask.id && t.id !== droppedTask.id
-          ),
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return blk;
-    });
-
-    // Now add the task to the target block
-    const updatedBlocks = blocksWithTaskRemoved.map(blk => {
-      // Match by contentId, topicId, or id (supports both patterns)
-      const isMatch =
-        blk.contentId === block.id ||
-        blk.contentId === block.contentId ||
-        blk.topicId === block.id ||
-        blk.topicId === block.topicId ||
-        blk.id === block.id;
-
-      if (isMatch) {
-        // Add the task to this block's tasks array
-        const existingTasks = blk.tasks || [];
-        // Check if task already exists (by sourceId or id) - shouldn't happen after removal above
+    // Try to add to time blocks first (most common case for manual blocks)
+    if (targetInTimeBlocks) {
+      const targetTimeBlock = timeBlocks.find(blk => isBlockMatch(blk, block));
+      if (targetTimeBlock) {
+        const existingTasks = targetTimeBlock.tasks || [];
         const alreadyExists = existingTasks.some(t =>
           t.sourceId === droppedTask.id || t.id === droppedTask.id
         );
 
-        if (alreadyExists) {
-          return blk; // Don't add duplicate
+        if (!alreadyExists) {
+          itemsWereAdded = true;
+          targetBlockId = targetTimeBlock.id;
+          targetIsTimeBlock = true;
+
+          updateTimeBlock(dateString, targetTimeBlock.id, {
+            tasks: [...existingTasks, newTask],
+          });
         }
-
-        itemsWereAdded = true;
-        targetBlockId = blk.id;
-
-        const newTask = {
-          id: `dropped-${Date.now()}`,
-          sourceId: droppedTask.id,
-          text: droppedTask.text,
-          completed: droppedTask.completed || false,
-          source: source,
-          thema: droppedTask.thema,
-          kapitel: droppedTask.kapitel,
-        };
-
-        return {
-          ...blk,
-          tasks: [...existingTasks, newTask],
-          updatedAt: new Date().toISOString(),
-        };
       }
-      return blk;
-    });
+    }
+    // Fallback to Lernplan blocks
+    else if (targetInLernplan) {
+      // TICKET-7: First, remove the task from ALL other blocks where it might exist
+      const blocksWithTaskRemoved = lernplanBlocks.map(blk => {
+        const existingTasks = blk.tasks || [];
+        const taskExistsHere = existingTasks.some(t =>
+          t.sourceId === droppedTask.id || t.id === droppedTask.id
+        );
 
-    updateDayBlocks(dateString, updatedBlocks);
+        if (taskExistsHere) {
+          return {
+            ...blk,
+            tasks: existingTasks.filter(t =>
+              t.sourceId !== droppedTask.id && t.id !== droppedTask.id
+            ),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return blk;
+      });
+
+      // Now add the task to the target block
+      const updatedBlocks = blocksWithTaskRemoved.map(blk => {
+        if (isBlockMatch(blk, block)) {
+          const existingTasks = blk.tasks || [];
+          const alreadyExists = existingTasks.some(t =>
+            t.sourceId === droppedTask.id || t.id === droppedTask.id
+          );
+
+          if (!alreadyExists) {
+            itemsWereAdded = true;
+            targetBlockId = blk.id;
+
+            return {
+              ...blk,
+              tasks: [...existingTasks, newTask],
+              updatedAt: new Date().toISOString(),
+            };
+          }
+        }
+        return blk;
+      });
+
+      updateDayBlocks(dateString, updatedBlocks);
+    }
 
     // Handle source-specific behavior
-    if (source === 'todos') {
+    if (source === 'todos' && itemsWereAdded) {
       // Remove from To-Do list
       removeTask(droppedTask.id);
     } else if (source === 'themenliste' && itemsWereAdded) {
@@ -717,7 +760,7 @@ const DashboardPage = () => {
         blockTitle: block.title || 'Lernblock',
       });
     }
-  }, [dateString, blocksByDate, updateDayBlocks, removeTask, scheduleAufgabeToBlock, scheduleThemaToBlock]);
+  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, removeTask, scheduleAufgabeToBlock, scheduleThemaToBlock]);
 
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);
