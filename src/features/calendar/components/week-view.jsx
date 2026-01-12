@@ -501,6 +501,94 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
   };
 
+  // T9: Handle task toggle (checkbox) within a block
+  const handleTaskToggle = async (block, task) => {
+    const dateKey = block.startDate;
+    const updatedTasks = (block.tasks || []).map(t =>
+      t.id === task.id ? { ...t, completed: !t.completed } : t
+    );
+
+    if (block.isTimeBlock) {
+      await updateTimeBlock(dateKey, block.id, { tasks: updatedTasks });
+    } else if (block.blockType === 'private') {
+      updatePrivateBlock(dateKey, block.id, { tasks: updatedTasks });
+    } else {
+      // Lernplan slot
+      const daySlots = (slotsByDate || {})[dateKey] || [];
+      const updatedSlots = daySlots.map(slot =>
+        slot.id === block.id || slot.contentId === block.id || slot.topicId === block.id
+          ? { ...slot, tasks: updatedTasks }
+          : slot
+      );
+      updateDaySlots(dateKey, updatedSlots);
+    }
+  };
+
+  // T9: Handle remove task from block
+  const handleRemoveTaskFromBlock = async (block, task) => {
+    const dateKey = block.startDate;
+    const updatedTasks = (block.tasks || []).filter(t => t.id !== task.id);
+
+    if (block.isTimeBlock) {
+      await updateTimeBlock(dateKey, block.id, { tasks: updatedTasks });
+    } else if (block.blockType === 'private') {
+      updatePrivateBlock(dateKey, block.id, { tasks: updatedTasks });
+    } else {
+      const daySlots = (slotsByDate || {})[dateKey] || [];
+      const updatedSlots = daySlots.map(slot =>
+        slot.id === block.id || slot.contentId === block.id || slot.topicId === block.id
+          ? { ...slot, tasks: updatedTasks }
+          : slot
+      );
+      updateDaySlots(dateKey, updatedSlots);
+    }
+  };
+
+  // T9: Handle time range selection (drag-to-select)
+  const handleTimeRangeSelect = (date, startHour, endHour) => {
+    setSelectedDate(date);
+    // Convert hours to HH:MM format
+    const startTime = `${String(Math.floor(startHour)).padStart(2, '0')}:${String(Math.round((startHour % 1) * 60)).padStart(2, '0')}`;
+    const endTime = `${String(Math.floor(endHour)).padStart(2, '0')}:${String(Math.round((endHour % 1) * 60)).padStart(2, '0')}`;
+    setSelectedTime(startTime);
+    // Open add dialog with pre-filled times
+    setIsAddDialogOpen(true);
+    console.log('[handleTimeRangeSelect] Selected range:', date, startTime, '-', endTime);
+  };
+
+  // T9: Handle drop task onto block (drag & drop)
+  const handleDropTaskToBlock = async (targetBlock, item, source, type) => {
+    console.log('[handleDropTaskToBlock]', { targetBlock, item, source, type });
+
+    // Get the task from the source
+    const task = item;
+    const dateKey = targetBlock.startDate;
+
+    // Add task to target block
+    const updatedTasks = [...(targetBlock.tasks || []), { ...task, completed: false }];
+
+    if (targetBlock.isTimeBlock) {
+      await updateTimeBlock(dateKey, targetBlock.id, { tasks: updatedTasks });
+    } else if (targetBlock.blockType === 'private') {
+      updatePrivateBlock(dateKey, targetBlock.id, { tasks: updatedTasks });
+    } else {
+      const daySlots = (slotsByDate || {})[dateKey] || [];
+      const updatedSlots = daySlots.map(slot =>
+        slot.id === targetBlock.id || slot.contentId === targetBlock.id || slot.topicId === targetBlock.id
+          ? { ...slot, tasks: updatedTasks }
+          : slot
+      );
+      updateDaySlots(dateKey, updatedSlots);
+    }
+
+    // If task came from another block, remove it from source
+    if (source === 'block' && item.sourceBlockId && item.sourceBlockId !== targetBlock.id) {
+      // Find source block and remove task
+      // This would need source block identification - simplified for now
+      console.log('[handleDropTaskToBlock] Task moved from another block');
+    }
+  };
+
   // Add a new private block - uses CalendarContext
   const handleAddPrivateBlock = async (_date, blockData) => {
     const dateKey = selectedDate ? formatDateKey(selectedDate) : new Date().toISOString().split('T')[0];
@@ -541,6 +629,10 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         lernplanBlocks={lernplanBlocks}
         onBlockClick={handleBlockClick}
         onSlotClick={handleSlotClick}
+        onTaskToggle={handleTaskToggle}
+        onRemoveTaskFromBlock={handleRemoveTaskFromBlock}
+        onTimeRangeSelect={handleTimeRangeSelect}
+        onDropTaskToBlock={handleDropTaskToBlock}
       />
 
       {/* Manage Theme Session Dialog */}

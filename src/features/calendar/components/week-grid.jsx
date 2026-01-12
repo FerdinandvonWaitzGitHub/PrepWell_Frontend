@@ -1,5 +1,5 @@
-import { memo, useMemo, useCallback } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { memo, useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { AlertTriangle, X, Lock } from 'lucide-react';
 
 /**
  * WeekGrid component
@@ -7,6 +7,14 @@ import { AlertTriangle } from 'lucide-react';
  * - Weekday header stays fixed at top (sticky)
  * - Multi-day events row between header and time grid
  * - Time labels scroll with content
+ *
+ * T9 Features (from ZeitplanWidget):
+ * - Tasks in blocks with progress indicator
+ * - Current time indicator (red line)
+ * - Auto-scroll to current time
+ * - Drag-to-select time range
+ * - Drag & drop tasks to blocks
+ * - Blocked time display
  *
  * Performance optimizations:
  * - Memoized component to prevent re-renders when parent state changes
@@ -57,8 +65,65 @@ const WeekGrid = memo(function WeekGrid({
   lernplanSlots, // Legacy alias (deprecated)
   onBlockClick,
   onSlotClick,
+  // T9: New callbacks from ZeitplanWidget
+  onTaskToggle,           // (block, task) => void - Toggle task completion
+  onRemoveTaskFromBlock,  // (block, task) => void - Remove task from block
+  onTimeRangeSelect,      // (date, startHour, endHour) => void - Drag-to-select
+  onDropTaskToBlock,      // (block, item, source, type) => void - Drop task onto block
   className = ''
 }) {
+  // T9: Refs for scroll container and drag state
+  const scrollContainerRef = useRef(null);
+  const dragJustCompletedRef = useRef(false);
+
+  // T9: Current time state (updates every minute)
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  // T9: Drag-to-select state (per day column)
+  const [dragState, setDragState] = useState({
+    isDragging: false,
+    dayIndex: null,
+    startY: null,
+    currentY: null,
+  });
+
+  // T9: Drag-over block state for drop highlighting
+  const [dragOverBlockId, setDragOverBlockId] = useState(null);
+
+  // T9: Update current time every minute
+  useEffect(() => {
+    const updateTime = () => setCurrentTime(new Date());
+    const intervalId = setInterval(updateTime, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // T9: Hour height constant (must match row height)
+  const hourHeight = 54;
+
+  // T9: Auto-scroll to current time on mount
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const currentHour = new Date().getHours();
+      const scrollToHour = Math.max(0, currentHour - 2);
+      const scrollPosition = scrollToHour * hourHeight;
+      scrollContainerRef.current.scrollTop = scrollPosition;
+    }
+  }, []);
+
+  // T9: Helper - Y position to hour (snapped to 15min intervals)
+  const yToTime = useCallback((y) => {
+    const rawHour = y / hourHeight;
+    const snapped = Math.round(rawHour * 4) / 4; // 15min intervals
+    return Math.max(0, Math.min(24, snapped));
+  }, []);
+
+  // T9: Helper - Format hour as HH:MM
+  const formatTimeFromHour = useCallback((hour) => {
+    const h = Math.floor(hour);
+    const m = Math.round((hour - h) * 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  }, []);
+
   // Support legacy prop name
   const effectiveLernplanBlocks = lernplanBlocks.length > 0 ? lernplanBlocks : (lernplanSlots || []);
 
@@ -186,6 +251,134 @@ const WeekGrid = memo(function WeekGrid({
     }
   }, [onSlotClick]);
 
+  // T9: Check collision with existing blocks for a specific date
+  const hasCollisionForDate = useCallback((date, startHour, endHour) => {
+    const dateKey = formatDateKey(date);
+    return regularBlocks.some(block => {
+      if ((block.startDate || block.date) !== dateKey) return false;
+      if (!block.startTime || !block.endTime) return false;
+
+      const [startH, startM] = block.startTime.split(':').map(Number);
+      const [endH, endM] = block.endTime.split(':').map(Number);
+      const blockStart = startH + startM / 60;
+      const blockEnd = endH + endM / 60;
+
+      return startHour < blockEnd && endHour > blockStart;
+    });
+  }, [regularBlocks]);
+
+  // T9: Find max end without collision
+  const findMaxEndWithoutCollision = useCallback((date, startHour) => {
+    const dateKey = formatDateKey(date);
+    let maxEnd = 24;
+    regularBlocks.forEach(block => {
+      if ((block.startDate || block.date) !== dateKey) return;
+      if (!block.startTime) return;
+
+      const [startH, startM] = block.startTime.split(':').map(Number);
+      const blockStart = startH + startM / 60;
+
+      if (blockStart > startHour && blockStart < maxEnd) {
+        maxEnd = blockStart;
+      }
+    });
+    return maxEnd;
+  }, [regularBlocks]);
+
+  // T9: Drag-to-select handlers
+  const handleDragStart = useCallback((e, dayIndex, cellElement) => {
+    if (!onTimeRangeSelect) return;
+    if (e.target !== e.currentTarget) return;
+
+    const rect = cellElement.getBoundingClientRect();
+    const y = e.clientY - rect.top + (scrollContainerRef.current?.scrollTop || 0);
+
+    setDragState({
+      isDragging: true,
+      dayIndex,
+      startY: y,
+      currentY: y,
+    });
+    e.preventDefault();
+  }, [onTimeRangeSelect]);
+
+  const handleDragMove = useCallback((e, dayIndex, cellElement) => {
+    if (!dragState.isDragging || dragState.dayIndex !== dayIndex) return;
+
+    const rect = cellElement.getBoundingClientRect();
+    const y = e.clientY - rect.top + (scrollContainerRef.current?.scrollTop || 0);
+    const clampedY = Math.max(0, Math.min(24 * hourHeight, y));
+
+    setDragState(prev => ({ ...prev, currentY: clampedY }));
+  }, [dragState.isDragging, dragState.dayIndex]);
+
+  const handleDragEnd = useCallback((dayIndex) => {
+    if (!dragState.isDragging || dragState.dayIndex !== dayIndex) return;
+
+    const startTime = yToTime(Math.min(dragState.startY, dragState.currentY));
+    const endTime = yToTime(Math.max(dragState.startY, dragState.currentY));
+
+    setDragState({ isDragging: false, dayIndex: null, startY: null, currentY: null });
+
+    // Minimum 15 minutes
+    if (endTime - startTime < 0.25) return;
+
+    const date = weekDates[dayIndex];
+    let finalStart = startTime;
+    let finalEnd = endTime;
+
+    // Check collision and clamp if needed
+    if (hasCollisionForDate(date, startTime, endTime)) {
+      finalEnd = Math.min(endTime, findMaxEndWithoutCollision(date, startTime));
+      if (hasCollisionForDate(date, finalStart, finalEnd) || finalEnd - finalStart < 0.25) {
+        return;
+      }
+    }
+
+    dragJustCompletedRef.current = true;
+    setTimeout(() => { dragJustCompletedRef.current = false; }, 0);
+
+    if (onTimeRangeSelect) {
+      onTimeRangeSelect(date, finalStart, finalEnd);
+    }
+  }, [dragState, weekDates, yToTime, hasCollisionForDate, findMaxEndWithoutCollision, onTimeRangeSelect]);
+
+  // T9: Calculate selection overlay for drag-to-select
+  const getSelectionOverlay = useCallback((dayIndex) => {
+    if (!dragState.isDragging || dragState.dayIndex !== dayIndex) return null;
+
+    const topY = Math.min(dragState.startY, dragState.currentY);
+    const bottomY = Math.max(dragState.startY, dragState.currentY);
+    const height = bottomY - topY;
+
+    const startTime = yToTime(topY);
+    const endTime = yToTime(bottomY);
+    const date = weekDates[dayIndex];
+    const collision = hasCollisionForDate(date, startTime, endTime);
+    const tooShort = endTime - startTime < 0.25;
+
+    return {
+      top: topY,
+      height: Math.max(height, hourHeight / 4),
+      startTime,
+      endTime,
+      isValid: !collision && !tooShort,
+      collision,
+    };
+  }, [dragState, weekDates, yToTime, hasCollisionForDate]);
+
+  // T9: Current time position for indicator (only for today column)
+  const getTodayColumnIndex = useMemo(() => {
+    const today = new Date();
+    return weekDates.findIndex(d => formatDateKey(d) === formatDateKey(today));
+  }, [weekDates]);
+
+  const currentTimePosition = useMemo(() => {
+    const hour = currentTime.getHours();
+    const minute = currentTime.getMinutes();
+    return (hour + minute / 60) * hourHeight;
+  }, [currentTime]);
+
   // Calculate row height based on blocks
   const getRowHeight = (hour) => {
     let maxBlockSize = 1;
@@ -271,7 +464,7 @@ const WeekGrid = memo(function WeekGrid({
   return (
     <div className={`flex flex-col bg-white flex-1 overflow-hidden ${className}`}>
       {/* Single scrollable container */}
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
         <table className="w-full border-collapse table-fixed">
           {/* Sticky Header */}
           <thead className="sticky top-0 z-20 bg-white">
@@ -470,20 +663,76 @@ const WeekGrid = memo(function WeekGrid({
                 {/* Day Cells */}
                 {weekDates.map((date, dayIndex) => {
                   const dayBlocks = getBlocksForDateAndHour(date, hour);
+                  const isTodayColumn = dayIndex === getTodayColumnIndex;
+                  const selectionOverlay = getSelectionOverlay(dayIndex);
 
                   return (
                     <td
                       key={`${hour}-${dayIndex}`}
-                      onClick={() => dayBlocks.length === 0 && handleSlotClick(date, hour)}
+                      onClick={() => {
+                        if (dayBlocks.length === 0 && !dragJustCompletedRef.current) {
+                          handleSlotClick(date, hour);
+                        }
+                      }}
+                      onMouseDown={(e) => handleDragStart(e, dayIndex, e.currentTarget)}
+                      onMouseMove={(e) => handleDragMove(e, dayIndex, e.currentTarget)}
+                      onMouseUp={() => handleDragEnd(dayIndex)}
+                      onMouseLeave={() => {
+                        if (dragState.isDragging && dragState.dayIndex === dayIndex) {
+                          setDragState({ isDragging: false, dayIndex: null, startY: null, currentY: null });
+                        }
+                      }}
                       className={`relative border-r border-b border-neutral-100 last:border-r-0 p-1 align-top overflow-visible ${
                         dayBlocks.length === 0 ? 'hover:bg-neutral-50 cursor-pointer' : ''
-                      }`}
+                      } ${dragState.isDragging && dragState.dayIndex === dayIndex ? 'cursor-ns-resize' : ''}`}
                     >
+                      {/* T9: Current time indicator (only for today column, only in first hour row that contains it) */}
+                      {isTodayColumn && hour === Math.floor(currentTime.getHours()) && (
+                        <div
+                          className="absolute left-0 right-0 z-30 pointer-events-none flex items-center"
+                          style={{ top: `${(currentTime.getMinutes() / 60) * hourHeight}px` }}
+                        >
+                          <div className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
+                          <div className="flex-1 h-0.5 bg-red-500" />
+                        </div>
+                      )}
+
+                      {/* T9: Drag-to-select overlay */}
+                      {selectionOverlay && hour === 0 && (
+                        <div
+                          className={`absolute left-1 right-1 rounded-lg border-2 border-dashed z-20 flex items-center justify-center pointer-events-none ${
+                            selectionOverlay.isValid
+                              ? 'bg-blue-100/70 border-blue-400'
+                              : 'bg-red-100/70 border-red-400'
+                          }`}
+                          style={{
+                            top: `${selectionOverlay.top}px`,
+                            height: `${selectionOverlay.height}px`,
+                          }}
+                        >
+                          <div className={`text-xs font-medium px-2 py-1 rounded ${
+                            selectionOverlay.isValid ? 'text-blue-700 bg-blue-50' : 'text-red-700 bg-red-50'
+                          }`}>
+                            {selectionOverlay.isValid ? (
+                              <>
+                                {formatTimeFromHour(selectionOverlay.startTime)} - {formatTimeFromHour(selectionOverlay.endTime)}
+                              </>
+                            ) : selectionOverlay.collision ? (
+                              'Überschneidung!'
+                            ) : (
+                              'Mind. 15 Min.'
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Blocks */}
                       {dayBlocks.map((block) => {
                         const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.theme;
+                        const isDragOver = dragOverBlockId === block.id;
 
-                        // Calculate block height based on actual time duration
-                        let durationHours = 1; // default 1 hour
+                        // Calculate block height
+                        let durationHours = 1;
                         if (block.startTime && block.endTime) {
                           const [startH, startM] = block.startTime.split(':').map(Number);
                           const [endH, endM] = block.endTime.split(':').map(Number);
@@ -491,36 +740,166 @@ const WeekGrid = memo(function WeekGrid({
                         } else if (block.duration) {
                           durationHours = block.duration;
                         }
-
-                        // Each hour row is approximately 54px
-                        const hourHeight = 54;
                         const blockHeight = Math.max(44, durationHours * hourHeight - 8);
 
+                        // T9: Drag & Drop handlers
+                        const handleBlockDragOver = (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.dataTransfer.dropEffect = 'copy';
+                          setDragOverBlockId(block.id);
+                        };
+
+                        const handleBlockDragLeave = (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDragOverBlockId(null);
+                        };
+
+                        const handleBlockDrop = (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDragOverBlockId(null);
+
+                          try {
+                            const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                            if (onDropTaskToBlock) {
+                              if (data.type === 'task') {
+                                onDropTaskToBlock(block, data.task, data.source, 'task');
+                              } else if (data.type === 'thema') {
+                                onDropTaskToBlock(block, data.thema, data.source, 'thema');
+                              }
+                            }
+                          } catch (err) {
+                            console.error('Drop error:', err);
+                          }
+                        };
+
+                        // T9: Blocked state rendering
+                        if (block.isBlocked) {
+                          return (
+                            <div
+                              key={block.id}
+                              className="absolute top-1 left-1 right-1 rounded-lg border-2 border-neutral-300 p-2 flex flex-col items-center justify-center cursor-pointer z-10 bg-neutral-100"
+                              style={{
+                                height: `${blockHeight}px`,
+                                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(163, 163, 163, 0.1) 10px, rgba(163, 163, 163, 0.1) 20px)',
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (onBlockClick) onBlockClick(block, date);
+                              }}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <Lock className="w-3.5 h-3.5 text-neutral-400" />
+                                <span className="text-xs font-medium text-neutral-500">Blockiert</span>
+                              </div>
+                              {block.title && (
+                                <p className="text-xs text-neutral-400 mt-0.5 truncate max-w-full">{block.title}</p>
+                              )}
+                            </div>
+                          );
+                        }
+
                         return (
-                          <button
+                          <div
                             key={block.id}
-                            draggable="false"
+                            className={`absolute top-1 left-1 right-1 rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-all z-10 select-none ${
+                              isDragOver
+                                ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300'
+                                : `${colorClass} hover:shadow-md`
+                            }`}
+                            style={{ height: `${blockHeight}px` }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (onBlockClick) {
-                                onBlockClick(block, date);
-                              }
+                              if (onBlockClick) onBlockClick(block, date);
                             }}
-                            style={{ height: `${blockHeight}px` }}
-                            className={`w-full rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-colors absolute top-1 left-1 right-1 z-10 select-none ${colorClass}`}
+                            onDragOver={handleBlockDragOver}
+                            onDragEnter={handleBlockDragOver}
+                            onDragLeave={handleBlockDragLeave}
+                            onDrop={handleBlockDrop}
                           >
-                            <div className="text-xs font-medium text-neutral-900 truncate">
-                              {block.title}
-                            </div>
-                            {blockHeight > 40 && (
-                              <div className="text-xs text-neutral-600 truncate">
-                                {block.startTime && block.endTime
-                                  ? `${block.startTime} - ${block.endTime}`
-                                  : BLOCK_TYPE_NAMES[block.blockType]
-                                }
+                            {/* Drop indicator overlay */}
+                            {isDragOver && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-blue-100/90 rounded-lg z-10 pointer-events-none">
+                                <span className="text-xs font-medium text-blue-600">Hier ablegen</span>
                               </div>
                             )}
-                          </button>
+
+                            {/* Block content */}
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs font-medium text-neutral-900 truncate flex-1">
+                                {block.title}
+                              </div>
+                              {block.startTime && block.endTime && blockHeight > 40 && (
+                                <span className="text-xs text-neutral-500 shrink-0">
+                                  {block.startTime}-{block.endTime}
+                                </span>
+                              )}
+                              {/* T9: Task progress indicator */}
+                              {block.tasks && block.tasks.length > 0 && (
+                                <span className="text-xs text-neutral-500 shrink-0">
+                                  {block.tasks.filter(t => t.completed).length}/{block.tasks.length}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* T9: Progress bar */}
+                            {block.tasks && block.tasks.length > 0 && blockHeight > 50 && (() => {
+                              const completedCount = block.tasks.filter(t => t.completed).length;
+                              const totalCount = block.tasks.length;
+                              const progressPercent = Math.round((completedCount / totalCount) * 100);
+                              return (
+                                <div className="w-full bg-neutral-200 rounded-full h-1 mt-1">
+                                  <div
+                                    className={`h-1 rounded-full transition-all ${
+                                      progressPercent === 100 ? 'bg-green-500' : 'bg-neutral-600'
+                                    }`}
+                                    style={{ width: `${progressPercent}%` }}
+                                  />
+                                </div>
+                              );
+                            })()}
+
+                            {/* T9: Tasks list */}
+                            {block.tasks && block.tasks.length > 0 && blockHeight > 70 && (
+                              <div className="flex flex-col gap-0.5 mt-1.5">
+                                {block.tasks.slice(0, Math.min(3, Math.floor((blockHeight - 50) / 18))).map((task, taskIndex) => (
+                                  <div key={task.id || taskIndex} className="flex items-center gap-1.5 group/task">
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                      task.completed ? 'bg-green-500' : 'bg-neutral-400'
+                                    }`} />
+                                    <span className={`text-xs truncate flex-1 ${
+                                      task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'
+                                    }`}>
+                                      {task.themaTitle && (
+                                        <span className="text-neutral-400 mr-0.5">{task.themaTitle}:</span>
+                                      )}
+                                      {task.text}
+                                    </span>
+                                    {/* X button to remove task */}
+                                    {onRemoveTaskFromBlock && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onRemoveTaskFromBlock(block, task);
+                                        }}
+                                        className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0"
+                                        title="Aus Session entfernen"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                                {block.tasks.length > 3 && (
+                                  <span className="text-xs text-neutral-400">
+                                    +{block.tasks.length - 3} weitere
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </td>
