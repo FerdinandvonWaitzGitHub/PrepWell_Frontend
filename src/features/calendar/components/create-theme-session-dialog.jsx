@@ -524,7 +524,7 @@ const CreateThemeBlockDialog = ({
                     </span>
                     {task.source && (
                       <span className="text-xs text-neutral-400 bg-neutral-200 px-2 py-0.5 rounded">
-                        {task.source === 'todos' ? 'To-Do' : task.source === 'themenliste' ? 'Themenliste' : 'Lernplan'}
+                        {task.source === 'todos' ? 'To-Do' : task.source === 'themenliste' ? (task.themaTitle || task.thema || 'Themenliste') : 'Lernplan'}
                       </span>
                     )}
                     <button
