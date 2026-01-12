@@ -114,6 +114,8 @@ const DashboardPage = () => {
     contentPlans,
     updateContentPlan,
     archiveContentPlan, // TICKET-12: Archive themenliste
+    addAufgabeToPlan, // For adding aufgaben from dashboard
+    updateAufgabeInPlan, // For editing aufgaben from dashboard
     // Aufgabe Scheduling (for drag & drop)
     scheduleAufgabeToBlock,
   } = useCalendar();
@@ -177,6 +179,7 @@ const DashboardPage = () => {
                 id: urg.id,
                 name: urg.name,
                 rechtsgebiet: rg.name || rg.rechtsgebietId,
+                rechtsgebietId: rg.id, // Needed for addAufgabeToPlan
                 kapitel,
               });
             }
@@ -218,6 +221,18 @@ const DashboardPage = () => {
 
     updateContentPlan(selectedThemeListId, updatedPlan);
   }, [selectedThemeListId, contentPlans, updateContentPlan]);
+
+  // Handle adding a new Aufgabe to a Thema in the selected theme list
+  const handleAddThemeListAufgabe = useCallback((unterrechtsgebietId, kapitelId, themaId, rechtsgebietId) => {
+    if (!selectedThemeListId) return;
+    addAufgabeToPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId);
+  }, [selectedThemeListId, addAufgabeToPlan]);
+
+  // Handle updating an Aufgabe title in the selected theme list
+  const handleUpdateThemeListAufgabe = useCallback((unterrechtsgebietId, kapitelId, themaId, aufgabeId, updates, rechtsgebietId) => {
+    if (!selectedThemeListId) return;
+    updateAufgabeInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabeId, updates);
+  }, [selectedThemeListId, updateAufgabeInPlan]);
 
   // Dialog states
   const [selectedBlock, setSelectedBlock] = useState(null);
@@ -746,6 +761,8 @@ const DashboardPage = () => {
                 selectedThemeListId={selectedThemeListId}
                 onSelectThemeList={setSelectedThemeListId}
                 onToggleThemeListAufgabe={handleToggleThemeListAufgabe}
+                onAddThemeListAufgabe={handleAddThemeListAufgabe}
+                onUpdateThemeListAufgabe={handleUpdateThemeListAufgabe}
                 onArchiveThemeList={archiveContentPlan}
                 isExamMode={isExamMode}
               />

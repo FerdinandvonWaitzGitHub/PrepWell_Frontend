@@ -369,6 +369,8 @@ const ThemeListUnterrechtsgebietRow = ({
   expandedThemaId,
   onToggleThema,
   onToggleAufgabe,
+  onAddAufgabe, // Add aufgabe callback
+  onUpdateAufgabe, // Update aufgabe callback
 }) => {
   // Calculate progress for this unterrechtsgebiet
   let completedCount = 0;
@@ -409,11 +411,15 @@ const ThemeListUnterrechtsgebietRow = ({
             <ThemeListKapitelRow
               key={kapitel.id}
               kapitel={kapitel}
+              unterrechtsgebietId={unterrechtsgebiet.id}
+              rechtsgebietId={unterrechtsgebiet.rechtsgebietId}
               isExpanded={expandedKapitelId === kapitel.id}
               onToggleExpand={() => onToggleKapitel(kapitel.id)}
               expandedThemaId={expandedThemaId}
               onToggleThema={onToggleThema}
               onToggleAufgabe={onToggleAufgabe}
+              onAddAufgabe={onAddAufgabe}
+              onUpdateAufgabe={onUpdateAufgabe}
             />
           ))}
         </div>
@@ -427,11 +433,15 @@ const ThemeListUnterrechtsgebietRow = ({
  */
 const ThemeListKapitelRow = ({
   kapitel,
+  unterrechtsgebietId,
+  rechtsgebietId,
   isExpanded,
   onToggleExpand,
   expandedThemaId,
   onToggleThema,
   onToggleAufgabe,
+  onAddAufgabe, // Add aufgabe callback
+  onUpdateAufgabe, // Update aufgabe callback
 }) => {
   // Calculate progress for this kapitel
   let completedCount = 0;
@@ -465,9 +475,14 @@ const ThemeListKapitelRow = ({
             <ThemeListThemaRow
               key={thema.id}
               thema={thema}
+              kapitelId={kapitel.id}
+              unterrechtsgebietId={unterrechtsgebietId}
+              rechtsgebietId={rechtsgebietId}
               isExpanded={expandedThemaId === thema.id}
               onToggleExpand={() => onToggleThema(thema.id)}
               onToggleAufgabe={onToggleAufgabe}
+              onAddAufgabe={onAddAufgabe}
+              onUpdateAufgabe={onUpdateAufgabe}
               kapitelTitle={kapitel.title}
             />
           ))}
@@ -480,12 +495,18 @@ const ThemeListKapitelRow = ({
 /**
  * ThemeListThemaRow - Thema-Zeile mit Aufgaben (draggable)
  * Scheduled aufgaben are grayed out and not draggable
+ * Always expandable (even with no aufgaben) to allow adding new tasks
  */
 const ThemeListThemaRow = ({
   thema,
+  kapitelId,
+  unterrechtsgebietId,
+  rechtsgebietId,
   isExpanded,
   onToggleExpand,
   onToggleAufgabe,
+  onAddAufgabe, // Add aufgabe callback
+  onUpdateAufgabe, // Update aufgabe callback
   kapitelTitle = '',
 }) => {
   // Guard: thema could be undefined if parent array has holes
@@ -522,6 +543,12 @@ const ThemeListThemaRow = ({
     e.currentTarget.classList.remove('opacity-50');
   };
 
+  const handleAddAufgabe = () => {
+    if (onAddAufgabe) {
+      onAddAufgabe(unterrechtsgebietId, kapitelId, thema.id, rechtsgebietId);
+    }
+  };
+
   return (
     <div className="border-b border-neutral-50 last:border-b-0">
       {/* Thema Header */}
@@ -543,62 +570,94 @@ const ThemeListThemaRow = ({
         </div>
       </button>
 
-      {/* Expanded: Aufgaben */}
-      {isExpanded && thema.aufgaben && thema.aufgaben.length > 0 && (
+      {/* Expanded: Aufgaben - always show when expanded (even if empty) */}
+      {isExpanded && (
         <div className="px-8 pb-2 bg-neutral-50">
-          {thema.aufgaben.map((aufgabe) => {
-            const isScheduled = !!aufgabe.scheduledInBlock;
+          {/* Existing Aufgaben */}
+          {thema.aufgaben && thema.aufgaben.length > 0 && (
+            <div className="space-y-0.5">
+              {thema.aufgaben.map((aufgabe) => {
+                const isScheduled = !!aufgabe.scheduledInBlock;
+                const hasTitle = !!aufgabe.title;
 
-            return (
-              <div
-                key={aufgabe.id}
-                className={`flex items-center gap-3 py-1.5 pl-4 rounded transition-colors group ${
-                  isScheduled
-                    ? 'opacity-50 cursor-default'
-                    : 'cursor-grab active:cursor-grabbing hover:bg-neutral-100'
-                }`}
-                draggable={!isScheduled}
-                onDragStart={(e) => handleAufgabeDragStart(e, aufgabe)}
-                onDragEnd={handleAufgabeDragEnd}
-                title={isScheduled ? `Eingeplant: ${aufgabe.scheduledInBlock.blockTitle} (${aufgabe.scheduledInBlock.date})` : undefined}
-              >
-                {/* Drag Handle - hidden for scheduled */}
-                <span className={`flex-shrink-0 ${isScheduled ? 'text-neutral-200' : 'text-neutral-300 group-hover:text-neutral-400'}`}>
-                  {isScheduled ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  ) : (
-                    <DragHandleIcon />
-                  )}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={aufgabe.completed}
-                  onChange={() => onToggleAufgabe(aufgabe.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  disabled={isScheduled}
-                  className={`h-4 w-4 rounded border-neutral-300 focus:ring-neutral-500 ${
-                    isScheduled ? 'text-neutral-400' : 'text-neutral-900'
-                  }`}
-                />
-                <span className={`text-sm ${
-                  isScheduled
-                    ? 'text-neutral-400 italic'
-                    : aufgabe.completed
-                      ? 'text-neutral-400 line-through'
-                      : 'text-neutral-700'
-                }`}>
-                  {aufgabe.title}
-                </span>
-                {isScheduled && (
-                  <span className="text-xs text-blue-400 ml-auto">
-                    → {aufgabe.scheduledInBlock.date}
-                  </span>
-                )}
-              </div>
-            );
-          })}
+                return (
+                  <div
+                    key={aufgabe.id}
+                    className={`flex items-center gap-3 py-1.5 pl-4 rounded transition-colors group ${
+                      isScheduled
+                        ? 'opacity-50 cursor-default'
+                        : hasTitle ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-100' : ''
+                    }`}
+                    draggable={!isScheduled && hasTitle}
+                    onDragStart={(e) => handleAufgabeDragStart(e, aufgabe)}
+                    onDragEnd={handleAufgabeDragEnd}
+                    title={isScheduled ? `Eingeplant: ${aufgabe.scheduledInBlock.blockTitle} (${aufgabe.scheduledInBlock.date})` : undefined}
+                  >
+                    {/* Drag Handle - hidden for scheduled or new (empty) aufgaben */}
+                    <span className={`flex-shrink-0 ${isScheduled ? 'text-neutral-200' : 'text-neutral-300 group-hover:text-neutral-400'}`}>
+                      {isScheduled ? (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      ) : hasTitle ? (
+                        <DragHandleIcon />
+                      ) : (
+                        <span className="w-3" />
+                      )}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={aufgabe.completed}
+                      onChange={() => onToggleAufgabe(aufgabe.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      disabled={isScheduled || !hasTitle}
+                      className={`h-4 w-4 rounded border-neutral-300 focus:ring-neutral-500 ${
+                        isScheduled ? 'text-neutral-400' : 'text-neutral-900'
+                      }`}
+                    />
+                    {/* Show input for new/empty aufgaben, text for existing */}
+                    {hasTitle ? (
+                      <span className={`text-sm ${
+                        isScheduled
+                          ? 'text-neutral-400 italic'
+                          : aufgabe.completed
+                            ? 'text-neutral-400 line-through'
+                            : 'text-neutral-700'
+                      }`}>
+                        {aufgabe.title}
+                      </span>
+                    ) : (
+                      <input
+                        type="text"
+                        value={aufgabe.title || ''}
+                        onChange={(e) => onUpdateAufgabe?.(unterrechtsgebietId, kapitelId, thema.id, aufgabe.id, { title: e.target.value }, rechtsgebietId)}
+                        placeholder="Aufgabe eingeben..."
+                        autoFocus
+                        className="flex-1 text-sm bg-transparent border-b border-neutral-300 focus:border-primary-400 focus:outline-none py-0.5"
+                      />
+                    )}
+                    {isScheduled && (
+                      <span className="text-xs text-blue-400 ml-auto">
+                        → {aufgabe.scheduledInBlock.date}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Add Aufgabe Button - always visible */}
+          <button
+            onClick={handleAddAufgabe}
+            className="flex items-center gap-1 px-4 py-1.5 mt-1 text-xs text-primary-600 hover:bg-primary-50 rounded transition-colors"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Aufgabe
+          </button>
         </div>
       )}
     </div>
@@ -618,6 +677,8 @@ const ThemeListView = ({
   expandedThemaId,
   onToggleThema,
   onToggleAufgabe,
+  onAddAufgabe, // Add aufgabe callback
+  onUpdateAufgabe, // Update aufgabe callback
 }) => {
   if (!themeList) {
     return (
@@ -663,6 +724,8 @@ const ThemeListView = ({
             expandedThemaId={expandedThemaId}
             onToggleThema={onToggleThema}
             onToggleAufgabe={onToggleAufgabe}
+            onAddAufgabe={onAddAufgabe}
+            onUpdateAufgabe={onUpdateAufgabe}
           />
         ))
       )}
@@ -854,6 +917,8 @@ const NoTopicsView = ({
   selectedThemeListId,
   onSelectThemeList,
   onToggleThemeListAufgabe,
+  onAddThemeListAufgabe, // Add aufgabe to theme list
+  onUpdateThemeListAufgabe, // Update aufgabe title in theme list
   onArchiveThemeList, // TICKET-12: Archive callback
 }) => {
   const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themenliste'
@@ -1009,6 +1074,8 @@ const NoTopicsView = ({
             expandedThemaId={expandedThemaId}
             onToggleThema={(id) => setExpandedThemaId(prev => prev === id ? null : id)}
             onToggleAufgabe={onToggleThemeListAufgabe}
+            onAddAufgabe={onAddThemeListAufgabe}
+            onUpdateAufgabe={onUpdateThemeListAufgabe}
           />
         )
       )}
@@ -1144,6 +1211,8 @@ const SessionWidget = ({
   selectedThemeListId,
   onSelectThemeList,
   onToggleThemeListAufgabe,
+  onAddThemeListAufgabe, // Add aufgabe to theme list
+  onUpdateThemeListAufgabe, // Update aufgabe title in theme list
   onArchiveThemeList, // TICKET-12: Archive themenliste callback
   // Mode prop
   isExamMode = false,
@@ -1188,6 +1257,8 @@ const SessionWidget = ({
             selectedThemeListId={selectedThemeListId}
             onSelectThemeList={onSelectThemeList}
             onToggleThemeListAufgabe={onToggleThemeListAufgabe}
+            onAddThemeListAufgabe={onAddThemeListAufgabe}
+            onUpdateThemeListAufgabe={onUpdateThemeListAufgabe}
             onArchiveThemeList={onArchiveThemeList}
           />
         )}

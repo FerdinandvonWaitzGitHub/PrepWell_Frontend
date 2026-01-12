@@ -52,6 +52,8 @@ const defaultSettings = {
     pomodoroDuration: 25,
     // T5.1: Fortschrittsberechnung - 'aufgaben' = nur Aufgaben abhakbar, 'themen' = Themen UND Aufgaben abhakbar
     progressCalculation: 'aufgaben',
+    // Dashboard Fortschrittsanzeige: 'both' = Zahlen + Balken, 'bar' = nur Balken, 'numbers' = nur Zahlen
+    dashboardProgressDisplay: 'both',
   },
   display: {
     theme: 'light',
@@ -762,6 +764,28 @@ const SettingsContent = ({ className = '' }) => {
                   </>
                 )}
               </p>
+            </div>
+          </div>
+
+          {/* Dashboard Progress Display Setting */}
+          <div>
+            <div className="flex items-center justify-between py-3 border-t border-neutral-100">
+              <div className="flex items-center gap-3">
+                <Layers className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Fortschrittsanzeige (Startseite)</p>
+                  <p className="text-xs text-neutral-500">Bestimmt, wie der Fortschritt auf der Startseite angezeigt wird</p>
+                </div>
+              </div>
+              <select
+                value={settings.learning.dashboardProgressDisplay || 'both'}
+                onChange={(e) => handleSettingChange('learning', 'dashboardProgressDisplay', e.target.value)}
+                className="px-3 py-2 text-sm border border-neutral-200 rounded-lg"
+              >
+                <option value="both">Zahlen + Balken</option>
+                <option value="bar">Nur Balken</option>
+                <option value="numbers">Nur Zahlen</option>
+              </select>
             </div>
           </div>
         </div>
