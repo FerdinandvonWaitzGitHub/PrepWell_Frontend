@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useUserSettingsSync } from '../hooks/use-supabase-sync';
 
 const STORAGE_KEY = 'prepwell_mentor_activated';
@@ -77,13 +77,14 @@ export const MentorProvider = ({ children }) => {
     updateSettings({ mentorActivated: false });
   }, [updateSettings]);
 
-  const value = {
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     isActivated,
     activatedAt,
     activateMentor,
     deactivateMentor,
     loading,
-  };
+  }), [isActivated, activatedAt, activateMentor, deactivateMentor, loading]);
 
   return (
     <MentorContext.Provider value={value}>

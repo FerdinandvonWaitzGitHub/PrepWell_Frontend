@@ -272,14 +272,20 @@ export const AppModeProvider = ({ children }) => {
   // Check if user has manually overridden the mode
   const isModeManuallySet = userModePreference !== null;
 
-  const value = {
+  // Memoize isNavItemDisabled callback
+  const isNavItemDisabledCallback = useCallback((navKey) => {
+    return disabledInNormalMode.includes(navKey);
+  }, [disabledInNormalMode]);
+
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     appMode,
     isExamMode,
     isNormalMode,
     activeLernplan,
     activeLernplaene,
     disabledInNormalMode,
-    isNavItemDisabled,
+    isNavItemDisabled: isNavItemDisabledCallback,
     // FEAT-002: Dynamic navigation based on mode
     isNavItemHidden,
     isWizardAvailable,
@@ -304,7 +310,14 @@ export const AppModeProvider = ({ children }) => {
     // Sync status
     isSyncing: syncLoading,
     isSupabaseEnabled,
-  };
+  }), [
+    appMode, isExamMode, isNormalMode, activeLernplan, activeLernplaene,
+    disabledInNormalMode, isNavItemDisabledCallback, isNavItemHidden, isWizardAvailable,
+    defaultCalendarView, toggleMode, resetModePreference, canToggleMode,
+    isModeManuallySet, userModePreference, currentSemester, setSemester,
+    subscriptionStatus, setSubscriptionStatus, isTrialMode, isSubscribed,
+    trialDaysRemaining, modeDisplayText, syncLoading, isSupabaseEnabled,
+  ]);
 
   return (
     <AppModeContext.Provider value={value}>

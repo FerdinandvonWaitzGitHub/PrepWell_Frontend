@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTimerHistorySync, useUserSettingsSync } from '../hooks/use-supabase-sync';
 
 // LocalStorage keys
@@ -861,7 +861,35 @@ export const TimerProvider = ({ children }) => {
     }
   }, [timerConfig, startPomodoro, startCountdown, startCountup]);
 
-  const value = {
+  // PERF FIX: Memoize getTimerStats to prevent recreation
+  const getTimerStats = useCallback(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const todaySessions = timerHistory.filter(s => s.date === today);
+    const weekSessions = timerHistory.filter(s => s.date >= weekAgo);
+    const monthSessions = timerHistory.filter(s => s.date >= monthAgo);
+
+    const calcStats = (sessions) => ({
+      count: sessions.length,
+      totalDuration: sessions.reduce((sum, s) => sum + (s.duration || 0), 0),
+      completedCount: sessions.filter(s => s.completed).length,
+      pomodoroCount: sessions.filter(s => s.type === TIMER_TYPES.POMODORO).length,
+      countdownCount: sessions.filter(s => s.type === TIMER_TYPES.COUNTDOWN).length,
+      countupCount: sessions.filter(s => s.type === TIMER_TYPES.COUNTUP).length
+    });
+
+    return {
+      today: calcStats(todaySessions),
+      week: calcStats(weekSessions),
+      month: calcStats(monthSessions),
+      all: calcStats(timerHistory)
+    };
+  }, [timerHistory]);
+
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     // State
     timerType,
     timerState,
@@ -907,32 +935,16 @@ export const TimerProvider = ({ children }) => {
 
     // History
     timerHistory,
-    getTimerStats: () => {
-      const today = new Date().toISOString().split('T')[0];
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-      const todaySessions = timerHistory.filter(s => s.date === today);
-      const weekSessions = timerHistory.filter(s => s.date >= weekAgo);
-      const monthSessions = timerHistory.filter(s => s.date >= monthAgo);
-
-      const calcStats = (sessions) => ({
-        count: sessions.length,
-        totalDuration: sessions.reduce((sum, s) => sum + (s.duration || 0), 0),
-        completedCount: sessions.filter(s => s.completed).length,
-        pomodoroCount: sessions.filter(s => s.type === TIMER_TYPES.POMODORO).length,
-        countdownCount: sessions.filter(s => s.type === TIMER_TYPES.COUNTDOWN).length,
-        countupCount: sessions.filter(s => s.type === TIMER_TYPES.COUNTUP).length
-      });
-
-      return {
-        today: calcStats(todaySessions),
-        week: calcStats(weekSessions),
-        month: calcStats(monthSessions),
-        all: calcStats(timerHistory)
-      };
-    }
-  };
+    getTimerStats,
+  }), [
+    timerType, timerState, remainingSeconds, elapsedSeconds, startTime, endTime,
+    isBreak, currentSession, totalSessions, pomodoroSettings, countdownSettings,
+    showNotification, timerConfig, timerHistory,
+    startPomodoro, startCountdown, startCountup, pauseTimer, resumeTimer,
+    togglePause, resetSession, resetTimerWithSave, stopTimer, saveTimerConfig,
+    startFromConfig, getDisplayInfo, setPomodoroSettings, setCountdownSettings,
+    getTimerStats,
+  ]);
 
   return (
     <TimerContext.Provider value={value}>

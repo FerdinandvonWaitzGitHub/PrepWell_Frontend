@@ -600,7 +600,11 @@ export const CheckInProvider = ({ children }) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
   }, []);
 
-  const value = {
+  // Memoize getCurrentPeriod callback to avoid recreating it on every render
+  const getCurrentPeriodCallback = useCallback(() => getCurrentPeriod(settings), [settings]);
+
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     // Data
     responses,
     settings,
@@ -624,8 +628,13 @@ export const CheckInProvider = ({ children }) => {
 
     // Constants
     questions: CHECKIN_QUESTIONS,
-    getCurrentPeriod: () => getCurrentPeriod(settings)
-  };
+    getCurrentPeriod: getCurrentPeriodCallback,
+  }), [
+    responses, settings, todayCheckIn, wellScore, wellScoreTrend,
+    isCheckInNeeded, wasMorningSkipped, isCheckInButtonEnabled,
+    isMentorActivated, checkInCount, loading, isAuthenticated,
+    submitCheckIn, skipCheckIn, updateSettings, getCurrentPeriodCallback,
+  ]);
 
   return (
     <CheckInContext.Provider value={value}>

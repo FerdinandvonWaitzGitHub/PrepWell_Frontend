@@ -427,7 +427,8 @@ export const ExamsProvider = ({ children }) => {
     };
   }, [exams, getNormalizedGrade]);
 
-  const value = {
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     exams: exams || [],
     stats,
     addExam,
@@ -446,7 +447,12 @@ export const ExamsProvider = ({ children }) => {
     // Loading states
     loading: examsLoading || settingsLoading,
     isAuthenticated,
-  };
+  }), [
+    exams, stats, addExam, updateExam, deleteExam, getExamById,
+    allSubjects, customSubjects, addCustomSubject, removeCustomSubject,
+    preferredGradeSystem, setPreferredGradeSystem, getNormalizedGrade,
+    examsLoading, settingsLoading, isAuthenticated,
+  ]);
 
   return (
     <ExamsContext.Provider value={value}>

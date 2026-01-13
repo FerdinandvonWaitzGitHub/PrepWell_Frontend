@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import {
   DEFAULT_SELECTION,
   ALL_UNTERRECHTSGEBIETE,
@@ -131,7 +131,8 @@ export const UnterrechtsgebieteProvider = ({ children }) => {
     return Object.values(selectedUnterrechtsgebiete).reduce((sum, items) => sum + items.length, 0);
   }, [selectedUnterrechtsgebiete]);
 
-  const value = {
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     // State
     selectedUnterrechtsgebiete,
     allUnterrechtsgebiete: ALL_UNTERRECHTSGEBIETE,
@@ -160,7 +161,13 @@ export const UnterrechtsgebieteProvider = ({ children }) => {
     // Legacy alias for backwards compatibility
     getAllUnterrechtsgebieteFlat: getAllSelectedFlat,
     unterrechtsgebiete: selectedUnterrechtsgebiete,
-  };
+  }), [
+    selectedUnterrechtsgebiete,
+    addUnterrechtsgebiet, deleteUnterrechtsgebiet, getUnterrechtsgebieteByRechtsgebiet,
+    getAllByRechtsgebiet, updateUnterrechtsgebiet, toggleUnterrechtsgebiet, isSelected,
+    setAllSelected, resetToDefault, getAllSelectedFlat, getAllAvailable,
+    getAllAvailableFlat, getSelectedCount,
+  ]);
 
   return (
     <UnterrechtsgebieteContext.Provider value={value}>

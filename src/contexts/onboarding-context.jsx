@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { useOnboardingSync } from '../hooks/use-supabase-sync';
 
 /**
@@ -142,7 +142,8 @@ export const OnboardingProvider = ({ children }) => {
   // Check if user needs onboarding
   const needsOnboarding = !isCompleted;
 
-  const value = {
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     isCompleted,
     needsOnboarding,
     currentStep,
@@ -158,7 +159,12 @@ export const OnboardingProvider = ({ children }) => {
     // Sync status
     isSyncing: syncLoading,
     isSupabaseEnabled,
-  };
+  }), [
+    isCompleted, needsOnboarding, currentStep, selectedMode,
+    handleSetSelectedMode, nextStep, prevStep, goToStep,
+    completeOnboarding, skipOnboarding, resetOnboarding,
+    syncLoading, isSupabaseEnabled,
+  ]);
 
   return (
     <OnboardingContext.Provider value={value}>

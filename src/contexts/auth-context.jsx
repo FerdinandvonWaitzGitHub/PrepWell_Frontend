@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 const AuthContext = createContext(null);
@@ -389,7 +389,8 @@ export function AuthProvider({ children }) {
     return 'U';
   };
 
-  const value = {
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     user,
     session,
     loading,
@@ -411,7 +412,12 @@ export function AuthProvider({ children }) {
     getLastName,
     getFullName,
     getInitials,
-  };
+  }), [
+    user, session, loading, isApproved, approvalLoading,
+    checkApprovalStatus, signUp, signIn, signOut, resetPassword,
+    updatePassword, updateProfile, deleteAccount,
+    getFirstName, getLastName, getFullName, getInitials,
+  ]);
 
   return (
     <AuthContext.Provider value={value}>

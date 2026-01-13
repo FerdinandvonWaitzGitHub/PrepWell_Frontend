@@ -98,7 +98,8 @@ export const StudiengangProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const value = {
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     // Aktueller Studiengang
     studiengang,
     setStudiengang,
@@ -113,7 +114,7 @@ export const StudiengangProvider = ({ children }) => {
 
     // Alle verfügbaren Studiengänge
     studiengaenge: STUDIENGAENGE,
-  };
+  }), [studiengang, setStudiengang, studiengangName, hierarchyLabels, isJura]);
 
   return (
     <StudiengangContext.Provider value={value}>

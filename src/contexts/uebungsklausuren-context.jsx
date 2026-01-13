@@ -324,7 +324,8 @@ export const UebungsklausurenProvider = ({ children }) => {
     };
   }, [klausuren]);
 
-  const value = {
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     klausuren: klausuren || [],
     stats,
     addKlausur,
@@ -334,7 +335,7 @@ export const UebungsklausurenProvider = ({ children }) => {
     // Loading states
     loading,
     isAuthenticated,
-  };
+  }), [klausuren, stats, addKlausur, updateKlausur, deleteKlausur, getKlausurById, loading, isAuthenticated]);
 
   return (
     <UebungsklausurenContext.Provider value={value}>
