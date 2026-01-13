@@ -823,7 +823,7 @@ const WeekGrid = memo(function WeekGrid({
                 {timeSlots.map((hour) => (
                   <div
                     key={hour}
-                    className={`absolute left-0 right-0 border-b ${hour % 2 === 0 ? 'border-neutral-200' : 'border-neutral-100'}`}
+                    className={`absolute left-0 right-0 border-b pointer-events-none ${hour % 2 === 0 ? 'border-neutral-200' : 'border-neutral-100'}`}
                     style={{ top: `${hour * hourHeight}px`, height: `${hourHeight}px` }}
                   />
                 ))}

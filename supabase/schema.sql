@@ -263,6 +263,8 @@ CREATE TABLE IF NOT EXISTS private_sessions (
 );
 
 -- Calendar Blocks (User's learning blocks, formerly calendar_slots)
+-- PRD: BlockAllocation hat NUR position (1-4), KEINE Uhrzeiten!
+-- Zeit-basierte Sessions gehören in time_sessions, nicht hier.
 CREATE TABLE IF NOT EXISTS calendar_blocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -276,11 +278,7 @@ CREATE TABLE IF NOT EXISTS calendar_blocks (
   block_type TEXT DEFAULT 'lernblock',
   is_locked BOOLEAN DEFAULT FALSE,
   is_from_lernplan BOOLEAN DEFAULT FALSE,
-  has_time BOOLEAN DEFAULT FALSE,
-  start_hour INT,
-  duration INT,
-  start_time TIME,
-  end_time TIME,
+  -- KEINE Zeit-Felder hier! (has_time, start_hour, duration, start_time, end_time)
   repeat_enabled BOOLEAN DEFAULT FALSE,
   repeat_type TEXT,
   repeat_count INT,

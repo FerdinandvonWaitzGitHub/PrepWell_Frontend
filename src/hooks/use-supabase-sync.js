@@ -1001,11 +1001,8 @@ export function useCalendarBlocksSync() {
         blockType: row.block_type,
         isLocked: row.is_locked,
         isFromLernplan: row.is_from_lernplan,
-        hasTime: row.has_time,
-        startHour: row.start_hour,
-        duration: row.duration,
-        startTime: row.start_time,
-        endTime: row.end_time,
+        // PRD: BlockAllocation hat KEINE Zeit-Felder (nur position 1-4)
+        // Zeit-basierte Sessions gehören in time_sessions, nicht hier
         repeatEnabled: row.repeat_enabled,
         repeatType: row.repeat_type,
         repeatCount: row.repeat_count,
@@ -1043,11 +1040,8 @@ export function useCalendarBlocksSync() {
           block_type: block.blockType || 'lernblock',
           is_locked: block.isLocked || false,
           is_from_lernplan: block.isFromLernplan || false,
-          has_time: block.hasTime || false,
-          start_hour: block.startHour,
-          duration: block.duration,
-          start_time: block.startTime,
-          end_time: block.endTime,
+          // PRD: BlockAllocation hat KEINE Zeit-Felder (nur position 1-4)
+          // Zeit-basierte Sessions gehören in time_sessions, nicht hier
           repeat_enabled: block.repeatEnabled || false,
           repeat_type: block.repeatType,
           repeat_count: block.repeatCount,
@@ -1167,11 +1161,7 @@ export function useCalendarBlocksSync() {
             block_type: slot.blockType || 'lernblock',
             is_locked: slot.isLocked || false,
             is_from_lernplan: slot.isFromLernplan || false,
-            has_time: slot.hasTime || false,
-            start_hour: slot.startHour,
-            duration: slot.duration,
-            start_time: slot.startTime,
-            end_time: slot.endTime,
+            // PRD: BlockAllocation hat KEINE Zeit-Felder
             repeat_enabled: slot.repeatEnabled || false,
             repeat_type: slot.repeatType,
             repeat_count: slot.repeatCount,
