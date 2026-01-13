@@ -738,7 +738,7 @@ export function useUserSettingsSync() {
     };
 
     fetchSettings();
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Update settings
   const updateSettings = useCallback(async (updates) => {
@@ -798,7 +798,7 @@ export function useUserSettingsSync() {
       console.error('Error updating settings:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [settings, isSupabaseEnabled, isAuthenticated, user]);
+  }, [settings, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   return {
     settings,
@@ -858,7 +858,7 @@ export function useWizardDraftSync() {
       console.error('Error fetching wizard draft:', err);
       return null;
     }
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Initial sync on login
   useEffect(() => {
@@ -925,7 +925,7 @@ export function useWizardDraftSync() {
       console.error('Error saving wizard draft:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Clear draft (from both localStorage and Supabase)
   const clearDraft = useCallback(async () => {
@@ -952,7 +952,7 @@ export function useWizardDraftSync() {
       console.error('Error clearing wizard draft:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Check if draft exists
   const hasDraft = useCallback(() => {
@@ -1193,7 +1193,7 @@ export function useCalendarBlocksSync() {
       console.error('Error saving calendar slots:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [blocksByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [blocksByDate, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Save all slots (for bulk operations like wizard)
   const saveAllSlots = useCallback(async (newSlotsByDate) => {
@@ -1429,7 +1429,7 @@ export function useCalendarTasksSync() {
       console.error('Error saving calendar tasks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [tasksByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [tasksByDate, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Update a single task
   const updateTask = useCallback(async (dateKey, taskId, updates) => {
@@ -1644,7 +1644,7 @@ export function usePrivateSessionsSync() {
       console.error('Error saving private blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [privateSessionsByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [privateSessionsByDate, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // FIX BUG-005: Batch save private blocks for multiple dates at once
   // This avoids stale closure issues when creating series appointments
@@ -1722,7 +1722,7 @@ export function usePrivateSessionsSync() {
       console.error('Error batch saving private blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [privateSessionsByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [privateSessionsByDate, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   return {
     privateSessionsByDate,
@@ -1991,7 +1991,7 @@ export function useTimeSessionsSync() {
       console.error('Error saving time blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [timeSessionsByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [timeSessionsByDate, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Batch save time blocks for multiple dates at once
   const saveDayBlocksBatch = useCallback(async (updatesMap) => {
@@ -2075,7 +2075,7 @@ export function useTimeSessionsSync() {
       console.error('Error batch saving time blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [timeSessionsByDate, isSupabaseEnabled, isAuthenticated, user]);
+  }, [timeSessionsByDate, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Clear all time blocks
   const clearAllBlocks = useCallback(async () => {
@@ -2160,7 +2160,7 @@ export function useArchivedLernplaeneSync() {
       console.error('Error fetching archived lernplaene:', err);
       return null;
     }
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Initial sync on login
   useEffect(() => {
@@ -2249,7 +2249,7 @@ export function useArchivedLernplaeneSync() {
       console.error('Error archiving plan:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [archivedLernplaene, isSupabaseEnabled, isAuthenticated, user]);
+  }, [archivedLernplaene, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Delete an archived plan
   const deleteArchivedPlan = useCallback(async (planId) => {
@@ -2348,7 +2348,7 @@ export function useLernplanMetadataSync() {
 
     initSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Update metadata
   // Fix: Read ALL user_settings fields to avoid race condition with useUserSettingsSync
@@ -2390,7 +2390,7 @@ export function useLernplanMetadataSync() {
       console.error('Error updating lernplan metadata:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Clear metadata
   // Fix: Read ALL user_settings fields to avoid race condition
@@ -2429,7 +2429,7 @@ export function useLernplanMetadataSync() {
       console.error('Error clearing lernplan metadata:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   return {
     lernplanMetadata,
@@ -2533,7 +2533,7 @@ export function useOnboardingSync() {
 
     initSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Update onboarding state
   const updateOnboardingState = useCallback(async (updates) => {
@@ -2584,7 +2584,7 @@ export function useOnboardingSync() {
       console.error('Error updating onboarding state:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [onboardingState, isSupabaseEnabled, isAuthenticated, user]);
+  }, [onboardingState, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   return {
     onboardingState,
@@ -2671,7 +2671,7 @@ export function useAppModeSync() {
 
     initSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Update app mode state
   const updateAppModeState = useCallback(async (updates) => {
@@ -2728,7 +2728,7 @@ export function useAppModeSync() {
       console.error('Error updating app mode state:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [appModeState, isSupabaseEnabled, isAuthenticated, user]);
+  }, [appModeState, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   return {
     appModeState,
