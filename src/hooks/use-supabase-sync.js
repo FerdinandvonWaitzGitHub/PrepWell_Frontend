@@ -9,7 +9,7 @@
  * @module hooks/use-supabase-sync
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/auth-context';
 import { supabase } from '../services/supabase';
 
@@ -114,6 +114,15 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     enabled = true, // Set to false to disable Supabase sync (localStorage only)
   } = options;
 
+  // Use refs to store transform functions to avoid infinite loops
+  // (inline arrow functions in options create new references every render)
+  const transformToSupabaseRef = useRef(transformToSupabase);
+  const transformFromSupabaseRef = useRef(transformFromSupabase);
+
+  // Update refs on every render (refs don't trigger re-renders)
+  transformToSupabaseRef.current = transformToSupabase;
+  transformFromSupabaseRef.current = transformFromSupabase;
+
   // Fetch data from Supabase
   const fetchFromSupabase = useCallback(async () => {
     if (!enabled || !isSupabaseEnabled || !isAuthenticated || !supabase) {
@@ -127,12 +136,12 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
         .order(orderBy, { ascending: orderDirection === 'asc' });
 
       if (fetchError) throw fetchError;
-      return supabaseData?.map(transformFromSupabase) || [];
+      return supabaseData?.map(transformFromSupabaseRef.current) || [];
     } catch (err) {
       console.error(`Error fetching from ${tableName}:`, err);
       return null;
     }
-  }, [enabled, isSupabaseEnabled, isAuthenticated, tableName, orderBy, orderDirection, transformFromSupabase]);
+  }, [enabled, isSupabaseEnabled, isAuthenticated, tableName, orderBy, orderDirection]);
 
   // Sync LocalStorage data to Supabase (on first login)
   const syncToSupabase = useCallback(async (localData) => {
@@ -155,7 +164,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       // User has no Supabase data, migrate LocalStorage data
       if (Array.isArray(localData) && localData.length > 0) {
         const dataToInsert = localData.map(item => ({
-          ...transformToSupabase(item),
+          ...transformToSupabaseRef.current(item),
           user_id: user.id,
         }));
 
@@ -172,7 +181,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     } catch (err) {
       console.error(`Error in syncToSupabase for ${tableName}:`, err);
     }
-  }, [enabled, isSupabaseEnabled, isAuthenticated, user, tableName, transformToSupabase]);
+  }, [enabled, isSupabaseEnabled, isAuthenticated, user, tableName]);
 
   // Initial load and sync
   useEffect(() => {
@@ -214,7 +223,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
                   await supabase
                     .from(tableName)
                     .upsert({
-                      ...transformToSupabase(item),
+                      ...transformToSupabaseRef.current(item),
                       user_id: user.id,
                     });
                 } catch (syncErr) {
@@ -243,7 +252,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     };
 
     initData();
-  }, [isSupabaseEnabled, isAuthenticated, fetchFromSupabase, syncToSupabase, storageKey, defaultValue, tableName, transformToSupabase, user]);
+  }, [isSupabaseEnabled, isAuthenticated, fetchFromSupabase, syncToSupabase, storageKey, defaultValue, tableName, user]);
 
   // Save data (to Supabase if authenticated, always to LocalStorage)
   const save = useCallback(async (newData, operation = 'upsert') => {
@@ -259,7 +268,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       if (operation === 'upsert' && Array.isArray(newData)) {
         // Batch upsert
         const dataToUpsert = newData.map(item => ({
-          ...transformToSupabase(item),
+          ...transformToSupabaseRef.current(item),
           user_id: user.id,
         }));
 
@@ -276,7 +285,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       setError(err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [isSupabaseEnabled, isAuthenticated, user, tableName, storageKey, transformToSupabase, onConflict]);
+  }, [isSupabaseEnabled, isAuthenticated, user, tableName, storageKey, onConflict]);
 
   // Save single item
   const saveItem = useCallback(async (item) => {
@@ -301,7 +310,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       const { data: savedData, error: saveError } = await supabase
         .from(tableName)
         .upsert({
-          ...transformToSupabase(itemWithId),
+          ...transformToSupabaseRef.current(itemWithId),
           user_id: user.id,
         })
         .select()
@@ -311,7 +320,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
 
       // Update local with Supabase-generated ID if it was a local ID
       if (savedData && itemWithId.id.startsWith('local-')) {
-        const transformedData = transformFromSupabase(savedData);
+        const transformedData = transformFromSupabaseRef.current(savedData);
         const finalData = Array.isArray(data)
           ? [...data.filter(d => d.id !== itemWithId.id), transformedData]
           : transformedData;
@@ -325,7 +334,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       console.error(`Error saving item to ${tableName}:`, err);
       return { success: false, error: err, data: itemWithId, source: 'localStorage' };
     }
-  }, [data, isSupabaseEnabled, isAuthenticated, user, tableName, storageKey, transformToSupabase, transformFromSupabase]);
+  }, [data, isSupabaseEnabled, isAuthenticated, user, tableName, storageKey]);
 
   // Remove item
   const removeItem = useCallback(async (itemId) => {
