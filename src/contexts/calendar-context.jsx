@@ -2558,7 +2558,8 @@ export const CalendarProvider = ({ children }) => {
     return result;
   }, [getDayData]);
 
-  const value = {
+  // PERF FIX: Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     // State
     blocksByDate,
     visibleBlocksByDate, // BUG-010 FIX: Filtered blocks (excludes archived plans)
@@ -2711,7 +2712,41 @@ export const CalendarProvider = ({ children }) => {
 
     // Archive & Convert
     archiveAndConvertToThemenliste,
-  };
+  }), [
+    // State dependencies
+    blocksByDate, visibleBlocksByDate, lernplanMetadata, archivedLernplaene,
+    privateSessionsByDate, timeSessionsByDate, tasksByDate, themeLists,
+    contentPlans, customUnterrechtsgebiete, contentsById, publishedThemenlisten,
+    // Loading states
+    contentPlansLoading, blocksLoading, tasksLoading, privateBlocksLoading,
+    timeBlocksLoading, archivedLoading, metadataLoading, publishedThemenlistenLoading,
+    isAuthenticated,
+    // Functions (useCallback ensures stable references)
+    setCalendarData, updateDayBlocks, getDayBlocks, updateLernplanMetadata,
+    archiveCurrentPlan, deleteCurrentPlan, restoreArchivedPlan, deleteArchivedPlan,
+    clearAllData, saveContent, getContent, deleteContent, addBlockWithContent,
+    buildSessionFromBlock, getSessionsForDate, deleteBlock, deleteSeriesBlocks,
+    addPrivateBlock, updatePrivateBlock, deletePrivateBlock, deleteSeriesPrivateBlocks,
+    getPrivateBlocks, addTimeBlock, updateTimeBlock, deleteTimeBlock,
+    deleteSeriesTimeBlocks, getTimeBlocks, clearAllTimeBlocks,
+    addTask, updateTask, toggleTaskComplete, deleteTask, getTasks,
+    createThemeList, updateThemeList, deleteThemeList, toggleThemeListTopicComplete,
+    addTopicToThemeList, removeTopicFromThemeList, getThemeLists, getThemeListById,
+    createContentPlan, updateContentPlan, deleteContentPlan, archiveContentPlan,
+    getContentPlansByType, getContentPlanById, importThemenlisteTemplate,
+    exportThemenlisteAsJson, importThemenlisteFromJson, publishThemenliste,
+    unpublishThemenliste, getPublishedThemenlisten,
+    addRechtsgebietToPlan, removeRechtsgebietFromPlan,
+    addUnterrechtsgebietToPlan, removeUnterrechtsgebietFromPlan,
+    addKapitelToPlan, updateKapitelInPlan, deleteKapitelFromPlan, flattenAllKapitel,
+    addThemaToPlan, updateThemaInPlan, deleteThemaFromPlan,
+    addAufgabeToPlan, updateAufgabeInPlan, toggleAufgabeInPlan, deleteAufgabeFromPlan,
+    scheduleAufgabeToBlock, unscheduleAufgabeFromBlock,
+    scheduleThemaToBlock, unscheduleThemaFromBlock, cleanupExpiredSchedules,
+    addCustomUnterrechtsgebiet, getCustomUnterrechtsgebiete,
+    getDayData, getDateRangeData, getArchivedPlans, hasActiveLernplan,
+    archiveAndConvertToThemenliste,
+  ]);
 
   return (
     <CalendarContext.Provider value={value}>
