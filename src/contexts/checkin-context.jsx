@@ -304,7 +304,7 @@ export const CheckInProvider = ({ children }) => {
     } catch (err) {
       console.error('Error in syncToSupabase:', err);
     }
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   // Initial load and sync
   // BUG-C FIX: Merge local and remote data instead of overwriting
@@ -380,7 +380,7 @@ export const CheckInProvider = ({ children }) => {
     } catch (err) {
       console.error('Error saving check-in to Supabase:', err);
     }
-  }, [isSupabaseEnabled, isAuthenticated, user]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   /**
    * Submit check-in responses

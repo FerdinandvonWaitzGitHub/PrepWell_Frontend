@@ -98,14 +98,14 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
   // Reset syncedRef when user changes (logout/login)
   // Fix: Explicitly handle logout to null
   useEffect(() => {
-    if (user === null) {
+    if (user?.id === undefined || user?.id === null) {
       syncedRef.current = false;
       userIdRef.current = null;
     } else if (user?.id !== userIdRef.current) {
       syncedRef.current = false;
       userIdRef.current = user?.id;
     }
-  }, [user]);
+  }, [user?.id]);
 
   const {
     orderBy = 'created_at',

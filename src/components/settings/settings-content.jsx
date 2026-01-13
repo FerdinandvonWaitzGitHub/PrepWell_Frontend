@@ -145,7 +145,7 @@ const SettingsContent = ({ className = '' }) => {
       setLastName(getLastName());
       setEmail(user.email || '');
     }
-  }, [user, getFirstName, getLastName]);
+  }, [user?.id, user?.email, getFirstName, getLastName]);
 
   const handleSettingChange = (section, key, value) => {
     setSettings(prev => ({
