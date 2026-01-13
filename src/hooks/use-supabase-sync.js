@@ -406,18 +406,22 @@ export function useContentPlansSync() {
     enabled: true, // Supabase sync enabled
     orderBy: 'created_at',
     orderDirection: 'desc',
-    transformToSupabase: (plan) => ({
-      id: plan.id?.startsWith('local-') ? undefined : plan.id,
-      name: plan.name,
-      type: plan.type || 'themenliste',
-      description: plan.description || '',
-      mode: plan.mode || 'standard',
-      exam_date: plan.examDate || null,
-      archived: plan.archived || false,
-      is_published: plan.isPublished || false,
-      rechtsgebiete: plan.rechtsgebiete || [],
-      imported_from: plan.importedFrom || null,
-    }),
+    transformToSupabase: (plan) => {
+      // Filter out local IDs (various prefixes used) - let Supabase generate UUID
+      const isLocalId = !plan.id || plan.id.startsWith('local-') || plan.id.startsWith('id-');
+      return {
+        id: isLocalId ? undefined : plan.id,
+        name: plan.name,
+        type: plan.type || 'themenliste',
+        description: plan.description || '',
+        mode: plan.mode || 'standard',
+        exam_date: plan.examDate || null,
+        archived: plan.archived || false,
+        is_published: plan.isPublished || false,
+        rechtsgebiete: plan.rechtsgebiete || [],
+        imported_from: plan.importedFrom || null,
+      };
+    },
     transformFromSupabase: (row) => ({
       id: row.id,
       name: row.name,
