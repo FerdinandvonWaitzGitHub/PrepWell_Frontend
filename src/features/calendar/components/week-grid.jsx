@@ -103,16 +103,16 @@ const LernplanBlockChip = ({ block, onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full px-2 py-1 rounded border text-left text-xs truncate hover:opacity-80 transition-opacity ${colorClass}`}
+      className={`w-full px-2.5 py-1.5 rounded-md border shadow-xs text-left text-xs truncate hover:shadow-sm hover:-translate-y-px transition-all ${colorClass}`}
       title={`${label} ${sizeLabel}`.trim()}
     >
-      <div className="flex items-center gap-1">
-        <span className="truncate font-medium">
+      <div className="flex items-center gap-1.5">
+        <span className="truncate font-semibold">
           {label}
         </span>
         {size > 1 && (
-          <span className="text-[10px] opacity-70 flex-shrink-0">
-            ({size})
+          <span className="text-[10px] opacity-60 flex-shrink-0 font-medium">
+            ×{size}
           </span>
         )}
       </div>
@@ -549,13 +549,13 @@ const WeekGrid = memo(function WeekGrid({
   const hiddenRowsCount = multiDayRows.length - 2;
 
   return (
-    <div className={`flex flex-col bg-white flex-1 overflow-hidden ${className}`}>
+    <div className={`flex flex-col bg-white flex-1 overflow-hidden rounded-lg border border-neutral-200 shadow-sm ${className}`}>
       {/* FIXED Header - NOT scrollable */}
       <table className="w-full border-collapse table-fixed flex-shrink-0">
         <thead className="bg-white">
             <tr>
               {/* Time column header */}
-              <th className="w-10 border-b border-r border-neutral-200 bg-white" />
+              <th className="w-14 border-b border-r border-neutral-200 bg-neutral-50/50" />
 
               {/* Weekday headers */}
               {WEEK_DAYS.map((day, index) => {
@@ -566,13 +566,13 @@ const WeekGrid = memo(function WeekGrid({
                 return (
                   <th
                     key={day}
-                    className={`h-14 border-b border-r border-neutral-200 last:border-r-0 font-normal ${
-                      today ? 'bg-primary-50' : isFull ? 'bg-amber-50' : 'bg-white'
+                    className={`h-16 border-b border-r border-neutral-200 last:border-r-0 font-normal transition-colors ${
+                      today ? 'bg-primary-100/50' : isFull ? 'bg-amber-50' : 'bg-neutral-50/50'
                     }`}
                   >
-                    <div className="flex flex-col items-center justify-center relative">
-                      <div className="flex items-center gap-1">
-                        <span className={`text-sm font-medium ${today ? 'text-primary-700' : 'text-neutral-900'}`}>
+                    <div className="flex flex-col items-center justify-center relative py-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-sm font-semibold tracking-tight ${today ? 'text-primary-600' : 'text-neutral-800'}`}>
                           {day}
                         </span>
                         {isFull && (
@@ -584,7 +584,7 @@ const WeekGrid = memo(function WeekGrid({
                           </span>
                         )}
                       </div>
-                      <span className={`text-sm ${today ? 'text-primary-600' : 'text-neutral-500'}`}>
+                      <span className={`text-xs font-medium ${today ? 'text-primary-500' : 'text-neutral-400'}`}>
                         {formatDateDisplay(date)}
                       </span>
                     </div>
@@ -595,10 +595,10 @@ const WeekGrid = memo(function WeekGrid({
 
             {/* T10: Lernplan blocks row (Month view) */}
             {hasLernplanBlocksRow && (
-              <tr className="h-10 bg-neutral-50 border-b border-neutral-200">
+              <tr className="h-12 bg-gradient-to-b from-neutral-50 to-neutral-100/50 border-b border-neutral-200">
                 {/* Label cell */}
-                <th className="align-middle border-r border-neutral-200 bg-neutral-50 px-1">
-                  <span className="text-xs text-neutral-600 font-medium">Lernplan</span>
+                <th className="align-middle border-r border-neutral-200 bg-neutral-100/50 px-2">
+                  <span className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Plan</span>
                 </th>
 
                 {/* Lernplan block cells for each day */}
@@ -609,7 +609,7 @@ const WeekGrid = memo(function WeekGrid({
                   return (
                     <th
                       key={`lernplan-month-${dayIndex}`}
-                      className="border-r border-neutral-100 last:border-r-0 p-1 font-normal bg-neutral-50 align-top"
+                      className="border-r border-neutral-200 last:border-r-0 p-1.5 font-normal bg-transparent align-top"
                     >
                       <div className="flex flex-col gap-1">
                         {blocksForDay.map((block) => (
@@ -631,9 +631,9 @@ const WeekGrid = memo(function WeekGrid({
               visibleMultiDayRows.map((row, rowIndex) => {
                 const isLastRow = rowIndex === visibleMultiDayRows.length - 1;
                 return (
-                  <tr key={`multiday-${rowIndex}`} className={`h-8 bg-white ${isLastRow ? 'border-b border-neutral-200' : ''}`}>
+                  <tr key={`multiday-${rowIndex}`} className={`h-9 bg-white ${isLastRow ? 'border-b border-neutral-200' : ''}`}>
                     {/* Empty label cell */}
-                    <th className={`align-middle border-r border-neutral-100 bg-white ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`} />
+                    <th className={`align-middle border-r border-neutral-200 bg-neutral-50/30 ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`} />
 
                     {/* Multi-day block cells */}
                     {weekDates.map((date, dayIndex) => {
@@ -688,12 +688,12 @@ const WeekGrid = memo(function WeekGrid({
               })
             ) : (
               /* Empty reserved row for multi-day events */
-              <tr className="h-8 bg-white border-b border-neutral-200">
-                <th className="align-middle border-r border-t border-neutral-200 bg-white" />
+              <tr className="h-6 bg-neutral-50/30 border-b border-neutral-200">
+                <th className="align-middle border-r border-t border-neutral-200 bg-neutral-50/30" />
                 {weekDates.map((_, dayIndex) => (
                   <th
                     key={`empty-${dayIndex}`}
-                    className="border-r border-t border-neutral-200 last:border-r-0 font-normal bg-white"
+                    className="border-r border-t border-neutral-200 last:border-r-0 font-normal bg-neutral-50/30"
                   />
                 ))}
               </tr>
@@ -749,14 +749,14 @@ const WeekGrid = memo(function WeekGrid({
         {/* This allows proper drag-to-select across multiple hours */}
         <div className="flex" style={{ height: `${24 * hourHeight}px` }}>
           {/* Time Labels Column */}
-          <div className="w-10 flex-shrink-0 bg-white border-r border-neutral-100">
+          <div className="w-14 flex-shrink-0 bg-neutral-50/30 border-r border-neutral-200">
             {timeSlots.map((hour) => (
               <div
                 key={hour}
-                className="text-right pr-2 text-xs text-neutral-400 border-b border-neutral-100"
+                className="text-right pr-2 text-xs font-medium text-neutral-400 border-b border-neutral-100"
                 style={{ height: `${hourHeight}px`, paddingTop: '4px' }}
               >
-                {hour}
+                {hour.toString().padStart(2, '0')}:00
               </div>
             ))}
           </div>
@@ -823,7 +823,7 @@ const WeekGrid = memo(function WeekGrid({
                 {timeSlots.map((hour) => (
                   <div
                     key={hour}
-                    className="absolute left-0 right-0 border-b border-neutral-100"
+                    className={`absolute left-0 right-0 border-b ${hour % 2 === 0 ? 'border-neutral-200' : 'border-neutral-100'}`}
                     style={{ top: `${hour * hourHeight}px`, height: `${hourHeight}px` }}
                   />
                 ))}
@@ -953,10 +953,10 @@ const WeekGrid = memo(function WeekGrid({
                   return (
                     <div
                       key={block.id}
-                      className={`absolute left-1 right-1 rounded-lg border px-2 py-1.5 text-left overflow-hidden cursor-pointer transition-all z-10 select-none ${
+                      className={`absolute left-2 right-2 rounded-md border shadow-xs px-2.5 py-2 text-left overflow-hidden cursor-pointer transition-all z-10 select-none ${
                         isDragOver
-                          ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300'
-                          : `${colorClass} hover:shadow-md`
+                          ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300 shadow-md'
+                          : `${colorClass} hover:shadow-sm hover:-translate-y-0.5`
                       }`}
                       style={{
                         top: `${blockTopPx + 4}px`,

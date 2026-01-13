@@ -216,19 +216,64 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
             const localOnlyItems = localData.filter(item => !supabaseIds.has(item.id));
 
             if (localOnlyItems.length > 0) {
-              console.log(`[useSupabaseSync] Found ${localOnlyItems.length} local-only items, syncing to Supabase...`);
-              // Sync these items to Supabase
-              for (const item of localOnlyItems) {
+              // Robust batch sync with chunking and fallback (T12 Fix 4)
+              const CHUNK_SIZE = 100;
+              const itemsToSync = localOnlyItems.map(item => ({
+                ...transformToSupabaseRef.current(item),
+                user_id: user.id,
+              }));
+
+              const totalItems = itemsToSync.length;
+              const chunks = [];
+              for (let i = 0; i < totalItems; i += CHUNK_SIZE) {
+                chunks.push(itemsToSync.slice(i, i + CHUNK_SIZE));
+              }
+
+              console.log(`[useSupabaseSync] Syncing ${totalItems} local-only items in ${chunks.length} chunk(s)...`);
+
+              let successCount = 0;
+              let failedItems = [];
+
+              for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+                const chunk = chunks[chunkIndex];
                 try {
-                  await supabase
+                  const { error: chunkError } = await supabase
                     .from(tableName)
-                    .upsert({
-                      ...transformToSupabaseRef.current(item),
-                      user_id: user.id,
-                    });
-                } catch (syncErr) {
-                  console.error(`Failed to sync local item ${item.id}:`, syncErr);
+                    .upsert(chunk, { onConflict });
+
+                  if (chunkError) {
+                    console.warn(`[useSupabaseSync] Chunk ${chunkIndex + 1}/${chunks.length} failed, trying individual inserts...`, chunkError.message);
+                    // Fallback: try individual inserts for this chunk
+                    for (const item of chunk) {
+                      try {
+                        const { error: itemError } = await supabase
+                          .from(tableName)
+                          .upsert(item, { onConflict });
+                        if (itemError) {
+                          console.error(`[useSupabaseSync] Item failed:`, { id: item.id, error: itemError.message });
+                          failedItems.push({ id: item.id, error: itemError.message });
+                        } else {
+                          successCount++;
+                        }
+                      } catch (itemErr) {
+                        console.error(`[useSupabaseSync] Item exception:`, { id: item.id, error: itemErr.message });
+                        failedItems.push({ id: item.id, error: itemErr.message });
+                      }
+                    }
+                  } else {
+                    successCount += chunk.length;
+                  }
+                } catch (chunkErr) {
+                  console.error(`[useSupabaseSync] Chunk ${chunkIndex + 1} exception:`, chunkErr.message);
+                  failedItems.push(...chunk.map(item => ({ id: item.id, error: chunkErr.message })));
                 }
+              }
+
+              // Summary log
+              if (failedItems.length > 0) {
+                console.warn(`[useSupabaseSync] Sync complete: ${successCount}/${totalItems} succeeded, ${failedItems.length} failed`);
+              } else {
+                console.log(`[useSupabaseSync] Successfully synced all ${totalItems} items`);
               }
               // Merge: Supabase data + local-only items
               const mergedData = [...supabaseData, ...localOnlyItems];
