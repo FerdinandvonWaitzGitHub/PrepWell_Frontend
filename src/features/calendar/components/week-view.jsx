@@ -33,11 +33,11 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   // BUG-023 FIX: Use timeBlocksByDate for user-created blocks (time-based)
   // Use visibleBlocksByDate only for Lernplan-generated blocks (position-based, header only)
   const {
-    slotsByDate,
-    visibleSlotsByDate, // BUG-010 FIX: Filtered Lernplan blocks for header display
+    blocksByDate,
+    visibleBlocksByDate, // BUG-010 FIX: Filtered Lernplan blocks for header display
     privateBlocksByDate,
     timeBlocksByDate, // BUG-023 FIX: Time-based blocks for Week/Dashboard
-    updateDaySlots,
+    updateDayBlocks,
     addPrivateBlock,
     updatePrivateBlock,
     deletePrivateBlock,
@@ -107,10 +107,10 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   // Transform CalendarContext blocks to week view format
   // BUG-023 FIX: Combine time blocks (user-created) with Lernplan blocks
   // - Time blocks: Stored in timeBlocksByDate, always shown in time grid
-  // - Lernplan blocks: Stored in visibleSlotsByDate
+  // - Lernplan blocks: Stored in visibleBlocksByDate
   //   - Normal mode: Hidden
   //   - Exam mode: Shown in header bar (not time grid)
-  const { blocks, lernplanBlocks } = useMemo(() => {
+  const { blocks, lernplanHeaderBlocks } = useMemo(() => {
     const { monday, sunday } = getWeekDateRange(currentDate);
     const weekBlocks = [];
     const weekLernplanBlocks = []; // For Exam mode header bar
@@ -147,8 +147,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
 
       // Process Lernplan blocks (only in Exam mode, for header bar)
       if (isExamMode) {
-        // BUG-010 FIX: Use visibleSlotsByDate to exclude archived content plans
-        const dayBlocks = (visibleSlotsByDate || {})[dateKey] || [];
+        // BUG-010 FIX: Use visibleBlocksByDate to exclude archived content plans
+        const dayBlocks = (visibleBlocksByDate || {})[dateKey] || [];
 
         // Convert blocks to learning sessions for this day
         const learningSessions = blocksToLearningSessions(dayBlocks);
@@ -200,8 +200,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       }
     }
 
-    return { blocks: weekBlocks, lernplanBlocks: weekLernplanBlocks };
-  }, [currentDate, timeBlocksByDate, visibleSlotsByDate, isExamMode]);
+    return { blocks: weekBlocks, lernplanHeaderBlocks: weekLernplanBlocks };
+  }, [currentDate, timeBlocksByDate, visibleBlocksByDate, isExamMode]);
 
   // Transform CalendarContext private blocks to week view format
   // BUG-012 FIX: Include multi-day blocks that span into the current week
@@ -387,17 +387,17 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
           tasks: updatedBlock.tasks || [],
         });
       } else {
-        // Legacy: Update Lernplan slot (for backwards compatibility)
-        const daySlots = (slotsByDate || {})[dateKey] || [];
-        const updatedSlots = daySlots.map(slot => {
+        // Legacy: Update Lernplan block (for backwards compatibility)
+        const dayBlocks = (blocksByDate || {})[dateKey] || [];
+        const updatedBlocks = dayBlocks.map(block => {
           const isMatch =
-            (updatedBlock.id && (slot.contentId === updatedBlock.id || slot.topicId === updatedBlock.id || slot.id === updatedBlock.id)) ||
-            (updatedBlock.contentId && slot.contentId && slot.contentId === updatedBlock.contentId) ||
-            (updatedBlock.topicId && slot.topicId && slot.topicId === updatedBlock.topicId);
+            (updatedBlock.id && (block.contentId === updatedBlock.id || block.topicId === updatedBlock.id || block.id === updatedBlock.id)) ||
+            (updatedBlock.contentId && block.contentId && block.contentId === updatedBlock.contentId) ||
+            (updatedBlock.topicId && block.topicId && block.topicId === updatedBlock.topicId);
 
           if (isMatch) {
             return {
-              ...slot,
+              ...block,
               title: updatedBlock.title,
               topicTitle: updatedBlock.title,
               blockType: updatedBlock.blockType,
@@ -417,9 +417,9 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
               updatedAt: new Date().toISOString(),
             };
           }
-          return slot;
+          return block;
         });
-        updateDaySlots(dateKey, updatedSlots);
+        updateDayBlocks(dateKey, updatedBlocks);
       }
     }
   };
@@ -449,16 +449,16 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       return;
     }
 
-    // Legacy: Delete Lernplan slot (for backwards compatibility)
-    const daySlots = (slotsByDate || {})[dateKey] || [];
-    const updatedSlots = daySlots.filter(slot => {
+    // Legacy: Delete Lernplan block (for backwards compatibility)
+    const dayBlocks = (blocksByDate || {})[dateKey] || [];
+    const updatedBlocks = dayBlocks.filter(block => {
       const isMatch =
-        slot.contentId === blockId ||
-        slot.topicId === blockId ||
-        slot.id === blockId;
+        block.contentId === blockId ||
+        block.topicId === blockId ||
+        block.id === blockId;
       return !isMatch;
     });
-    updateDaySlots(dateKey, updatedSlots);
+    updateDayBlocks(dateKey, updatedBlocks);
   };
 
   // BUG-023 FIX: Add a new learning block - uses timeBlocksByDate
@@ -487,7 +487,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       tasks: blockData.tasks || [],
     };
 
-    // Use addTimeBlock which stores in timeBlocksByDate (NOT slotsByDate)
+    // Use addTimeBlock which stores in timeBlocksByDate (NOT blocksByDate)
     await addTimeBlock(dateKey, timeBlockData);
 
     console.log('[handleAddBlock] Time block created successfully');
@@ -514,14 +514,14 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     } else if (block.blockType === 'private') {
       updatePrivateBlock(dateKey, block.id, { tasks: updatedTasks });
     } else {
-      // Lernplan slot
-      const daySlots = (slotsByDate || {})[dateKey] || [];
-      const updatedSlots = daySlots.map(slot =>
-        slot.id === block.id || slot.contentId === block.id || slot.topicId === block.id
-          ? { ...slot, tasks: updatedTasks }
-          : slot
+      // Lernplan block
+      const dayBlocks = (blocksByDate || {})[dateKey] || [];
+      const updatedBlocks = dayBlocks.map(blockItem =>
+        blockItem.id === block.id || blockItem.contentId === block.id || blockItem.topicId === block.id
+          ? { ...blockItem, tasks: updatedTasks }
+          : blockItem
       );
-      updateDaySlots(dateKey, updatedSlots);
+      updateDayBlocks(dateKey, updatedBlocks);
     }
   };
 
@@ -535,13 +535,13 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     } else if (block.blockType === 'private') {
       updatePrivateBlock(dateKey, block.id, { tasks: updatedTasks });
     } else {
-      const daySlots = (slotsByDate || {})[dateKey] || [];
-      const updatedSlots = daySlots.map(slot =>
-        slot.id === block.id || slot.contentId === block.id || slot.topicId === block.id
-          ? { ...slot, tasks: updatedTasks }
-          : slot
+      const dayBlocks = (blocksByDate || {})[dateKey] || [];
+      const updatedBlocks = dayBlocks.map(blockItem =>
+        blockItem.id === block.id || blockItem.contentId === block.id || blockItem.topicId === block.id
+          ? { ...blockItem, tasks: updatedTasks }
+          : blockItem
       );
-      updateDaySlots(dateKey, updatedSlots);
+      updateDayBlocks(dateKey, updatedBlocks);
     }
   };
 
@@ -574,13 +574,13 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     } else if (targetBlock.blockType === 'private') {
       updatePrivateBlock(dateKey, targetBlock.id, { tasks: updatedTasks });
     } else {
-      const daySlots = (slotsByDate || {})[dateKey] || [];
-      const updatedSlots = daySlots.map(slot =>
-        slot.id === targetBlock.id || slot.contentId === targetBlock.id || slot.topicId === targetBlock.id
-          ? { ...slot, tasks: updatedTasks }
-          : slot
+      const dayBlocks = (blocksByDate || {})[dateKey] || [];
+      const updatedBlocks = dayBlocks.map(blockItem =>
+        blockItem.id === targetBlock.id || blockItem.contentId === targetBlock.id || blockItem.topicId === targetBlock.id
+          ? { ...blockItem, tasks: updatedTasks }
+          : blockItem
       );
-      updateDaySlots(dateKey, updatedSlots);
+      updateDayBlocks(dateKey, updatedBlocks);
     }
 
     // If task came from another block, remove it from source
@@ -628,7 +628,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         currentDate={currentDate}
         blocks={blocks}
         privateBlocks={privateBlocks}
-        lernplanBlocks={lernplanBlocks}
+        lernplanBlocks={visibleBlocksByDate}
+        lernplanHeaderBlocks={lernplanHeaderBlocks}
         onBlockClick={handleBlockClick}
         onSlotClick={handleSlotClick}
         onTaskToggle={handleTaskToggle}

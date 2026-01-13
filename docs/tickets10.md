@@ -4,7 +4,7 @@
 
 **Ziel:** Eine neue Leiste in der Wochenansicht einfügen, die die Lernplan-Blöcke aus der Monatsansicht anzeigt (position-basierte Blöcke vom Wizard).
 
-**Position:** Zwischen dem Wochentag-Header und der Multi-Day-Events-Zeile (Private Termine).
+**Position:** Lernplan-Leiste als Zeile 2 (direkt unter dem Wochentag-Header), Multi-Day-Events bleiben Zeile 3.
 
 ---
 
@@ -58,7 +58,7 @@ const displayBlocksByDate = visibleBlocksByDate || blocksByDate || {};
 
 ### Position-basierte Blöcke (Lernplan-Wizard)
 
-Struktur eines Blocks in `slotsByDate`:
+Struktur eines Blocks in `blocksByDate` (vormals `slotsByDate`):
 
 ```javascript
 {
@@ -87,17 +87,17 @@ Struktur eines Blocks in `slotsByDate`:
 ```javascript
 // week-view.jsx:36-37
 const {
-  slotsByDate,
-  visibleSlotsByDate,  // Gefiltert nach aktiven ContentPlans
+  blocksByDate,
+  visibleBlocksByDate,  // Gefiltert nach aktiven ContentPlans
   // ...
 } = useCalendar();
 ```
 
 ---
 
-## Unterschied: slotsByDate vs. timeBlocksByDate
+## Unterschied: blocksByDate vs. timeBlocksByDate
 
-| Eigenschaft | slotsByDate (Monatsansicht) | timeBlocksByDate (Wochenansicht) |
+| Eigenschaft | blocksByDate (Monatsansicht) | timeBlocksByDate (Wochenansicht) |
 |-------------|----------------------------|----------------------------------|
 | **Erstellung** | Lernplan-Wizard | Manuell vom User |
 | **Zeitbasis** | Position (1-4) | Uhrzeit (HH:MM) |
@@ -109,18 +109,32 @@ const {
 
 ## Implementierungsplan
 
+### Phase 0: Umbenennung "slots" -> "blocks"
+
+**Ziel:** Alle `slots`-Begriffe in diesem Ticket auf `blocks` umstellen (Code + Doku).
+
+**Betroffen:**
+- `slotsByDate` -> `blocksByDate`
+- `visibleSlotsByDate` -> `visibleBlocksByDate`
+- `lernplanSlots` -> `lernplanBlocks` (für die Monatsansicht-Leiste)
+- Variable/Komponenten-Namen: `SlotChip` -> `BlockChip` (oder `LernplanBlockChip`)
+
+**Hinweis:** Im Code bereits umbenannt? Falls ja, Doku/Plan nur anpassen.
+
+---
+
 ### Phase 1: Daten in WeekGrid verfügbar machen
 
 **Datei:** `src/features/calendar/components/week-view.jsx`
 
 ```javascript
 // Bereits vorhanden:
-const { slotsByDate, visibleSlotsByDate } = useCalendar();
+const { blocksByDate, visibleBlocksByDate } = useCalendar();
 
 // NEU: An WeekGrid übergeben
 <WeekGrid
   // ... bestehende Props
-  lernplanSlots={visibleSlotsByDate}  // Position-basierte Blöcke
+  lernplanBlocks={visibleBlocksByDate}  // Position-basierte Blöcke
 />
 ```
 
@@ -129,7 +143,7 @@ const { slotsByDate, visibleSlotsByDate } = useCalendar();
 ```javascript
 const WeekGrid = memo(function WeekGrid({
   // ... bestehende Props
-  lernplanSlots = {},  // NEU: Position-basierte Blöcke aus Monatsansicht
+  lernplanBlocks = {},  // NEU: Position-basierte Blöcke aus Monatsansicht
 }) {
 ```
 
@@ -137,11 +151,11 @@ const WeekGrid = memo(function WeekGrid({
 
 ### Phase 2: Neue Header-Zeile erstellen
 
-**Position:** Nach Weekday-Header, vor Multi-Day Events
+**Position:** Zeile 2 direkt nach dem Weekday-Header, Multi-Day-Events sind Zeile 3
 
 ```jsx
 {/* NEU: Lernplan-Blöcke Leiste (Monatsansicht-Blöcke) */}
-{hasLernplanSlots && (
+{hasLernplanBlocks && (
   <tr className="bg-neutral-50 border-b border-neutral-200">
     {/* Label */}
     <th className="w-10 px-1 border-r border-neutral-200 bg-neutral-50">
@@ -151,7 +165,7 @@ const WeekGrid = memo(function WeekGrid({
     {/* Blöcke pro Tag */}
     {weekDates.map((date, dayIndex) => {
       const dateKey = formatDateKey(date);
-      const slotsForDay = lernplanSlotsByDate[dateKey] || [];
+      const blocksForDay = lernplanBlocksByDate[dateKey] || [];
 
       return (
         <th
@@ -159,11 +173,11 @@ const WeekGrid = memo(function WeekGrid({
           className="border-r border-neutral-100 last:border-r-0 p-1 font-normal bg-neutral-50 align-top"
         >
           <div className="flex flex-col gap-1">
-            {slotsForDay.map(slot => (
-              <LernplanSlotChip
-                key={slot.id}
-                slot={slot}
-                onClick={() => onSlotClick?.(slot, date)}
+            {blocksForDay.map(block => (
+              <LernplanBlockChip
+                key={block.id}
+                block={block}
+                onClick={() => onLernplanBlockClick?.(block, date)}
               />
             ))}
           </div>
@@ -176,17 +190,17 @@ const WeekGrid = memo(function WeekGrid({
 
 ---
 
-### Phase 3: LernplanSlotChip Komponente
+### Phase 3: LernplanBlockChip Komponente
 
 **Darstellung eines einzelnen Lernplan-Blocks:**
 
 ```jsx
-const LernplanSlotChip = ({ slot, onClick }) => {
+const LernplanBlockChip = ({ block, onClick }) => {
   // Farbe basierend auf Rechtsgebiet oder Block-Typ
   const getSlotColor = () => {
-    if (slot.rechtsgebietId) {
-      const colors = getRechtsgebietColor(slot.rechtsgebietId);
-      return `bg-${colors.color}-100 border-${colors.color}-200 text-${colors.color}-800`;
+    if (block.rechtsgebietId) {
+      const colors = getRechtsgebietColor(block.rechtsgebietId);
+      return `${colors.bg} ${colors.border} ${colors.text}`;
     }
 
     const typeColors = {
@@ -196,26 +210,26 @@ const LernplanSlotChip = ({ slot, onClick }) => {
       vacation: 'bg-green-100 border-green-200 text-green-800',
       free: 'bg-neutral-100 border-neutral-200 text-neutral-700',
     };
-    return typeColors[slot.kind] || 'bg-primary-100 border-primary-200 text-primary-800';
+    return typeColors[block.kind] || 'bg-primary-100 border-primary-200 text-primary-800';
   };
 
   // Block-Größen-Indikator (1-4 Slots)
-  const sizeIndicator = slot.blockSize > 1 ? `(${slot.blockSize})` : '';
+  const sizeIndicator = block.blockSize > 1 ? `(${block.blockSize})` : '';
 
   return (
     <button
       onClick={onClick}
       className={`w-full px-2 py-1 rounded border text-left text-xs truncate
                   hover:opacity-80 transition-opacity cursor-pointer ${getSlotColor()}`}
-      title={`${slot.unterrechtsgebietLabel || slot.kind} ${sizeIndicator}`}
+      title={`${block.unterrechtsgebietLabel || block.kind} ${sizeIndicator}`}
     >
       <div className="flex items-center gap-1">
         <span className="truncate font-medium">
-          {slot.unterrechtsgebietLabel || BLOCK_TYPE_NAMES[slot.kind] || 'Block'}
+          {block.unterrechtsgebietLabel || BLOCK_TYPE_NAMES[block.kind] || 'Block'}
         </span>
-        {slot.blockSize > 1 && (
+        {block.blockSize > 1 && (
           <span className="text-[10px] opacity-70 flex-shrink-0">
-            ({slot.blockSize})
+            ({block.blockSize})
           </span>
         )}
       </div>
@@ -231,55 +245,32 @@ const LernplanSlotChip = ({ slot, onClick }) => {
 Blöcke sollten nach ihrer Position sortiert werden:
 
 ```javascript
-const lernplanSlotsByDate = useMemo(() => {
+const lernplanBlocksByDate = useMemo(() => {
   const result = {};
 
-  Object.entries(lernplanSlots || {}).forEach(([dateKey, slots]) => {
+  Object.entries(lernplanBlocks || {}).forEach(([dateKey, blocks]) => {
     // Sortiere nach Position (1, 2, 3, 4)
-    result[dateKey] = [...slots].sort((a, b) =>
+    result[dateKey] = [...blocks].sort((a, b) =>
       (a.position || 0) - (b.position || 0)
     );
   });
 
   return result;
-}, [lernplanSlots]);
+}, [lernplanBlocks]);
 ```
 
 ---
 
 ### Phase 5: Klick-Interaktion
 
-**Option A: Block-Details anzeigen (Modal)**
+**Status:** Offen. Soll nur bei vorhandenen Blöcken in der Leiste funktionieren. Detaillierte Analyse nötig, wie man das Monatsansicht-Edit-Dialog sicher öffnet.
 
 ```javascript
-const handleSlotClick = (slot, date) => {
-  // Öffne entsprechenden Manage-Dialog basierend auf Block-Typ
-  setSelectedBlock(slot);
+const handleLernplanBlockClick = (block, date) => {
+  // TODO: Analyse, ob Monatsansicht-Dialog hier wiederverwendbar ist
+  // Nur ausführen, wenn block existiert (Leiste zeigt nur gefüllte Spalten)
+  setSelectedBlock(block);
   setSelectedDate(date);
-
-  switch (slot.kind) {
-    case 'thema':
-      setIsManageThemeOpen(true);
-      break;
-    case 'repetition':
-      setIsManageRepetitionOpen(true);
-      break;
-    case 'exam':
-      setIsManageExamOpen(true);
-      break;
-    default:
-      // Info-Toast oder einfaches Modal
-      break;
-  }
-};
-```
-
-**Option B: Zur Monatsansicht navigieren**
-
-```javascript
-const handleSlotClick = (slot, date) => {
-  // Navigiere zur Monatsansicht mit dem Datum
-  navigate(`/kalender/monat?date=${formatDateKey(date)}`);
 };
 ```
 
@@ -321,17 +312,10 @@ const handleSlotClick = (slot, date) => {
 
 ### Entscheidung: Zusammenführen oder getrennt?
 
-**Option A: Zusammenführen**
-- Eine einzige Lernplan-Leiste
-- Immer sichtbar (nicht nur Exam-Mode)
-- Zeigt `visibleSlotsByDate` Daten
-
-**Option B: Getrennt lassen**
-- Bestehende BUG-023 Leiste bleibt (Exam-Mode)
-- Neue Leiste zusätzlich (immer sichtbar)
-- Potentiell verwirrend für User
-
-**Empfehlung:** Option A - Zusammenführen und immer anzeigen.
+**Entscheidung:** Getrennt lassen.
+- Bestehende BUG-023 Leiste bleibt (Exam-Mode, Lernplan-Blöcke als Header-Bar)
+- Neue Leiste zusätzlich (immer sichtbar) oberhalb der Multi-Day-Leiste
+- Neue Leiste zeigt `visibleBlocksByDate` (Monatsansicht-Blöcke)
 
 ---
 
@@ -348,7 +332,7 @@ const handleSlotClick = (slot, date) => {
 ## Abhängigkeiten
 
 - T-SET-1 (Custom Rechtsgebiet-Farben) - bereits implementiert
-- CalendarContext mit `visibleSlotsByDate`
+- CalendarContext mit `visibleBlocksByDate`
 - Bestehende Block-Typ-Farben aus `BLOCK_COLORS`
 
 ---
@@ -369,7 +353,7 @@ const handleSlotClick = (slot, date) => {
 ## Testfälle
 
 1. **Leiste Sichtbarkeit:**
-   - [ ] Leiste erscheint wenn `visibleSlotsByDate` Daten hat
+   - [ ] Leiste erscheint wenn `visibleBlocksByDate` Daten hat
    - [ ] Leiste versteckt wenn keine Lernplan-Blöcke
    - [ ] Leiste erscheint in Normal-Mode UND Exam-Mode
 
@@ -396,10 +380,9 @@ const handleSlotClick = (slot, date) => {
 
 ## Offene Fragen
 
-1. Soll die bestehende BUG-023 Leiste (Exam-Mode only) ersetzt oder ergänzt werden?
-2. Welche Interaktion bei Klick auf Block? (Dialog öffnen / Zur Monatsansicht navigieren)
-3. Soll die Leiste zusammenklappbar sein?
-4. Sollen archivierte ContentPlans ausgeblendet werden? (wahrscheinlich ja → `visibleSlotsByDate`)
+1. Wie öffnen wir sicher das Monatsansicht-Edit-Dialog aus der Wochenansicht (Datenmapping, Dialog-Komponente, Context)?
+2. Soll die Leiste zusammenklappbar sein?
+3. Sollen archivierte ContentPlans ausgeblendet werden? (wahrscheinlich ja → `visibleBlocksByDate`)
 
 ---
 

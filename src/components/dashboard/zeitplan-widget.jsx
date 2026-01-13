@@ -279,7 +279,7 @@ const ZeitplanWidget = ({
   })();
 
   return (
-    <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden flex flex-col h-full ${className}`}>
       {/* Header - Figma style */}
       <div className="px-5 py-4 border-b border-neutral-100">
         <div className="flex items-center justify-between">
@@ -314,8 +314,8 @@ const ZeitplanWidget = ({
         </div>
       </div>
 
-      {/* Timeline - Scrollbar bei Bedarf */}
-      <div ref={timelineContainerRef} className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+      {/* Timeline - T11: flex-1 min-h-0 for proper flex-based scrolling within viewport height */}
+      <div ref={timelineContainerRef} className="p-4 overflow-y-auto flex-1 min-h-0">
         <div className="relative" style={{ height: `${totalTimelineHeight}px` }}>
           {/* Hour Labels and Grid Lines - pointer-events-none so clicks pass through to timelineArea */}
           <div className="relative pointer-events-none" style={{ height: `${totalTimelineHeight}px` }}>

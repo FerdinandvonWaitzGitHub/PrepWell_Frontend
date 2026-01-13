@@ -1,5 +1,6 @@
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { AlertTriangle, X, Lock } from 'lucide-react';
+import { getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
 
 /**
  * WeekGrid component
@@ -53,6 +54,72 @@ const BLOCK_TYPE_NAMES = {
   vacation: 'Urlaubstag'
 };
 
+const LERNPLAN_BLOCK_TYPE_COLORS = {
+  repetition: 'bg-purple-100 border-purple-200 text-purple-800',
+  exam: 'bg-amber-100 border-amber-200 text-amber-800',
+  buffer: 'bg-orange-100 border-orange-200 text-orange-800',
+  vacation: 'bg-green-100 border-green-200 text-green-800',
+  free: 'bg-neutral-100 border-neutral-200 text-neutral-700',
+};
+
+const getLernplanBlockLabel = (block) => {
+  const unterLabel = block.unterrechtsgebietLabel
+    || (typeof block.unterrechtsgebiet === 'string' ? block.unterrechtsgebiet : block.unterrechtsgebiet?.name);
+
+  return (
+    unterLabel
+    || block.themaTitle
+    || block.topicTitle
+    || block.title
+    || BLOCK_TYPE_NAMES[block.blockType]
+    || BLOCK_TYPE_NAMES[block.kind]
+    || BLOCK_TYPE_NAMES[block.status]
+    || 'Block'
+  );
+};
+
+const getLernplanBlockSize = (block) => {
+  return block.blockSize || block.groupSize || 1;
+};
+
+const getLernplanBlockColorClass = (block) => {
+  const rgId = block.rechtsgebietId || block.rechtsgebiet || block.metadata?.rgId || block.rgId;
+  if (rgId) {
+    const colors = getRechtsgebietColor(rgId);
+    return `${colors.bg} ${colors.border} ${colors.text}`;
+  }
+
+  const typeKey = block.blockType || block.kind || block.status;
+  return LERNPLAN_BLOCK_TYPE_COLORS[typeKey] || 'bg-primary-100 border-primary-200 text-primary-800';
+};
+
+const LernplanBlockChip = ({ block, onClick }) => {
+  const label = getLernplanBlockLabel(block);
+  const size = getLernplanBlockSize(block);
+  const sizeLabel = size > 1 ? `(${size})` : '';
+  const colorClass = getLernplanBlockColorClass(block);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full px-2 py-1 rounded border text-left text-xs truncate hover:opacity-80 transition-opacity ${colorClass}`}
+      title={`${label} ${sizeLabel}`.trim()}
+    >
+      <div className="flex items-center gap-1">
+        <span className="truncate font-medium">
+          {label}
+        </span>
+        {size > 1 && (
+          <span className="text-[10px] opacity-70 flex-shrink-0">
+            ({size})
+          </span>
+        )}
+      </div>
+    </button>
+  );
+};
+
 // Static arrays moved outside component to prevent re-creation
 const WEEK_DAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
@@ -61,10 +128,11 @@ const WeekGrid = memo(function WeekGrid({
   currentDate = new Date(),
   blocks = [],
   privateBlocks = [],
-  lernplanBlocks = [], // BUG-023 FIX: Lernplan blocks for Exam mode header bar
-  lernplanSlots, // Legacy alias (deprecated)
+  lernplanBlocks = {}, // Month-view Lernplan blocks (position-based)
+  lernplanHeaderBlocks = [], // BUG-023 FIX: Exam-mode header bar blocks
   onBlockClick,
   onSlotClick,
+  onLernplanBlockClick,
   // T9: New callbacks from ZeitplanWidget
   onTaskToggle,           // (block, task) => void - Toggle task completion
   onRemoveTaskFromBlock,  // (block, task) => void - Remove task from block
@@ -127,8 +195,7 @@ const WeekGrid = memo(function WeekGrid({
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   }, []);
 
-  // Support legacy prop name
-  const effectiveLernplanBlocks = lernplanBlocks.length > 0 ? lernplanBlocks : (lernplanSlots || []);
+  const effectiveLernplanHeaderBlocks = lernplanHeaderBlocks || [];
 
   // Calculate the dates for the week starting from Monday
   const weekDates = useMemo(() => {
@@ -181,6 +248,23 @@ const WeekGrid = memo(function WeekGrid({
   const formatDateKey = (date) => {
     return date.toISOString().split('T')[0];
   };
+
+  // T10: Lernplan blocks (month view) grouped by date and sorted by position
+  const lernplanBlocksByDate = useMemo(() => {
+    const byDate = {};
+    Object.entries(lernplanBlocks || {}).forEach(([dateKey, blocksForDay]) => {
+      const filtered = (blocksForDay || []).filter(block => block && block.status !== 'empty');
+      byDate[dateKey] = filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
+    });
+    return byDate;
+  }, [lernplanBlocks]);
+
+  const hasLernplanBlocksRow = useMemo(() => {
+    return weekDates.some(date => {
+      const dateKey = formatDateKey(date);
+      return (lernplanBlocksByDate[dateKey] || []).length > 0;
+    });
+  }, [weekDates, lernplanBlocksByDate]);
 
   // Count blocks per day to detect full days (4 slots max)
   const blocksPerDay = useMemo(() => {
@@ -403,10 +487,10 @@ const WeekGrid = memo(function WeekGrid({
     return block.startDate <= weekEndKey && block.endDate >= weekStartKey;
   });
 
-  // BUG-023 FIX: Group Lernplan blocks by date for header bar display
-  const lernplanBlocksByDate = useMemo(() => {
+  // BUG-023 FIX: Group Lernplan header blocks by date for exam-mode bar
+  const lernplanHeaderBlocksByDate = useMemo(() => {
     const byDate = {};
-    effectiveLernplanBlocks.forEach(block => {
+    effectiveLernplanHeaderBlocks.forEach(block => {
       const dateKey = block.startDate;
       if (!byDate[dateKey]) {
         byDate[dateKey] = [];
@@ -418,10 +502,10 @@ const WeekGrid = memo(function WeekGrid({
       blocks.sort((a, b) => (a.position || 1) - (b.position || 1));
     });
     return byDate;
-  }, [effectiveLernplanBlocks]);
+  }, [effectiveLernplanHeaderBlocks]);
 
-  // Check if there are any Lernplan blocks in current week
-  const hasLernplanBlocks = effectiveLernplanBlocks.length > 0;
+  // Check if there are any Lernplan header blocks in current week
+  const hasLernplanHeaderBlocks = effectiveLernplanHeaderBlocks.length > 0;
 
   // Group multi-day blocks by row (for stacking)
   const multiDayRows = useMemo(() => {
@@ -509,6 +593,39 @@ const WeekGrid = memo(function WeekGrid({
               })}
             </tr>
 
+            {/* T10: Lernplan blocks row (Month view) */}
+            {hasLernplanBlocksRow && (
+              <tr className="h-10 bg-neutral-50 border-b border-neutral-200">
+                {/* Label cell */}
+                <th className="align-middle border-r border-neutral-200 bg-neutral-50 px-1">
+                  <span className="text-xs text-neutral-600 font-medium">Lernplan</span>
+                </th>
+
+                {/* Lernplan block cells for each day */}
+                {weekDates.map((date, dayIndex) => {
+                  const dateKey = formatDateKey(date);
+                  const blocksForDay = lernplanBlocksByDate[dateKey] || [];
+
+                  return (
+                    <th
+                      key={`lernplan-month-${dayIndex}`}
+                      className="border-r border-neutral-100 last:border-r-0 p-1 font-normal bg-neutral-50 align-top"
+                    >
+                      <div className="flex flex-col gap-1">
+                        {blocksForDay.map((block) => (
+                          <LernplanBlockChip
+                            key={block.id}
+                            block={block}
+                            onClick={onLernplanBlockClick ? () => onLernplanBlockClick(block, date) : undefined}
+                          />
+                        ))}
+                      </div>
+                    </th>
+                  );
+                })}
+              </tr>
+            )}
+
             {/* Multi-day events rows (sticky with header) */}
             {visibleMultiDayRows.length > 0 ? (
               visibleMultiDayRows.map((row, rowIndex) => {
@@ -583,7 +700,7 @@ const WeekGrid = memo(function WeekGrid({
             )}
 
             {/* BUG-023 FIX: Lernplan blocks header bar (Exam mode only) */}
-            {hasLernplanBlocks && (
+            {hasLernplanHeaderBlocks && (
               <tr className="h-10 bg-blue-50 border-b border-blue-200">
                 {/* Label cell */}
                 <th className="align-middle border-r border-blue-200 bg-blue-50 px-1">
@@ -593,7 +710,7 @@ const WeekGrid = memo(function WeekGrid({
                 {/* Lernplan block cells for each day */}
                 {weekDates.map((date, dayIndex) => {
                   const dateKey = formatDateKey(date);
-                  const blocksForDay = lernplanBlocksByDate[dateKey] || [];
+                  const blocksForDay = lernplanHeaderBlocksByDate[dateKey] || [];
 
                   return (
                     <th

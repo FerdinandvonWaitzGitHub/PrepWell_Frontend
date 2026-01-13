@@ -1467,8 +1467,9 @@ const SessionWidget = ({
   }, []);
 
   return (
-    <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden ${className}`}>
-      <div className="p-5 overflow-y-auto max-h-[730px]">
+    <div className={`bg-white rounded-lg border border-neutral-200 overflow-hidden flex flex-col h-full ${className}`}>
+      {/* T11: flex-1 min-h-0 for proper flex-based scrolling within viewport height */}
+      <div className="p-5 overflow-y-auto flex-1 min-h-0">
         {isExamMode ? (
           // Exam Mode: Lernplan/To-Dos toggle
           <ExamModeView
