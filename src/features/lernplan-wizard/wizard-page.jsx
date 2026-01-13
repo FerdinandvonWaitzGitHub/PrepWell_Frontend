@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useWizard, WizardProvider } from './context/wizard-context';
+import { useAppMode } from '../../contexts/appmode-context';
 import WizardLayout from './components/wizard-layout';
 import LoadingScreen from './components/loading-screen';
 import ErrorScreen from './components/error-screen';
@@ -45,6 +46,8 @@ import Step22Bestaetigung from './steps/step-22-bestaetigung';
  */
 const WizardContent = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { isWizardAvailable } = useAppMode();
   const {
     currentStep,
     creationMethod,
@@ -61,6 +64,13 @@ const WizardContent = () => {
     updateWizardData,
   } = useWizard();
 
+  // T5.6 FIX: Redirect to /lernplan if wizard is not available (Normal mode)
+  useEffect(() => {
+    if (!isWizardAvailable) {
+      navigate('/lernplan', { replace: true });
+    }
+  }, [isWizardAvailable, navigate]);
+
   // Check for fresh=true query parameter to start fresh
   useEffect(() => {
     if (searchParams.get('fresh') === 'true') {
@@ -69,6 +79,11 @@ const WizardContent = () => {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams, startFresh]);
+
+  // T5.6 FIX: Don't render wizard content if not available (after all hooks)
+  if (!isWizardAvailable) {
+    return null;
+  }
 
   // Show calendar creation loading screen
   if (calendarCreationStatus === 'loading') {
