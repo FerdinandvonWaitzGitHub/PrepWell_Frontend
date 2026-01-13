@@ -252,7 +252,9 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     };
 
     initData();
-  }, [isSupabaseEnabled, isAuthenticated, fetchFromSupabase, syncToSupabase, storageKey, defaultValue, tableName, user]);
+    // Note: defaultValue intentionally excluded - it's only for initial state and shouldn't trigger re-syncs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSupabaseEnabled, isAuthenticated, fetchFromSupabase, syncToSupabase, storageKey, tableName, user?.id]);
 
   // Save data (to Supabase if authenticated, always to LocalStorage)
   const save = useCallback(async (newData, operation = 'upsert') => {
@@ -409,12 +411,15 @@ export function useContentPlansSync() {
     transformToSupabase: (plan) => {
       // Filter out local IDs (various prefixes used) - let Supabase generate UUID
       const isLocalId = !plan.id || plan.id.startsWith('local-') || plan.id.startsWith('id-');
+      // Map app mode values to database enum ('standard' | 'exam')
+      // App uses 'examen' (German) but DB uses 'exam' (English)
+      const dbMode = plan.mode === 'examen' ? 'exam' : (plan.mode || 'standard');
       return {
         id: isLocalId ? undefined : plan.id,
         name: plan.name,
         type: plan.type || 'themenliste',
         description: plan.description || '',
-        mode: plan.mode || 'standard',
+        mode: dbMode,
         exam_date: plan.examDate || null,
         archived: plan.archived || false,
         is_published: plan.isPublished || false,
@@ -427,7 +432,8 @@ export function useContentPlansSync() {
       name: row.name,
       type: row.type,
       description: row.description,
-      mode: row.mode,
+      // Map DB enum back to app value ('exam' -> 'examen')
+      mode: row.mode === 'exam' ? 'examen' : row.mode,
       examDate: row.exam_date,
       archived: row.archived,
       isPublished: row.is_published,
