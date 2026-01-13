@@ -130,6 +130,48 @@ git push
 # → Rollback-SQL in Supabase ausführen
 ```
 
+#### Backend-Strategie (Supabase)
+
+**Aktueller Stand:** Ein Supabase-Projekt für alle Environments
+
+```
+┌─────────────────────────────────────────────────────┐
+│                 Supabase Production                 │
+│            (vitvxwfcutysuifuqnqi)                   │
+├─────────────────────────────────────────────────────┤
+│  main (Production)  ←──────┐                        │
+│  develop (Staging)  ←──────┴── Gleiche Datenbank    │
+│  localhost          ←──────────────────────────────│
+└─────────────────────────────────────────────────────┘
+```
+
+| Änderungstyp | Vorgehen |
+|--------------|----------|
+| Frontend-only (UI, Styling) | Frei auf develop testen, dann main |
+| Neue Tabelle/Spalte (additiv) | Migration vorbereiten, mit Nutzer absprechen |
+| Spalte löschen/umbenennen | **KRITISCH** - Zeitpunkt mit Nutzer koordinieren |
+| RLS Policy ändern | Testen auf localhost, dann direkt main |
+
+**Regeln für DB-Änderungen:**
+
+1. **Immer Migration-SQL dokumentieren** in `supabase/migration-*.sql`
+2. **Immer Rollback-SQL bereitstellen** in `supabase/rollback-*.sql`
+3. **Additive Änderungen** (neue Spalte) sind sicher → können jederzeit deployed werden
+4. **Destruktive Änderungen** (Spalte löschen) → Zeitpunkt mit Nutzer absprechen
+
+**Zukunft (bei mehr Nutzern):**
+
+```
+┌─────────────────────┐     ┌─────────────────────┐
+│ Supabase Production │     │ Supabase Development│
+│   (main branch)     │     │  (develop branch)   │
+└─────────────────────┘     └─────────────────────┘
+         ↑                           ↑
+    Echte Nutzer              Entwickler-Tests
+```
+
+Umstellung wenn: >5 aktive Nutzer ODER komplexe DB-Migrationen geplant
+
 ---
 
 ## 3. Architektur
