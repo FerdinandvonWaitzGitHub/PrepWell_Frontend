@@ -1,8 +1,10 @@
 import { useState, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ContentPlanEditCard from './content-plan-edit-card';
 import CalendarPlanEditCard from './calendar-plan-edit-card';
 import { Button, PlusIcon } from '../ui';
 import { useCalendar } from '../../contexts/calendar-context';
+import { X, Calendar, AlertCircle } from 'lucide-react';
 
 /**
  * LernplanContent component
@@ -13,11 +15,19 @@ import { useCalendar } from '../../contexts/calendar-context';
  * Plan → Rechtsgebiete → Unterrechtsgebiete → Kapitel → Themen → Aufgaben
  */
 const LernplanContent = forwardRef(({ className = '' }, ref) => {
+  const navigate = useNavigate();
   const [expandedIds, setExpandedIds] = useState(new Set());
   // BUG-P2 FIX: Removed viewMode state - dropdown was confusing and unnecessary
   const [showArchived, setShowArchived] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [newPlanId, setNewPlanId] = useState(null);
+
+  // T13: Reactivation dialog state
+  const [showReactivateDialog, setShowReactivateDialog] = useState(false);
+  const [reactivatePlan, setReactivatePlan] = useState(null);
+  const [reactivateStartDate, setReactivateStartDate] = useState('');
+  const [reactivateEndDate, setReactivateEndDate] = useState('');
+  const [reactivateError, setReactivateError] = useState(null);
 
   // Get data from CalendarContext
   const {
@@ -148,6 +158,96 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     }
   };
 
+  // T13: Reactivation handlers
+  const handleOpenReactivateDialog = (plan) => {
+    setReactivatePlan(plan);
+    setReactivateStartDate('');
+    setReactivateEndDate('');
+    setReactivateError(null);
+    setShowReactivateDialog(true);
+  };
+
+  const handleCloseReactivateDialog = () => {
+    setShowReactivateDialog(false);
+    setReactivatePlan(null);
+    setReactivateStartDate('');
+    setReactivateEndDate('');
+    setReactivateError(null);
+  };
+
+  const handleReactivate = () => {
+    if (!reactivatePlan || !reactivateStartDate || !reactivateEndDate) {
+      setReactivateError('Bitte gib Start- und Enddatum ein.');
+      return;
+    }
+
+    const start = new Date(reactivateStartDate);
+    const end = new Date(reactivateEndDate);
+
+    if (end <= start) {
+      setReactivateError('Das Enddatum muss nach dem Startdatum liegen.');
+      return;
+    }
+
+    // Calculate available days
+    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    const wizardSettings = reactivatePlan.wizardSettings || {};
+    const pufferTage = wizardSettings.pufferTage || 0;
+    const urlaubsTage = wizardSettings.urlaubsTage || 0;
+    const blocksPerDay = wizardSettings.blocksPerDay || 3;
+
+    // Count themes/content from archived plan
+    const themenCount = (reactivatePlan.themen?.length || 0) + (reactivatePlan.completedThemen?.length || 0);
+
+    // Simple validation: do we have enough days?
+    const requiredDays = Math.ceil(themenCount / blocksPerDay) + pufferTage + urlaubsTage;
+
+    if (totalDays < requiredDays) {
+      // Not enough days - navigate to wizard with prefill
+      setReactivateError(`Zeitraum zu kurz (${totalDays} Tage verfuegbar, ${requiredDays} benoetigt). Klicke "Im Wizard anpassen" um die Einstellungen anzupassen.`);
+      return;
+    }
+
+    // Enough days - navigate to wizard with prefill and new dates
+    navigateToWizardWithPrefill();
+  };
+
+  const navigateToWizardWithPrefill = () => {
+    if (!reactivatePlan) return;
+
+    // Build prefill data from archived plan
+    const wizardSettings = reactivatePlan.wizardSettings || {};
+
+    const prefillData = {
+      // New dates from dialog
+      startDate: reactivateStartDate,
+      endDate: reactivateEndDate,
+      // Preserved settings
+      creationMethod: wizardSettings.creationMethod || 'manual',
+      blocksPerDay: wizardSettings.blocksPerDay || 3,
+      bufferDays: wizardSettings.pufferTage || 0,
+      vacationDays: wizardSettings.urlaubsTage || 0,
+      weekStructure: wizardSettings.weekStructure,
+      selectedRechtsgebiete: wizardSettings.selectedRechtsgebiete || [],
+      rechtsgebieteGewichtung: wizardSettings.rechtsgebieteGewichtung || {},
+      verteilungsmodus: wizardSettings.verteilungsmodus || 'gemischt',
+      templateId: wizardSettings.templateId,
+      // Flag for wizard to know this is a reactivation
+      isReactivation: true,
+      reactivationPlanId: reactivatePlan.id,
+    };
+
+    handleCloseReactivateDialog();
+
+    // Navigate to wizard with prefill state
+    navigate('/lernplan/wizard', {
+      state: {
+        prefillData,
+        from: '/lernplan',
+      }
+    });
+  };
+
   return (
     <div className={`flex flex-col h-full ${className}`}>
       {/* Filter Bar */}
@@ -234,6 +334,15 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* T13: Reaktivieren Button - only if wizardSettings exist */}
+                      {plan.wizardSettings && (
+                        <button
+                          onClick={() => handleOpenReactivateDialog(plan)}
+                          className="px-3 py-1.5 text-sm text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors font-medium"
+                        >
+                          Reaktivieren
+                        </button>
+                      )}
                       <button
                         onClick={() => restoreArchivedPlan(plan.id)}
                         className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
@@ -465,6 +574,109 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
           </div>
         )}
       </div>
+
+      {/* T13: Reactivation Dialog */}
+      {showReactivateDialog && reactivatePlan && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-neutral-900">Lernplan reaktivieren</h3>
+                  <p className="text-sm text-neutral-500">{reactivatePlan.name || 'Archivierter Lernplan'}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCloseReactivateDialog}
+                className="text-neutral-400 hover:text-neutral-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-neutral-600 text-sm mb-4">
+                Gib einen neuen Zeitraum fuer deinen Lernplan ein. Die Einstellungen (Bloecke/Tag, Puffer, Urlaub) werden uebernommen.
+              </p>
+
+              {/* Date inputs */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Startdatum</label>
+                  <input
+                    type="date"
+                    value={reactivateStartDate}
+                    onChange={(e) => setReactivateStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Enddatum</label>
+                  <input
+                    type="date"
+                    value={reactivateEndDate}
+                    onChange={(e) => setReactivateEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+
+              {/* Saved settings info */}
+              {reactivatePlan.wizardSettings && (
+                <div className="mt-4 p-3 bg-neutral-50 rounded-lg">
+                  <p className="text-xs font-medium text-neutral-600 mb-2">Gespeicherte Einstellungen:</p>
+                  <div className="flex flex-wrap gap-2 text-xs text-neutral-500">
+                    <span className="px-2 py-0.5 bg-white rounded border border-neutral-200">
+                      {reactivatePlan.wizardSettings.blocksPerDay || 3} Bloecke/Tag
+                    </span>
+                    <span className="px-2 py-0.5 bg-white rounded border border-neutral-200">
+                      {reactivatePlan.wizardSettings.pufferTage || 0} Puffertage
+                    </span>
+                    <span className="px-2 py-0.5 bg-white rounded border border-neutral-200">
+                      {reactivatePlan.wizardSettings.urlaubsTage || 0} Urlaubstage
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Error message */}
+              {reactivateError && (
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-700">{reactivateError}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleCloseReactivateDialog}
+                className="flex-1 px-4 py-2 text-sm font-medium text-neutral-600 border border-neutral-200 rounded-lg hover:bg-neutral-50"
+              >
+                Abbrechen
+              </button>
+              {reactivateError ? (
+                <button
+                  onClick={navigateToWizardWithPrefill}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+                >
+                  Im Wizard anpassen
+                </button>
+              ) : (
+                <button
+                  onClick={handleReactivate}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+                >
+                  Pruefen & Reaktivieren
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

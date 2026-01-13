@@ -95,7 +95,7 @@ const MethodCard = ({ method, isSelected, onSelect, disabled }) => {
 };
 
 const Step6Erstellungsmethode = () => {
-  const { creationMethod, updateWizardData } = useWizard();
+  const { creationMethod, updateWizardData, isReactivation } = useWizard();
 
   const methods = [
     {
@@ -134,8 +134,31 @@ const Step6Erstellungsmethode = () => {
       <StepHeader
         step={6}
         title="Wie möchtest du deinen Lernplan erstellen?"
-        description="Wir bieten dir folgende Optionen, um deinen Lernplan zu erstellen oder auszuwählen."
+        description={isReactivation
+          ? "Bei der Reaktivierung wird die urspruengliche Erstellungsmethode beibehalten."
+          : "Wir bieten dir folgende Optionen, um deinen Lernplan zu erstellen oder auszuwählen."
+        }
       />
+
+      {/* T13: Info banner for reactivation mode */}
+      {isReactivation && creationMethod && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <CheckIcon />
+            <span className="text-green-800 font-medium">
+              Erstellungsmethode fixiert: {
+                creationMethod === 'calendar' ? 'Im Kalender erstellen' :
+                creationMethod === 'manual' ? 'Als Liste erstellen' :
+                creationMethod === 'template' ? 'Lernplan auswaehlen & anpassen' :
+                creationMethod
+              }
+            </span>
+          </div>
+          <p className="text-green-700 text-sm mt-1">
+            Die Methode wurde vom archivierten Lernplan uebernommen und kann nicht geaendert werden.
+          </p>
+        </div>
+      )}
 
       {/* Cards grid - 2x2 on large screens, single column on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -145,7 +168,8 @@ const Step6Erstellungsmethode = () => {
             method={method}
             isSelected={creationMethod === method.id}
             onSelect={() => updateWizardData({ creationMethod: method.id })}
-            disabled={method.disabled}
+            // T13: Disable other methods in reactivation mode
+            disabled={method.disabled || (isReactivation && creationMethod && method.id !== creationMethod)}
           />
         ))}
       </div>

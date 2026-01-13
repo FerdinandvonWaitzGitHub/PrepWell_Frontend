@@ -95,7 +95,7 @@ const SettingsContent = ({ className = '' }) => {
     isAuthenticated
   } = useAuth();
 
-  const { flattenAllKapitel, archiveAndConvertToThemenliste } = useCalendar();
+  const { flattenAllKapitel, archiveLernplanForReactivation } = useCalendar();
   const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang } = useStudiengang();
   // FEAT-001: Get mentor activation status and functions
   const { isActivated: isMentorActivated, activateMentor, deactivateMentor } = useMentor();
@@ -236,10 +236,11 @@ const SettingsContent = ({ className = '' }) => {
   };
 
   // Confirm mode switch: archive Lernplan and switch to normal mode
+  // T13: Uses archiveLernplanForReactivation to preserve wizardSettings
   const confirmModeSwitch = async () => {
-    // Archive Lernplan and convert to Themenliste
-    // This extracts themes from calendar blocks and creates a ContentPlan
-    await archiveAndConvertToThemenliste();
+    // Archive Lernplan with all wizardSettings for later reactivation
+    // This preserves: creationMethod, pufferTage, urlaubsTage, blocksPerDay, etc.
+    await archiveLernplanForReactivation();
     // Now switch mode
     toggleMode();
     setShowModeSwitchModal(false);

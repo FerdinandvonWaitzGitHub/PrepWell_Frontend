@@ -551,11 +551,13 @@ const WeekGrid = memo(function WeekGrid({
   return (
     <div className={`flex flex-col bg-white flex-1 overflow-hidden rounded-lg border border-neutral-200 shadow-sm ${className}`}>
       {/* FIXED Header - NOT scrollable */}
-      <table className="w-full border-collapse table-fixed flex-shrink-0">
-        <thead className="bg-white">
-            <tr>
-              {/* Time column header */}
-              <th className="w-14 border-b border-r border-neutral-200 bg-neutral-50/50" />
+      {/* T13: Wrapper with pr-[17px] compensates for scrollbar width in body to align columns */}
+      <div className="pr-[17px]">
+        <table className="w-full border-collapse table-fixed flex-shrink-0">
+          <thead className="bg-white">
+              <tr>
+                {/* Time column header */}
+                <th className="w-14 border-b border-r border-neutral-200 bg-neutral-50/50" />
 
               {/* Weekday headers */}
               {WEEK_DAYS.map((day, index) => {
@@ -742,9 +744,11 @@ const WeekGrid = memo(function WeekGrid({
             )}
           </thead>
         </table>
+      </div>
 
       {/* Scrollable Time Grid - Only this part scrolls */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+      {/* T13: overflow-y-scroll ensures scrollbar is always visible, keeping column alignment with header */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-scroll overflow-x-hidden">
         {/* T9 FIX: Div-based time grid (replaces table tbody) */}
         {/* This allows proper drag-to-select across multiple hours */}
         <div className="flex" style={{ height: `${24 * hourHeight}px` }}>

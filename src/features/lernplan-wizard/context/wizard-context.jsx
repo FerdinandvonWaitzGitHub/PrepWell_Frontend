@@ -328,6 +328,10 @@ export const WizardProvider = ({ children }) => {
   const [calendarCreationStatus, setCalendarCreationStatus] = useState(null); // null | 'loading' | 'success' | 'error'
   const [calendarCreationErrors, setCalendarCreationErrors] = useState([]);
 
+  // T13: State for reactivation mode
+  const [isReactivation, setIsReactivation] = useState(false);
+  const [reactivationPlanId, setReactivationPlanId] = useState(null);
+
   // Set return path when entering wizard
   useEffect(() => {
     const referrer = location.state?.from || '/lernplan';
@@ -336,6 +340,43 @@ export const WizardProvider = ({ children }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
+
+  // T13: Handle prefillData from reactivation
+  useEffect(() => {
+    const prefillData = location.state?.prefillData;
+    if (prefillData && prefillData.isReactivation) {
+      console.log('Wizard: Initializing from reactivation prefill', prefillData);
+
+      // Set reactivation mode
+      setIsReactivation(true);
+      setReactivationPlanId(prefillData.reactivationPlanId);
+
+      // Initialize wizard state with prefilled data
+      setWizardState(prev => ({
+        ...prev,
+        // Step 1: Dates from dialog
+        startDate: prefillData.startDate,
+        endDate: prefillData.endDate,
+        // Step 2-4: Preserved settings
+        bufferDays: prefillData.bufferDays ?? 0,
+        vacationDays: prefillData.vacationDays ?? 0,
+        blocksPerDay: prefillData.blocksPerDay ?? 3,
+        // Step 5: Week structure
+        weekStructure: prefillData.weekStructure || prev.weekStructure,
+        // Step 6: Creation method (FIXED - cannot be changed)
+        creationMethod: prefillData.creationMethod || 'manual',
+        // Step 7+: Content data
+        selectedRechtsgebiete: prefillData.selectedRechtsgebiete || [],
+        rechtsgebieteGewichtung: prefillData.rechtsgebieteGewichtung || {},
+        verteilungsmodus: prefillData.verteilungsmodus || 'gemischt',
+        selectedTemplate: prefillData.templateId || null,
+        // Start at step 1 so user can review dates
+        currentStep: 1,
+        returnPath: location.state?.from || '/lernplan',
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.prefillData]);
 
   // Update totalSteps when creationMethod changes
   useEffect(() => {
@@ -1419,6 +1460,9 @@ export const WizardProvider = ({ children }) => {
     calendarCreationErrors,
     isAuthenticated, // Whether user is authenticated (for UI hints)
     hasActiveLernplan, // Check if there's an active plan (for archive warning)
+    // T13: Reactivation state
+    isReactivation, // True when wizard was opened from archive reactivation
+    reactivationPlanId, // ID of the archived plan being reactivated
 
     // Actions
     updateWizardData,

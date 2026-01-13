@@ -545,6 +545,121 @@ export const CalendarProvider = ({ children }) => {
     return contentPlan;
   }, [blocksByDate, lernplanMetadata, saveContentPlanToSupabase, clearAllBlocksSync, clearLernplanMetadataSync]);
 
+  /**
+   * T13: Archive Lernplan for later reactivation
+   * Stores ALL wizard settings so the plan can be restored with a new date range
+   * Does NOT convert to Themenliste - keeps full structure for Wizard prefill
+   */
+  const archiveLernplanForReactivation = useCallback(async () => {
+    if (Object.keys(blocksByDate).length === 0 && !lernplanMetadata) {
+      console.log('CalendarContext: Nothing to archive');
+      return null;
+    }
+
+    // Helper to generate unique IDs
+    const genId = () => `archive-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Extract themen from blocks for potential restoration
+    const themenFromBlocks = [];
+    const completedThemen = [];
+
+    Object.values(blocksByDate).flat().forEach(block => {
+      if (block.thema) {
+        const themaEntry = {
+          id: block.thema.id,
+          name: block.thema.name,
+          urgId: block.thema.urgId || block.metadata?.urgId,
+          rgId: block.rechtsgebiet || block.metadata?.rgId,
+          aufgaben: block.thema.aufgaben || block.tasks || [],
+        };
+
+        // Check if any tasks are completed
+        const hasCompletedTasks = (block.tasks || []).some(t => t.completed);
+        if (hasCompletedTasks) {
+          completedThemen.push(themaEntry);
+        } else {
+          themenFromBlocks.push(themaEntry);
+        }
+      }
+    });
+
+    // Build archived plan with ALL wizard settings
+    const archivedPlan = {
+      id: genId(),
+      name: lernplanMetadata?.name || `Lernplan (archiviert ${new Date().toLocaleDateString('de-DE')})`,
+      archivedAt: new Date().toISOString(),
+
+      // Original dates (for reference only - will be replaced on reactivation)
+      originalStartDate: lernplanMetadata?.startDate,
+      originalEndDate: lernplanMetadata?.endDate,
+
+      // Themen & Fortschritt
+      themen: themenFromBlocks,
+      completedThemen,
+
+      // Full blocks data for potential full restoration
+      blocks: { ...blocksByDate },
+
+      // === Wizard Settings for Reactivation ===
+      wizardSettings: {
+        // Step 6: Erstellungsmethode (CRITICAL - determines wizard flow)
+        creationMethod: lernplanMetadata?.creationMethod || 'manual',
+
+        // Template ID (if template was used)
+        templateId: lernplanMetadata?.selectedTemplate || lernplanMetadata?.templateId || null,
+
+        // Step 2: Puffertage (Anzahl, nicht Daten)
+        pufferTage: lernplanMetadata?.bufferDays ?? lernplanMetadata?.pufferTage ?? 0,
+
+        // Step 3: Urlaubstage (Anzahl, nicht Daten)
+        urlaubsTage: lernplanMetadata?.vacationDays ?? lernplanMetadata?.urlaubsTage ?? 0,
+
+        // Step 4: Bloecke pro Tag
+        blocksPerDay: lernplanMetadata?.blocksPerDay ?? 3,
+
+        // Step 5: Wochenstruktur
+        weekStructure: lernplanMetadata?.weekStructure || {
+          montag: ['lernblock', 'lernblock', 'lernblock'],
+          dienstag: ['lernblock', 'lernblock', 'lernblock'],
+          mittwoch: ['lernblock', 'lernblock', 'lernblock'],
+          donnerstag: ['lernblock', 'lernblock', 'lernblock'],
+          freitag: ['lernblock', 'lernblock', 'lernblock'],
+          samstag: ['free', 'free', 'free'],
+          sonntag: ['free', 'free', 'free'],
+        },
+
+        // Step 7+: Rechtsgebiete
+        selectedRechtsgebiete: lernplanMetadata?.selectedRechtsgebiete || [],
+
+        // Step 14: Gewichtung
+        rechtsgebieteGewichtung: lernplanMetadata?.rechtsgebieteGewichtung || {},
+
+        // Step 20: Verteilungsmodus
+        verteilungsmodus: lernplanMetadata?.verteilungsmodus || 'gemischt',
+      },
+
+      // Creation metadata
+      createdAt: lernplanMetadata?.createdAt || new Date().toISOString(),
+    };
+
+    // Save to archived plans using sync hook
+    await archivePlan(archivedPlan);
+
+    // Clear calendar data
+    await clearAllBlocksSync();
+    await clearLernplanMetadataSync();
+
+    console.log('CalendarContext: Archived Lernplan for reactivation', {
+      id: archivedPlan.id,
+      name: archivedPlan.name,
+      themenCount: themenFromBlocks.length,
+      completedCount: completedThemen.length,
+      creationMethod: archivedPlan.wizardSettings.creationMethod,
+    });
+
+    return archivedPlan;
+  }, [blocksByDate, lernplanMetadata, archivePlan, clearAllBlocksSync, clearLernplanMetadataSync]);
+
   // ============================================
   // CONTENT CRUD (NEW DATA MODEL)
   // Content = the learning material itself (timeless)
@@ -2712,6 +2827,7 @@ export const CalendarProvider = ({ children }) => {
 
     // Archive & Convert
     archiveAndConvertToThemenliste,
+    archiveLernplanForReactivation, // T13: Archive with wizardSettings for reactivation
   }), [
     // State dependencies
     blocksByDate, visibleBlocksByDate, lernplanMetadata, archivedLernplaene,
@@ -2745,7 +2861,7 @@ export const CalendarProvider = ({ children }) => {
     scheduleThemaToBlock, unscheduleThemaFromBlock, cleanupExpiredSchedules,
     addCustomUnterrechtsgebiet, getCustomUnterrechtsgebiete,
     getDayData, getDateRangeData, getArchivedPlans, hasActiveLernplan,
-    archiveAndConvertToThemenliste,
+    archiveAndConvertToThemenliste, archiveLernplanForReactivation,
   ]);
 
   return (
