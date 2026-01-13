@@ -100,7 +100,7 @@ const WeekGrid = memo(function WeekGrid({
   // T9: Hour height constant (must match row height)
   const hourHeight = 54;
 
-  // T9: Auto-scroll to show 08:00-17:00 by default on mount
+  // T9: Auto-scroll to show 08:00-17:00 by default on mount (only if today is in current week)
   useEffect(() => {
     if (scrollContainerRef.current) {
       // Always scroll to 08:00 so that 08:00-17:00 is visible
@@ -109,6 +109,9 @@ const WeekGrid = memo(function WeekGrid({
       scrollContainerRef.current.scrollTop = scrollPosition;
     }
   }, []);
+
+  // Note: We always scroll to 08:00 regardless of whether today is in the week,
+  // because 08:00-17:00 is the typical working time range users want to see.
 
   // T9: Helper - Y position to hour (snapped to 15min intervals)
   const yToTime = useCallback((y) => {
@@ -804,7 +807,7 @@ const WeekGrid = memo(function WeekGrid({
                     return (
                       <div
                         key={block.id}
-                        className="absolute left-1 right-1 rounded-lg border-2 border-neutral-300 p-2 flex flex-col items-center justify-center cursor-pointer z-10 bg-neutral-100"
+                        className="absolute left-1 right-1 rounded-lg border-2 border-neutral-300 p-2 flex flex-col items-center justify-center cursor-pointer z-10 bg-neutral-100 group"
                         style={{
                           top: `${blockTopPx + 4}px`,
                           height: `${blockHeight}px`,
@@ -815,9 +818,13 @@ const WeekGrid = memo(function WeekGrid({
                           if (onBlockClick) onBlockClick(block, date);
                         }}
                       >
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 relative">
                           <Lock className="w-3.5 h-3.5 text-neutral-400" />
                           <span className="text-xs font-medium text-neutral-500">Blockiert</span>
+                          {/* Tooltip */}
+                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-neutral-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">
+                            Lernzeitraum blockiert
+                          </span>
                         </div>
                         {block.title && (
                           <p className="text-xs text-neutral-400 mt-0.5 truncate max-w-full">{block.title}</p>
@@ -890,43 +897,62 @@ const WeekGrid = memo(function WeekGrid({
                       })()}
 
                       {/* T9: Tasks list */}
-                      {block.tasks && block.tasks.length > 0 && blockHeight > 70 && (
-                        <div className="flex flex-col gap-0.5 mt-1.5">
-                          {block.tasks.slice(0, Math.min(3, Math.floor((blockHeight - 50) / 18))).map((task, taskIndex) => (
-                            <div key={task.id || taskIndex} className="flex items-center gap-1.5 group/task">
-                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                task.completed ? 'bg-green-500' : 'bg-neutral-400'
-                              }`} />
-                              <span className={`text-xs truncate flex-1 ${
-                                task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'
-                              }`}>
-                                {task.themaTitle && (
-                                  <span className="text-neutral-400 mr-0.5">{task.themaTitle}:</span>
+                      {block.tasks && block.tasks.length > 0 && blockHeight > 70 && (() => {
+                        const maxVisible = Math.min(3, Math.floor((blockHeight - 50) / 18));
+                        const visibleTasks = block.tasks.slice(0, maxVisible);
+                        const hiddenCount = block.tasks.length - maxVisible;
+
+                        return (
+                          <div className="flex flex-col gap-0.5 mt-1.5">
+                            {visibleTasks.map((task, taskIndex) => (
+                              <div key={task.id || taskIndex} className="flex items-center gap-1.5 group/task">
+                                {/* T9: Checkbox for task completion */}
+                                {onTaskToggle ? (
+                                  <input
+                                    type="checkbox"
+                                    checked={task.completed || false}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      onTaskToggle(block, task);
+                                    }}
+                                    className="w-3 h-3 rounded border-neutral-300 text-primary-600 cursor-pointer shrink-0"
+                                  />
+                                ) : (
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                    task.completed ? 'bg-green-500' : 'bg-neutral-400'
+                                  }`} />
                                 )}
-                                {task.text}
+                                <span className={`text-xs truncate flex-1 ${
+                                  task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'
+                                }`}>
+                                  {task.themaTitle && (
+                                    <span className="text-neutral-400 mr-0.5">{task.themaTitle}:</span>
+                                  )}
+                                  {task.text}
+                                </span>
+                                {/* X button to remove task */}
+                                {onRemoveTaskFromBlock && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onRemoveTaskFromBlock(block, task);
+                                    }}
+                                    className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0"
+                                    title="Aus Session entfernen"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            {hiddenCount > 0 && (
+                              <span className="text-xs text-neutral-400">
+                                +{hiddenCount} weitere
                               </span>
-                              {/* X button to remove task */}
-                              {onRemoveTaskFromBlock && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemoveTaskFromBlock(block, task);
-                                  }}
-                                  className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0"
-                                  title="Aus Session entfernen"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                          {block.tasks.length > 3 && (
-                            <span className="text-xs text-neutral-400">
-                              +{block.tasks.length - 3} weitere
-                            </span>
-                          )}
-                        </div>
-                      )}
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}

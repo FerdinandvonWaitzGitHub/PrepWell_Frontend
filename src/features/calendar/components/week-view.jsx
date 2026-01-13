@@ -51,6 +51,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const [selectedBlock, setSelectedBlock] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
+  const [selectedEndTime, setSelectedEndTime] = useState(null); // T9: End time for drag-to-select
 
   // Add block dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -551,6 +552,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     const startTime = `${String(Math.floor(startHour)).padStart(2, '0')}:${String(Math.round((startHour % 1) * 60)).padStart(2, '0')}`;
     const endTime = `${String(Math.floor(endHour)).padStart(2, '0')}:${String(Math.round((endHour % 1) * 60)).padStart(2, '0')}`;
     setSelectedTime(startTime);
+    setSelectedEndTime(endTime); // T9: Also set end time for dialog
     // Open add dialog with pre-filled times
     setIsAddDialogOpen(true);
     console.log('[handleTimeRangeSelect] Selected range:', date, startTime, '-', endTime);
@@ -720,6 +722,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         onOpenChange={setIsCreatePrivateOpen}
         date={selectedDate}
         initialTime={selectedTime}
+        initialEndTime={selectedEndTime}
         onSave={handleAddPrivateBlock}
       />
     </div>
