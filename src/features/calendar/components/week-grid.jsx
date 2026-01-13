@@ -100,11 +100,11 @@ const WeekGrid = memo(function WeekGrid({
   // T9: Hour height constant (must match row height)
   const hourHeight = 54;
 
-  // T9: Auto-scroll to current time on mount
+  // T9: Auto-scroll to show 08:00-17:00 by default on mount
   useEffect(() => {
     if (scrollContainerRef.current) {
-      const currentHour = new Date().getHours();
-      const scrollToHour = Math.max(0, currentHour - 2);
+      // Always scroll to 08:00 so that 08:00-17:00 is visible
+      const scrollToHour = 8;
       const scrollPosition = scrollToHour * hourHeight;
       scrollContainerRef.current.scrollTop = scrollPosition;
     }
@@ -463,11 +463,9 @@ const WeekGrid = memo(function WeekGrid({
 
   return (
     <div className={`flex flex-col bg-white flex-1 overflow-hidden ${className}`}>
-      {/* Single scrollable container */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
-        <table className="w-full border-collapse table-fixed">
-          {/* Sticky Header */}
-          <thead className="sticky top-0 z-20 bg-white">
+      {/* FIXED Header - NOT scrollable */}
+      <table className="w-full border-collapse table-fixed flex-shrink-0">
+        <thead className="bg-white">
             <tr>
               {/* Time column header */}
               <th className="w-10 border-b border-r border-neutral-200 bg-white" />
@@ -625,6 +623,8 @@ const WeekGrid = memo(function WeekGrid({
           </thead>
         </table>
 
+      {/* Scrollable Time Grid - Only this part scrolls */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
         {/* T9 FIX: Div-based time grid (replaces table tbody) */}
         {/* This allows proper drag-to-select across multiple hours */}
         <div className="flex" style={{ height: `${24 * hourHeight}px` }}>
