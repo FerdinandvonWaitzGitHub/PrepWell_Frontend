@@ -192,6 +192,80 @@ const ThemeCard = ({
 };
 
 /**
+ * T6.4: Collapsible URG Group Component
+ * Groups themes by Unterrechtsgebiet for better organization
+ */
+const UrgGroup = ({
+  urg,
+  themes,
+  assignedThemeIds,
+  assignedAufgabenMap,
+  onDragStart,
+  defaultExpanded = false,
+}) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  // Calculate progress for this URG
+  const totalThemes = themes.length;
+  const assignedThemes = themes.filter(t => assignedThemeIds.has(t.id)).length;
+  const totalAufgaben = themes.reduce((sum, t) => sum + (t.aufgaben?.length || 0), 0);
+  const assignedAufgaben = themes.reduce((sum, t) => {
+    if (assignedThemeIds.has(t.id)) {
+      return sum + (t.aufgaben?.length || 0);
+    }
+    return sum + (t.aufgaben || []).filter(a => assignedAufgabenMap.has(a.id)).length;
+  }, 0);
+
+  const isFullyAssigned = assignedAufgaben === totalAufgaben && totalAufgaben > 0;
+
+  return (
+    <div className={`border rounded-lg overflow-hidden ${isFullyAssigned ? 'border-neutral-200 bg-neutral-50' : 'border-neutral-300 bg-white'}`}>
+      {/* URG Header - Clickable to expand/collapse */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`w-full flex items-center gap-2 p-3 hover:bg-neutral-50 transition-colors ${isFullyAssigned ? 'opacity-60' : ''}`}
+      >
+        {isExpanded ? (
+          <ChevronDown className="w-4 h-4 text-neutral-500 flex-shrink-0" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-neutral-500 flex-shrink-0" />
+        )}
+        <div className="flex-1 text-left">
+          <p className={`font-medium text-sm ${isFullyAssigned ? 'text-neutral-500' : 'text-neutral-900'}`}>
+            {urg.name}
+          </p>
+          <p className="text-xs text-neutral-500">
+            {assignedAufgaben}/{totalAufgaben} Aufgaben • {assignedThemes}/{totalThemes} Themen
+          </p>
+        </div>
+        {isFullyAssigned && (
+          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+            ✓ Fertig
+          </span>
+        )}
+      </button>
+
+      {/* Expanded: Show themes */}
+      {isExpanded && (
+        <div className="px-3 pb-3 space-y-2 border-t border-neutral-100">
+          {themes.map(thema => (
+            <ThemeCard
+              key={thema.id}
+              thema={thema}
+              isFullyAssigned={assignedThemeIds.has(thema.id)}
+              assignedBlockIndex={assignedThemeIds.get(thema.id)}
+              assignedAufgabenMap={assignedAufgabenMap}
+              onDragStart={onDragStart}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
  * Lernblock Card Component (Right Column)
  * Can contain: 1 theme OR multiple individual tasks
  * BUG-P5 FIX: Option B - Show Aufgaben-List for both themes and individual tasks
@@ -389,6 +463,19 @@ const Step15Lernbloecke = () => {
       });
     });
     return themes;
+  }, [currentRgId, unterrechtsgebieteDraft, themenDraft]);
+
+  // T6.4: Get URGs with their themes for hierarchical display
+  const urgsWithThemes = useMemo(() => {
+    const urgs = unterrechtsgebieteDraft[currentRgId] || [];
+    return urgs.map(urg => ({
+      ...urg,
+      themes: (themenDraft[urg.id] || []).map(theme => ({
+        ...theme,
+        urgId: urg.id,
+        urgName: urg.name
+      }))
+    })).filter(urg => urg.themes.length > 0); // Only show URGs with themes
   }, [currentRgId, unterrechtsgebieteDraft, themenDraft]);
 
   // Current blocks for RG
@@ -700,21 +787,22 @@ const Step15Lernbloecke = () => {
 
       {/* Two Column Layout */}
       <div className="flex-1 grid grid-cols-2 gap-6 min-h-0">
-        {/* Left Column: Themes (Collapsible) */}
+        {/* Left Column: T6.4 - Themes grouped by URG (hierarchical) */}
         <div className="flex flex-col min-h-0">
           <h2 className="text-sm font-medium text-neutral-700 mb-3">
-            Meine Themen ({totalThemes})
+            Meine Themen ({totalThemes}) • {urgsWithThemes.length} Unterrechtsgebiete
           </h2>
           <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-            {allThemesForRg.length > 0 ? (
-              allThemesForRg.map(thema => (
-                <ThemeCard
-                  key={thema.id}
-                  thema={thema}
-                  isFullyAssigned={assignedThemeIds.has(thema.id)}
-                  assignedBlockIndex={assignedThemeIds.get(thema.id)}
+            {urgsWithThemes.length > 0 ? (
+              urgsWithThemes.map((urg, index) => (
+                <UrgGroup
+                  key={urg.id}
+                  urg={urg}
+                  themes={urg.themes}
+                  assignedThemeIds={assignedThemeIds}
                   assignedAufgabenMap={assignedAufgabenIds}
                   onDragStart={handleDragStart}
+                  defaultExpanded={index === 0} // First URG expanded by default
                 />
               ))
             ) : (

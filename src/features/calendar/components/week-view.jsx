@@ -628,7 +628,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         currentDate={currentDate}
         blocks={blocks}
         privateBlocks={privateBlocks}
-        lernplanBlocks={visibleBlocksByDate}
+        lernplanBlocks={isExamMode ? visibleBlocksByDate : {}} // T6.2 FIX: Hide in Normal mode
         lernplanHeaderBlocks={lernplanHeaderBlocks}
         onBlockClick={handleBlockClick}
         onSlotClick={handleSlotClick}

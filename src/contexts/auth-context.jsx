@@ -68,6 +68,10 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  // User Approval System (Option 3) - TEMPORARILY DISABLED
+  // Set to true by default to bypass approval check while debugging
+  const [isApproved, setIsApproved] = useState(true);
+  const [approvalLoading, setApprovalLoading] = useState(false);
 
   // Initialize user settings in Supabase if they don't exist
   const initializeUserSettings = useCallback(async (userId) => {
@@ -110,27 +114,86 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // User Approval System: Check if user is approved in profiles table
+  const checkApprovalStatus = useCallback(async (userId = null) => {
+    const targetUserId = userId || user?.id;
+    if (!isSupabaseConfigured() || !targetUserId) {
+      setIsApproved(true); // Offline mode: approve by default
+      setApprovalLoading(false);
+      return true;
+    }
+
+    try {
+      setApprovalLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('approved')
+        .eq('id', targetUserId)
+        .single();
+
+      if (error) {
+        // PGRST116 = no rows returned (profile not created yet)
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, treating as not approved');
+          setIsApproved(false);
+          setApprovalLoading(false);
+          return false;
+        }
+        // 42P01 = relation does not exist (migration not run yet)
+        // PGRST204 = table not found
+        // In these cases, bypass approval check until migration is run
+        if (error.code === '42P01' || error.code === 'PGRST204' || error.message?.includes('does not exist')) {
+          console.warn('Profiles table does not exist yet. Run migration-user-approval.sql. Bypassing approval check.');
+          setIsApproved(true);
+          setApprovalLoading(false);
+          return true;
+        }
+        console.error('Error checking approval status:', error);
+        // Fallback: approve user to prevent blocking the app
+        setIsApproved(true);
+        setApprovalLoading(false);
+        return true;
+      }
+
+      const approved = data?.approved ?? false;
+      setIsApproved(approved);
+      setApprovalLoading(false);
+      return approved;
+    } catch (err) {
+      console.error('Error checking approval status:', err);
+      // Fallback: approve user to prevent blocking the app
+      setIsApproved(true);
+      setApprovalLoading(false);
+      return true;
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     if (!isSupabaseConfigured()) {
       setLoading(false);
+      setApprovalLoading(false);
+      setIsApproved(true); // Offline mode: approve by default
       return;
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // Initialize user settings for logged in user
+      // Initialize user settings and check approval for logged in user
       if (session?.user?.id) {
         initializeUserSettings(session.user.id);
+        // TEMPORARILY DISABLED: Check approval status
+        // await checkApprovalStatus(session.user.id);
       }
+      // No need to set approvalLoading since it starts as false
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
         // BUG-021 FIX: Clear localStorage when a different user logs in
         // This prevents data from a previous user from being shown to the new user
         if (_event === 'SIGNED_IN' && session?.user?.id) {
@@ -142,6 +205,10 @@ export function AuthProvider({ children }) {
           // Store current user ID for future comparison
           localStorage.setItem('prepwell_last_user_id', session.user.id);
           initializeUserSettings(session.user.id);
+          // TEMPORARILY DISABLED: Check approval status
+          // await checkApprovalStatus(session.user.id);
+        } else if (_event === 'SIGNED_OUT') {
+          // Reset approval status on sign out (keep isApproved=true for bypass)
         }
 
         setSession(session);
@@ -150,6 +217,7 @@ export function AuthProvider({ children }) {
     );
 
     return () => subscription.unsubscribe();
+    // TEMPORARILY DISABLED: removed checkApprovalStatus from deps
   }, [initializeUserSettings]);
 
   const signUp = async (email, password, firstName = '', lastName = '') => {
@@ -327,6 +395,10 @@ export function AuthProvider({ children }) {
     loading,
     isAuthenticated: !!user,
     isSupabaseEnabled: isSupabaseConfigured(),
+    // User Approval System (Option 3)
+    isApproved,
+    approvalLoading,
+    checkApprovalStatus,
     signUp,
     signIn,
     signOut,

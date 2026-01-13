@@ -5,7 +5,7 @@
  * T-SET-1: Custom Rechtsgebiet-Farben & Fächer
  */
 
-const STORAGE_KEY = 'prepwell_settings';
+const STORAGE_KEY = 'prepwell_subject_settings';
 
 /**
  * Verfügbare Farben für den Color Picker
@@ -59,7 +59,11 @@ export const DEFAULT_RECHTSGEBIETE = {
 export function getSubjectSettings() {
   try {
     const settings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    return settings.subjects || { colorOverrides: {}, customSubjects: [] };
+    // Direkt lesen (nicht mehr verschachtelt unter .subjects)
+    return {
+      colorOverrides: settings.colorOverrides || {},
+      customSubjects: settings.customSubjects || [],
+    };
   } catch {
     return { colorOverrides: {}, customSubjects: [] };
   }
@@ -71,9 +75,8 @@ export function getSubjectSettings() {
  */
 export function saveSubjectSettings(subjectSettings) {
   try {
-    const settings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    settings.subjects = subjectSettings;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    // Direkt speichern (nicht mehr verschachtelt unter .subjects)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(subjectSettings));
     // Dispatch storage event für Cross-Component Updates
     window.dispatchEvent(new Event('storage'));
   } catch (e) {
@@ -298,3 +301,166 @@ export const RECHTSGEBIET_COLORS = {
   'strafrecht': 'bg-red-500',
   'querschnitt': 'bg-purple-500',
 };
+
+/**
+ * T7: Fächer-Presets für beliebte Studiengänge
+ * Diese werden beim ersten Login für Nicht-Jura-User vorgeschlagen
+ */
+export const PROGRAM_SUBJECT_PRESETS = {
+  'medizin': [
+    { name: 'Anatomie', defaultColor: 'red' },
+    { name: 'Physiologie', defaultColor: 'green' },
+    { name: 'Biochemie', defaultColor: 'purple' },
+    { name: 'Pathologie', defaultColor: 'amber' },
+    { name: 'Pharmakologie', defaultColor: 'blue' },
+  ],
+  'humanmedizin': [
+    { name: 'Anatomie', defaultColor: 'red' },
+    { name: 'Physiologie', defaultColor: 'green' },
+    { name: 'Biochemie', defaultColor: 'purple' },
+    { name: 'Pathologie', defaultColor: 'amber' },
+    { name: 'Pharmakologie', defaultColor: 'blue' },
+  ],
+  'zahnmedizin': [
+    { name: 'Anatomie', defaultColor: 'red' },
+    { name: 'Physiologie', defaultColor: 'green' },
+    { name: 'Zahnerhaltung', defaultColor: 'blue' },
+    { name: 'Prothetik', defaultColor: 'purple' },
+    { name: 'Kieferorthopädie', defaultColor: 'amber' },
+  ],
+  'informatik': [
+    { name: 'Algorithmen & Datenstrukturen', defaultColor: 'blue' },
+    { name: 'Softwareentwicklung', defaultColor: 'green' },
+    { name: 'Datenbanken', defaultColor: 'purple' },
+    { name: 'Theoretische Informatik', defaultColor: 'amber' },
+    { name: 'Rechnernetze', defaultColor: 'cyan' },
+  ],
+  'wirtschaftsinformatik': [
+    { name: 'Programmierung', defaultColor: 'blue' },
+    { name: 'BWL', defaultColor: 'green' },
+    { name: 'Datenbanken', defaultColor: 'purple' },
+    { name: 'Wirtschaftsmathematik', defaultColor: 'amber' },
+  ],
+  'bwl': [
+    { name: 'Rechnungswesen', defaultColor: 'blue' },
+    { name: 'Marketing', defaultColor: 'pink' },
+    { name: 'Finanzierung', defaultColor: 'green' },
+    { name: 'Personalmanagement', defaultColor: 'amber' },
+    { name: 'Controlling', defaultColor: 'purple' },
+  ],
+  'vwl': [
+    { name: 'Mikroökonomie', defaultColor: 'blue' },
+    { name: 'Makroökonomie', defaultColor: 'green' },
+    { name: 'Wirtschaftspolitik', defaultColor: 'purple' },
+    { name: 'Statistik', defaultColor: 'amber' },
+  ],
+  'maschinenbau': [
+    { name: 'Technische Mechanik', defaultColor: 'blue' },
+    { name: 'Konstruktionslehre', defaultColor: 'green' },
+    { name: 'Werkstoffkunde', defaultColor: 'red' },
+    { name: 'Thermodynamik', defaultColor: 'amber' },
+    { name: 'Fertigungstechnik', defaultColor: 'purple' },
+  ],
+  'elektrotechnik': [
+    { name: 'Grundlagen E-Technik', defaultColor: 'blue' },
+    { name: 'Digitaltechnik', defaultColor: 'green' },
+    { name: 'Nachrichtentechnik', defaultColor: 'purple' },
+    { name: 'Energietechnik', defaultColor: 'amber' },
+  ],
+  'psychologie': [
+    { name: 'Allgemeine Psychologie', defaultColor: 'blue' },
+    { name: 'Entwicklungspsychologie', defaultColor: 'green' },
+    { name: 'Klinische Psychologie', defaultColor: 'red' },
+    { name: 'Sozialpsychologie', defaultColor: 'purple' },
+    { name: 'Statistik', defaultColor: 'amber' },
+  ],
+  'pharmazie': [
+    { name: 'Pharmazeutische Chemie', defaultColor: 'blue' },
+    { name: 'Pharmakologie', defaultColor: 'green' },
+    { name: 'Pharmazeutische Biologie', defaultColor: 'emerald' },
+    { name: 'Klinische Pharmazie', defaultColor: 'red' },
+  ],
+  'biologie': [
+    { name: 'Zellbiologie', defaultColor: 'green' },
+    { name: 'Genetik', defaultColor: 'blue' },
+    { name: 'Ökologie', defaultColor: 'emerald' },
+    { name: 'Biochemie', defaultColor: 'purple' },
+  ],
+  'chemie': [
+    { name: 'Anorganische Chemie', defaultColor: 'blue' },
+    { name: 'Organische Chemie', defaultColor: 'green' },
+    { name: 'Physikalische Chemie', defaultColor: 'purple' },
+    { name: 'Analytische Chemie', defaultColor: 'amber' },
+  ],
+  'physik': [
+    { name: 'Mechanik', defaultColor: 'blue' },
+    { name: 'Elektrodynamik', defaultColor: 'amber' },
+    { name: 'Quantenmechanik', defaultColor: 'purple' },
+    { name: 'Thermodynamik', defaultColor: 'red' },
+  ],
+  'mathematik': [
+    { name: 'Analysis', defaultColor: 'blue' },
+    { name: 'Lineare Algebra', defaultColor: 'green' },
+    { name: 'Stochastik', defaultColor: 'purple' },
+    { name: 'Numerik', defaultColor: 'amber' },
+  ],
+};
+
+/**
+ * T7: Prüft ob Presets für einen Studiengang verfügbar sind
+ * @param {string} programId - ID des Studiengangs
+ * @returns {boolean}
+ */
+export function hasPresetsForProgram(programId) {
+  if (!programId) return false;
+  // Normalisiere ID (lowercase, Bindestriche durch nichts ersetzen)
+  const normalizedId = programId.toLowerCase().replace(/-/g, '');
+  return Object.keys(PROGRAM_SUBJECT_PRESETS).some(key =>
+    key.replace(/-/g, '') === normalizedId
+  );
+}
+
+/**
+ * T7: Gibt die Presets für einen Studiengang zurück
+ * @param {string} programId - ID des Studiengangs
+ * @returns {Array|null}
+ */
+export function getPresetsForProgram(programId) {
+  if (!programId) return null;
+  // Normalisiere ID
+  const normalizedId = programId.toLowerCase().replace(/-/g, '');
+  const key = Object.keys(PROGRAM_SUBJECT_PRESETS).find(k =>
+    k.replace(/-/g, '') === normalizedId
+  );
+  return key ? PROGRAM_SUBJECT_PRESETS[key] : null;
+}
+
+/**
+ * T7: Initialisiert Fächer-Presets für einen Studiengang
+ * Fügt alle Presets als Custom Subjects hinzu.
+ * @param {string} programId - ID des Studiengangs
+ * @returns {number} Anzahl der hinzugefügten Fächer
+ */
+export function initializeSubjectsForProgram(programId) {
+  const presets = getPresetsForProgram(programId);
+  if (!presets || presets.length === 0) return 0;
+
+  const settings = getSubjectSettings();
+
+  // Nur wenn User noch keine Custom Subjects hat
+  if (settings.customSubjects.length > 0) {
+    return 0;
+  }
+
+  let added = 0;
+  presets.forEach(preset => {
+    try {
+      addCustomSubject(preset.name, preset.defaultColor);
+      added++;
+    } catch {
+      // Ignoriere Duplikate
+    }
+  });
+
+  return added;
+}

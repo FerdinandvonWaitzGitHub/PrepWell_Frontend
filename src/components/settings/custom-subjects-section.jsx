@@ -21,6 +21,9 @@ import {
   hasCustomColor,
   DEFAULT_RECHTSGEBIETE,
   AVAILABLE_COLORS,
+  hasPresetsForProgram,
+  getPresetsForProgram,
+  initializeSubjectsForProgram,
 } from '../../utils/rechtsgebiet-colors';
 
 // Fallback Icons falls nicht in ui vorhanden
@@ -55,6 +58,15 @@ const FallbackPaletteIcon = ({ size = 20 }) => (
   </svg>
 );
 
+// T7: Sparkles Icon für Presets
+const SparklesIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3l1.09 3.26L16 7.34l-2.91 1.08L12 12l-1.09-3.58L8 7.34l2.91-1.08L12 3z" />
+    <path d="M19 13l.68 2.04L22 15.72l-1.82.68L19 19l-.68-2.6L16 15.72l1.82-.68L19 13z" />
+    <path d="M5 13l.68 2.04L8 15.72l-1.82.68L5 19l-.68-2.6L2 15.72l1.82-.68L5 13z" />
+  </svg>
+);
+
 // Use imported icons or fallbacks
 const Plus = PlusIcon || FallbackPlusIcon;
 const Trash = TrashIcon || FallbackTrashIcon;
@@ -65,14 +77,20 @@ const Palette = PaletteIcon || FallbackPaletteIcon;
  * CustomSubjectsSection Komponente
  *
  * @param {boolean} isJura - Ob Jura-Studiengang (zeigt Standard-Rechtsgebiete)
+ * @param {string} studiengang - T7: ID des Studiengangs für Preset-Vorschläge
  */
-const CustomSubjectsSection = ({ isJura = true }) => {
+const CustomSubjectsSection = ({ isJura = true, studiengang = null }) => {
   // State
   const [subjects, setSubjects] = useState([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('blue');
   const [error, setError] = useState('');
+  const [showPresetsDialog, setShowPresetsDialog] = useState(false); // T7
+
+  // T7: Prüfe ob Presets verfügbar sind
+  const presetsAvailable = !isJura && hasPresetsForProgram(studiengang);
+  const presets = presetsAvailable ? getPresetsForProgram(studiengang) : [];
 
   // Subjects laden
   const loadSubjects = () => {
@@ -126,6 +144,15 @@ const CustomSubjectsSection = ({ isJura = true }) => {
     } catch (e) {
       setError(e.message);
     }
+  };
+
+  // T7: Presets verwenden
+  const handleUsePresets = () => {
+    const added = initializeSubjectsForProgram(studiengang);
+    if (added > 0) {
+      loadSubjects();
+    }
+    setShowPresetsDialog(false);
   };
 
   // Subjects aufteilen
@@ -189,23 +216,64 @@ const CustomSubjectsSection = ({ isJura = true }) => {
               />
             ))}
           </div>
-        ) : (
+        ) : isJura ? (
           <p className="text-sm text-neutral-400 py-2">
-            {isJura
-              ? 'Noch keine eigenen Fächer hinzugefügt'
-              : 'Füge dein erstes Fach hinzu'}
+            Noch keine eigenen Fächer hinzugefügt
           </p>
+        ) : (
+          /* T7: Onboarding Card für Nicht-Juristen ohne Fächer */
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Palette size={16} className="text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-900 mb-1">
+                  Erstelle deine Fächer
+                </p>
+                <p className="text-xs text-blue-700 mb-3">
+                  Um Themenlisten zu erstellen und deinen Lernfortschritt zu tracken,
+                  füge zuerst deine Studienfächer hinzu.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {/* T7: Presets-Button wenn verfügbar */}
+                  {presetsAvailable && (
+                    <button
+                      onClick={() => setShowPresetsDialog(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                      <SparklesIcon size={14} />
+                      Vorschläge nutzen
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowAddDialog(true)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      presetsAvailable
+                        ? 'text-blue-600 bg-white border border-blue-200 hover:bg-blue-50'
+                        : 'text-white bg-blue-600 hover:bg-blue-700'
+                    }`}
+                  >
+                    <Plus size={14} />
+                    {presetsAvailable ? 'Eigene erstellen' : 'Erstes Fach hinzufügen'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Add Button */}
-      <button
-        onClick={() => setShowAddDialog(true)}
-        className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-      >
-        <Plus size={16} />
-        <span>Neues Fach hinzufügen</span>
-      </button>
+      {/* Add Button - nur wenn User bereits Fächer hat oder Jura ist */}
+      {(isJura || customSubjects.length > 0) && (
+        <button
+          onClick={() => setShowAddDialog(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+        >
+          <Plus size={16} />
+          <span>Neues Fach hinzufügen</span>
+        </button>
+      )}
 
       {/* Add Dialog */}
       {showAddDialog && (
@@ -222,6 +290,19 @@ const CustomSubjectsSection = ({ isJura = true }) => {
             setError('');
           }}
           onAdd={handleAdd}
+        />
+      )}
+
+      {/* T7: Presets Dialog */}
+      {showPresetsDialog && presetsAvailable && (
+        <PresetsDialog
+          presets={presets}
+          onUsePresets={handleUsePresets}
+          onCancel={() => setShowPresetsDialog(false)}
+          onCustom={() => {
+            setShowPresetsDialog(false);
+            setShowAddDialog(true);
+          }}
         />
       )}
     </div>
@@ -379,6 +460,101 @@ const AddSubjectDialog = ({
             className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
           >
             Hinzufügen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * T7: PresetsDialog - Dialog zur Auswahl von Fächer-Presets
+ */
+const PresetsDialog = ({
+  presets,
+  onUsePresets,
+  onCancel,
+  onCustom,
+}) => {
+  // Helper: Get Tailwind color class from color name
+  const getColorClass = (color) => {
+    const colorMap = {
+      blue: 'bg-blue-500',
+      green: 'bg-green-500',
+      red: 'bg-red-500',
+      purple: 'bg-purple-500',
+      amber: 'bg-amber-500',
+      emerald: 'bg-emerald-500',
+      cyan: 'bg-cyan-500',
+      pink: 'bg-pink-500',
+      indigo: 'bg-indigo-500',
+      orange: 'bg-orange-500',
+      teal: 'bg-teal-500',
+      violet: 'bg-violet-500',
+    };
+    return colorMap[color] || 'bg-neutral-500';
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onCancel}
+      />
+
+      {/* Dialog */}
+      <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <SparklesIcon size={20} className="text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-neutral-900">
+              Fächer-Vorschläge
+            </h3>
+            <p className="text-sm text-neutral-500">
+              Basierend auf deinem Studiengang
+            </p>
+          </div>
+        </div>
+
+        {/* Presets List */}
+        <div className="mb-6">
+          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+            {presets.length} Fächer werden hinzugefügt
+          </p>
+          <div className="space-y-2">
+            {presets.map((preset, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 px-3 py-2 bg-neutral-50 rounded-lg"
+              >
+                <div className={`w-4 h-4 rounded-full ${getColorClass(preset.defaultColor)}`} />
+                <span className="text-sm text-neutral-700">{preset.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Info */}
+        <p className="text-xs text-neutral-400 mb-4">
+          Du kannst die Farben später jederzeit ändern oder weitere Fächer hinzufügen.
+        </p>
+
+        {/* Buttons */}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onUsePresets}
+            className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            Vorschläge übernehmen
+          </button>
+          <button
+            onClick={onCustom}
+            className="w-full px-4 py-2.5 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+          >
+            Lieber eigene erstellen
           </button>
         </div>
       </div>

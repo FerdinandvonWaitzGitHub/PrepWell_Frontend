@@ -378,7 +378,7 @@ const SettingsContent = ({ className = '' }) => {
             <BookOpen className="w-5 h-5" />
             Fächer
           </h3>
-          <CustomSubjectsSection isJura={false} />
+          <CustomSubjectsSection isJura={false} studiengang={studiengang} />
         </div>
       )}
 

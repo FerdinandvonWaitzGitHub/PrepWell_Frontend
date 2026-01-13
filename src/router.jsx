@@ -13,6 +13,8 @@ import { ErrorBoundary } from './components/error';
 // Eagerly loaded pages (critical path)
 import DashboardPage from './pages/dashboard';
 import AuthPage from './pages/Auth';
+// TEMPORARILY DISABLED: PendingApprovalPage causes issues
+// import PendingApprovalPage from './pages/pending-approval';
 
 // Lazily loaded pages (code-splitting)
 const LernplanPage = lazy(() => import('./pages/lernplaene'));
@@ -56,10 +58,12 @@ function LazyRoute({ children }) {
 
 /**
  * Protected Route wrapper - redirects to auth if not logged in
+ * User Approval System: Also redirects to /pending-approval if not approved
  */
-function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+function ProtectedRoute({ children, requireApproval = true }) {
+  const { isAuthenticated, loading, isApproved, approvalLoading } = useAuth();
 
+  // Show loading while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -68,8 +72,23 @@ function ProtectedRoute({ children }) {
     );
   }
 
+  // Redirect to auth if not logged in
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Show loading while checking approval status
+  if (requireApproval && approvalLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect to pending approval if not approved
+  if (requireApproval && !isApproved) {
+    return <Navigate to="/pending-approval" replace />;
   }
 
   return children;
@@ -77,9 +96,10 @@ function ProtectedRoute({ children }) {
 
 /**
  * Home component - redirects to auth if not logged in
+ * User Approval System: Also redirects to /pending-approval if not approved
  */
 function HomePage() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isApproved, approvalLoading } = useAuth();
 
   if (loading) {
     return (
@@ -91,6 +111,20 @@ function HomePage() {
 
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Show loading while checking approval status
+  if (approvalLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect to pending approval if not approved
+  if (!isApproved) {
+    return <Navigate to="/pending-approval" replace />;
   }
 
   return <DashboardPage />;
@@ -149,6 +183,11 @@ const router = createBrowserRouter([
     path: '/auth',
     element: <AuthPage />,
   },
+  // TEMPORARILY DISABLED: pending-approval route
+  // {
+  //   path: '/pending-approval',
+  //   element: <ProtectedRoute requireApproval={false}><PendingApprovalPage /></ProtectedRoute>,
+  // },
   {
     path: '/onboarding',
     element: <ProtectedRoute><LazyRoute><OnboardingPage /></LazyRoute></ProtectedRoute>,

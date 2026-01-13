@@ -34,7 +34,9 @@ const STORAGE_KEYS = {
   wizardDraft: 'prepwell_lernplan_wizard_draft',
   settings: 'prepwell_settings',
   gradeSystem: 'prepwell_grade_system',
-  customSubjects: 'prepwell_custom_subjects',
+  customSubjects: 'prepwell_custom_subjects', // Legacy
+  subjectSettings: 'prepwell_subject_settings', // T-SET-1: { colorOverrides: {}, customSubjects: [] }
+  studiengang: 'prepwell_studiengang', // T7: Studiengang (jura, medizin, informatik, etc.)
   logbuchEntries: 'prepwell_logbuch_entries',
   // Legacy keys for migration
   slots: 'prepwell_calendar_slots', // deprecated, use blocks
@@ -688,7 +690,8 @@ export function useUserSettingsSync() {
     mentorActivated: loadFromStorage(STORAGE_KEYS.mentorActivated, false),
     gradeSystem: loadFromStorage(STORAGE_KEYS.gradeSystem, 'punkte'),
     timerConfig: loadFromStorage(STORAGE_KEYS.timerConfig, {}),
-    customSubjects: loadFromStorage(STORAGE_KEYS.customSubjects, []),
+    subjectSettings: loadFromStorage(STORAGE_KEYS.subjectSettings, { colorOverrides: {}, customSubjects: [] }),
+    studiengang: loadFromStorage(STORAGE_KEYS.studiengang, null), // T7
   }));
   const [loading, setLoading] = useState(false);
 
@@ -718,14 +721,16 @@ export function useUserSettingsSync() {
             mentorActivated: data.mentor_activated,
             gradeSystem: data.preferred_grade_system,
             timerConfig: data.timer_settings || {},
-            customSubjects: data.custom_subjects || [],
+            subjectSettings: data.subject_settings || { colorOverrides: {}, customSubjects: [] },
+            studiengang: data.studiengang || null, // T7
           };
           setSettings(newSettings);
           // Update local storage
           saveToStorage(STORAGE_KEYS.mentorActivated, newSettings.mentorActivated);
           saveToStorage(STORAGE_KEYS.gradeSystem, newSettings.gradeSystem);
           saveToStorage(STORAGE_KEYS.timerConfig, newSettings.timerConfig);
-          saveToStorage(STORAGE_KEYS.customSubjects, newSettings.customSubjects);
+          saveToStorage(STORAGE_KEYS.subjectSettings, newSettings.subjectSettings);
+          saveToStorage(STORAGE_KEYS.studiengang, newSettings.studiengang); // T7
         }
       } finally {
         setLoading(false);
@@ -750,8 +755,11 @@ export function useUserSettingsSync() {
     if (updates.timerConfig !== undefined) {
       saveToStorage(STORAGE_KEYS.timerConfig, updates.timerConfig);
     }
-    if (updates.customSubjects !== undefined) {
-      saveToStorage(STORAGE_KEYS.customSubjects, updates.customSubjects);
+    if (updates.subjectSettings !== undefined) {
+      saveToStorage(STORAGE_KEYS.subjectSettings, updates.subjectSettings);
+    }
+    if (updates.studiengang !== undefined) {
+      saveToStorage(STORAGE_KEYS.studiengang, updates.studiengang); // T7
     }
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
@@ -780,7 +788,8 @@ export function useUserSettingsSync() {
           mentor_activated: newSettings.mentorActivated,
           preferred_grade_system: newSettings.gradeSystem,
           timer_settings: mergedTimerSettings,
-          custom_subjects: newSettings.customSubjects,
+          subject_settings: newSettings.subjectSettings,
+          studiengang: newSettings.studiengang, // T7
         }, { onConflict: 'user_id' });
 
       if (error) throw error;
@@ -2368,7 +2377,7 @@ export function useLernplanMetadataSync() {
           user_id: user.id,
           mentor_activated: currentSettings?.mentor_activated ?? false,
           preferred_grade_system: currentSettings?.preferred_grade_system ?? 'punkte',
-          custom_subjects: currentSettings?.custom_subjects ?? [],
+          subject_settings: currentSettings?.subject_settings ?? { colorOverrides: {}, customSubjects: [] },
           timer_settings: {
             ...timerSettings,
             lernplanMetadata: newMetadata,
@@ -2410,7 +2419,7 @@ export function useLernplanMetadataSync() {
           user_id: user.id,
           mentor_activated: currentSettings?.mentor_activated ?? false,
           preferred_grade_system: currentSettings?.preferred_grade_system ?? 'punkte',
-          custom_subjects: currentSettings?.custom_subjects ?? [],
+          subject_settings: currentSettings?.subject_settings ?? { colorOverrides: {}, customSubjects: [] },
           timer_settings: timerSettings,
         }, { onConflict: 'user_id' });
 
@@ -2562,7 +2571,7 @@ export function useOnboardingSync() {
           user_id: user.id,
           mentor_activated: currentSettings?.mentor_activated ?? false,
           preferred_grade_system: currentSettings?.preferred_grade_system ?? 'punkte',
-          custom_subjects: currentSettings?.custom_subjects ?? [],
+          subject_settings: currentSettings?.subject_settings ?? { colorOverrides: {}, customSubjects: [] },
           timer_settings: {
             ...timerSettings,
             onboarding: newState,
@@ -2706,7 +2715,7 @@ export function useAppModeSync() {
           user_id: user.id,
           mentor_activated: currentSettings?.mentor_activated ?? false,
           preferred_grade_system: currentSettings?.preferred_grade_system ?? 'punkte',
-          custom_subjects: currentSettings?.custom_subjects ?? [],
+          subject_settings: currentSettings?.subject_settings ?? { colorOverrides: {}, customSubjects: [] },
           timer_settings: {
             ...timerSettings,
             appMode: newState,

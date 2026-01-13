@@ -4,7 +4,7 @@ import { useCalendar } from '../../contexts/calendar-context';
 import { useUnterrechtsgebiete } from '../../contexts/unterrechtsgebiete-context';
 import { useHierarchyLabels } from '../../hooks/use-hierarchy-labels';
 import UnterrechtsgebietPicker from './unterrechtsgebiet-picker';
-import { getRechtsgebietColor } from '../../utils/rechtsgebiet-colors';
+import { getRechtsgebietColor, getAllSubjects, AVAILABLE_COLORS } from '../../utils/rechtsgebiet-colors';
 
 /**
  * ContentPlanEditCard - Unified component for Lernpläne and Themenlisten
@@ -192,10 +192,20 @@ const ContentPlanEditCard = ({
   };
 
   // Handle add Rechtsgebiet
-  const handleAddRechtsgebiet = (rechtsgebietId) => {
+  // T7: Now supports both Jura (RECHTSGEBIET_LABELS) and non-Jura (custom subjects)
+  const handleAddRechtsgebiet = (subjectId) => {
+    let name = RECHTSGEBIET_LABELS[subjectId];
+
+    // T7: For non-Jura users, get name from custom subjects
+    if (!isJura) {
+      const customSubjects = getAllSubjects(false);
+      const subject = customSubjects.find(s => s.id === subjectId);
+      name = subject?.name || subjectId;
+    }
+
     addRechtsgebietToPlan(plan.id, {
-      rechtsgebietId,
-      name: RECHTSGEBIET_LABELS[rechtsgebietId],
+      rechtsgebietId: subjectId,
+      name,
     });
     setShowRechtsgebietPicker(false);
   };
@@ -485,6 +495,7 @@ const ContentPlanEditCard = ({
           existingIds={plan.rechtsgebiete?.map(rg => rg.rechtsgebietId) || []}
           labels={RECHTSGEBIET_LABELS}
           level1Label={level1}
+          isJura={isJura}
         />
       )}
 
@@ -1092,41 +1103,82 @@ const AufgabeItem = ({
 
 /**
  * RechtsgebietPickerModal - Simple modal for picking a Rechtsgebiet/Fach
+ * T7: Now supports both Jura (4 fixed Rechtsgebiete) and non-Jura (custom subjects)
  */
-const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels, level1Label }) => {
-  const rechtsgebiete = [
-    { id: 'zivilrecht', color: 'bg-blue-500' },
-    { id: 'oeffentliches-recht', color: 'bg-green-500' },
-    { id: 'strafrecht', color: 'bg-red-500' },
-    { id: 'querschnitt', color: 'bg-purple-500' },
-  ];
+const RechtsgebietPickerModal = ({ onSelect, onClose, existingIds, labels, level1Label, isJura = true }) => {
+  // T7: Get subjects based on study program
+  const subjects = useMemo(() => {
+    if (isJura) {
+      // Jura: Fixed 4 Rechtsgebiete
+      return [
+        { id: 'zivilrecht', name: labels['zivilrecht'] || 'Zivilrecht', color: 'blue' },
+        { id: 'oeffentliches-recht', name: labels['oeffentliches-recht'] || 'Öffentliches Recht', color: 'green' },
+        { id: 'strafrecht', name: labels['strafrecht'] || 'Strafrecht', color: 'red' },
+        { id: 'querschnitt', name: labels['querschnitt'] || 'Querschnittsrecht', color: 'purple' },
+      ];
+    } else {
+      // Non-Jura: Custom subjects from T-SET-1
+      return getAllSubjects(false);
+    }
+  }, [isJura, labels]);
+
+  // Helper: Get Tailwind color class from color name
+  const getColorClass = (color) => {
+    const colorMap = {
+      blue: 'bg-blue-500',
+      green: 'bg-green-500',
+      red: 'bg-red-500',
+      purple: 'bg-purple-500',
+      amber: 'bg-amber-500',
+      emerald: 'bg-emerald-500',
+      cyan: 'bg-cyan-500',
+      pink: 'bg-pink-500',
+      indigo: 'bg-indigo-500',
+      orange: 'bg-orange-500',
+    };
+    return colorMap[color] || 'bg-neutral-500';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative z-10 bg-white rounded-lg shadow-xl p-4 w-80">
+      <div className="relative z-10 bg-white rounded-lg shadow-xl p-4 w-80 max-h-[80vh] overflow-y-auto">
         <h4 className="text-sm font-medium text-neutral-900 mb-3">{level1Label} hinzufügen</h4>
-        <div className="space-y-2">
-          {rechtsgebiete.map(rg => {
-            const isDisabled = existingIds.includes(rg.id);
-            return (
-              <button
-                key={rg.id}
-                onClick={() => !isDisabled && onSelect(rg.id)}
-                disabled={isDisabled}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                  isDisabled
-                    ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
-                    : 'hover:bg-neutral-50 text-neutral-700'
-                }`}
-              >
-                <span className={`w-3 h-3 rounded-full ${rg.color}`} />
-                <span className="text-sm">{labels[rg.id]}</span>
-                {isDisabled && <span className="ml-auto text-xs text-neutral-400">Bereits hinzugefügt</span>}
-              </button>
-            );
-          })}
-        </div>
+
+        {/* T7: Empty state for non-Jura users without custom subjects */}
+        {!isJura && subjects.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-neutral-500 mb-2">
+              Du hast noch keine Fächer erstellt.
+            </p>
+            <p className="text-xs text-neutral-400">
+              Gehe zu Einstellungen → Fächerfarben um deine Fächer hinzuzufügen.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {subjects.map(subject => {
+              const isDisabled = existingIds.includes(subject.id);
+              return (
+                <button
+                  key={subject.id}
+                  onClick={() => !isDisabled && onSelect(subject.id)}
+                  disabled={isDisabled}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                    isDisabled
+                      ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                      : 'hover:bg-neutral-50 text-neutral-700'
+                  }`}
+                >
+                  <span className={`w-3 h-3 rounded-full ${getColorClass(subject.color)}`} />
+                  <span className="text-sm">{subject.name}</span>
+                  {isDisabled && <span className="ml-auto text-xs text-neutral-400">Bereits hinzugefügt</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="mt-4 flex justify-end">
           <button
             onClick={onClose}

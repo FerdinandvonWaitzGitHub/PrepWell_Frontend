@@ -350,7 +350,9 @@ CREATE TABLE IF NOT EXISTS user_settings (
   mentor_activated BOOLEAN DEFAULT FALSE,
   preferred_grade_system grade_system DEFAULT 'punkte',
   timer_settings JSONB DEFAULT '{}',
-  custom_subjects TEXT[] DEFAULT '{}',
+  custom_subjects TEXT[] DEFAULT '{}',  -- Legacy, use subject_settings stattdessen
+  subject_settings JSONB DEFAULT '{}',   -- T-SET-1: { colorOverrides: {}, customSubjects: [] }
+  studiengang TEXT,                       -- T7: Studiengang (jura, medizin, informatik, etc.)
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -385,6 +387,11 @@ EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE private_sessions ADD COLUMN is_multi_day BOOLEAN DEFAULT FALSE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- Migration: Add studiengang to user_settings (T7)
+DO $$ BEGIN
+  ALTER TABLE user_settings ADD COLUMN studiengang TEXT;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 -- ============================================
@@ -428,6 +435,7 @@ CREATE INDEX IF NOT EXISTS idx_calendar_tasks_user_id ON calendar_tasks(user_id)
 CREATE INDEX IF NOT EXISTS idx_calendar_tasks_date ON calendar_tasks(task_date);
 CREATE INDEX IF NOT EXISTS idx_calendar_tasks_user_date ON calendar_tasks(user_id, task_date);
 CREATE INDEX IF NOT EXISTS idx_archived_lernplaene_user_id ON archived_lernplaene(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_settings_studiengang ON user_settings(studiengang);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
