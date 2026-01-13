@@ -44,6 +44,94 @@ PrepWell ist eine webbasierte Lernmanagement-Plattform für Studierende zur stru
 
 ---
 
+### 2.1 Development & Deployment Prozess
+
+**Ziel:** Aktive Nutzer vor schlechter User Experience schützen, während iterative Entwicklung ermöglicht wird.
+
+#### Branch-Strategie
+
+```
+main (Production)     ← Nur stabile, getestete Features
+  ↑
+develop (Staging)     ← Aktive Entwicklung, Tests
+  ↑
+feature/xyz           ← Einzelne Features/Fixes
+```
+
+| Branch | Zweck | Auto-Deploy |
+|--------|-------|-------------|
+| `main` | Production (Vercel) - Nutzer sehen nur das | Ja → prepwell.vercel.app |
+| `develop` | Staging/Testing - Entwickler testen hier | Optional → prepwell-dev.vercel.app |
+| `feature/*` | Feature-Branches für größere Änderungen | Nein |
+
+#### Deployment-Regeln
+
+| Kategorie | Beispiel | Push zu main? |
+|-----------|----------|---------------|
+| **Hotfix** | Kritischer Bug, App unbenutzbar | ✅ Sofort |
+| **Bugfix** | Kleiner Bug, App funktioniert | ⚠️ Nach Test auf develop |
+| **Feature** | Neue Funktion | ❌ Erst auf develop testen |
+| **Refactoring** | Code-Cleanup, kein UI-Change | ⚠️ Nach Test auf develop |
+| **DB-Migration** | Schema-Änderung | ❌ Koordiniert mit Nutzer |
+
+#### Checkliste vor Production-Push
+
+```
+□ Feature auf localhost getestet
+□ Keine Console-Errors
+□ Alle Unit-Tests grün (npm run test:run)
+□ DB-Migration vorbereitet (falls nötig)
+□ Rollback-Plan vorhanden (falls nötig)
+□ Bei Breaking Changes: Nutzer informiert
+```
+
+#### Database Migration Protocol
+
+**KRITISCH:** Schema-Änderungen können Nutzer-Daten zerstören!
+
+1. **Vor der Migration:**
+   - Backup-Hinweis an Nutzer (Export-Funktion nutzen)
+   - Migration-SQL in `supabase/` Ordner dokumentieren
+   - Rollback-SQL bereitstellen
+
+2. **Migration durchführen:**
+   - Zeitpunkt mit Nutzer abstimmen (z.B. Abends)
+   - Frontend-Code ERST deployen NACHDEM DB-Migration läuft
+   - Oder: Frontend abwärtskompatibel machen
+
+3. **Nach der Migration:**
+   - App testen
+   - Nutzer informieren dass Update live ist
+
+#### Kommunikation mit aktiven Nutzern
+
+| Situation | Aktion |
+|-----------|--------|
+| Kleines Update (UI-Polish) | Keine Ankündigung nötig |
+| Neues Feature | Kurze Info nach Release |
+| Breaking Change | **VOR** Release ankündigen + Zeitpunkt abstimmen |
+| Wartungsarbeiten | 24h vorher ankündigen |
+
+#### Rollback-Prozedur
+
+Falls ein Deploy Probleme verursacht:
+
+```bash
+# 1. Letzten stabilen Commit finden
+git log --oneline -10
+
+# 2. Revert erstellen
+git revert <problematic-commit>
+
+# 3. Sofort pushen
+git push
+
+# 4. DB-Rollback falls nötig
+# → Rollback-SQL in Supabase ausführen
+```
+
+---
+
 ## 3. Architektur
 
 ### 3.1 BlockAllocation vs. Session - Strikte Trennung
