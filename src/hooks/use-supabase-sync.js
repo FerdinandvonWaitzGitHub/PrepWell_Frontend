@@ -1115,8 +1115,9 @@ export function useCalendarBlocksSync() {
         const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('slot-') || block.id?.startsWith('local-') || block.id?.startsWith('private-');
         // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
         const blockId = isLocalId ? crypto.randomUUID() : block.id;
-        // Ensure position is an integer (database expects INTEGER, not DECIMAL)
-        const positionInt = block.position != null ? Math.floor(Number(block.position)) : null;
+        // Ensure position is an integer within valid range (DB: CHECK position >= 1 AND position <= 4)
+        const rawPos = block.position != null ? Math.floor(Number(block.position)) : null;
+        const positionInt = (rawPos !== null && rawPos >= 1 && rawPos <= 4) ? rawPos : null;
         result.push({
           id: blockId,
           user_id: userId,
@@ -1194,8 +1195,18 @@ export function useCalendarBlocksSync() {
             const dataToInsert = transformToSupabase(localData, user.id);
             if (dataToInsert.length > 0) {
               // Use upsert to handle duplicates (prevents 400 error on existing IDs)
-              await supabase.from('calendar_blocks').upsert(dataToInsert, { onConflict: 'id' });
-              console.log(`Migrated ${dataToInsert.length} blocks to Supabase`);
+              const { error } = await supabase.from('calendar_blocks').upsert(dataToInsert, { onConflict: 'id' });
+              if (error) {
+                console.error('[initSync] Migration failed:', {
+                  message: error.message,
+                  details: error.details,
+                  hint: error.hint,
+                  code: error.code,
+                  sampleData: dataToInsert.slice(0, 3)
+                });
+              } else {
+                console.log(`Migrated ${dataToInsert.length} blocks to Supabase`);
+              }
             }
           }
         }
@@ -1237,8 +1248,9 @@ export function useCalendarBlocksSync() {
           const isLocalId = !slot.id || slot.id?.startsWith('slot-') || slot.id?.startsWith('local-') || slot.id?.startsWith('private-');
           // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
           const slotId = isLocalId ? crypto.randomUUID() : slot.id;
-          // Ensure position is an integer (database expects INTEGER, not DECIMAL)
-          const positionInt = slot.position != null ? Math.floor(Number(slot.position)) : null;
+          // Ensure position is an integer within valid range (DB: CHECK position >= 1 AND position <= 4)
+          const rawPos = slot.position != null ? Math.floor(Number(slot.position)) : null;
+          const positionInt = (rawPos !== null && rawPos >= 1 && rawPos <= 4) ? rawPos : null;
           return {
             id: slotId,
             user_id: user.id,
@@ -1264,11 +1276,21 @@ export function useCalendarBlocksSync() {
         });
 
         // Use upsert to handle any edge case duplicates
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('calendar_blocks')
-          .upsert(dataToInsert, { onConflict: 'id' });
+          .upsert(dataToInsert, { onConflict: 'id' })
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('[saveDaySlots] Supabase error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            dataToInsert: dataToInsert
+          });
+          throw error;
+        }
       }
 
       return { success: true, source: 'supabase' };
@@ -1297,11 +1319,21 @@ export function useCalendarBlocksSync() {
       // Insert new slots (use upsert for safety)
       const dataToInsert = transformToSupabase(newSlotsByDate, user.id);
       if (dataToInsert.length > 0) {
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('calendar_blocks')
-          .upsert(dataToInsert, { onConflict: 'id' });
+          .upsert(dataToInsert, { onConflict: 'id' })
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('[saveAllSlots] Supabase error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            sampleData: dataToInsert.slice(0, 3)
+          });
+          throw error;
+        }
       }
 
       return { success: true, source: 'supabase' };

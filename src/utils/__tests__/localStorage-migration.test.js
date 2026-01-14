@@ -1,42 +1,48 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Create mock storage
+let mockStore = {};
+const mockStorage = {
+  getItem: vi.fn((key) => mockStore[key] || null),
+  setItem: vi.fn((key, value) => { mockStore[key] = value; }),
+  removeItem: vi.fn((key) => { delete mockStore[key]; }),
+  clear: vi.fn(() => { mockStore = {}; }),
+};
+
+// Mock safeLocalStorage module (used by localStorage-migration.js)
+vi.mock('../safe-storage', () => ({
+  safeLocalStorage: {
+    getItem: (key) => mockStore[key] || null,
+    setItem: (key, value) => { mockStore[key] = value; mockStorage.setItem(key, value); },
+    removeItem: (key) => { delete mockStore[key]; mockStorage.removeItem(key); },
+  },
+}));
+
+// Import AFTER mocking
 import {
   runLocalStorageMigration,
   clearOldKeys,
   getMigrationStatus,
 } from '../localStorage-migration';
 
-// Mock localStorage
-const createMockLocalStorage = () => {
-  let store = {};
-  return {
-    getItem: vi.fn((key) => store[key] || null),
-    setItem: vi.fn((key, value) => { store[key] = value; }),
-    removeItem: vi.fn((key) => { delete store[key]; }),
-    clear: vi.fn(() => { store = {}; }),
-    _getStore: () => store,
-    _setStore: (newStore) => { store = newStore; },
-  };
-};
-
 describe('localStorage-migration', () => {
-  let mockStorage;
-
   beforeEach(() => {
-    mockStorage = createMockLocalStorage();
-    vi.stubGlobal('localStorage', mockStorage);
+    // Reset the store before each test
+    mockStore = {};
+    mockStorage.getItem.mockClear();
+    mockStorage.setItem.mockClear();
+    mockStorage.removeItem.mockClear();
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   describe('runLocalStorageMigration', () => {
     it('should skip migration if already at current version', () => {
-      mockStorage._setStore({
-        'prepwell_storage_migration_version': '1',
-      });
+      mockStore['prepwell_storage_migration_version'] = '1';
 
       runLocalStorageMigration();
 
-      // Should not set any new keys
+      // Should not set any new keys (except possibly the version)
       expect(mockStorage.setItem).not.toHaveBeenCalledWith(
         'prepwell_calendar_blocks',
         expect.anything()
@@ -45,9 +51,7 @@ describe('localStorage-migration', () => {
 
     it('should migrate calendar_slots to calendar_blocks', () => {
       const testData = JSON.stringify({ '2026-01-15': { blocks: [] } });
-      mockStorage._setStore({
-        'prepwell_calendar_slots': testData,
-      });
+      mockStore['prepwell_calendar_slots'] = testData;
 
       runLocalStorageMigration();
 
@@ -59,9 +63,7 @@ describe('localStorage-migration', () => {
 
     it('should migrate private_blocks to private_sessions', () => {
       const testData = JSON.stringify([{ id: '1', title: 'Test' }]);
-      mockStorage._setStore({
-        'prepwell_private_blocks': testData,
-      });
+      mockStore['prepwell_private_blocks'] = testData;
 
       runLocalStorageMigration();
 
@@ -73,9 +75,7 @@ describe('localStorage-migration', () => {
 
     it('should migrate time_blocks to time_sessions', () => {
       const testData = JSON.stringify([{ id: '1', duration: 60 }]);
-      mockStorage._setStore({
-        'prepwell_time_blocks': testData,
-      });
+      mockStore['prepwell_time_blocks'] = testData;
 
       runLocalStorageMigration();
 
@@ -88,22 +88,17 @@ describe('localStorage-migration', () => {
     it('should NOT overwrite existing new keys', () => {
       const oldData = JSON.stringify({ old: true });
       const newData = JSON.stringify({ new: true });
-      mockStorage._setStore({
-        'prepwell_calendar_slots': oldData,
-        'prepwell_calendar_blocks': newData,
-      });
+      mockStore['prepwell_calendar_slots'] = oldData;
+      mockStore['prepwell_calendar_blocks'] = newData;
 
       runLocalStorageMigration();
 
       // Should not overwrite existing new data
-      const store = mockStorage._getStore();
-      expect(store['prepwell_calendar_blocks']).toBe(newData);
+      expect(mockStore['prepwell_calendar_blocks']).toBe(newData);
     });
 
     it('should mark migration as complete', () => {
-      mockStorage._setStore({
-        'prepwell_calendar_slots': JSON.stringify({}),
-      });
+      mockStore['prepwell_calendar_slots'] = JSON.stringify({});
 
       runLocalStorageMigration();
 
@@ -114,11 +109,9 @@ describe('localStorage-migration', () => {
     });
 
     it('should migrate multiple keys at once', () => {
-      mockStorage._setStore({
-        'prepwell_calendar_slots': JSON.stringify({ cal: true }),
-        'prepwell_private_blocks': JSON.stringify({ priv: true }),
-        'prepwell_time_blocks': JSON.stringify({ time: true }),
-      });
+      mockStore['prepwell_calendar_slots'] = JSON.stringify({ cal: true });
+      mockStore['prepwell_private_blocks'] = JSON.stringify({ priv: true });
+      mockStore['prepwell_time_blocks'] = JSON.stringify({ time: true });
 
       runLocalStorageMigration();
 
@@ -139,10 +132,8 @@ describe('localStorage-migration', () => {
 
   describe('clearOldKeys', () => {
     it('should remove old keys that exist', () => {
-      mockStorage._setStore({
-        'prepwell_calendar_slots': JSON.stringify({}),
-        'prepwell_private_blocks': JSON.stringify({}),
-      });
+      mockStore['prepwell_calendar_slots'] = JSON.stringify({});
+      mockStore['prepwell_private_blocks'] = JSON.stringify({});
 
       clearOldKeys();
 
@@ -151,7 +142,7 @@ describe('localStorage-migration', () => {
     });
 
     it('should not fail if old keys do not exist', () => {
-      mockStorage._setStore({});
+      mockStore = {};
 
       expect(() => clearOldKeys()).not.toThrow();
     });
@@ -159,7 +150,7 @@ describe('localStorage-migration', () => {
 
   describe('getMigrationStatus', () => {
     it('should return "not run" if migration never ran', () => {
-      mockStorage._setStore({});
+      mockStore = {};
 
       const status = getMigrationStatus();
 
@@ -167,9 +158,7 @@ describe('localStorage-migration', () => {
     });
 
     it('should return current version if migration ran', () => {
-      mockStorage._setStore({
-        'prepwell_storage_migration_version': '1',
-      });
+      mockStore['prepwell_storage_migration_version'] = '1';
 
       const status = getMigrationStatus();
 
@@ -177,11 +166,9 @@ describe('localStorage-migration', () => {
     });
 
     it('should correctly identify migrated keys', () => {
-      mockStorage._setStore({
-        'prepwell_storage_migration_version': '1',
-        'prepwell_calendar_blocks': JSON.stringify({}), // new key exists
-        // old key doesn't exist = migrated
-      });
+      mockStore['prepwell_storage_migration_version'] = '1';
+      mockStore['prepwell_calendar_blocks'] = JSON.stringify({}); // new key exists
+      // old key doesn't exist = migrated
 
       const status = getMigrationStatus();
 
@@ -193,10 +180,8 @@ describe('localStorage-migration', () => {
     });
 
     it('should identify when both old and new keys exist', () => {
-      mockStorage._setStore({
-        'prepwell_calendar_slots': JSON.stringify({ old: true }),
-        'prepwell_calendar_blocks': JSON.stringify({ new: true }),
-      });
+      mockStore['prepwell_calendar_slots'] = JSON.stringify({ old: true });
+      mockStore['prepwell_calendar_blocks'] = JSON.stringify({ new: true });
 
       const status = getMigrationStatus();
 
@@ -208,9 +193,7 @@ describe('localStorage-migration', () => {
     });
 
     it('should identify when only old key exists (not migrated)', () => {
-      mockStorage._setStore({
-        'prepwell_calendar_slots': JSON.stringify({ old: true }),
-      });
+      mockStore['prepwell_calendar_slots'] = JSON.stringify({ old: true });
 
       const status = getMigrationStatus();
 

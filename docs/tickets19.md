@@ -145,6 +145,30 @@ await supabase.from('calendar_blocks').upsert(dataToInsert, { onConflict: 'id' }
 - [x] AudioContext Warning - User Interaction Tracking
 - [x] Invalid date key: null - filterValidDateKeys Helper
 - [x] 400 Bad Request - insert zu upsert geändert
+- [x] Position Constraint - Validierung für DB CHECK (1-4 oder null)
+- [x] Error Logging - Detaillierte Fehlermeldungen hinzugefügt
+
+---
+
+## Debugging: Detailliertes Error-Logging
+
+Falls der 400-Fehler weiterhin auftritt, wird jetzt die genaue Ursache in der Konsole angezeigt:
+
+```javascript
+[saveDaySlots] Supabase error details: {
+  message: "...",      // Was genau schief geht
+  details: "...",      // Welche Daten/Spalten betroffen
+  hint: "...",         // Supabase-Hinweis zur Lösung
+  code: "...",         // PostgreSQL Error-Code
+  dataToInsert: [...]  // Die Daten, die gesendet wurden
+}
+```
+
+### Mögliche Ursachen nach dem Upsert-Fix:
+
+1. **Position außerhalb 1-4**: `CHECK (position >= 1 AND position <= 4)` - GEFIXED
+2. **Foreign Key Violation**: `content_plan_id` referenziert content_plans, ungültige ID → 400
+3. **Datentyp-Konflikt**: z.B. String statt UUID für content_plan_id
 
 ---
 
