@@ -1193,7 +1193,8 @@ export function useCalendarBlocksSync() {
           if (Object.keys(localData).length > 0) {
             const dataToInsert = transformToSupabase(localData, user.id);
             if (dataToInsert.length > 0) {
-              await supabase.from('calendar_blocks').insert(dataToInsert);
+              // Use upsert to handle duplicates (prevents 400 error on existing IDs)
+              await supabase.from('calendar_blocks').upsert(dataToInsert, { onConflict: 'id' });
               console.log(`Migrated ${dataToInsert.length} blocks to Supabase`);
             }
           }
@@ -1262,9 +1263,10 @@ export function useCalendarBlocksSync() {
           };
         });
 
+        // Use upsert to handle any edge case duplicates
         const { error } = await supabase
           .from('calendar_blocks')
-          .insert(dataToInsert);
+          .upsert(dataToInsert, { onConflict: 'id' });
 
         if (error) throw error;
       }
@@ -1292,12 +1294,12 @@ export function useCalendarBlocksSync() {
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
 
-      // Insert new slots
+      // Insert new slots (use upsert for safety)
       const dataToInsert = transformToSupabase(newSlotsByDate, user.id);
       if (dataToInsert.length > 0) {
         const { error } = await supabase
           .from('calendar_blocks')
-          .insert(dataToInsert);
+          .upsert(dataToInsert, { onConflict: 'id' });
 
         if (error) throw error;
       }
