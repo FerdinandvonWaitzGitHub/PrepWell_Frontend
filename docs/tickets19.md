@@ -1,6 +1,6 @@
 # T19: Fehleranalyse und Fixes
 
-## Status: ERLEDIGT (Migration manuell ausführen)
+## Status: ALLE FEHLER BEHOBEN
 
 ---
 
@@ -10,7 +10,7 @@
 |---|--------|---------|--------|
 | 1 | AudioContext Warning | HARMLOS | GEFIXT |
 | 2 | Invalid date key: null | HARMLOS | GEFIXT |
-| 3 | 400 Bad Request calendar_blocks | KRITISCH | Migration manuell ausführen |
+| 3 | 400 Bad Request calendar_blocks | KRITISCH | GEFIXT (Migration ausgeführt am 14.01.2026) |
 
 ---
 
