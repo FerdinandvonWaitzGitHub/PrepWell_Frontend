@@ -1674,21 +1674,23 @@ export function usePrivateSessionsSync() {
                 console.warn(`[useSupabaseSync] Skipping private session without title:`, block);
                 return;
               }
+              // Helper to convert "null" strings to actual null
+              const nullSafe = (v) => (v === 'null' || v === '' || v === undefined) ? null : v;
               dataToInsert.push({
                 user_id: user.id,
                 session_date: dateKey, // T17 FIX: was block_date
-                end_date: block.endDate || dateKey, // BUG-012 FIX
+                end_date: nullSafe(block.endDate) || dateKey, // BUG-012 FIX
                 title: block.title, // Required: NOT NULL
-                description: block.description || null,
-                start_time: block.startTime || null,
-                end_time: block.endTime || null,
+                description: nullSafe(block.description),
+                start_time: nullSafe(block.startTime),
+                end_time: nullSafe(block.endTime),
                 all_day: block.allDay || false,
                 is_multi_day: block.isMultiDay || false, // BUG-012 FIX
                 repeat_enabled: block.repeatEnabled || false,
-                repeat_type: block.repeatType || null,
-                repeat_count: block.repeatCount || null,
-                series_id: block.seriesId || null,
-                custom_days: block.customDays || null,
+                repeat_type: nullSafe(block.repeatType),
+                repeat_count: nullSafe(block.repeatCount),
+                series_id: nullSafe(block.seriesId),
+                custom_days: nullSafe(block.customDays),
                 metadata: block.metadata || {},
               });
             });
@@ -1752,18 +1754,18 @@ export function usePrivateSessionsSync() {
             id: blockId,
             user_id: user.id,
             session_date: dateKey, // T17 FIX: was block_date
-            end_date: block.endDate || dateKey, // BUG-012 FIX
+            end_date: (block.endDate === 'null' || !block.endDate) ? dateKey : block.endDate, // BUG-012 FIX + null string fix
             title: block.title, // Required: NOT NULL
-            description: block.description || null,
-            start_time: block.startTime || null,
-            end_time: block.endTime || null,
+            description: block.description === 'null' ? null : (block.description || null),
+            start_time: block.startTime === 'null' ? null : (block.startTime || null),
+            end_time: block.endTime === 'null' ? null : (block.endTime || null),
             all_day: block.allDay || false,
             is_multi_day: block.isMultiDay || false, // BUG-012 FIX
             repeat_enabled: block.repeatEnabled || false,
-            repeat_type: block.repeatType || null,
-            repeat_count: block.repeatCount || null,
-            series_id: block.seriesId || null,
-            custom_days: block.customDays || null,
+            repeat_type: block.repeatType === 'null' ? null : (block.repeatType || null),
+            repeat_count: block.repeatCount === 'null' ? null : (block.repeatCount || null),
+            series_id: block.seriesId === 'null' ? null : (block.seriesId || null),
+            custom_days: block.customDays === 'null' ? null : (block.customDays || null),
             metadata: block.metadata || {},
           };
         });
@@ -1835,18 +1837,18 @@ export function usePrivateSessionsSync() {
               id: blockId,
               user_id: user.id,
               session_date: dateKey, // T17 FIX: was block_date
-              end_date: block.endDate || dateKey, // BUG-012 FIX
+              end_date: (block.endDate === 'null' || !block.endDate) ? dateKey : block.endDate, // BUG-012 FIX + null string fix
               title: block.title, // Required: NOT NULL
-              description: block.description || null,
-              start_time: block.startTime || null,
-              end_time: block.endTime || null,
+              description: block.description === 'null' ? null : (block.description || null),
+              start_time: block.startTime === 'null' ? null : (block.startTime || null),
+              end_time: block.endTime === 'null' ? null : (block.endTime || null),
               all_day: block.allDay || false,
               is_multi_day: block.isMultiDay || false, // BUG-012 FIX
               repeat_enabled: block.repeatEnabled || false,
-              repeat_type: block.repeatType || null,
-              repeat_count: block.repeatCount || null,
-              series_id: block.seriesId || null,
-              custom_days: block.customDays || null,
+              repeat_type: block.repeatType === 'null' ? null : (block.repeatType || null),
+              repeat_count: block.repeatCount === 'null' ? null : (block.repeatCount || null),
+              series_id: block.seriesId === 'null' ? null : (block.seriesId || null),
+              custom_days: block.customDays === 'null' ? null : (block.customDays || null),
               metadata: block.metadata || {},
             };
           });
