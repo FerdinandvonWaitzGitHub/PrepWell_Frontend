@@ -848,6 +848,109 @@ Alle in `src/hooks/use-supabase-sync.js`:
 - `useLogbuchSync`
 - `useAppModeSync`
 
+### 6.3 User Approval System (T14)
+
+**Zweck:** Neue Benutzer müssen von einem Administrator freigeschaltet werden, bevor sie die App nutzen können. Dies ermöglicht eine kontrollierte Beta-Phase.
+
+#### Datenbank-Schema
+
+```sql
+-- profiles Tabelle (Supabase)
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users(id) PRIMARY KEY,
+  approved BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Trigger erstellt automatisch Profil bei Registrierung
+CREATE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, approved)
+  VALUES (NEW.id, FALSE);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+#### State-Variablen in AuthContext
+
+| Variable | Typ | Beschreibung |
+|----------|-----|--------------|
+| `isApproved` | `boolean \| null` | `null` = unbekannt, `true` = freigeschaltet, `false` = nicht freigeschaltet |
+| `approvalLoading` | `boolean` | `true` während Approval-Status geprüft wird |
+
+#### Ablauf
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    USER APPROVAL FLOW                           │
+└────────────────────────────────────────────────────────────────┘
+
+1. Registrierung
+   └── Trigger erstellt profiles-Eintrag mit approved=false
+
+2. Login
+   └── checkApprovalStatus() prüft profiles.approved
+       ├── approved=true  → App normal nutzbar
+       └── approved=false → Wartungsseite angezeigt
+
+3. Admin-Freischaltung (Supabase Dashboard)
+   └── UPDATE profiles SET approved = true WHERE id = 'user-id'
+
+4. Nächster Login
+   └── User kann App nutzen
+```
+
+#### Implementierung in auth-context.jsx
+
+```javascript
+// checkApprovalStatus() - Prüft Approval-Status
+const checkApprovalStatus = useCallback(async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('approved')
+    .eq('id', userId)
+    .single();
+
+  if (error?.code === 'PGRST116') {
+    // Profil nicht gefunden
+    setIsApproved(false);
+    return false;
+  }
+
+  const approved = data?.approved ?? false;
+  setIsApproved(approved);
+  return approved;
+}, []);
+```
+
+#### Fallback-Verhalten
+
+| Szenario | Verhalten |
+|----------|-----------|
+| Supabase nicht konfiguriert | `isApproved = true` (Offline-Modus) |
+| profiles-Tabelle existiert nicht | `isApproved = true` (Migration noch nicht ausgeführt) |
+| Profil nicht gefunden | `isApproved = false` |
+| Netzwerkfehler | `isApproved = true` (App nicht blockieren) |
+
+#### E-Mail-Benachrichtigungen (Supabase Edge Functions)
+
+Zwei Edge Functions senden automatisch E-Mails:
+
+1. **notify-admin** - Bei neuer Registrierung an Admin
+2. **notify-approval** - Bei Freischaltung an User
+
+```
+supabase/functions/
+├── notify-admin/      # Benachrichtigt Admin bei neuer Registrierung
+└── notify-approval/   # Benachrichtigt User bei Freischaltung
+```
+
+#### Migration
+
+SQL-Migration: `supabase/migration-user-approval.sql`
+
 ---
 
 ## 7. Projektstruktur
@@ -917,6 +1020,37 @@ src/
 | BUG-MSW-001 | Moduswechsel zeigt keinen Dialog | AppMode | ✅ Behoben |
 | BUG-MSW-002 | activeLernplaene erkennt Wizard-Lernpläne nicht | AppMode | ✅ Behoben |
 | BUG-P1 | Step 22 ignoriert User-Änderungen aus Step 21 | Wizard | ✅ Behoben |
+| BUG-2c | Page Refresh hängt unendlich (getSession Deadlock) | Auth | ✅ Behoben (Workaround) |
+
+#### BUG-2c Details: Supabase Web Locks Deadlock
+
+**Problem:** `supabase.auth.getSession()` hängt unendlich und löst nie auf. Ursache ist ein bekannter Bug im Supabase SDK ([Issue #1594](https://github.com/supabase/supabase-js/issues/1594)).
+
+**Workaround implementiert in:**
+- `src/services/supabase.ts`: `noOpLock` Funktion umgeht Web Locks
+- `src/contexts/auth-context.jsx`: 3-Sekunden-Timeout als Fallback
+
+```typescript
+// supabase.ts - Web Locks Workaround
+const noOpLock = async <T>(
+  _name: string,
+  _acquireTimeout: number,
+  fn: () => Promise<T>
+): Promise<T> => {
+  return await fn();
+};
+
+export const supabase = createClient(url, key, {
+  auth: {
+    lock: noOpLock, // Bypass Web Locks deadlock bug
+    // ...
+  }
+});
+```
+
+**Mögliche Nachteile:**
+- Parallele Token-Refresh-Requests möglich (selten)
+- Potenzielle Race Conditions bei lokalem State (in Praxis kein Problem)
 
 ### 9.3 Mittel (Funktioniert, aber nicht optimal)
 

@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTimerHistorySync, useUserSettingsSync } from '../hooks/use-supabase-sync';
+import { supabase } from '../services/supabase';
+import { useAuth } from './auth-context';
 
 // LocalStorage keys
 const STORAGE_KEY = 'prepwell_timer_state';
@@ -368,6 +370,12 @@ export const TimerProvider = ({ children }) => {
     savedConfig?.countdownSettings || savedState?.countdownSettings || DEFAULT_COUNTDOWN_SETTINGS
   );
 
+  // T16-W3: Time-based calculation state (instead of interval counting)
+  // These track the actual timestamps for accurate time calculation even when browser throttles intervals
+  const [timerStartedAt, setTimerStartedAt] = useState(savedState?.timerStartedAt || null);
+  const [pausedAt, setPausedAt] = useState(savedState?.pausedAt || null);
+  const [accumulatedPauseTime, setAccumulatedPauseTime] = useState(savedState?.accumulatedPauseTime || 0);
+
   // Interval ref
   const intervalRef = useRef(null);
 
@@ -379,6 +387,160 @@ export const TimerProvider = ({ children }) => {
   const timerHistory = isAuthenticated && supabaseHistory?.length > 0
     ? supabaseHistory
     : localTimerHistory;
+
+  // Get auth context for Supabase sync
+  const { user } = useAuth();
+
+  // T16-W3: Calculate elapsed seconds from timestamps (accurate even after browser throttling)
+  const calculateElapsedSeconds = useCallback(() => {
+    if (!timerStartedAt) return 0;
+
+    const now = pausedAt || Date.now();
+    const totalElapsed = Math.floor((now - timerStartedAt) / 1000);
+    const actualElapsed = totalElapsed - Math.floor(accumulatedPauseTime / 1000);
+
+    return Math.max(0, actualElapsed);
+  }, [timerStartedAt, pausedAt, accumulatedPauseTime]);
+
+  // T16-W3: Calculate remaining seconds for countdown/pomodoro timers
+  const calculateRemainingSeconds = useCallback(() => {
+    if (!timerStartedAt) return remainingSeconds;
+
+    let totalDuration;
+    if (timerType === TIMER_TYPES.POMODORO) {
+      totalDuration = (isBreak ? pomodoroSettings.breakDuration : pomodoroSettings.sessionDuration) * 60;
+    } else if (timerType === TIMER_TYPES.COUNTDOWN) {
+      totalDuration = countdownSettings.duration * 60;
+    } else {
+      return 0; // Countup doesn't have remaining
+    }
+
+    const elapsed = calculateElapsedSeconds();
+    return Math.max(0, totalDuration - elapsed);
+  }, [timerStartedAt, timerType, isBreak, pomodoroSettings, countdownSettings, calculateElapsedSeconds, remainingSeconds]);
+
+  // T16-W3: Save active timer to Supabase for persistence across browser restarts
+  const saveActiveTimerToSupabase = useCallback(async () => {
+    if (!user || !timerStartedAt) return;
+
+    try {
+      const activeTimer = {
+        user_id: user.id,
+        timer_type: timerType,
+        timer_state: timerState,
+        started_at: new Date(timerStartedAt).toISOString(),
+        paused_at: pausedAt ? new Date(pausedAt).toISOString() : null,
+        accumulated_pause_ms: accumulatedPauseTime,
+        pomodoro_settings: pomodoroSettings,
+        countdown_settings: countdownSettings,
+        current_session: currentSession,
+        total_sessions: totalSessions,
+        is_break: isBreak,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('active_timer_sessions')
+        .upsert(activeTimer, { onConflict: 'user_id' });
+
+      if (error) {
+        console.error('[Timer] Error saving active timer to Supabase:', error);
+      }
+    } catch (error) {
+      console.error('[Timer] Error saving active timer:', error);
+    }
+  }, [user, timerType, timerState, timerStartedAt, pausedAt, accumulatedPauseTime,
+      pomodoroSettings, countdownSettings, currentSession, totalSessions, isBreak]);
+
+  // T16-W3: Load active timer from Supabase on app start
+  const loadActiveTimerFromSupabase = useCallback(async () => {
+    if (!user) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('active_timer_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error || !data) return null;
+
+      // Restore timer state from Supabase
+      setTimerType(data.timer_type);
+      setTimerState(data.timer_state);
+      setTimerStartedAt(new Date(data.started_at).getTime());
+      setPausedAt(data.paused_at ? new Date(data.paused_at).getTime() : null);
+      setAccumulatedPauseTime(data.accumulated_pause_ms || 0);
+      setPomodoroSettings(data.pomodoro_settings || DEFAULT_POMODORO_SETTINGS);
+      setCountdownSettings(data.countdown_settings || DEFAULT_COUNTDOWN_SETTINGS);
+      setCurrentSession(data.current_session || 1);
+      setTotalSessions(data.total_sessions || 4);
+      setIsBreak(data.is_break || false);
+
+      // Recalculate display values
+      const startedAt = new Date(data.started_at).getTime();
+      const pausedAtTs = data.paused_at ? new Date(data.paused_at).getTime() : null;
+      const now = pausedAtTs || Date.now();
+      const totalElapsed = Math.floor((now - startedAt) / 1000);
+      const actualElapsed = totalElapsed - Math.floor((data.accumulated_pause_ms || 0) / 1000);
+
+      if (data.timer_type === TIMER_TYPES.COUNTUP) {
+        setElapsedSeconds(actualElapsed);
+      } else {
+        let totalDuration;
+        if (data.timer_type === TIMER_TYPES.POMODORO) {
+          const settings = data.pomodoro_settings || DEFAULT_POMODORO_SETTINGS;
+          totalDuration = (data.is_break ? settings.breakDuration : settings.sessionDuration) * 60;
+        } else {
+          totalDuration = (data.countdown_settings?.duration || 60) * 60;
+        }
+        setRemainingSeconds(Math.max(0, totalDuration - actualElapsed));
+      }
+
+      setStartTime(new Date(data.started_at));
+      console.log('[Timer] Restored active timer from Supabase');
+      return data;
+    } catch (error) {
+      console.error('[Timer] Error loading active timer:', error);
+      return null;
+    }
+  }, [user]);
+
+  // T16-W3: Clear active timer from Supabase when stopped
+  const clearActiveTimerFromSupabase = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('active_timer_sessions')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('[Timer] Error clearing active timer from Supabase:', error);
+      }
+    } catch (error) {
+      console.error('[Timer] Error clearing active timer:', error);
+    }
+  }, [user]);
+
+  // T16-W3: Load active timer from Supabase on mount (if authenticated)
+  useEffect(() => {
+    if (user && !timerStartedAt) {
+      loadActiveTimerFromSupabase();
+    }
+  }, [user]); // Only run when user changes, not on every render
+
+  // T16-W3: Save active timer to Supabase when state changes
+  useEffect(() => {
+    if (user && timerStartedAt && timerState !== TIMER_STATES.IDLE) {
+      // Debounce saves to avoid too many requests
+      const timeoutId = setTimeout(() => {
+        saveActiveTimerToSupabase();
+      }, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [user, timerStartedAt, timerState, pausedAt, accumulatedPauseTime, isBreak, currentSession]);
 
   // Function to save session to both localStorage and Supabase
   const saveSession = useCallback((session) => {
@@ -420,28 +582,40 @@ export const TimerProvider = ({ children }) => {
         currentSession,
         totalSessions,
         isBreak,
+        // T16-W3: Save timestamp-based state for accurate time after browser throttling
+        timerStartedAt,
+        pausedAt,
+        accumulatedPauseTime,
       });
     }
   }, [timerType, timerState, remainingSeconds, elapsedSeconds, startTime, endTime,
-      pomodoroSettings, countdownSettings, currentSession, totalSessions, isBreak]);
+      pomodoroSettings, countdownSettings, currentSession, totalSessions, isBreak,
+      timerStartedAt, pausedAt, accumulatedPauseTime]);
 
-  // Timer tick effect
+  // T16-W3: Timer tick effect - uses timestamp-based calculation for accuracy
+  // The interval only updates the UI, not the actual time tracking
   useEffect(() => {
-    if (timerState === TIMER_STATES.RUNNING) {
-      intervalRef.current = setInterval(() => {
+    if (timerState === TIMER_STATES.RUNNING || timerState === TIMER_STATES.BREAK) {
+      const updateUI = () => {
         if (timerType === TIMER_TYPES.COUNTUP) {
-          setElapsedSeconds(prev => prev + 1);
+          // Calculate from timestamps - accurate even after browser throttling
+          const calculated = calculateElapsedSeconds();
+          setElapsedSeconds(calculated);
         } else {
-          setRemainingSeconds(prev => {
-            if (prev <= 1) {
-              // Timer finished
-              handleTimerComplete();
-              return 0;
-            }
-            return prev - 1;
-          });
+          // Calculate remaining from timestamps
+          const remaining = calculateRemainingSeconds();
+          setRemainingSeconds(remaining);
+
+          // Check if timer completed
+          if (remaining <= 0) {
+            handleTimerComplete();
+          }
         }
-      }, 1000);
+      };
+
+      // Update immediately and then every second
+      updateUI();
+      intervalRef.current = setInterval(updateUI, 1000);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -454,7 +628,30 @@ export const TimerProvider = ({ children }) => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [timerState, timerType]);
+  }, [timerState, timerType, calculateElapsedSeconds, calculateRemainingSeconds]);
+
+  // T16-W3: Visibility change handler - update UI immediately when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' &&
+          (timerState === TIMER_STATES.RUNNING || timerState === TIMER_STATES.BREAK)) {
+        // Immediately recalculate time when tab becomes visible again
+        if (timerType === TIMER_TYPES.COUNTUP) {
+          setElapsedSeconds(calculateElapsedSeconds());
+        } else {
+          const remaining = calculateRemainingSeconds();
+          setRemainingSeconds(remaining);
+          // Check if timer completed while tab was hidden
+          if (remaining <= 0) {
+            handleTimerComplete();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [timerState, timerType, calculateElapsedSeconds, calculateRemainingSeconds]);
 
   // BUG-P1 FIX: Midnight watcher - auto-save session and reset timer at day change
   useEffect(() => {
@@ -491,16 +688,21 @@ export const TimerProvider = ({ children }) => {
         }
 
         // Reset timer for new day
+        const now = Date.now();
         setElapsedSeconds(0);
-        setStartTime(new Date());
+        setStartTime(new Date(now));
+        // T16-W3: Reset timestamps for new day
+        setTimerStartedAt(now);
+        setPausedAt(null);
+        setAccumulatedPauseTime(0);
         if (timerType !== TIMER_TYPES.COUNTUP) {
           // Reset countdown/pomodoro to full duration
           if (timerType === TIMER_TYPES.POMODORO) {
             setRemainingSeconds(pomodoroSettings.sessionDuration * 60);
-            setEndTime(new Date(Date.now() + pomodoroSettings.sessionDuration * 60 * 1000));
+            setEndTime(new Date(now + pomodoroSettings.sessionDuration * 60 * 1000));
           } else {
             setRemainingSeconds(countdownSettings.duration * 60);
-            setEndTime(new Date(Date.now() + countdownSettings.duration * 60 * 1000));
+            setEndTime(new Date(now + countdownSettings.duration * 60 * 1000));
           }
         }
       }
@@ -550,19 +752,29 @@ export const TimerProvider = ({ children }) => {
     }
 
     if (timerType === TIMER_TYPES.POMODORO) {
+      const now = Date.now();
       if (isBreak) {
         // Break finished, start next session or complete
         setIsBreak(false);
         if (currentSession < totalSessions) {
           setCurrentSession(prev => prev + 1);
           setRemainingSeconds(pomodoroSettings.sessionDuration * 60);
-          setEndTime(new Date(Date.now() + pomodoroSettings.sessionDuration * 60 * 1000));
+          setEndTime(new Date(now + pomodoroSettings.sessionDuration * 60 * 1000));
+          // T16-W3: Reset timestamps for new phase
+          setTimerStartedAt(now);
+          setPausedAt(null);
+          setAccumulatedPauseTime(0);
           if (!pomodoroSettings.autoStartBreak) {
             setTimerState(TIMER_STATES.PAUSED);
+            setPausedAt(now);
           }
         } else {
           // All sessions complete
           setTimerState(TIMER_STATES.IDLE);
+          // T16-W3: Reset timestamps
+          setTimerStartedAt(null);
+          setPausedAt(null);
+          setAccumulatedPauseTime(0);
         }
       } else {
         // Session finished, start break
@@ -572,15 +784,24 @@ export const TimerProvider = ({ children }) => {
           ? pomodoroSettings.longBreakDuration
           : pomodoroSettings.breakDuration;
         setRemainingSeconds(breakDuration * 60);
-        setEndTime(new Date(Date.now() + breakDuration * 60 * 1000));
+        setEndTime(new Date(now + breakDuration * 60 * 1000));
+        // T16-W3: Reset timestamps for break phase
+        setTimerStartedAt(now);
+        setPausedAt(null);
+        setAccumulatedPauseTime(0);
         setTimerState(TIMER_STATES.BREAK);
         if (!pomodoroSettings.autoStartBreak) {
           setTimerState(TIMER_STATES.PAUSED);
+          setPausedAt(now);
         }
       }
     } else {
       // Countdown finished
       setTimerState(TIMER_STATES.IDLE);
+      // T16-W3: Reset timestamps
+      setTimerStartedAt(null);
+      setPausedAt(null);
+      setAccumulatedPauseTime(0);
     }
   }, [timerType, isBreak, currentSession, totalSessions, pomodoroSettings, saveSession, startTime, countdownSettings.duration]);
 
@@ -600,6 +821,7 @@ export const TimerProvider = ({ children }) => {
       ...(settings || {}),
     };
 
+    const now = Date.now();
     setPomodoroSettings(mergedSettings);
     setTotalSessions(sessions);
     setCurrentSession(1);
@@ -607,45 +829,68 @@ export const TimerProvider = ({ children }) => {
     setTimerType(TIMER_TYPES.POMODORO);
     setRemainingSeconds(mergedSettings.sessionDuration * 60);
     setElapsedSeconds(0);
-    setStartTime(new Date());
-    setEndTime(new Date(Date.now() + mergedSettings.sessionDuration * 60 * 1000));
+    setStartTime(new Date(now));
+    setEndTime(new Date(now + mergedSettings.sessionDuration * 60 * 1000));
+    // T16-W3: Set timestamp state for accurate time tracking
+    setTimerStartedAt(now);
+    setPausedAt(null);
+    setAccumulatedPauseTime(0);
     setTimerState(TIMER_STATES.RUNNING);
   }, [pomodoroSettings]);
 
   // Start Countdown timer
   const startCountdown = useCallback((durationMinutes) => {
+    const now = Date.now();
     setCountdownSettings({ duration: durationMinutes });
     setTimerType(TIMER_TYPES.COUNTDOWN);
     setRemainingSeconds(durationMinutes * 60);
     setElapsedSeconds(0);
-    setStartTime(new Date());
-    setEndTime(new Date(Date.now() + durationMinutes * 60 * 1000));
+    setStartTime(new Date(now));
+    setEndTime(new Date(now + durationMinutes * 60 * 1000));
+    // T16-W3: Set timestamp state for accurate time tracking
+    setTimerStartedAt(now);
+    setPausedAt(null);
+    setAccumulatedPauseTime(0);
     setTimerState(TIMER_STATES.RUNNING);
   }, []);
 
   // Start Count-up timer
   const startCountup = useCallback(() => {
+    const now = Date.now();
     setTimerType(TIMER_TYPES.COUNTUP);
     setRemainingSeconds(0);
     setElapsedSeconds(0);
-    setStartTime(new Date());
+    setStartTime(new Date(now));
     setEndTime(null);
+    // T16-W3: Set timestamp state for accurate time tracking
+    setTimerStartedAt(now);
+    setPausedAt(null);
+    setAccumulatedPauseTime(0);
     setTimerState(TIMER_STATES.RUNNING);
   }, []);
 
   // Pause timer
   const pauseTimer = useCallback(() => {
+    // T16-W3: Record pause timestamp
+    setPausedAt(Date.now());
     setTimerState(TIMER_STATES.PAUSED);
   }, []);
 
   // Resume timer
   const resumeTimer = useCallback(() => {
-    // Recalculate end time
-    if (timerType !== TIMER_TYPES.COUNTUP) {
-      setEndTime(new Date(Date.now() + remainingSeconds * 1000));
+    // T16-W3: Calculate pause duration and add to accumulated pause time
+    if (pausedAt) {
+      const pauseDuration = Date.now() - pausedAt;
+      setAccumulatedPauseTime(prev => prev + pauseDuration);
+      setPausedAt(null);
     }
-    setTimerState(timerState === TIMER_STATES.BREAK ? TIMER_STATES.BREAK : TIMER_STATES.RUNNING);
-  }, [timerType, remainingSeconds, timerState]);
+    // Recalculate end time based on remaining seconds
+    if (timerType !== TIMER_TYPES.COUNTUP) {
+      const remaining = calculateRemainingSeconds();
+      setEndTime(new Date(Date.now() + remaining * 1000));
+    }
+    setTimerState(isBreak ? TIMER_STATES.BREAK : TIMER_STATES.RUNNING);
+  }, [timerType, pausedAt, isBreak, calculateRemainingSeconds]);
 
   // Toggle pause/resume
   const togglePause = useCallback(() => {
@@ -767,9 +1012,15 @@ export const TimerProvider = ({ children }) => {
     setEndTime(null);
     setCurrentSession(1);
     setIsBreak(false);
+    // T16-W3: Reset timestamp state
+    setTimerStartedAt(null);
+    setPausedAt(null);
+    setAccumulatedPauseTime(0);
     localStorage.removeItem(STORAGE_KEY);
+    // T16-W3: Clear active timer from Supabase
+    clearActiveTimerFromSupabase();
   }, [timerType, timerState, elapsedSeconds, remainingSeconds, startTime,
-      pomodoroSettings, countdownSettings, saveSession]);
+      pomodoroSettings, countdownSettings, saveSession, clearActiveTimerFromSupabase]);
 
   // Get display info based on timer type
   const getDisplayInfo = useCallback(() => {

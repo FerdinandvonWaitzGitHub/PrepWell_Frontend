@@ -29,7 +29,8 @@ const ZeitplanWidget = ({
   onTimelineClick,
   onTimeRangeSelect, // T4.1: Callback when user drags to select a time range (startTime, endTime)
   onDropTaskToBlock, // Callback when a task is dropped onto a block
-  onRemoveTaskFromBlock, // Callback when a task is removed from a block (for unscheduling)
+  onRemoveTaskFromBlock, // Callback when a task is DELETED from a block (permanent delete)
+  onUnscheduleTaskFromBlock, // FR1: Callback when a task is moved BACK to To-Do list
 }) => {
   const [blocks, setBlocks] = useState(data?.blocks || []);
   const [dragOverBlockId, setDragOverBlockId] = useState(null);
@@ -69,9 +70,20 @@ const ZeitplanWidget = ({
   const scheduledBlocks = blocks;
   const totalTimelineHeight = hourSpan * hourHeight;
 
+  // Bug 1b fix: Sync blocks from props - use JSON comparison for deep equality
+  // This ensures tasks dropped onto blocks are reflected immediately
   useEffect(() => {
-    setBlocks(data?.blocks || []);
-  }, [data]);
+    const newBlocks = data?.blocks || [];
+    setBlocks(prevBlocks => {
+      // Deep compare to avoid unnecessary updates but catch task changes
+      const prevJson = JSON.stringify(prevBlocks);
+      const newJson = JSON.stringify(newBlocks);
+      if (prevJson !== newJson) {
+        return newBlocks;
+      }
+      return prevBlocks;
+    });
+  }, [data?.blocks]);
 
   // Auto-scroll to current time on mount
   useEffect(() => {
@@ -543,21 +555,7 @@ const ZeitplanWidget = ({
                               )}
                               {task.text}
                             </span>
-                            {/* X button to remove task */}
-                            {onRemoveTaskFromBlock && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRemoveTaskFromBlock(block, task);
-                                }}
-                                className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0"
-                                title="Aus Session entfernen"
-                              >
-                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M18 6L6 18M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
+                            {/* Task actions (delete, unschedule) are only available in the dialog */}
                           </div>
                         ))}
                         {block.tasks.length > 3 && (

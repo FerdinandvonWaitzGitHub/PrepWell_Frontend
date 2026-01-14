@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTimer, TIMER_TYPES } from '../../contexts/timer-context';
 import { useCheckIn } from '../../contexts/checkin-context';
@@ -74,11 +74,13 @@ const CircularProgress = ({ progress = 0, size = 24, strokeWidth = 2 }) => {
 /**
  * TimerWidget - Shows the currently active timer
  * Based on Figma design with current time display
+ * T16-W6: Added play/pause button for quick control
  */
 const TimerWidget = ({ onClick }) => {
-  const { timerType, isActive, getDisplayInfo, state: _state } = useTimer();
+  const { timerType, isActive, getDisplayInfo, togglePause, state: _state } = useTimer();
   void _state; // Reserved for future use
   const [currentTime, setCurrentTime] = React.useState(getCurrentTimeString());
+  const [isHovered, setIsHovered] = useState(false); // T16-W6: Hover state for play/pause button
 
   // Update current time every second
   React.useEffect(() => {
@@ -136,21 +138,56 @@ const TimerWidget = ({ onClick }) => {
     return secondaryText || currentTime;
   };
 
+  // T16-W6: Handle play/pause without opening dialog
+  const handlePlayPause = (e) => {
+    e.stopPropagation();
+    togglePause();
+  };
+
   return (
-    <button
-      onClick={onClick}
-      className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors"
+    <div
+      className="inline-flex items-center gap-2"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex flex-col items-end gap-0.5">
-        <span className={`text-sm font-medium ${isPaused ? 'text-neutral-500' : 'text-neutral-900'}`}>
-          {isPaused && '⏸ '}{getTimerLabel()}
-        </span>
-        <span className="text-xs text-neutral-500">{getSecondaryLabel()}</span>
-      </div>
-      <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100">
-        <CircularProgress progress={progress} size={24} strokeWidth={2.5} />
-      </div>
-    </button>
+      {/* Main timer area - opens dialog */}
+      <button
+        onClick={onClick}
+        className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors"
+      >
+        <div className="flex flex-col items-end gap-0.5">
+          <span className={`text-sm font-medium ${isPaused ? 'text-neutral-500' : 'text-neutral-900'}`}>
+            {isPaused && '⏸ '}{getTimerLabel()}
+          </span>
+          <span className="text-xs text-neutral-500">{getSecondaryLabel()}</span>
+        </div>
+        <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100">
+          <CircularProgress progress={progress} size={24} strokeWidth={2.5} />
+        </div>
+      </button>
+
+      {/* T16-W6: Play/Pause Button - visible on hover */}
+      {isHovered && (
+        <button
+          onClick={handlePlayPause}
+          className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100 hover:bg-neutral-50 transition-colors"
+          title={isPaused ? 'Fortsetzen' : 'Pausieren'}
+        >
+          {isPaused ? (
+            // Play Icon
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-neutral-600">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          ) : (
+            // Pause Icon
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-neutral-600">
+              <rect x="6" y="4" width="4" height="16" />
+              <rect x="14" y="4" width="4" height="16" />
+            </svg>
+          )}
+        </button>
+      )}
+    </div>
   );
 };
 
@@ -172,6 +209,7 @@ const DashboardSubHeader = ({
   learningMinutesGoal = 0, // BUG-022 FIX: Default to 0, not 480 - goal comes from settings or planned slots
   checkInDone = false,
   checkInStatus = null, // TICKET-1: Detailed check-in status { morningDone, eveningDone, count, allDone }
+  isMentorActivated = false, // T16-W1: Only show check-in if mentor is activated
   onTimerClick,
 }) => {
   const navigate = useNavigate();
@@ -333,30 +371,26 @@ const DashboardSubHeader = ({
             <p className="text-xs text-neutral-500">Dashboard</p>
           </div>
 
-          {/* Check-In Button */}
-          {getCheckInButton()}
+          {/* T16-W1: Check-In Button - only show if mentor is activated */}
+          {isMentorActivated && getCheckInButton()}
 
-          {/* Daily Learning Progress */}
-          <div className="flex flex-col gap-1 min-w-[200px]">
-            <span className="text-xs text-neutral-600">
-              {/* BUG-022 FIX: Show appropriate message when no goal is set */}
-              {learningMinutesGoal > 0
-                ? `${formatHoursMinutes(learningMinutesCompleted)} von ${formatHoursMinutes(learningMinutesGoal)} Tageslernziel`
-                : learningMinutesCompleted > 0
-                  ? `${formatHoursMinutes(learningMinutesCompleted)} gelernt (kein Tagesziel)`
-                  : 'Kein Tagesziel gesetzt'
-              }
-            </span>
-            <div className="w-full flex items-center gap-1">
-              <div className="flex-1 bg-neutral-200 rounded-full h-1.5">
-                <div
-                  className={`h-1.5 rounded-full transition-all ${learningMinutesGoal > 0 ? 'bg-neutral-900' : 'bg-neutral-400'}`}
-                  style={{ width: `${progressPercentage}%` }}
-                />
+          {/* T16-W1: Daily Learning Progress - only show if goal is set */}
+          {learningMinutesGoal > 0 && (
+            <div className="flex flex-col gap-1 min-w-[200px]">
+              <span className="text-xs text-neutral-600">
+                {`${formatHoursMinutes(learningMinutesCompleted)} von ${formatHoursMinutes(learningMinutesGoal)} Tageslernziel`}
+              </span>
+              <div className="w-full flex items-center gap-1">
+                <div className="flex-1 bg-neutral-200 rounded-full h-1.5">
+                  <div
+                    className="h-1.5 rounded-full transition-all bg-neutral-900"
+                    style={{ width: `${progressPercentage}%` }}
+                  />
+                </div>
+                <div className="w-16 bg-neutral-100 rounded-full h-1.5" />
               </div>
-              <div className="w-16 bg-neutral-100 rounded-full h-1.5" />
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right Side - Timer Widget */}

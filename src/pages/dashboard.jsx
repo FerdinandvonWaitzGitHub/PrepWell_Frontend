@@ -83,6 +83,11 @@ const DashboardPage = () => {
   void _refresh;
   void _doCheckIn;
 
+  // FR1: Filter out scheduled tasks (they should not appear in To-Do list when scheduled to a block)
+  const availableAufgaben = useMemo(() => {
+    return aufgaben.filter(task => !task.scheduledInBlock);
+  }, [aufgaben]);
+
   // Redirect to check-in page if mentor is activated and check-in is needed
   // BUG-C FIX: Wait for check-in data to be loaded before deciding to redirect
   useEffect(() => {
@@ -121,6 +126,9 @@ const DashboardPage = () => {
     // Aufgabe Scheduling (for drag & drop)
     scheduleAufgabeToBlock,
     unscheduleAufgabeFromBlock, // For removing tasks from blocks
+    // FR1: Task Scheduling (for drag & drop To-Do tasks)
+    scheduleTaskToBlock,
+    unscheduleTaskFromBlock,
     // T5.4: Thema Scheduling (for drag & drop complete thema)
     scheduleThemaToBlock,
     // T5.4: Cleanup expired schedules at midnight
@@ -333,6 +341,117 @@ const DashboardPage = () => {
 
     updateThemaInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, { completed: !currentCompleted });
   }, [selectedThemeListId, contentPlans, updateThemaInPlan]);
+
+  // FR2: Today's blocks for BlocksListView (from calendar_blocks, NOT time_sessions!)
+  // These are the block allocations from the month view (capacity planning)
+  const todayBlocksForWidget = useMemo(() => {
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
+    // Group blocks by topicId/contentId to get unique learning blocks
+    const blockMap = new Map();
+    dayBlocks.forEach(block => {
+      if (block.status !== 'empty') {
+        const blockId = block.topicId || block.contentId || block.id;
+        if (!blockMap.has(blockId)) {
+          blockMap.set(blockId, {
+            id: blockId,
+            title: block.topicTitle || block.title || 'Lernblock',
+            blockType: block.blockType || 'lernblock',
+            rechtsgebiet: block.rechtsgebiet,
+            unterrechtsgebiet: block.unterrechtsgebiet,
+            size: 1,
+            positions: [block.position],
+            tasks: block.tasks || [],
+          });
+        } else {
+          // Merge multi-slot blocks
+          const existing = blockMap.get(blockId);
+          existing.size += 1;
+          existing.positions.push(block.position);
+        }
+      }
+    });
+    return Array.from(blockMap.values());
+  }, [blocksByDate, dateString]);
+
+  // FR2: Block task handlers use updateDayBlocks (calendar_blocks), NOT updateTimeBlock
+  const handleToggleBlockTask = useCallback((blockId, taskId) => {
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
+    const updatedBlocks = dayBlocks.map(block => {
+      const isMatch = block.topicId === blockId || block.contentId === blockId || block.id === blockId;
+      if (isMatch && block.tasks) {
+        return {
+          ...block,
+          tasks: block.tasks.map(task =>
+            task.id === taskId ? { ...task, completed: !task.completed } : task
+          ),
+        };
+      }
+      return block;
+    });
+    updateDayBlocks(dateString, updatedBlocks);
+  }, [dateString, blocksByDate, updateDayBlocks]);
+
+  // FR2: Add a new task to a calendar block
+  const handleAddBlockTask = useCallback((blockId, taskTitle) => {
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
+    const newTask = {
+      id: `block-task-${Date.now()}`,
+      title: taskTitle,
+      completed: false,
+      priority: 'none',
+      createdAt: new Date().toISOString(),
+    };
+    const updatedBlocks = dayBlocks.map(block => {
+      const isMatch = block.topicId === blockId || block.contentId === blockId || block.id === blockId;
+      if (isMatch) {
+        return {
+          ...block,
+          tasks: [...(block.tasks || []), newTask],
+        };
+      }
+      return block;
+    });
+    updateDayBlocks(dateString, updatedBlocks);
+  }, [dateString, blocksByDate, updateDayBlocks]);
+
+  // FR2: Delete a task from a calendar block
+  const handleDeleteBlockTask = useCallback((blockId, taskId) => {
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
+    const updatedBlocks = dayBlocks.map(block => {
+      const isMatch = block.topicId === blockId || block.contentId === blockId || block.id === blockId;
+      if (isMatch && block.tasks) {
+        return {
+          ...block,
+          tasks: block.tasks.filter(task => task.id !== taskId),
+        };
+      }
+      return block;
+    });
+    updateDayBlocks(dateString, updatedBlocks);
+  }, [dateString, blocksByDate, updateDayBlocks]);
+
+  // FR2: Toggle task priority in a calendar block (none → medium → high → none)
+  const handleToggleBlockTaskPriority = useCallback((blockId, taskId) => {
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
+    const priorityMap = { none: 'medium', medium: 'high', high: 'none' };
+    const updatedBlocks = dayBlocks.map(block => {
+      const isMatch = block.topicId === blockId || block.contentId === blockId || block.id === blockId;
+      if (isMatch && block.tasks) {
+        return {
+          ...block,
+          tasks: block.tasks.map(task => {
+            if (task.id === taskId) {
+              const currentPriority = task.priority || 'none';
+              return { ...task, priority: priorityMap[currentPriority] || 'medium' };
+            }
+            return task;
+          }),
+        };
+      }
+      return block;
+    });
+    updateDayBlocks(dateString, updatedBlocks);
+  }, [dateString, blocksByDate, updateDayBlocks]);
 
   // Dialog states
   const [selectedBlock, setSelectedBlock] = useState(null);
@@ -656,13 +775,20 @@ const DashboardPage = () => {
     let targetBlockId = null;
     let targetIsTimeBlock = false;
 
-    // Helper to check if block matches target
-    const isBlockMatch = (blk, targetBlock) =>
-      blk.contentId === targetBlock.id ||
-      blk.contentId === targetBlock.contentId ||
-      blk.topicId === targetBlock.id ||
-      blk.topicId === targetBlock.topicId ||
-      blk.id === targetBlock.id;
+    // Bug 1b fix: Helper to check if block matches target
+    // Enhanced matching to handle all ID formats (timeblock-xxx, UUIDs, contentIds, topicIds)
+    const isBlockMatch = (blk, targetBlock) => {
+      // Direct ID match (most common for time blocks)
+      if (blk.id && targetBlock.id && blk.id === targetBlock.id) return true;
+      // Content ID match (for Lernplan blocks)
+      if (blk.contentId && (blk.contentId === targetBlock.id || blk.contentId === targetBlock.contentId)) return true;
+      // Topic ID match (for topic-based blocks)
+      if (blk.topicId && (blk.topicId === targetBlock.id || blk.topicId === targetBlock.topicId)) return true;
+      // Reverse check: target has contentId/topicId
+      if (targetBlock.contentId && (targetBlock.contentId === blk.id || targetBlock.contentId === blk.contentId)) return true;
+      if (targetBlock.topicId && (targetBlock.topicId === blk.id || targetBlock.topicId === blk.topicId)) return true;
+      return false;
+    };
 
     // Check which data store contains the target block
     const targetInLernplan = lernplanBlocks.some(blk => isBlockMatch(blk, block));
@@ -829,8 +955,12 @@ const DashboardPage = () => {
 
     // Handle source-specific behavior
     if (source === 'todos' && itemsWereAdded) {
-      // Remove from To-Do list
-      removeTask(droppedTask.id);
+      // FR1: Mark as scheduled instead of deleting (allows restoration)
+      scheduleTaskToBlock(droppedTask.id, {
+        blockId: targetBlockId,
+        date: dateString,
+        blockTitle: block.title || 'Lernblock',
+      });
     } else if (source === 'themenliste' && itemsWereAdded) {
       // Mark the aufgabe as scheduled in the themenliste (grays it out)
       scheduleAufgabeToBlock(droppedTask.id, {
@@ -839,7 +969,7 @@ const DashboardPage = () => {
         blockTitle: block.title || 'Lernblock',
       });
     }
-  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, removeTask, scheduleAufgabeToBlock, scheduleThemaToBlock]);
+  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, scheduleTaskToBlock, scheduleAufgabeToBlock, scheduleThemaToBlock]);
 
   // Handle removing a task from a block (for unscheduling)
   // This removes the task from the block AND marks it as available again in themenliste
@@ -847,13 +977,20 @@ const DashboardPage = () => {
     const lernplanBlocks = (blocksByDate || {})[dateString] || [];
     const timeBlocks = (timeBlocksByDate || {})[dateString] || [];
 
-    // Helper to check if block matches target
-    const isBlockMatch = (blk, targetBlock) =>
-      blk.contentId === targetBlock.id ||
-      blk.contentId === targetBlock.contentId ||
-      blk.topicId === targetBlock.id ||
-      blk.topicId === targetBlock.topicId ||
-      blk.id === targetBlock.id;
+    // Bug 1b fix: Helper to check if block matches target
+    // Enhanced matching to handle all ID formats (timeblock-xxx, UUIDs, contentIds, topicIds)
+    const isBlockMatch = (blk, targetBlock) => {
+      // Direct ID match (most common for time blocks)
+      if (blk.id && targetBlock.id && blk.id === targetBlock.id) return true;
+      // Content ID match (for Lernplan blocks)
+      if (blk.contentId && (blk.contentId === targetBlock.id || blk.contentId === targetBlock.contentId)) return true;
+      // Topic ID match (for topic-based blocks)
+      if (blk.topicId && (blk.topicId === targetBlock.id || blk.topicId === targetBlock.topicId)) return true;
+      // Reverse check: target has contentId/topicId
+      if (targetBlock.contentId && (targetBlock.contentId === blk.id || targetBlock.contentId === blk.contentId)) return true;
+      if (targetBlock.topicId && (targetBlock.topicId === blk.id || targetBlock.topicId === blk.topicId)) return true;
+      return false;
+    };
 
     // Check which data store contains the target block
     const targetInTimeBlocks = timeBlocks.some(blk => isBlockMatch(blk, block));
@@ -882,11 +1019,66 @@ const DashboardPage = () => {
       updateDayBlocks(dateString, updatedBlocks);
     }
 
-    // Unschedule the aufgabe in themenliste (makes it available again)
-    if (task.sourceId && unscheduleAufgabeFromBlock) {
+    // FR1: Permanent delete - for todos, actually delete the task
+    if (task.source === 'todos' && task.sourceId) {
+      // Permanently delete the task from the To-Do list
+      removeTask(task.sourceId);
+    } else if (task.source === 'themenliste' && task.sourceId && unscheduleAufgabeFromBlock) {
+      // For themenliste tasks, unschedule (they can't be deleted, only unscheduled)
       unscheduleAufgabeFromBlock(task.sourceId);
     }
-  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, unscheduleAufgabeFromBlock]);
+  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, removeTask, unscheduleAufgabeFromBlock]);
+
+  // FR1: Handle unscheduling a task from a block (returns it to To-Do list)
+  // This removes the task from the block AND marks it as available again
+  const handleUnscheduleTaskFromBlock = useCallback((block, task) => {
+    const lernplanBlocks = (blocksByDate || {})[dateString] || [];
+    const timeBlocks = (timeBlocksByDate || {})[dateString] || [];
+
+    // Helper to check if block matches target
+    const isBlockMatch = (blk, targetBlock) => {
+      if (blk.id && targetBlock.id && blk.id === targetBlock.id) return true;
+      if (blk.contentId && (blk.contentId === targetBlock.id || blk.contentId === targetBlock.contentId)) return true;
+      if (blk.topicId && (blk.topicId === targetBlock.id || blk.topicId === targetBlock.topicId)) return true;
+      if (targetBlock.contentId && (targetBlock.contentId === blk.id || targetBlock.contentId === blk.contentId)) return true;
+      if (targetBlock.topicId && (targetBlock.topicId === blk.id || targetBlock.topicId === blk.topicId)) return true;
+      return false;
+    };
+
+    // Check which data store contains the target block
+    const targetInTimeBlocks = timeBlocks.some(blk => isBlockMatch(blk, block));
+
+    if (targetInTimeBlocks) {
+      // Remove from time block
+      const targetTimeBlock = timeBlocks.find(blk => isBlockMatch(blk, block));
+      if (targetTimeBlock) {
+        const updatedTasks = (targetTimeBlock.tasks || []).filter(t => t.id !== task.id);
+        updateTimeBlock(dateString, targetTimeBlock.id, {
+          tasks: updatedTasks,
+        });
+      }
+    } else {
+      // Remove from Lernplan block
+      const updatedBlocks = lernplanBlocks.map(blk => {
+        if (isBlockMatch(blk, block)) {
+          return {
+            ...blk,
+            tasks: (blk.tasks || []).filter(t => t.id !== task.id),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return blk;
+      });
+      updateDayBlocks(dateString, updatedBlocks);
+    }
+
+    // Unschedule based on source type (makes task available again in To-Do list)
+    if (task.source === 'todos' && task.sourceId && unscheduleTaskFromBlock) {
+      unscheduleTaskFromBlock(task.sourceId);
+    } else if (task.source === 'themenliste' && task.sourceId && unscheduleAufgabeFromBlock) {
+      unscheduleAufgabeFromBlock(task.sourceId);
+    }
+  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, unscheduleTaskFromBlock, unscheduleAufgabeFromBlock]);
 
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);
@@ -1071,6 +1263,7 @@ const DashboardPage = () => {
         learningMinutesGoal={dailyLearningGoalMinutes}
         checkInDone={checkInDone}
         checkInStatus={checkInStatus}
+        isMentorActivated={mentorIsActivated}
         onTimerClick={() => {
           // Always show timer main dialog - it handles all states
           setShowTimerMain(true);
@@ -1084,7 +1277,7 @@ const DashboardPage = () => {
             leftColumn={
               <LernblockWidget
                 topics={topics}
-                tasks={aufgaben}
+                tasks={availableAufgaben}
                 onToggleTask={toggleTask}
                 onTogglePriority={toggleTaskPriority}
                 onAddTask={addTask}
@@ -1102,6 +1295,12 @@ const DashboardPage = () => {
                 showThemaCheckbox={showThemaCheckbox}
                 chapterLevelEnabled={chapterLevelEnabled}
                 onArchiveThemeList={archiveContentPlan}
+                // FR2: Blocks props for third toggle position
+                todayBlocks={todayBlocksForWidget}
+                onToggleBlockTask={handleToggleBlockTask}
+                onAddBlockTask={handleAddBlockTask}
+                onDeleteBlockTask={handleDeleteBlockTask}
+                onToggleBlockTaskPriority={handleToggleBlockTaskPriority}
                 isExamMode={isExamMode}
               />
             }
@@ -1115,6 +1314,7 @@ const DashboardPage = () => {
                 onTimeRangeSelect={handleTimeRangeSelect}
                 onDropTaskToBlock={handleDropTaskToBlock}
                 onRemoveTaskFromBlock={handleRemoveTaskFromBlock}
+                onUnscheduleTaskFromBlock={handleUnscheduleTaskFromBlock}
               />
             }
           />
@@ -1136,8 +1336,9 @@ const DashboardPage = () => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
+        onUnscheduleTask={handleUnscheduleTaskFromBlock}
         availableSlots={4}
-        availableTasks={aufgaben}
+        availableTasks={availableAufgaben}
         themeLists={themeLists}
       />
 
@@ -1189,7 +1390,7 @@ const DashboardPage = () => {
         date={currentDateObj}
         onSave={handleAddBlock}
         availableSlots={4}
-        availableTasks={aufgaben}
+        availableTasks={availableAufgaben}
         themeLists={themeLists}
         initialStartTime={selectedTimeRange?.startTime}
         initialEndTime={selectedTimeRange?.endTime}

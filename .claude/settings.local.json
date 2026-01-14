@@ -68,7 +68,14 @@
       "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" commit -m \"$\\(cat <<''EOF''\nrefactor\\(wizard\\): Remove lernplanBloecke completely \\(KPI-1.1\\)\n\n- Removed lernplanBloecke from initialWizardState\n- Removed from prevStep cascade delete logic \\(3 locations\\)\n- Removed from API payload in completeWizard\n- Updated WIZARD_DATA_ISSUES.md with KPI-1.1 fulfilled status\n\nAll wizard steps now use lernbloeckeDraft exclusively.\nThis resolves the duplicate block data structure issue.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" add src/features/lernplan-wizard/steps/step-12-themen-edit.jsx)",
       "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" commit -m \"$\\(cat <<''EOF''\nfix\\(wizard\\): Make Step 12 RG tabs clickable and use inline theme input\n\n- RG tabs are now buttons that allow switching between all Rechtsgebiete\n- Shows theme count badge on tabs with existing themes\n- Replaced popup modal with inline input field for adding themes\n- Removed unused AddThemaModal component\n\nThis improves UX by allowing users to freely navigate between RGs\ninstead of being forced through sequentially.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" log --oneline -5)"
+      "Bash(git -C \"c:\\\\Users\\\\fvwai\\\\PrepWell_Frontend\" log --oneline -5)",
+      "Bash(npx lint-staged)",
+      "Bash(powershell:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(grep:*)",
+      "Bash(ping:*)"
     ]
   }
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 const AuthContext = createContext(null);
@@ -73,6 +73,13 @@ export function AuthProvider({ children }) {
   // This prevents the app from rendering until we know the approval status
   const [isApproved, setIsApproved] = useState(null);
   const [approvalLoading, setApprovalLoading] = useState(true);
+  // T17 FIX: Track approval status in ref for access in callbacks
+  const isApprovedRef = useRef(null);
+
+  // T17 FIX: Keep ref in sync with state
+  useEffect(() => {
+    isApprovedRef.current = isApproved;
+  }, [isApproved]);
 
   // Initialize user settings in Supabase if they don't exist
   const initializeUserSettings = useCallback(async (userId) => {
@@ -177,8 +184,24 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    // Bug 2c fix: Timeout fallback in case getSession() hangs
+    // This can happen when sessionStorage has a corrupted/invalid token
+    let isResolved = false;
+    const timeoutId = setTimeout(() => {
+      if (!isResolved) {
+        console.warn('[AuthContext] getSession() timed out, clearing session storage and continuing');
+        // Clear potentially corrupted session storage to allow fresh login
+        sessionStorage.removeItem('prepwell-auth');
+        setLoading(false);
+        setApprovalLoading(false);
+        setIsApproved(null);
+      }
+    }, 3000); // 3 second timeout
+
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      isResolved = true;
+      clearTimeout(timeoutId);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -193,38 +216,111 @@ export function AuthProvider({ children }) {
         setApprovalLoading(false);
         setIsApproved(null);
       }
+    }).catch((error) => {
+      isResolved = true;
+      clearTimeout(timeoutId);
+      // Bug 2c fix: Ensure loading is always set to false even on error
+      console.error('Error getting session:', error);
+      setLoading(false);
+      setApprovalLoading(false);
+      setIsApproved(null);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        // BUG-021 FIX: Clear localStorage when a different user logs in
-        // This prevents data from a previous user from being shown to the new user
-        if (_event === 'SIGNED_IN' && session?.user?.id) {
-          const lastUserId = localStorage.getItem('prepwell_last_user_id');
-          if (lastUserId && lastUserId !== session.user.id) {
-            console.log('Different user detected, clearing previous user data');
-            clearAllUserData();
+        try {
+          // T17 FIX: Skip approval check on token refresh or if already approved
+          // This prevents spinner loops when tab returns from background
+          // Use ref to get current value, not stale closure value
+          const skipApprovalCheck = _event === 'TOKEN_REFRESHED' ||
+                                    _event === 'INITIAL_SESSION' ||
+                                    isApprovedRef.current === true;
+
+          // BUG-021 FIX: Clear localStorage when a different user logs in
+          // This prevents data from a previous user from being shown to the new user
+          if (_event === 'SIGNED_IN' && session?.user?.id) {
+            const lastUserId = localStorage.getItem('prepwell_last_user_id');
+            if (lastUserId && lastUserId !== session.user.id) {
+              console.log('Different user detected, clearing previous user data');
+              clearAllUserData();
+            }
+            // Store current user ID for future comparison
+            localStorage.setItem('prepwell_last_user_id', session.user.id);
+            initializeUserSettings(session.user.id);
+            // T14/T17: Only check approval status on actual sign-in, not token refresh
+            if (!skipApprovalCheck) {
+              await checkApprovalStatus(session.user.id);
+            }
+          } else if (_event === 'SIGNED_OUT') {
+            // T14: Reset approval status on sign out
+            setIsApproved(null);
+            setApprovalLoading(false);
           }
-          // Store current user ID for future comparison
-          localStorage.setItem('prepwell_last_user_id', session.user.id);
-          initializeUserSettings(session.user.id);
-          // T14: Check approval status
-          await checkApprovalStatus(session.user.id);
-        } else if (_event === 'SIGNED_OUT') {
-          // T14: Reset approval status on sign out
-          setIsApproved(null);
+
+          setSession(session);
+          setUser(session?.user ?? null);
+        } catch (error) {
+          // Bug 2c fix: Ensure state is always updated even on error
+          console.error('Error in auth state change handler:', error);
+          setSession(session);
+          setUser(session?.user ?? null);
           setApprovalLoading(false);
         }
-
-        setSession(session);
-        setUser(session?.user ?? null);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
     // T14: checkApprovalStatus added back to deps
   }, [initializeUserSettings, checkApprovalStatus]);
+
+  // T17 FIX: Handle tab visibility change to prevent stuck loading state
+  // When tab returns from background and any loading state is true after timeout,
+  // force loading states to false to unblock the app
+  // FIX: Use ref to track timeout and properly clean up
+  const visibilityTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Clear any existing timeout
+        if (visibilityTimeoutRef.current) {
+          clearTimeout(visibilityTimeoutRef.current);
+        }
+
+        // Only set timeout if either loading state is true
+        if (loading || approvalLoading) {
+          console.log('[AuthContext] Tab became visible while loading, setting safety timeout');
+          visibilityTimeoutRef.current = setTimeout(() => {
+            // Check current values via functional updates
+            setLoading(prev => {
+              if (prev) {
+                console.warn('[AuthContext] Loading stuck after tab return, forcing loading=false');
+              }
+              return false;
+            });
+            setApprovalLoading(prev => {
+              if (prev) {
+                console.warn('[AuthContext] ApprovalLoading stuck after tab return, forcing approvalLoading=false');
+              }
+              return false;
+            });
+          }, 2000); // 2 second safety timeout after tab return
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (visibilityTimeoutRef.current) {
+        clearTimeout(visibilityTimeoutRef.current);
+      }
+    };
+  }, [loading, approvalLoading]);
 
   const signUp = async (email, password, firstName = '', lastName = '') => {
     if (!isSupabaseConfigured()) {

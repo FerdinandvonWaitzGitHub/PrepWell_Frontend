@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { safeSessionStorage } from '../utils/safe-storage';
 
 // Try environment variables first, fallback to hardcoded values
 // Note: Anon key is safe to expose - it's meant for public frontend use
@@ -15,14 +16,30 @@ if (!import.meta.env.VITE_SUPABASE_URL) {
 // BUG-001 FIX: Use sessionStorage instead of localStorage
 // This ensures the user is logged out when the browser tab is closed
 // sessionStorage is automatically cleared when the tab/window is closed
+
+// BUG-2c FIX: Bypass Web Locks to prevent getSession() deadlock
+// See: https://github.com/supabase/supabase-js/issues/1594
+// The Supabase SDK has a known bug where Web Locks can cause deadlocks,
+// making getSession() hang indefinitely. This workaround disables locks.
+const noOpLock = async <T>(
+  _name: string,
+  _acquireTimeout: number,
+  fn: () => Promise<T>
+): Promise<T> => {
+  return await fn();
+};
+
+// T17 P2 FIX: Use safeSessionStorage instead of sessionStorage
+// This provides fallback to in-memory storage when sessionStorage is blocked
 export const supabase: SupabaseClient | null =
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey, {
         auth: {
-          storage: sessionStorage,
+          storage: safeSessionStorage,
           storageKey: 'prepwell-auth',
           autoRefreshToken: true,
           persistSession: true,
+          lock: noOpLock, // Bypass Web Locks deadlock bug
         },
       })
     : null;

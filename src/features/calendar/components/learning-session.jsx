@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 import { PlusIcon } from '../../../components/ui';
+import { getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
 
 /**
  * LearningSession component (formerly LearningBlock)
@@ -11,6 +12,7 @@ import { PlusIcon } from '../../../components/ui';
  * @param {string} title - Optional custom title
  * @param {string} blockType - Type of session (theme, repetition, exam, free)
  * @param {object} unterrechtsgebiet - Unterrechtsgebiet object with name
+ * @param {string} rechtsgebiet - W5: Rechtsgebiet ID for coloring
  * @param {boolean} isAddButton - Whether this is an add button session
  * @param {boolean} isOutOfRange - Whether the date is outside learning period
  * @param {Function} onAddClick - Callback when the add button is clicked
@@ -19,11 +21,22 @@ const LearningSession = memo(function LearningSession({
   title = '',
   blockType = '',
   unterrechtsgebiet = null,
+  rechtsgebiet = null, // W5: Rechtsgebiet for coloring
   isAddButton = false,
   isOutOfRange = false,
   onAddClick,
+  onClick, // Bug 2b fix: Allow block click handling
   className = ''
 }) {
+  // Bug 2b fix: Handle block click with stopPropagation to prevent day click
+  // Note: useCallback must be called before any early returns (React Hooks rules)
+  const handleClick = useCallback((e) => {
+    e.stopPropagation();
+    if (onClick) {
+      onClick(e);
+    }
+  }, [onClick]);
+
   // Render add button variant
   if (isAddButton) {
     return (
@@ -51,8 +64,15 @@ const LearningSession = memo(function LearningSession({
   }
 
   // Determine background color based on block type (English keys)
-  // Consistent with week-grid.jsx colors
+  // W5: If rechtsgebiet is provided, use its color for theme/lernblock/repetition
   const getBackgroundColor = () => {
+    // W5: Use rechtsgebiet color if available for learning-related blocks
+    if (rechtsgebiet && (blockType === 'lernblock' || blockType === 'theme' || blockType === 'repetition' || !blockType)) {
+      const colors = getRechtsgebietColor(rechtsgebiet);
+      return `${colors.bg} ${colors.border}`;
+    }
+
+    // Consistent with week-grid.jsx colors
     switch (blockType.toLowerCase()) {
       case 'exam':
         return 'bg-amber-50 border-amber-200'; // Amber for urgency
@@ -90,7 +110,10 @@ const LearningSession = memo(function LearningSession({
   };
 
   return (
-    <div className={`${getBackgroundColor()} border rounded px-4.5 py-2.5 space-y-1 pointer-events-none ${className}`}>
+    <div
+      className={`${getBackgroundColor()} border rounded px-4.5 py-2.5 space-y-1 ${onClick ? 'cursor-pointer hover:opacity-90' : ''} ${className}`}
+      onClick={onClick ? handleClick : undefined}
+    >
       {/* Main display: Unterrechtsgebiet for theme, title for others */}
       <div className="bg-neutral-50 rounded px-2 py-0.5">
         <p className="text-xs font-light text-neutral-900">{getDisplayName()}</p>

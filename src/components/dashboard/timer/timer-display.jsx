@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTimer, TIMER_TYPES } from '../../../contexts/timer-context';
 
 /**
@@ -41,9 +42,11 @@ const CircularProgress = ({ progress, size = 24, strokeWidth = 2, isBreak = fals
 /**
  * TimerDisplay - Shows running timer info based on Figma design
  * Displays remaining/elapsed time with progress indicator
+ * T16-W6: Hover shows play/pause button for quick control
  */
 const TimerDisplay = ({ onClick }) => {
-  const { timerType, isActive, getDisplayInfo } = useTimer();
+  const { timerType, isActive, getDisplayInfo, togglePause } = useTimer();
+  const [isHovered, setIsHovered] = useState(false);
 
   if (!isActive) {
     return null;
@@ -55,6 +58,12 @@ const TimerDisplay = ({ onClick }) => {
   }
 
   const { primaryText, secondaryText, progress, isBreak, isPaused } = displayInfo;
+
+  // T16-W6: Handle play/pause without opening dialog
+  const handlePlayPause = (e) => {
+    e.stopPropagation(); // Prevent dialog from opening
+    togglePause();
+  };
 
   // Determine background color based on timer type and state
   const getBgColor = () => {
@@ -73,37 +82,68 @@ const TimerDisplay = ({ onClick }) => {
   };
 
   return (
-    <button
-      onClick={onClick}
-      className={`
-        inline-flex justify-end items-center gap-4 px-3 py-1 rounded-lg
-        transition-colors cursor-pointer hover:opacity-90
-        ${getBgColor()}
-      `}
+    <div
+      className="relative inline-flex"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Time Info */}
-      <div className="py-1 rounded-md flex flex-col items-end gap-0.5">
-        <div className={`
-          text-sm font-medium leading-5 text-right
-          ${isPaused ? 'text-neutral-600' : isBreak ? 'text-green-700' : 'text-neutral-900'}
-        `}>
-          {isPaused && '⏸ '}{primaryText}
+      {/* T16-W6: Main clickable area opens dialog */}
+      <div
+        onClick={onClick}
+        className={`
+          inline-flex justify-end items-center gap-4 px-3 py-1 rounded-lg
+          transition-colors cursor-pointer hover:opacity-90
+          ${getBgColor()}
+        `}
+        role="button"
+        tabIndex={0}
+      >
+        {/* Time Info */}
+        <div className="py-1 rounded-md flex flex-col items-end gap-0.5">
+          <div className={`
+            text-sm font-medium leading-5 text-right
+            ${isPaused ? 'text-neutral-600' : isBreak ? 'text-green-700' : 'text-neutral-900'}
+          `}>
+            {isPaused && '⏸ '}{primaryText}
+          </div>
+          <div className="text-sm font-normal leading-5 text-neutral-500 text-right">
+            {secondaryText}
+          </div>
         </div>
-        <div className="text-sm font-normal leading-5 text-neutral-500 text-right">
-          {secondaryText}
-        </div>
-      </div>
 
-      {/* Progress Circle */}
-      <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100 flex justify-center items-center">
-        <CircularProgress
-          progress={progress}
-          size={24}
-          strokeWidth={2.5}
-          isBreak={isBreak}
-        />
+        {/* Progress Circle */}
+        <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100 flex justify-center items-center">
+          <CircularProgress
+            progress={progress}
+            size={24}
+            strokeWidth={2.5}
+            isBreak={isBreak}
+          />
+        </div>
+
+        {/* T16-W6: Play/Pause Button - always visible for now */}
+        <div
+          onClick={handlePlayPause}
+          className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100 flex justify-center items-center hover:bg-neutral-50 transition-colors cursor-pointer"
+          title={isPaused ? 'Fortsetzen' : 'Pausieren'}
+          role="button"
+          tabIndex={0}
+        >
+          {isPaused ? (
+            // Play Icon
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          ) : (
+            // Pause Icon
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-primary-600">
+              <rect x="6" y="4" width="4" height="16" />
+              <rect x="14" y="4" width="4" height="16" />
+            </svg>
+          )}
+        </div>
       </div>
-    </button>
+    </div>
   );
 };
 

@@ -21,6 +21,7 @@ const DayTile = memo(function DayTile({
   isCurrentMonth = true,
   onClick,
   onAddClick,
+  onBlockClick, // Bug 2b fix: Callback for block clicks
   className = ''
 }) {
   return (
@@ -49,9 +50,11 @@ const DayTile = memo(function DayTile({
             title={block.title}
             blockType={block.blockType}
             unterrechtsgebiet={block.unterrechtsgebiet}
+            rechtsgebiet={block.rechtsgebiet} // W5: Pass rechtsgebiet for coloring
             isAddButton={block.isAddButton}
             isOutOfRange={block.isOutOfRange}
             onAddClick={onAddClick}
+            onClick={onBlockClick && !block.isAddButton && !block.isOutOfRange ? () => onBlockClick(block) : undefined}
           />
         ))}
       </div>

@@ -263,17 +263,17 @@ const SplitDropdown = ({ value, options, onChange }) => {
 };
 
 /**
- * Format seconds to MM:SS or H:MM:SS
+ * Format seconds to MM min or H:MM h
+ * T16-W2: Removed seconds display - only shows hours and minutes
  */
 const formatTime = (seconds) => {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
 
   if (hrs > 0) {
-    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${hrs}:${mins.toString().padStart(2, '0')} h`;
   }
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${mins} min`;
 };
 
 /**
@@ -472,15 +472,15 @@ const CountupTimerView = ({ dailyLearningGoalMinutes = 0 }) => {
     }));
   }, []);
 
-  // Format elapsed time as H:MM or M:SS
+  // Format elapsed time as H:MM h or M min
+  // T16-W2: Removed seconds display - only shows hours and minutes
   const timeDisplay = useMemo(() => {
     const hrs = Math.floor(elapsedSeconds / 3600);
     const mins = Math.floor((elapsedSeconds % 3600) / 60);
     if (hrs > 0) {
-      return `${hrs}:${mins.toString().padStart(2, '0')}`;
+      return `${hrs}:${mins.toString().padStart(2, '0')} h`;
     }
-    const secs = elapsedSeconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins} min`;
   }, [elapsedSeconds]);
 
   // Daily goal from Lernplan

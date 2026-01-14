@@ -193,6 +193,7 @@ export function useDashboard() {
       completed: task.completed || false,
       priority: task.priority || 'medium',
       subject: task.subject || 'Allgemein',
+      scheduledInBlock: task.scheduledInBlock || null, // FR1: For filtering scheduled tasks
     }));
   }, [dateString, tasksByDate]);
 

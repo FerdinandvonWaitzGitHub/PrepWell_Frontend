@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import CalendarHeader from './calendar-header';
 import CalendarGrid from './calendar-grid';
 import DayManagementDialog from './day-management-dialog';
@@ -7,6 +7,7 @@ import CreateThemeSessionDialog from './create-theme-session-dialog';
 import CreateRepetitionSessionDialog from './create-repetition-session-dialog';
 import CreateExamSessionDialog from './create-exam-session-dialog';
 import CreatePrivateSessionDialog from './create-private-session-dialog';
+import ManageThemeSessionDialog from './manage-theme-session-dialog'; // Bug 2b fix
 import { useCalendar } from '../../../contexts/calendar-context';
 import {
   createDayBlocks,
@@ -36,6 +37,9 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
   const [isCreateExamDialogOpen, setIsCreateExamDialogOpen] = useState(false);
   const [isCreatePrivateDialogOpen, setIsCreatePrivateDialogOpen] = useState(false);
   const [selectedBlockDay, setSelectedBlockDay] = useState(null);
+  // Bug 2b fix: State for block click dialog
+  const [selectedBlock, setSelectedBlock] = useState(null);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
 
   // Use CalendarContext for shared calendar data
   // This data comes from the wizard Step 8 and persists in localStorage
@@ -46,6 +50,7 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     updateDayBlocks: updateContextDayBlocks,
     addPrivateBlock,
     deletePrivateBlock,
+    addTimeBlock, // Bug 2a fix: Also add to time_sessions for week view sync
   } = useCalendar();
 
   // Use context data directly
@@ -197,9 +202,12 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
       return;
     }
 
+    // Bug 2a fix: Generate shared ID for both block and time_session
+    const sharedBlockId = blockData.id || `topic-${Date.now()}`;
+
     // Create new topic blocks
     const topicBlocks = createTopicBlocks(date, positions, {
-      id: blockData.id || `topic-${Date.now()}`,
+      id: sharedBlockId,
       title: blockData.title,
       blockType: blockData.blockType,
       progress: blockData.progress,
@@ -214,6 +222,32 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
 
     // Save to CalendarContext (persists to localStorage)
     updateContextDayBlocks(dateKey, updatedBlocks);
+
+    // Bug 2a fix: Also create a time block for week view synchronization
+    // Position-based default times
+    const defaultTimes = {
+      1: { start: '08:00', end: '10:00' },
+      2: { start: '10:00', end: '12:00' },
+      3: { start: '14:00', end: '16:00' },
+      4: { start: '16:00', end: '18:00' },
+    };
+    const firstPosition = positions[0] || 1;
+    const defaults = defaultTimes[firstPosition] || defaultTimes[1];
+
+    if (addTimeBlock) {
+      addTimeBlock(dateKey, {
+        id: sharedBlockId, // Bug 2a fix: Use same ID for linking
+        title: blockData.title,
+        blockType: blockData.blockType,
+        description: blockData.description || '',
+        rechtsgebiet: blockData.rechtsgebiet,
+        unterrechtsgebiet: blockData.unterrechtsgebiet,
+        tasks: blockData.tasks || [],
+        startTime: defaults.start,
+        endTime: defaults.end,
+        isFromMonthView: true, // Mark as created from month view
+      });
+    }
   };
 
   // Add a private block (with repeat support)
@@ -378,6 +412,42 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     setIsAddDialogOpen(true);
   };
 
+  // Bug 2b fix: Handle block click to open block dialog instead of day dialog
+  const handleBlockClick = useCallback((block) => {
+    console.log('Block clicked:', block);
+    setSelectedBlock(block);
+    setIsBlockDialogOpen(true);
+  }, []);
+
+  // Bug 2b fix: Handle block save from ManageThemeSessionDialog
+  const handleBlockSave = useCallback((updatedBlockData) => {
+    if (!selectedBlock) return;
+
+    // Get the date from the selected block
+    const blockDate = selectedBlock.date || selectedDay?.date;
+    if (blockDate) {
+      handleUpdateBlock(blockDate, {
+        ...updatedBlockData,
+        id: selectedBlock.id || selectedBlock.topicId || selectedBlock.contentId,
+      });
+    }
+    setIsBlockDialogOpen(false);
+    setSelectedBlock(null);
+  }, [selectedBlock, selectedDay?.date]);
+
+  // Bug 2b fix: Handle block delete from ManageThemeSessionDialog
+  const handleBlockDelete = useCallback(() => {
+    if (!selectedBlock) return;
+
+    const blockDate = selectedBlock.date || selectedDay?.date;
+    const blockId = selectedBlock.id || selectedBlock.topicId || selectedBlock.contentId;
+    if (blockDate && blockId) {
+      handleDeleteBlock(blockDate, blockId, selectedBlock.isPrivate);
+    }
+    setIsBlockDialogOpen(false);
+    setSelectedBlock(null);
+  }, [selectedBlock, selectedDay?.date]);
+
   // Get available blocks for a specific date
   const getAvailableBlocksForDate = (date) => {
     if (!date) return 3;
@@ -413,6 +483,7 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         currentDay={isCurrentMonth ? today : null}
         onDayClick={handleDayClick}
         onAddClick={handleAddClick}
+        onBlockClick={handleBlockClick}
       />
 
       {/* Day Management Dialog */}
@@ -495,6 +566,20 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
         onSave={handleAddPrivateBlock}
         availableBlocks={getAvailableBlocksForDate(selectedBlockDay)}
         mode="block"
+      />
+
+      {/* Bug 2b fix: Manage Theme Session Dialog for existing blocks */}
+      <ManageThemeSessionDialog
+        open={isBlockDialogOpen}
+        onOpenChange={(open) => {
+          setIsBlockDialogOpen(open);
+          if (!open) setSelectedBlock(null);
+        }}
+        date={selectedBlock?.date || selectedDay?.date}
+        block={selectedBlock}
+        onSave={handleBlockSave}
+        onDelete={handleBlockDelete}
+        availableBlocks={getAvailableBlocksForDate(selectedBlock?.date || selectedDay?.date)}
       />
     </div>
   );

@@ -258,6 +258,11 @@ function blockHasContent(block: LegacyBlock): boolean {
  * Convert blocks to learning sessions for display
  */
 export function blocksToLearningSessions(blocks: LegacyBlock[]): DisplaySession[] {
+  // Guard against null/undefined blocks
+  if (!blocks || !Array.isArray(blocks)) {
+    return [];
+  }
+
   const groups = groupBlocksByTopic(blocks);
   const sessions: DisplaySession[] = [];
   const processedGroups = new Set<string>();

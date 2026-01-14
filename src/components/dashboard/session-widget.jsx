@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 
 /**
  * SessionWidget component (formerly LernblockWidget)
@@ -64,6 +64,16 @@ const BookIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </svg>
+);
+
+// FR2: Block icon for third toggle position
+const BlockIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" />
+    <rect x="14" y="3" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" />
   </svg>
 );
 
@@ -361,8 +371,9 @@ const TaskList = ({
  * ThemeListUnterrechtsgebietRow - Unterrechtsgebiet mit Kapitel
  * When chapterLevelEnabled=true: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
  * When chapterLevelEnabled=false: Unterrechtsgebiet → Themen → Aufgaben (skips Kapitel)
+ * Memoized to prevent re-renders during input editing (Bug 1a fix)
  */
-const ThemeListUnterrechtsgebietRow = ({
+const ThemeListUnterrechtsgebietRow = memo(function ThemeListUnterrechtsgebietRow({
   unterrechtsgebiet,
   isExpanded,
   onToggleExpand,
@@ -378,7 +389,7 @@ const ThemeListUnterrechtsgebietRow = ({
   onToggleThemaCompleted, // T5.1: Toggle thema completed callback
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
   chapterLevelEnabled = false, // Option C: Whether to show Kapitel level in hierarchy
-}) => {
+}) {
   // Calculate progress for this unterrechtsgebiet
   let completedCount = 0;
   let totalCount = 0;
@@ -463,12 +474,13 @@ const ThemeListUnterrechtsgebietRow = ({
       )}
     </div>
   );
-};
+});
 
 /**
  * ThemeListKapitelRow - Kapitel-Zeile mit Themen
+ * Memoized to prevent re-renders during input editing (Bug 1a fix)
  */
-const ThemeListKapitelRow = ({
+const ThemeListKapitelRow = memo(function ThemeListKapitelRow({
   kapitel,
   unterrechtsgebietId,
   rechtsgebietId,
@@ -483,7 +495,7 @@ const ThemeListKapitelRow = ({
   onToggleAufgabePriority, // Toggle aufgabe priority callback
   onToggleThemaCompleted, // T5.1: Toggle thema completed callback
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
-}) => {
+}) {
   // Calculate progress for this kapitel
   let completedCount = 0;
   let totalCount = 0;
@@ -535,14 +547,15 @@ const ThemeListKapitelRow = ({
       )}
     </div>
   );
-};
+});
 
 /**
  * ThemeListThemaRow - Thema-Zeile mit Aufgaben (draggable)
  * Scheduled aufgaben are grayed out and not draggable
  * Always expandable (even with no aufgaben) to allow adding new tasks
+ * Memoized to prevent re-renders during input editing (Bug 1a fix)
  */
-const ThemeListThemaRow = ({
+const ThemeListThemaRow = memo(function ThemeListThemaRow({
   thema,
   kapitelId,
   unterrechtsgebietId,
@@ -557,7 +570,7 @@ const ThemeListThemaRow = ({
   onToggleThemaCompleted, // T5.1: Toggle thema completed callback
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
   kapitelTitle = '',
-}) => {
+}) {
   // Local state for editing mode - prevents input->span switch during typing
   const [editingAufgabeId, setEditingAufgabeId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
@@ -874,7 +887,7 @@ const ThemeListThemaRow = ({
       )}
     </div>
   );
-};
+});
 
 /**
  * ThemeListView - Ansicht für eine ausgewählte Themenliste (hierarchisch)
@@ -1125,8 +1138,228 @@ const SingleTopicView = ({
 };
 
 /**
- * NoTopicsView - Ansicht ohne Topics (To-Dos oder Themenliste)
- * Toggle zwischen To-Dos und Themenliste mit Dropdown-Auswahl
+ * FR2: BlocksListView - Ansicht für Tages-Blöcke
+ * Zeigt alle Blöcke für heute mit aufklappbaren Aufgaben
+ */
+const BlocksListView = memo(function BlocksListView({
+  blocks = [],
+  onToggleBlockTask,
+  onAddBlockTask,
+  onUpdateBlockTask: _onUpdateBlockTask, // Reserved for future inline editing
+  onDeleteBlockTask,
+  onToggleBlockTaskPriority,
+}) {
+  const [expandedBlockId, setExpandedBlockId] = useState(null);
+  const [newTaskText, setNewTaskText] = useState('');
+  const [addingToBlockId, setAddingToBlockId] = useState(null);
+
+  // Toggle block expansion
+  const handleToggleBlock = useCallback((blockId) => {
+    setExpandedBlockId(prev => prev === blockId ? null : blockId);
+  }, []);
+
+  // Handle adding a new task to a block
+  const handleAddTask = useCallback((blockId) => {
+    if (!newTaskText.trim()) return;
+    onAddBlockTask?.(blockId, newTaskText.trim());
+    setNewTaskText('');
+    setAddingToBlockId(null);
+  }, [newTaskText, onAddBlockTask]);
+
+  // Get background color based on block type
+  const getBlockColor = (block) => {
+    // First check rechtsgebiet
+    const rechtsgebiet = block.rechtsgebiet?.id || block.rechtsgebiet;
+    switch (rechtsgebiet) {
+      case 'zivilrecht':
+        return 'border-l-blue-500 bg-blue-50';
+      case 'strafrecht':
+        return 'border-l-red-500 bg-red-50';
+      case 'oeffentliches-recht':
+        return 'border-l-green-500 bg-green-50';
+      default:
+        break;
+    }
+    // Fallback to block type
+    switch (block.blockType?.toLowerCase()) {
+      case 'buffer':
+        return 'border-l-neutral-400 bg-neutral-50';
+      case 'vacation':
+        return 'border-l-amber-400 bg-amber-50';
+      case 'private':
+        return 'border-l-violet-400 bg-violet-50';
+      default:
+        return 'border-l-primary-400 bg-primary-50';
+    }
+  };
+
+  if (blocks.length === 0) {
+    return (
+      <div className="text-sm text-neutral-500 py-8 text-center">
+        <p>Keine Blöcke für heute.</p>
+        <p className="mt-1 text-xs">Erstelle Blöcke in der Kalenderansicht.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {blocks.map((block) => {
+        const isExpanded = expandedBlockId === block.id;
+        const tasks = block.tasks || [];
+        const completedTasks = tasks.filter(t => t.completed).length;
+
+        return (
+          <div
+            key={block.id}
+            className={`rounded-lg border-l-4 overflow-hidden ${getBlockColor(block)}`}
+          >
+            {/* Block Header */}
+            <button
+              type="button"
+              onClick={() => handleToggleBlock(block.id)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-black/5 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-neutral-900">
+                    {block.title || block.unterrechtsgebiet?.name || block.blockType || 'Block'}
+                  </p>
+                  <p className="text-xs text-neutral-500">
+                    {block.startTime} - {block.endTime}
+                    {tasks.length > 0 && (
+                      <span className="ml-2">• {completedTasks}/{tasks.length} Aufgaben</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            {/* Expanded: Tasks */}
+            {isExpanded && (
+              <div className="px-4 pb-3 bg-white/50">
+                {tasks.length === 0 ? (
+                  <p className="text-xs text-neutral-400 py-2 pl-7">Keine Aufgaben</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {tasks.map((task) => (
+                      <li
+                        key={task.id}
+                        className="flex items-center gap-2 py-1.5 pl-7 group"
+                      >
+                        {/* Checkbox */}
+                        <button
+                          type="button"
+                          onClick={() => onToggleBlockTask?.(block.id, task.id)}
+                          className={`flex-shrink-0 w-4 h-4 rounded border ${
+                            task.completed
+                              ? 'bg-primary-500 border-primary-500 text-white'
+                              : 'border-neutral-300 hover:border-primary-400'
+                          } flex items-center justify-center`}
+                        >
+                          {task.completed && (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* Task text */}
+                        <span className={`flex-1 text-sm ${task.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'}`}>
+                          {task.title || task.text}
+                        </span>
+
+                        {/* Priority indicator */}
+                        {task.priority && (
+                          <button
+                            type="button"
+                            onClick={() => onToggleBlockTaskPriority?.(block.id, task.id)}
+                            className="text-amber-500 text-xs font-bold"
+                          >
+                            {task.priority === 'high' ? '!!' : '!'}
+                          </button>
+                        )}
+
+                        {/* Delete button */}
+                        <button
+                          type="button"
+                          onClick={() => onDeleteBlockTask?.(block.id, task.id)}
+                          className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 transition-opacity"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Add task input */}
+                {addingToBlockId === block.id ? (
+                  <div className="flex items-center gap-2 mt-2 pl-7">
+                    <input
+                      type="text"
+                      value={newTaskText}
+                      onChange={(e) => setNewTaskText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAddTask(block.id);
+                        if (e.key === 'Escape') {
+                          setNewTaskText('');
+                          setAddingToBlockId(null);
+                        }
+                      }}
+                      placeholder="Neue Aufgabe..."
+                      className="flex-1 text-sm px-2 py-1 border border-neutral-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-300"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddTask(block.id)}
+                      className="text-primary-500 hover:text-primary-600 text-sm font-medium"
+                    >
+                      Hinzufügen
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingToBlockId(block.id)}
+                    className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-600 mt-2 pl-7"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Aufgabe hinzufügen
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+/**
+ * NoTopicsView - Ansicht ohne Topics (To-Dos, Themenliste oder Blöcke)
+ * Toggle zwischen To-Dos, Themenliste und Blöcke (FR2)
  */
 const NoTopicsView = ({
   tasks,
@@ -1148,8 +1381,15 @@ const NoTopicsView = ({
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
   chapterLevelEnabled = false, // Option C: Whether to show Kapitel level in hierarchy
   onArchiveThemeList, // TICKET-12: Archive callback
+  // FR2: Blocks props
+  todayBlocks = [],
+  onToggleBlockTask,
+  onAddBlockTask,
+  onUpdateBlockTask,
+  onDeleteBlockTask,
+  onToggleBlockTaskPriority,
 }) => {
-  const [viewMode, setViewMode] = useState('todos'); // 'todos' or 'themenliste'
+  const [viewMode, setViewMode] = useState('todos'); // 'todos', 'themenliste', or 'blocks' (FR2)
   const [expandedUnterrechtsgebietId, setExpandedUnterrechtsgebietId] = useState(null);
   const [expandedKapitelId, setExpandedKapitelId] = useState(null);
   const [expandedThemaId, setExpandedThemaId] = useState(null);
@@ -1158,6 +1398,19 @@ const NoTopicsView = ({
 
   // Get selected Themenliste
   const selectedThemeList = themeLists.find(tl => tl.id === selectedThemeListId);
+
+  // Bug 1a fix: Stable callbacks for ThemeListView to prevent re-renders during input editing
+  const handleToggleUnterrechtsgebiet = useCallback((id) => {
+    setExpandedUnterrechtsgebietId(prev => prev === id ? null : id);
+  }, []);
+
+  const handleToggleKapitel = useCallback((id) => {
+    setExpandedKapitelId(prev => prev === id ? null : id);
+  }, []);
+
+  const handleToggleThema = useCallback((id) => {
+    setExpandedThemaId(prev => prev === id ? null : id);
+  }, []);
 
   // Auto-select first themenliste if none selected and switching to themenliste view
   const handleViewModeChange = (mode) => {
@@ -1169,33 +1422,49 @@ const NoTopicsView = ({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header with Toggle */}
+      {/* Header with Toggle - Responsive: Icons only on small screens */}
       <div className="border-b border-neutral-200 pb-4">
         <div className="flex items-center justify-center mb-3">
-          <div className="inline-flex items-center bg-neutral-100 rounded-lg p-1">
+          <div className="inline-flex items-center bg-neutral-100 rounded-lg p-1 gap-1">
             <button
               type="button"
               onClick={() => handleViewModeChange('todos')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              title="To-Dos"
+              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'todos'
                   ? 'bg-white text-neutral-900 shadow-sm'
                   : 'text-neutral-500 hover:text-neutral-700'
               }`}
             >
               <ChecklistIcon />
-              <span>To-Dos</span>
+              <span className="hidden sm:inline">To-Dos</span>
             </button>
             <button
               type="button"
               onClick={() => handleViewModeChange('themenliste')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              title="Themenliste"
+              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'themenliste'
                   ? 'bg-white text-neutral-900 shadow-sm'
                   : 'text-neutral-500 hover:text-neutral-700'
               }`}
             >
               <BookIcon />
-              <span>Themenliste</span>
+              <span className="hidden sm:inline">Themen</span>
+            </button>
+            {/* FR2: Third toggle position for Blocks */}
+            <button
+              type="button"
+              onClick={() => handleViewModeChange('blocks')}
+              title="Blöcke"
+              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'blocks'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              <BlockIcon />
+              <span className="hidden sm:inline">Blöcke</span>
             </button>
           </div>
         </div>
@@ -1257,9 +1526,11 @@ const NoTopicsView = ({
         <p className="text-sm text-neutral-500 text-center mt-2">
           {viewMode === 'todos'
             ? 'Deine To-Dos für heute'
-            : themeLists.length === 0
-              ? 'Keine Themenlisten vorhanden'
-              : selectedThemeList?.name || 'Wähle eine Themenliste'
+            : viewMode === 'blocks'
+              ? `Blöcke für heute (${todayBlocks.length})`
+              : themeLists.length === 0
+                ? 'Keine Themenlisten vorhanden'
+                : selectedThemeList?.name || 'Wähle eine Themenliste'
           }
         </p>
       </div>
@@ -1274,6 +1545,16 @@ const NoTopicsView = ({
           onAddTask={onAddTask}
           onRemoveTask={onRemoveTask}
           onEditTask={onEditTask}
+        />
+      ) : viewMode === 'blocks' ? (
+        // FR2: Blocks View
+        <BlocksListView
+          blocks={todayBlocks}
+          onToggleBlockTask={onToggleBlockTask}
+          onAddBlockTask={onAddBlockTask}
+          onUpdateBlockTask={onUpdateBlockTask}
+          onDeleteBlockTask={onDeleteBlockTask}
+          onToggleBlockTaskPriority={onToggleBlockTaskPriority}
         />
       ) : (
         // Themenliste View
@@ -1296,11 +1577,11 @@ const NoTopicsView = ({
           <ThemeListView
             themeList={selectedThemeList}
             expandedUnterrechtsgebietId={expandedUnterrechtsgebietId}
-            onToggleUnterrechtsgebiet={(id) => setExpandedUnterrechtsgebietId(prev => prev === id ? null : id)}
+            onToggleUnterrechtsgebiet={handleToggleUnterrechtsgebiet}
             expandedKapitelId={expandedKapitelId}
-            onToggleKapitel={(id) => setExpandedKapitelId(prev => prev === id ? null : id)}
+            onToggleKapitel={handleToggleKapitel}
             expandedThemaId={expandedThemaId}
-            onToggleThema={(id) => setExpandedThemaId(prev => prev === id ? null : id)}
+            onToggleThema={handleToggleThema}
             onToggleAufgabe={onToggleThemeListAufgabe}
             onAddAufgabe={onAddThemeListAufgabe}
             onUpdateAufgabe={onUpdateThemeListAufgabe}
@@ -1452,6 +1733,13 @@ const SessionWidget = ({
   showThemaCheckbox = false, // T5.1: Whether to show thema checkbox
   chapterLevelEnabled = false, // Option C: Whether to show Kapitel level in hierarchy
   onArchiveThemeList, // TICKET-12: Archive themenliste callback
+  // FR2: Blocks props (third toggle position)
+  todayBlocks = [],
+  onToggleBlockTask,
+  onAddBlockTask,
+  onUpdateBlockTask,
+  onDeleteBlockTask,
+  onToggleBlockTaskPriority,
   // Mode prop
   isExamMode = false,
 }) => {
@@ -1504,6 +1792,13 @@ const SessionWidget = ({
             showThemaCheckbox={showThemaCheckbox}
             chapterLevelEnabled={chapterLevelEnabled}
             onArchiveThemeList={onArchiveThemeList}
+            // FR2: Blocks props
+            todayBlocks={todayBlocks}
+            onToggleBlockTask={onToggleBlockTask}
+            onAddBlockTask={onAddBlockTask}
+            onUpdateBlockTask={onUpdateBlockTask}
+            onDeleteBlockTask={onDeleteBlockTask}
+            onToggleBlockTaskPriority={onToggleBlockTaskPriority}
           />
         )}
       </div>

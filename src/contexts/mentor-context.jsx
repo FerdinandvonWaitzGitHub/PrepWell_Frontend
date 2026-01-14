@@ -95,10 +95,22 @@ export const MentorProvider = ({ children }) => {
 
 /**
  * useMentor hook - Access mentor context
+ * T17 FIX: Return safe default during HMR instead of throwing
  */
 export const useMentor = () => {
   const context = useContext(MentorContext);
   if (!context) {
+    // During HMR, context can be null temporarily - return safe defaults
+    if (import.meta.hot) {
+      console.warn('[useMentor] Context unavailable during HMR, returning defaults');
+      return {
+        isActivated: false,
+        activatedAt: null,
+        activateMentor: () => {},
+        deactivateMentor: () => {},
+        loading: true,
+      };
+    }
     throw new Error('useMentor must be used within a MentorProvider');
   }
   return context;

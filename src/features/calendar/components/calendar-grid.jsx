@@ -13,8 +13,9 @@ import DayTile from './day-tile';
  * @param {number} currentDay - Current day number for highlighting
  * @param {Function} onDayClick - Callback when a day is clicked
  * @param {Function} onAddClick - Callback when the add button is clicked
+ * @param {Function} onBlockClick - Bug 2b fix: Callback when a block is clicked (opens block dialog instead of day dialog)
  */
-const CalendarGrid = memo(function CalendarGrid({ days = [], currentDay = null, onDayClick, onAddClick, className = '' }) {
+const CalendarGrid = memo(function CalendarGrid({ days = [], currentDay = null, onDayClick, onAddClick, onBlockClick, className = '' }) {
   // Memoize weekDays to prevent array recreation
   const weekDays = useMemo(() =>
     ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
@@ -62,6 +63,7 @@ const CalendarGrid = memo(function CalendarGrid({ days = [], currentDay = null, 
               isCurrentMonth={day.isCurrentMonth}
               onClick={() => handleDayClick(day)}
               onAddClick={() => handleAddClick(day)}
+              onBlockClick={onBlockClick}
             />
           </div>
         ))}

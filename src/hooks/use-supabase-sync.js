@@ -79,6 +79,42 @@ const saveToStorage = (key, data) => {
 };
 
 /**
+ * T18 Fix: Deduplicate array by importedFrom field
+ * Keeps the oldest item (first by createdAt) for each unique importedFrom value.
+ * Items without importedFrom are kept as-is.
+ *
+ * @param {Array} items - Array of items with potential duplicates
+ * @returns {Array} Deduplicated array
+ */
+const deduplicateByImportedFrom = (items) => {
+  if (!Array.isArray(items)) return items;
+
+  const seen = new Map(); // importedFrom -> oldest item
+  const result = [];
+
+  // Sort by createdAt (oldest first) to ensure we keep the oldest
+  const sorted = [...items].sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+    const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+    return dateA - dateB;
+  });
+
+  for (const item of sorted) {
+    if (!item.importedFrom) {
+      // No importedFrom - keep all (no deduplication key)
+      result.push(item);
+    } else if (!seen.has(item.importedFrom)) {
+      // First occurrence of this importedFrom - keep it
+      seen.set(item.importedFrom, item);
+      result.push(item);
+    }
+    // Else: duplicate importedFrom - skip
+  }
+
+  return result;
+};
+
+/**
  * Generic hook for data that syncs between Supabase and LocalStorage
  *
  * @param {string} tableName - Supabase table name
@@ -214,8 +250,26 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
           // This prevents data loss when Supabase save hasn't completed yet
           if (Array.isArray(supabaseData) && Array.isArray(localData)) {
             const supabaseIds = new Set(supabaseData.map(item => item.id));
+
+            // T18 Fix 2: Also deduplicate by importedFrom to prevent template duplicates
+            const supabaseImportedFroms = new Set(
+              supabaseData
+                .filter(item => item.importedFrom)
+                .map(item => item.importedFrom)
+            );
+
             // Find local items that are NOT in Supabase (pending saves)
-            const localOnlyItems = localData.filter(item => !supabaseIds.has(item.id));
+            // Skip items that already exist by ID OR by importedFrom (semantic duplicate)
+            const localOnlyItems = localData.filter(item => {
+              // Skip if ID already exists in Supabase
+              if (supabaseIds.has(item.id)) return false;
+              // Skip if importedFrom matches (prevents template duplicates)
+              if (item.importedFrom && supabaseImportedFroms.has(item.importedFrom)) {
+                console.log(`[useSupabaseSync] Skipping duplicate by importedFrom: ${item.importedFrom}`);
+                return false;
+              }
+              return true;
+            });
 
             if (localOnlyItems.length > 0) {
               // Robust batch sync with chunking and fallback (T12 Fix 4)
@@ -279,15 +333,29 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
               }
               // Merge: Supabase data + local-only items
               const mergedData = [...supabaseData, ...localOnlyItems];
-              setData(mergedData);
-              saveToStorage(storageKey, mergedData);
+
+              // T18 Fix 4: Deduplicate merged data by importedFrom (keep oldest)
+              // This cleans up any existing duplicates from Supabase
+              const deduplicatedData = deduplicateByImportedFrom(mergedData);
+              if (deduplicatedData.length < mergedData.length) {
+                console.log(`[useSupabaseSync] Deduplicated ${mergedData.length - deduplicatedData.length} items by importedFrom`);
+              }
+
+              setData(deduplicatedData);
+              saveToStorage(storageKey, deduplicatedData);
             } else {
-              setData(supabaseData);
-              saveToStorage(storageKey, supabaseData);
+              // T18 Fix 4: Also deduplicate when no local-only items
+              const deduplicatedSupabase = deduplicateByImportedFrom(supabaseData);
+              setData(deduplicatedSupabase);
+              saveToStorage(storageKey, deduplicatedSupabase);
             }
           } else {
-            setData(supabaseData);
-            saveToStorage(storageKey, supabaseData);
+            // T18 Fix 4: Also deduplicate non-array or single Supabase data
+            const deduplicatedSupabase = Array.isArray(supabaseData)
+              ? deduplicateByImportedFrom(supabaseData)
+              : supabaseData;
+            setData(deduplicatedSupabase);
+            saveToStorage(storageKey, deduplicatedSupabase);
           }
           syncedRef.current = true;
         }
@@ -368,7 +436,14 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       if (saveError) throw saveError;
 
       // Update local with Supabase-generated ID if it was a local ID
-      if (savedData && itemWithId.id.startsWith('local-')) {
+      // T18 Fix: Check ALL local ID prefixes (local-, id-, content-, block-, etc.)
+      const isLocalId = itemWithId.id && (
+        itemWithId.id.startsWith('local-') ||
+        itemWithId.id.startsWith('id-') ||
+        itemWithId.id.startsWith('content-') ||
+        itemWithId.id.startsWith('block-')
+      );
+      if (savedData && isLocalId) {
         const transformedData = transformFromSupabaseRef.current(savedData);
         const finalData = Array.isArray(data)
           ? [...data.filter(d => d.id !== itemWithId.id), transformedData]
@@ -995,7 +1070,7 @@ export function useCalendarBlocksSync() {
   const transformFromSupabase = useCallback((rows) => {
     const result = {};
     rows.forEach(row => {
-      const dateKey = row.slot_date;
+      const dateKey = row.block_date ?? row.slot_date; // T17 FIX: was slot_date only
       if (!result[dateKey]) {
         result[dateKey] = [];
       }
@@ -1028,7 +1103,13 @@ export function useCalendarBlocksSync() {
   // Transform date-keyed object to flat array for Supabase
   const transformToSupabase = useCallback((blocksByDateObj, userId) => {
     const result = [];
+    // Guard against null/undefined blocksByDateObj
+    if (!blocksByDateObj || typeof blocksByDateObj !== 'object') {
+      return result;
+    }
     Object.entries(blocksByDateObj).forEach(([dateKey, blocks]) => {
+      // Guard against null/undefined blocks array
+      if (!blocks || !Array.isArray(blocks)) return;
       blocks.forEach(block => {
         // Check if ID should be auto-generated: null, undefined, or local prefixes
         const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('slot-') || block.id?.startsWith('local-') || block.id?.startsWith('private-');
@@ -1143,11 +1224,11 @@ export function useCalendarBlocksSync() {
     }
 
     try {
-      // Delete existing slots for this date, then insert new ones
+      // Delete existing blocks for this date, then insert new ones
       await supabase
         .from('calendar_blocks')
         .delete()
-        .eq('slot_date', dateKey);
+        .eq('block_date', dateKey); // T17 FIX: was slot_date
 
       if (slots.length > 0) {
         const dataToInsert = slots.map(slot => {
@@ -1160,7 +1241,7 @@ export function useCalendarBlocksSync() {
           return {
             id: slotId,
             user_id: user.id,
-            slot_date: dateKey,
+            block_date: dateKey, // T17 FIX: was slot_date
             content_id: slot.contentId,
             content_plan_id: slot.contentPlanId || null,
             position: positionInt,
@@ -1287,6 +1368,16 @@ export function useCalendarTasksSync() {
 
   // Transform flat array from Supabase to date-keyed object
   const transformFromSupabase = useCallback((rows) => {
+    // T17 FIX: Map DB priorities back to app values
+    // DB stores: 'low', 'medium', 'high'
+    // App uses: 'none' (no !), 'medium' (1x !), 'high' (2x !!)
+    const mapPriorityFromDb = (p) => {
+      if (p === 'low') return 'none';
+      if (p === 'medium') return 'medium';
+      if (p === 'high') return 'high';
+      return 'none'; // default
+    };
+
     const result = {};
     rows.forEach(row => {
       const dateKey = row.task_date;
@@ -1297,9 +1388,9 @@ export function useCalendarTasksSync() {
         id: row.id,
         title: row.title,
         description: row.description,
-        priority: row.priority,
+        priority: mapPriorityFromDb(row.priority),
         completed: row.completed,
-        linkedSlotId: row.linked_slot_id,
+        linkedSlotId: row.linked_block_id ?? row.linked_slot_id,
         metadata: row.metadata || {},
         createdAt: row.created_at,
       });
@@ -1351,16 +1442,26 @@ export function useCalendarTasksSync() {
           // Migrate from localStorage
           const localData = loadFromStorage(STORAGE_KEYS.tasks, {});
           const dataToInsert = [];
+          // T17 FIX: Map app priorities to DB values
+          // App uses: 'none' (no !), 'medium' (1x !), 'high' (2x !!)
+          // DB expects: 'low', 'medium', 'high'
+          const mapPriorityToDb = (p) => {
+            if (p === 'none' || p === 'low') return 'low';
+            if (p === 'medium') return 'medium';
+            if (p === 'high') return 'high';
+            return 'low'; // default for null/undefined/invalid
+          };
           Object.entries(localData).forEach(([dateKey, tasks]) => {
             tasks.forEach(task => {
+              const validPriority = mapPriorityToDb(task.priority);
               dataToInsert.push({
                 user_id: user.id,
                 task_date: dateKey,
                 title: task.title,
                 description: task.description,
-                priority: task.priority || 'medium',
+                priority: validPriority,
                 completed: task.completed || false,
-                linked_slot_id: task.linkedSlotId || null,
+                linked_block_id: task.linkedSlotId || null, // T17 FIX: was linked_slot_id
                 metadata: task.metadata || {},
               });
             });
@@ -1405,17 +1506,36 @@ export function useCalendarTasksSync() {
 
       // Insert new tasks
       if (tasks.length > 0) {
-        const dataToInsert = tasks.map(task => ({
-          id: task.id?.startsWith('task-') || task.id?.startsWith('local-') ? undefined : task.id,
-          user_id: user.id,
-          task_date: dateKey,
-          title: task.title,
-          description: task.description,
-          priority: task.priority || 'medium',
-          completed: task.completed || false,
-          linked_slot_id: task.linkedSlotId || null,
-          metadata: task.metadata || {},
-        }));
+        // T17 FIX: Map app priorities to DB values
+        // App uses: 'none' (no !), 'medium' (1x !), 'high' (2x !!)
+        // DB expects: 'low', 'medium', 'high'
+        const mapPriorityToDb = (p) => {
+          if (p === 'none' || p === 'low') return 'low';
+          if (p === 'medium') return 'medium';
+          if (p === 'high') return 'high';
+          return 'low'; // default for null/undefined/invalid
+        };
+
+        const dataToInsert = tasks.map(task => {
+          // T17 FIX: Only include id if it's a valid UUID (not null/undefined/local prefix)
+          const isValidId = task.id &&
+            !task.id.startsWith('task-') &&
+            !task.id.startsWith('local-');
+
+          const validPriority = mapPriorityToDb(task.priority);
+
+          return {
+            ...(isValidId && { id: task.id }),
+            user_id: user.id,
+            task_date: dateKey,
+            title: task.title,
+            description: task.description,
+            priority: validPriority,
+            completed: task.completed || false,
+            linked_block_id: task.linkedSlotId || null,
+            metadata: task.metadata || {},
+          };
+        });
 
         const { error } = await supabase
           .from('calendar_tasks')
@@ -1547,30 +1667,40 @@ export function usePrivateSessionsSync() {
           const localData = loadFromStorage(STORAGE_KEYS.privateSessions, {});
           const dataToInsert = [];
           Object.entries(localData).forEach(([dateKey, blocks]) => {
+            if (!Array.isArray(blocks)) return; // Skip invalid entries
             blocks.forEach(block => {
+              // Skip blocks without required fields (title is NOT NULL)
+              if (!block || !block.title) {
+                console.warn(`[useSupabaseSync] Skipping private session without title:`, block);
+                return;
+              }
               dataToInsert.push({
                 user_id: user.id,
-                block_date: dateKey,
+                session_date: dateKey, // T17 FIX: was block_date
                 end_date: block.endDate || dateKey, // BUG-012 FIX
-                title: block.title,
-                description: block.description,
-                start_time: block.startTime,
-                end_time: block.endTime,
+                title: block.title, // Required: NOT NULL
+                description: block.description || null,
+                start_time: block.startTime || null,
+                end_time: block.endTime || null,
                 all_day: block.allDay || false,
                 is_multi_day: block.isMultiDay || false, // BUG-012 FIX
                 repeat_enabled: block.repeatEnabled || false,
-                repeat_type: block.repeatType,
-                repeat_count: block.repeatCount,
-                series_id: block.seriesId,
-                custom_days: block.customDays,
+                repeat_type: block.repeatType || null,
+                repeat_count: block.repeatCount || null,
+                series_id: block.seriesId || null,
+                custom_days: block.customDays || null,
                 metadata: block.metadata || {},
               });
             });
           });
 
           if (dataToInsert.length > 0) {
-            await supabase.from('private_sessions').insert(dataToInsert);
-            console.log(`Migrated ${dataToInsert.length} private blocks to Supabase`);
+            const { error: insertError } = await supabase.from('private_sessions').insert(dataToInsert);
+            if (insertError) {
+              console.error(`[useSupabaseSync] Error migrating private sessions:`, insertError);
+            } else {
+              console.log(`[useSupabaseSync] Migrated ${dataToInsert.length} private sessions to Supabase`);
+            }
           }
         }
 
@@ -1599,15 +1729,21 @@ export function usePrivateSessionsSync() {
     }
 
     try {
-      // Delete existing blocks for this date
+      // Delete existing sessions for this date
       await supabase
         .from('private_sessions')
         .delete()
-        .eq('block_date', dateKey);
+        .eq('session_date', dateKey); // T17 FIX: was block_date
 
-      // Insert new blocks
+      // Insert new sessions
       if (blocks.length > 0) {
-        const dataToInsert = blocks.map(block => {
+        // Filter out blocks without required title field
+        const validBlocks = blocks.filter(block => block && block.title);
+        if (validBlocks.length < blocks.length) {
+          console.warn(`[saveDayBlocks] Skipped ${blocks.length - validBlocks.length} blocks without title`);
+        }
+
+        const dataToInsert = validBlocks.map(block => {
           // Check if ID should be auto-generated: null, undefined, or local prefixes
           const isLocalId = !block.id || block.id?.startsWith('private-') || block.id?.startsWith('local-') || block.id?.startsWith('slot-');
           // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
@@ -1615,19 +1751,19 @@ export function usePrivateSessionsSync() {
           return {
             id: blockId,
             user_id: user.id,
-            block_date: dateKey,
+            session_date: dateKey, // T17 FIX: was block_date
             end_date: block.endDate || dateKey, // BUG-012 FIX
-            title: block.title,
-            description: block.description,
-            start_time: block.startTime,
-            end_time: block.endTime,
+            title: block.title, // Required: NOT NULL
+            description: block.description || null,
+            start_time: block.startTime || null,
+            end_time: block.endTime || null,
             all_day: block.allDay || false,
             is_multi_day: block.isMultiDay || false, // BUG-012 FIX
             repeat_enabled: block.repeatEnabled || false,
-            repeat_type: block.repeatType,
-            repeat_count: block.repeatCount,
-            series_id: block.seriesId,
-            custom_days: block.customDays,
+            repeat_type: block.repeatType || null,
+            repeat_count: block.repeatCount || null,
+            series_id: block.seriesId || null,
+            custom_days: block.customDays || null,
             metadata: block.metadata || {},
           };
         });
@@ -1676,15 +1812,21 @@ export function usePrivateSessionsSync() {
     try {
       // Process each date
       for (const [dateKey, blocks] of Object.entries(updatesMap)) {
-        // Delete existing blocks for this date
+        // Delete existing sessions for this date
         await supabase
           .from('private_sessions')
           .delete()
-          .eq('block_date', dateKey);
+          .eq('session_date', dateKey); // T17 FIX: was block_date
 
-        // Insert new blocks
+        // Insert new sessions
         if (blocks.length > 0) {
-          const dataToInsert = blocks.map(block => {
+          // Filter out blocks without required title field
+          const validBlocks = blocks.filter(block => block && block.title);
+          if (validBlocks.length < blocks.length) {
+            console.warn(`[saveDayBlocksBatch] Skipped ${blocks.length - validBlocks.length} blocks without title for ${dateKey}`);
+          }
+
+          const dataToInsert = validBlocks.map(block => {
             // Check if ID should be auto-generated: null, undefined, or local prefixes
             const isLocalId = !block.id || block.id?.startsWith('private-') || block.id?.startsWith('local-') || block.id?.startsWith('slot-');
             // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
@@ -1692,34 +1834,36 @@ export function usePrivateSessionsSync() {
             return {
               id: blockId,
               user_id: user.id,
-              block_date: dateKey,
+              session_date: dateKey, // T17 FIX: was block_date
               end_date: block.endDate || dateKey, // BUG-012 FIX
-              title: block.title,
-              description: block.description,
-              start_time: block.startTime,
-              end_time: block.endTime,
+              title: block.title, // Required: NOT NULL
+              description: block.description || null,
+              start_time: block.startTime || null,
+              end_time: block.endTime || null,
               all_day: block.allDay || false,
               is_multi_day: block.isMultiDay || false, // BUG-012 FIX
               repeat_enabled: block.repeatEnabled || false,
-              repeat_type: block.repeatType,
-              repeat_count: block.repeatCount,
-              series_id: block.seriesId,
-              custom_days: block.customDays,
+              repeat_type: block.repeatType || null,
+              repeat_count: block.repeatCount || null,
+              series_id: block.seriesId || null,
+              custom_days: block.customDays || null,
               metadata: block.metadata || {},
             };
           });
 
-          const { error } = await supabase
-            .from('private_sessions')
-            .insert(dataToInsert);
+          if (dataToInsert.length > 0) {
+            const { error } = await supabase
+              .from('private_sessions')
+              .insert(dataToInsert);
 
-          if (error) throw error;
+            if (error) throw error;
+          }
         }
       }
 
       return { success: true, source: 'supabase' };
     } catch (err) {
-      console.error('Error batch saving private blocks:', err);
+      console.error('[saveDayBlocksBatch] Error:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
   }, [privateSessionsByDate, isSupabaseEnabled, isAuthenticated, user?.id]);

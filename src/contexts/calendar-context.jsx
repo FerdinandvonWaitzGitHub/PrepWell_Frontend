@@ -211,12 +211,21 @@ export const CalendarProvider = ({ children }) => {
 
   // Compute archived content plan IDs for filtering
   const archivedContentPlanIds = useMemo(() => {
+    // Guard against null/undefined contentPlans
+    if (!contentPlans || !Array.isArray(contentPlans)) {
+      return new Set();
+    }
     return new Set(contentPlans.filter(p => p.archived).map(p => p.id));
   }, [contentPlans]);
 
   // Compute visible blocks (excludes blocks from archived content plans)
   // BUG-010 FIX: Archived Lernpläne should not show in calendar
   const visibleBlocksByDate = useMemo(() => {
+    // Guard against null/undefined blocksByDate
+    if (!blocksByDate || typeof blocksByDate !== 'object') {
+      return {};
+    }
+
     if (archivedContentPlanIds.size === 0) {
       return blocksByDate; // No archived plans, return all blocks
     }
@@ -795,6 +804,8 @@ export const CalendarProvider = ({ children }) => {
       isLocked: blockData.isLocked || false,
       isFromLernplan: blockData.isFromLernplan || false,
       tasks: blockData.tasks || [],
+      // W5: Include rechtsgebiet for coloring
+      rechtsgebiet: blockData.rechtsgebiet || null,
       // Time overrides (optional)
       hasTime: blockData.hasTime || false,
       startHour: blockData.startHour,
@@ -1307,6 +1318,49 @@ export const CalendarProvider = ({ children }) => {
   const getTasks = useCallback((dateKey) => {
     return tasksByDate[dateKey] || [];
   }, [tasksByDate]);
+
+  /**
+   * FR1: Schedule a To-Do task to a block (soft delete - marks as scheduled instead of deleting)
+   * This allows the task to be restored when removed from the block
+   * @param {string} taskId - The task ID to schedule
+   * @param {Object} blockInfo - { blockId, date, blockTitle }
+   */
+  const scheduleTaskToBlock = useCallback(async (taskId, blockInfo) => {
+    // Search through all dates to find the task
+    for (const [dateKey, tasks] of Object.entries(tasksByDate)) {
+      const taskIndex = tasks.findIndex(t => t.id === taskId);
+      if (taskIndex !== -1) {
+        const updatedTasks = tasks.map(t =>
+          t.id === taskId
+            ? { ...t, scheduledInBlock: blockInfo }
+            : t
+        );
+        await saveDayTasks(dateKey, updatedTasks);
+        return;
+      }
+    }
+  }, [tasksByDate, saveDayTasks]);
+
+  /**
+   * FR1: Unschedule a To-Do task from a block (restore to To-Do list)
+   * Removes the scheduledInBlock marker so the task appears in To-Do again
+   * @param {string} taskId - The task ID to unschedule
+   */
+  const unscheduleTaskFromBlock = useCallback(async (taskId) => {
+    // Search through all dates to find the task
+    for (const [dateKey, tasks] of Object.entries(tasksByDate)) {
+      const taskIndex = tasks.findIndex(t => t.id === taskId);
+      if (taskIndex !== -1) {
+        const updatedTasks = tasks.map(t =>
+          t.id === taskId
+            ? { ...t, scheduledInBlock: null }
+            : t
+        );
+        await saveDayTasks(dateKey, updatedTasks);
+        return;
+      }
+    }
+  }, [tasksByDate, saveDayTasks]);
 
   // ============================================
   // THEME LISTS CRUD (dateless topic lists)
@@ -2749,6 +2803,9 @@ export const CalendarProvider = ({ children }) => {
     toggleTaskComplete,
     deleteTask,
     getTasks,
+    // FR1: Task Scheduling (soft delete for drag & drop)
+    scheduleTaskToBlock,
+    unscheduleTaskFromBlock,
 
     // Theme List Actions (Legacy)
     createThemeList,
@@ -2846,6 +2903,7 @@ export const CalendarProvider = ({ children }) => {
     getPrivateBlocks, addTimeBlock, updateTimeBlock, deleteTimeBlock,
     deleteSeriesTimeBlocks, getTimeBlocks, clearAllTimeBlocks,
     addTask, updateTask, toggleTaskComplete, deleteTask, getTasks,
+    scheduleTaskToBlock, unscheduleTaskFromBlock, // FR1: Task scheduling
     createThemeList, updateThemeList, deleteThemeList, toggleThemeListTopicComplete,
     addTopicToThemeList, removeTopicFromThemeList, getThemeLists, getThemeListById,
     createContentPlan, updateContentPlan, deleteContentPlan, archiveContentPlan,

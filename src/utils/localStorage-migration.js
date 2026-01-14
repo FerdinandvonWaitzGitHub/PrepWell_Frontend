@@ -8,7 +8,11 @@
  *
  * This script runs once when the app starts and only migrates
  * data if the old keys exist and new keys don't.
+ *
+ * T17 P2 FIX: Uses safeLocalStorage for robust storage access
  */
+
+import { safeLocalStorage } from './safe-storage';
 
 // Migration version - increment if new migrations are added
 const MIGRATION_VERSION = 1;
@@ -27,7 +31,7 @@ const KEY_MIGRATIONS = {
  * Check if migration has already been performed
  */
 const shouldMigrate = () => {
-  const currentVersion = localStorage.getItem(MIGRATION_KEY);
+  const currentVersion = safeLocalStorage.getItem(MIGRATION_KEY);
   return !currentVersion || parseInt(currentVersion, 10) < MIGRATION_VERSION;
 };
 
@@ -35,28 +39,28 @@ const shouldMigrate = () => {
  * Mark migration as complete
  */
 const markMigrationComplete = () => {
-  localStorage.setItem(MIGRATION_KEY, MIGRATION_VERSION.toString());
+  safeLocalStorage.setItem(MIGRATION_KEY, MIGRATION_VERSION.toString());
 };
 
 /**
  * Migrate a single key from old to new name
- * @param {string} oldKey - The old localStorage key
- * @param {string} newKey - The new localStorage key
+ * @param {string} oldKey - The old safeLocalStorage key
+ * @param {string} newKey - The new safeLocalStorage key
  * @returns {boolean} - Whether migration was performed
  */
 const migrateKey = (oldKey, newKey) => {
   try {
-    const oldData = localStorage.getItem(oldKey);
-    const newData = localStorage.getItem(newKey);
+    const oldData = safeLocalStorage.getItem(oldKey);
+    const newData = safeLocalStorage.getItem(newKey);
 
     // Only migrate if old data exists and new data doesn't
     if (oldData && !newData) {
-      localStorage.setItem(newKey, oldData);
+      safeLocalStorage.setItem(newKey, oldData);
       console.log(`[Migration] Migrated ${oldKey} → ${newKey}`);
 
       // Optionally remove old key after successful migration
       // Uncomment the line below to remove old keys:
-      // localStorage.removeItem(oldKey);
+      // safeLocalStorage.removeItem(oldKey);
 
       return true;
     }
@@ -74,7 +78,7 @@ const migrateKey = (oldKey, newKey) => {
 };
 
 /**
- * Run all localStorage migrations
+ * Run all safeLocalStorage migrations
  * Call this function at app startup (e.g., in main.jsx or App.jsx)
  */
 export const runLocalStorageMigration = () => {
@@ -110,12 +114,12 @@ export const runLocalStorageMigration = () => {
  * Only call this after the app has been stable for a while
  */
 export const clearOldKeys = () => {
-  console.log('[Migration] Clearing old localStorage keys...');
+  console.log('[Migration] Clearing old safeLocalStorage keys...');
 
   for (const oldKey of Object.keys(KEY_MIGRATIONS)) {
-    const data = localStorage.getItem(oldKey);
+    const data = safeLocalStorage.getItem(oldKey);
     if (data) {
-      localStorage.removeItem(oldKey);
+      safeLocalStorage.removeItem(oldKey);
       console.log(`[Migration] Removed old key: ${oldKey}`);
     }
   }
@@ -128,13 +132,13 @@ export const clearOldKeys = () => {
  */
 export const getMigrationStatus = () => {
   const status = {
-    migrationVersion: localStorage.getItem(MIGRATION_KEY) || 'not run',
+    migrationVersion: safeLocalStorage.getItem(MIGRATION_KEY) || 'not run',
     keys: {},
   };
 
   for (const [oldKey, newKey] of Object.entries(KEY_MIGRATIONS)) {
-    const oldExists = !!localStorage.getItem(oldKey);
-    const newExists = !!localStorage.getItem(newKey);
+    const oldExists = !!safeLocalStorage.getItem(oldKey);
+    const newExists = !!safeLocalStorage.getItem(newKey);
 
     status.keys[oldKey] = {
       oldKeyExists: oldExists,

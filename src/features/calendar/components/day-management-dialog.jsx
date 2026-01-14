@@ -177,7 +177,7 @@ const DayManagementDialog = ({
             <h3 className="text-sm font-medium text-neutral-900">Tagesblöcke</h3>
 
             <div className="space-y-3">
-              {learningBlocks.map((block) => (
+              {(learningBlocks || []).map((block) => (
                 <div key={block.id} className="border border-neutral-200 rounded-lg overflow-hidden">
                   {/* Block Content - Clickable for all block types */}
                   <button

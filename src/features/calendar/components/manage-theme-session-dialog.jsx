@@ -11,6 +11,8 @@ import {
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
 import { ChevronDownIcon, PlusIcon, TrashIcon, CheckIcon } from '../../../components/ui/icon';
+import { useStudiengang } from '../../../contexts/studiengang-context';
+import { getAllSubjects, getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
 
 /**
  * Manage Theme Block Dialog Component
@@ -29,6 +31,7 @@ const ManageThemeBlockDialog = ({
   block,
   onSave,
   onDelete,
+  onUnscheduleTask,         // FR1: Callback to move task back to To-Do list
   availableBlocks = 4,
   availableSlots, // Legacy alias
   // Task sources
@@ -37,8 +40,16 @@ const ManageThemeBlockDialog = ({
 }) => {
   // Support legacy prop name
   const maxBlocks = availableSlots ?? availableBlocks;
+
+  // W5: Get studiengang context for subject selection
+  const { isJura } = useStudiengang();
+  const subjects = useMemo(() => getAllSubjects(isJura), [isJura]);
+
   // Form state
   const [title, setTitle] = useState('');
+  // W5: Rechtsgebiet/Fach selection
+  const [selectedRechtsgebiet, setSelectedRechtsgebiet] = useState(null);
+  const [isRechtsgebietOpen, setIsRechtsgebietOpen] = useState(false);
   const [description, setDescription] = useState('');
 
   // Time settings (always required)
@@ -85,6 +96,9 @@ const ManageThemeBlockDialog = ({
       setSelectedThemeListId(null);
       setIsRepeatTypeOpen(false);
       setShowDeleteConfirm(false);
+      // W5: Load rechtsgebiet from block
+      setSelectedRechtsgebiet(block.rechtsgebiet || null);
+      setIsRechtsgebietOpen(false);
     }
   }, [open, block]);
 
@@ -218,9 +232,19 @@ const ManageThemeBlockDialog = ({
     setTasks(prev => [...prev, newTask]);
   };
 
-  // Remove task
+  // Remove task (delete permanently)
   const handleRemoveTask = (taskId) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  // FR1: Move task back to To-Do list (unschedule)
+  const handleUnscheduleTask = (task) => {
+    // Remove from local state
+    setTasks(prev => prev.filter(t => t.id !== task.id));
+    // Call callback to add back to todos
+    if (onUnscheduleTask) {
+      onUnscheduleTask(block, task);
+    }
   };
 
   // Toggle task completion
@@ -258,6 +282,8 @@ const ManageThemeBlockDialog = ({
       title: title.trim(),
       blockType: 'lernblock',
       description: description.trim(),
+      // W5: Include rechtsgebiet for coloring
+      rechtsgebiet: selectedRechtsgebiet,
       hasTime: true,
       startTime,
       endTime,
@@ -341,6 +367,64 @@ const ManageThemeBlockDialog = ({
               className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm resize-none"
             />
           </div>
+
+          {/* W5: Fach/Rechtsgebiet Selection */}
+          {subjects.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-900">
+                {isJura ? 'Rechtsgebiet' : 'Fach'}
+              </label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsRechtsgebietOpen(!isRechtsgebietOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    {selectedRechtsgebiet && (
+                      <span className={`w-3 h-3 rounded-full ${getRechtsgebietColor(selectedRechtsgebiet).solid}`} />
+                    )}
+                    <span className="text-sm text-neutral-900">
+                      {selectedRechtsgebiet
+                        ? subjects.find(s => s.id === selectedRechtsgebiet)?.name || 'Auswählen...'
+                        : `${isJura ? 'Rechtsgebiet' : 'Fach'} auswählen...`}
+                    </span>
+                  </div>
+                  <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isRechtsgebietOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isRechtsgebietOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {/* Option to clear selection */}
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedRechtsgebiet(null); setIsRechtsgebietOpen(false); }}
+                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg ${
+                        !selectedRechtsgebiet ? 'bg-neutral-100 font-medium' : ''
+                      }`}
+                    >
+                      <span className="text-neutral-500">Kein {isJura ? 'Rechtsgebiet' : 'Fach'}</span>
+                    </button>
+                    {subjects.map(subject => {
+                      const colors = getRechtsgebietColor(subject.id);
+                      return (
+                        <button
+                          key={subject.id}
+                          type="button"
+                          onClick={() => { setSelectedRechtsgebiet(subject.id); setIsRechtsgebietOpen(false); }}
+                          className={`w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 last:rounded-b-lg flex items-center gap-2 ${
+                            selectedRechtsgebiet === subject.id ? 'bg-neutral-100 font-medium' : ''
+                          }`}
+                        >
+                          <span className={`w-3 h-3 rounded-full ${colors.solid}`} />
+                          <span>{subject.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Uhrzeit */}
           <div className="space-y-2">
@@ -517,10 +601,24 @@ const ManageThemeBlockDialog = ({
                         {task.source === 'todos' ? 'To-Do' : task.source === 'themenliste' ? getThemaForTask(task) : 'Lernplan'}
                       </span>
                     )}
+                    {/* FR1: Back-to-ToDo button (for all tasks) */}
+                    {onUnscheduleTask && (
+                      <button
+                        type="button"
+                        onClick={() => handleUnscheduleTask(task)}
+                        className="p-1 text-neutral-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Zurück zur To-Do-Liste"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M19 12H5M12 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleRemoveTask(task.id)}
                       className="p-1 text-neutral-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Aufgabe löschen"
                     >
                       <TrashIcon size={14} />
                     </button>

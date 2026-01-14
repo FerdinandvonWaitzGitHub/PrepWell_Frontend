@@ -326,9 +326,44 @@ export const AppModeProvider = ({ children }) => {
   );
 };
 
+/**
+ * useAppMode hook - Access app mode context
+ * T17 FIX: Return safe default during HMR instead of throwing
+ */
 export const useAppMode = () => {
   const context = useContext(AppModeContext);
   if (!context) {
+    // During HMR, context can be null temporarily - return safe defaults
+    if (import.meta.hot) {
+      console.warn('[useAppMode] Context unavailable during HMR, returning defaults');
+      return {
+        appMode: APP_MODES.NORMAL,
+        isExamMode: false,
+        isNormalMode: true,
+        activeLernplan: null,
+        activeLernplaene: [],
+        disabledInNormalMode: [],
+        isNavItemDisabled: () => false,
+        isNavItemHidden: () => false,
+        isWizardAvailable: true,
+        defaultCalendarView: 'week',
+        toggleMode: () => {},
+        resetModePreference: () => {},
+        canToggleMode: true,
+        isModeManuallySet: false,
+        userModePreference: null,
+        currentSemester: 3,
+        setSemester: () => {},
+        subscriptionStatus: SUBSCRIPTION_STATUS.TRIAL,
+        setSubscriptionStatus: () => {},
+        isTrialMode: true,
+        isSubscribed: false,
+        trialDaysRemaining: 30,
+        modeDisplayText: 'Normal-Modus',
+        isSyncing: true,
+        isSupabaseEnabled: false,
+      };
+    }
     throw new Error('useAppMode must be used within an AppModeProvider');
   }
   return context;

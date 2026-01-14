@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,8 @@ import {
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
 import { PlusIcon, TrashIcon, ChevronDownIcon } from '../../../components/ui/icon';
+import { useStudiengang } from '../../../contexts/studiengang-context';
+import { getAllSubjects, getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
 
 // Repeat type options
 const repeatTypeOptions = [
@@ -51,6 +53,14 @@ const CreateRepetitionBlockDialog = ({
 }) => {
   // Support legacy prop name
   const maxBlocks = availableSlots ?? availableBlocks;
+
+  // W5: Get studiengang context for subject selection
+  const { isJura } = useStudiengang();
+  const subjects = useMemo(() => getAllSubjects(isJura), [isJura]);
+
+  // W5: Rechtsgebiet/Fach selection
+  const [selectedRechtsgebiet, setSelectedRechtsgebiet] = useState(null);
+  const [isRechtsgebietOpen, setIsRechtsgebietOpen] = useState(false);
 
   const [allocationSize, setAllocationSize] = useState(1); // For allocation mode (Month)
   const [sessionBlockSize, setSessionBlockSize] = useState(2); // For session mode (Week)
@@ -109,6 +119,9 @@ const CreateRepetitionBlockDialog = ({
       setTasks([]);
       setNewTaskText('');
       setNewTaskDifficulty(0);
+      // W5: Reset rechtsgebiet selection
+      setSelectedRechtsgebiet(null);
+      setIsRechtsgebietOpen(false);
     }
   }, [open, maxBlocks, initialStartTime, initialEndTime]);
 
@@ -205,6 +218,8 @@ const CreateRepetitionBlockDialog = ({
         description,
         tasks,
         progress: '0/1',
+        // W5: Include rechtsgebiet for coloring
+        rechtsgebiet: selectedRechtsgebiet,
         // Repeat settings
         repeatEnabled,
         repeatType: repeatEnabled ? repeatType : null,
@@ -306,6 +321,64 @@ const CreateRepetitionBlockDialog = ({
               className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-sm resize-none"
             />
           </div>
+
+          {/* W5: Fach/Rechtsgebiet Selection */}
+          {subjects.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-900">
+                {isJura ? 'Rechtsgebiet' : 'Fach'}
+              </label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsRechtsgebietOpen(!isRechtsgebietOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    {selectedRechtsgebiet && (
+                      <span className={`w-3 h-3 rounded-full ${getRechtsgebietColor(selectedRechtsgebiet).solid}`} />
+                    )}
+                    <span className="text-sm text-neutral-900">
+                      {selectedRechtsgebiet
+                        ? subjects.find(s => s.id === selectedRechtsgebiet)?.name || 'Auswählen...'
+                        : `${isJura ? 'Rechtsgebiet' : 'Fach'} auswählen...`}
+                    </span>
+                  </div>
+                  <ChevronDownIcon size={16} className={`text-neutral-400 transition-transform ${isRechtsgebietOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isRechtsgebietOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {/* Option to clear selection */}
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedRechtsgebiet(null); setIsRechtsgebietOpen(false); }}
+                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 first:rounded-t-lg ${
+                        !selectedRechtsgebiet ? 'bg-neutral-100 font-medium' : ''
+                      }`}
+                    >
+                      <span className="text-neutral-500">Kein {isJura ? 'Rechtsgebiet' : 'Fach'}</span>
+                    </button>
+                    {subjects.map(subject => {
+                      const colors = getRechtsgebietColor(subject.id);
+                      return (
+                        <button
+                          key={subject.id}
+                          type="button"
+                          onClick={() => { setSelectedRechtsgebiet(subject.id); setIsRechtsgebietOpen(false); }}
+                          className={`w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 last:rounded-b-lg flex items-center gap-2 ${
+                            selectedRechtsgebiet === subject.id ? 'bg-neutral-100 font-medium' : ''
+                          }`}
+                        >
+                          <span className={`w-3 h-3 rounded-full ${colors.solid}`} />
+                          <span>{subject.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Uhrzeit - Only in session mode (Week/Dashboard) */}
           {mode === 'session' && (
