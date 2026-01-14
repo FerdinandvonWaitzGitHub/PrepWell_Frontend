@@ -148,6 +148,40 @@ await supabase.from('calendar_blocks').upsert(dataToInsert, { onConflict: 'id' }
 - [x] Position Constraint - Validierung für DB CHECK (1-4 oder null)
 - [x] Error Logging - Detaillierte Fehlermeldungen hinzugefügt
 - [x] UUID Validierung - IDs wie "2026-01-14-1" zu echten UUIDs konvertiert
+- [ ] **slot_date → block_date** - Spalte in DB umbenennen (Migration erforderlich!)
+
+---
+
+## Fehler 5: slot_date NOT NULL Constraint (KRITISCH) - MIGRATION ERFORDERLICH
+
+### Symptom
+```
+message: 'null value in column "slot_date" of relation "calendar_blocks" violates not-null constraint'
+code: '23502'
+```
+
+### Ursache
+**Schema-Mismatch:** Die Produktions-DB hat noch die alte Spalte `slot_date`, aber der Code sendet `block_date`.
+
+### Lösung: Migration ausführen
+Führe diese Migration im Supabase SQL Editor aus:
+```sql
+-- Rename slot_date to block_date
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'calendar_blocks' AND column_name = 'slot_date'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'calendar_blocks' AND column_name = 'block_date'
+  ) THEN
+    ALTER TABLE calendar_blocks RENAME COLUMN slot_date TO block_date;
+  END IF;
+END $$;
+```
+
+Datei: `supabase/migrations/20260114_rename_slot_date.sql`
 
 ---
 
