@@ -1574,10 +1574,25 @@ export function useCalendarTasksSync() {
 /**
  * Hook for Private Blocks (privateSessionsByDate)
  */
+// Helper to filter out invalid date keys from date-keyed objects
+const filterValidDateKeys = (dateKeyedObj) => {
+  if (!dateKeyedObj || typeof dateKeyedObj !== 'object') return {};
+  const result = {};
+  Object.entries(dateKeyedObj).forEach(([key, value]) => {
+    // Only include valid YYYY-MM-DD date keys
+    if (key && key !== 'null' && key !== 'undefined' && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
+      result[key] = value;
+    } else if (key) {
+      console.warn(`[filterValidDateKeys] Removing invalid date key:`, key);
+    }
+  });
+  return result;
+};
+
 export function usePrivateSessionsSync() {
   const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
   const [privateSessionsByDate, setPrivateSessionsByDate] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.privateSessions, {})
+    filterValidDateKeys(loadFromStorage(STORAGE_KEYS.privateSessions, {}))
   );
   const [loading, setLoading] = useState(false);
   const syncedRef = useRef(false);
@@ -1596,6 +1611,11 @@ export function usePrivateSessionsSync() {
     const result = {};
     rows.forEach(row => {
       const dateKey = row.session_date;
+      // Skip invalid date keys
+      if (!dateKey || dateKey === 'null' || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+        console.warn(`[useSupabaseSync] Skipping private session with invalid date:`, dateKey);
+        return;
+      }
       if (!result[dateKey]) {
         result[dateKey] = [];
       }
@@ -1667,6 +1687,11 @@ export function usePrivateSessionsSync() {
           const localData = loadFromStorage(STORAGE_KEYS.privateSessions, {});
           const dataToInsert = [];
           Object.entries(localData).forEach(([dateKey, blocks]) => {
+            // Skip invalid date keys (e.g., "null", "undefined", empty)
+            if (!dateKey || dateKey === 'null' || dateKey === 'undefined' || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+              console.warn(`[useSupabaseSync] Skipping invalid date key:`, dateKey);
+              return;
+            }
             if (!Array.isArray(blocks)) return; // Skip invalid entries
             blocks.forEach(block => {
               // Skip blocks without required fields (title is NOT NULL)
