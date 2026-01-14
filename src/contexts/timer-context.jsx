@@ -231,9 +231,28 @@ const loadHistoryFromStorage = () => {
 };
 
 /**
+ * Track user interaction for AudioContext permission
+ * Browser requires user gesture before allowing audio playback
+ */
+let userHasInteracted = false;
+if (typeof window !== 'undefined') {
+  const markInteracted = () => { userHasInteracted = true; };
+  window.addEventListener('click', markInteracted, { once: true });
+  window.addEventListener('keydown', markInteracted, { once: true });
+  window.addEventListener('touchstart', markInteracted, { once: true });
+}
+
+/**
  * Play notification sound
+ * Only plays if user has interacted with the page (browser requirement)
  */
 const playNotificationSound = () => {
+  // Skip if user hasn't interacted yet (prevents browser warning)
+  if (!userHasInteracted) {
+    console.log('[Timer] Skipping notification sound - no user interaction yet');
+    return;
+  }
+
   try {
     // Create a gentle bell/gong sound using Web Audio API
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
