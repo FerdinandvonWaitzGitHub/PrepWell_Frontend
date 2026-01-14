@@ -10,7 +10,7 @@
 |---|--------|---------|--------|
 | 1 | AudioContext Warning | HARMLOS | GEFIXT |
 | 2 | Invalid date key: null | HARMLOS | GEFIXT |
-| 3 | 400 Bad Request calendar_blocks | KRITISCH | GEFIXT (Migration ausgeführt am 14.01.2026) |
+| 3 | 400 Bad Request calendar_blocks | KRITISCH | GEFIXT (Root Cause: Duplikat-IDs, Fix: insert→upsert) |
 
 ---
 
@@ -101,69 +101,50 @@ Die Bereinigung passiert bereits automatisch durch `filterValidDateKeys`. Nach d
 
 ---
 
-## Fehler 3: 400 Bad Request calendar_blocks (KRITISCH)
+## Fehler 3: 400 Bad Request calendar_blocks (KRITISCH) - GEFIXT
 
 ### Symptom
 ```
 POST .../calendar_blocks?columns=... 400 (Bad Request)
 ```
+Aber: "Migrated 4 blocks to Supabase" - EINIGE Inserts funktionieren!
 
-### Schwere: KRITISCH
-Daten können nicht in Supabase gespeichert werden!
+### Schwere: KRITISCH (war)
+Daten konnten nicht vollständig in Supabase gespeichert werden.
 
-### Ursache
-Die Spalten in der POST-Anfrage existieren nicht in der Datenbank:
-- `rechtsgebiet` - fehlt
-- `unterrechtsgebiet` - fehlt
-- Andere Spalten möglicherweise auch
+### Root Cause Analyse
+**Erste Annahme (FALSCH):** Fehlende Spalten in der Datenbank
+- Migrationen wurden ausgeführt
+- Alle 19 Spalten existierten in der Tabelle
 
-### Warum?
-Die Datenbank-Migration wurde noch nicht ausgeführt. Die Datei existiert:
-- `supabase/migrations/20260114_add_missing_columns.sql`
+**Tatsächliche Ursache (KORREKT):** Duplikat-IDs
+- Der Code verwendete `insert` statt `upsert`
+- Wenn Blöcke mit gleicher ID bereits in Supabase existierten, schlug `insert` fehl
+- Daher: EINIGE Blöcke wurden erfolgreich eingefügt (neue IDs), andere schlugen fehl (existierende IDs)
 
-### Lösung: Migration ausführen
+### Lösung: IMPLEMENTIERT
+`insert` zu `upsert` geändert in `use-supabase-sync.js`:
 
-**Schritt 1:** Gehe zu Supabase Dashboard → SQL Editor
+```javascript
+// VORHER (fehlgeschlagen bei Duplikaten):
+await supabase.from('calendar_blocks').insert(dataToInsert);
 
-**Schritt 2:** Führe folgendes SQL aus:
-
-```sql
--- Add missing columns to calendar_blocks
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS rechtsgebiet TEXT;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS unterrechtsgebiet TEXT;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS block_size INTEGER DEFAULT 1;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS description TEXT;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS has_time BOOLEAN DEFAULT FALSE;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS start_time TEXT;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS end_time TEXT;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS start_hour INTEGER;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS duration INTEGER;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS repeat_end_mode TEXT;
-ALTER TABLE calendar_blocks ADD COLUMN IF NOT EXISTS repeat_end_date DATE;
-
--- Add missing columns to private_sessions
-ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS end_date DATE;
-ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS all_day BOOLEAN DEFAULT FALSE;
-ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS is_multi_day BOOLEAN DEFAULT FALSE;
-ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS rechtsgebiet TEXT;
-
--- Add missing columns to time_sessions
-ALTER TABLE time_sessions ADD COLUMN IF NOT EXISTS rechtsgebiet TEXT;
-ALTER TABLE time_sessions ADD COLUMN IF NOT EXISTS description TEXT;
+// NACHHER (funktioniert immer):
+await supabase.from('calendar_blocks').upsert(dataToInsert, { onConflict: 'id' });
 ```
 
-**Schritt 3:** Vercel neu deployen oder Seite neu laden
+### Betroffene Stellen
+1. Zeile ~1197: Migration sync
+2. Zeile ~1268: saveDaySlots
+3. Zeile ~1302: saveAllSlots
 
 ---
 
-## Fix-Reihenfolge
+## Alle Fixes erledigt
 
-### 1. Sofort (Kritisch)
-- [ ] Supabase Migration ausführen (Fehler 3)
-
-### 2. Optional (Qualitätsverbesserung)
-- [ ] AudioContext lazy initialisieren (Fehler 1)
-- [ ] localStorage manuell bereinigen (Fehler 2) - oder einfach warten
+- [x] AudioContext Warning - User Interaction Tracking
+- [x] Invalid date key: null - filterValidDateKeys Helper
+- [x] 400 Bad Request - insert zu upsert geändert
 
 ---
 
