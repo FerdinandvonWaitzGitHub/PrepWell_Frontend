@@ -25,6 +25,7 @@ const ProfilPage = lazy(() => import('./pages/profil'));
 const MentorPage = lazy(() => import('./pages/mentor'));
 const CheckInPage = lazy(() => import('./pages/checkin'));
 const OnboardingPage = lazy(() => import('./pages/onboarding'));
+const PendingApprovalPage = lazy(() => import('./pages/pending-approval'));
 
 // Lernplan Wizard (large, code-split)
 const LernplanWizardPage = lazy(() => import('./features/lernplan-wizard').then(m => ({ default: m.LernplanWizardPage })));
@@ -56,9 +57,10 @@ function LazyRoute({ children }) {
 
 /**
  * Protected Route wrapper - redirects to auth if not logged in
+ * T14: Also checks approval status
  */
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isApproved, approvalLoading } = useAuth();
 
   // Show loading while checking auth
   if (loading) {
@@ -74,14 +76,29 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/auth" replace />;
   }
 
+  // T14: Show loading while checking approval status
+  if (approvalLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // T14: Redirect to pending approval if not approved
+  if (isApproved === false) {
+    return <Navigate to="/pending-approval" replace />;
+  }
+
   return children;
 }
 
 /**
  * Home component - redirects to auth if not logged in
+ * T14: Also checks approval status
  */
 function HomePage() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isApproved, approvalLoading } = useAuth();
 
   if (loading) {
     return (
@@ -93,6 +110,20 @@ function HomePage() {
 
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // T14: Show loading while checking approval status
+  if (approvalLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // T14: Redirect to pending approval if not approved
+  if (isApproved === false) {
+    return <Navigate to="/pending-approval" replace />;
   }
 
   return <DashboardPage />;
@@ -150,6 +181,11 @@ const router = createBrowserRouter([
   {
     path: '/auth',
     element: <AuthPage />,
+  },
+  {
+    // T14: Pending approval screen for unapproved users
+    path: '/pending-approval',
+    element: <LazyRoute><PendingApprovalPage /></LazyRoute>,
   },
   {
     path: '/onboarding',

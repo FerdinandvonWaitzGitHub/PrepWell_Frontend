@@ -68,10 +68,11 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  // User Approval System (Option 3) - TEMPORARILY DISABLED
-  // Set to true by default to bypass approval check while debugging
-  const [isApproved, setIsApproved] = useState(true);
-  const [approvalLoading, setApprovalLoading] = useState(false);
+  // User Approval System (Option 3) - T14
+  // isApproved starts as null (unknown), approvalLoading starts as true
+  // This prevents the app from rendering until we know the approval status
+  const [isApproved, setIsApproved] = useState(null);
+  const [approvalLoading, setApprovalLoading] = useState(true);
 
   // Initialize user settings in Supabase if they don't exist
   const initializeUserSettings = useCallback(async (userId) => {
@@ -185,10 +186,13 @@ export function AuthProvider({ children }) {
       // Initialize user settings and check approval for logged in user
       if (session?.user?.id) {
         initializeUserSettings(session.user.id);
-        // TEMPORARILY DISABLED: Check approval status
-        // await checkApprovalStatus(session.user.id);
+        // T14: Check approval status
+        await checkApprovalStatus(session.user.id);
+      } else {
+        // No user logged in: reset approval state
+        setApprovalLoading(false);
+        setIsApproved(null);
       }
-      // No need to set approvalLoading since it starts as false
     });
 
     // Listen for auth changes
@@ -205,10 +209,12 @@ export function AuthProvider({ children }) {
           // Store current user ID for future comparison
           localStorage.setItem('prepwell_last_user_id', session.user.id);
           initializeUserSettings(session.user.id);
-          // TEMPORARILY DISABLED: Check approval status
-          // await checkApprovalStatus(session.user.id);
+          // T14: Check approval status
+          await checkApprovalStatus(session.user.id);
         } else if (_event === 'SIGNED_OUT') {
-          // Reset approval status on sign out (keep isApproved=true for bypass)
+          // T14: Reset approval status on sign out
+          setIsApproved(null);
+          setApprovalLoading(false);
         }
 
         setSession(session);
@@ -217,8 +223,8 @@ export function AuthProvider({ children }) {
     );
 
     return () => subscription.unsubscribe();
-    // TEMPORARILY DISABLED: removed checkApprovalStatus from deps
-  }, [initializeUserSettings]);
+    // T14: checkApprovalStatus added back to deps
+  }, [initializeUserSettings, checkApprovalStatus]);
 
   const signUp = async (email, password, firstName = '', lastName = '') => {
     if (!isSupabaseConfigured()) {

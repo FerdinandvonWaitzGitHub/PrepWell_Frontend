@@ -1,78 +1,29 @@
--- ROLLBACK: User Approval System
--- Run this to restore original RLS policies (without approval check)
+-- ============================================
+-- T14: ROLLBACK - User Approval System
+-- ============================================
+-- Fuehre dieses Script aus um das Approval System zu entfernen
+-- ACHTUNG: Loescht alle Profile-Daten!
+-- ============================================
 
--- Content Plans
-DROP POLICY IF EXISTS "Users can view own content_plans" ON content_plans;
-CREATE POLICY "Users can view own content_plans" ON content_plans FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own content_plans" ON content_plans;
-CREATE POLICY "Users can create own content_plans" ON content_plans FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own content_plans" ON content_plans;
-CREATE POLICY "Users can update own content_plans" ON content_plans FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own content_plans" ON content_plans;
-CREATE POLICY "Users can delete own content_plans" ON content_plans FOR DELETE USING (auth.uid() = user_id);
+-- Trigger entfernen
+drop trigger if exists on_auth_user_created on auth.users;
+drop trigger if exists update_profiles_updated_at on public.profiles;
 
--- Calendar Blocks
-DROP POLICY IF EXISTS "Users can view own calendar_blocks" ON calendar_blocks;
-CREATE POLICY "Users can view own calendar_blocks" ON calendar_blocks FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own calendar_blocks" ON calendar_blocks;
-CREATE POLICY "Users can create own calendar_blocks" ON calendar_blocks FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own calendar_blocks" ON calendar_blocks;
-CREATE POLICY "Users can update own calendar_blocks" ON calendar_blocks FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own calendar_blocks" ON calendar_blocks;
-CREATE POLICY "Users can delete own calendar_blocks" ON calendar_blocks FOR DELETE USING (auth.uid() = user_id);
+-- Funktionen entfernen
+drop function if exists public.handle_new_user();
+drop function if exists public.is_user_approved(uuid);
 
--- Time Sessions
-DROP POLICY IF EXISTS "Users can view own time_sessions" ON time_sessions;
-CREATE POLICY "Users can view own time_sessions" ON time_sessions FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own time_sessions" ON time_sessions;
-CREATE POLICY "Users can create own time_sessions" ON time_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own time_sessions" ON time_sessions;
-CREATE POLICY "Users can update own time_sessions" ON time_sessions FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own time_sessions" ON time_sessions;
-CREATE POLICY "Users can delete own time_sessions" ON time_sessions FOR DELETE USING (auth.uid() = user_id);
+-- Policies entfernen
+drop policy if exists "profiles_read_own" on public.profiles;
+drop policy if exists "profiles_update_own" on public.profiles;
 
--- Private Sessions
-DROP POLICY IF EXISTS "Users can view own private_sessions" ON private_sessions;
-CREATE POLICY "Users can view own private_sessions" ON private_sessions FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own private_sessions" ON private_sessions;
-CREATE POLICY "Users can create own private_sessions" ON private_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own private_sessions" ON private_sessions;
-CREATE POLICY "Users can update own private_sessions" ON private_sessions FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own private_sessions" ON private_sessions;
-CREATE POLICY "Users can delete own private_sessions" ON private_sessions FOR DELETE USING (auth.uid() = user_id);
+-- Indexes entfernen
+drop index if exists idx_profiles_approved;
+drop index if exists idx_profiles_email;
 
--- Calendar Tasks
-DROP POLICY IF EXISTS "Users can view own calendar_tasks" ON calendar_tasks;
-CREATE POLICY "Users can view own calendar_tasks" ON calendar_tasks FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own calendar_tasks" ON calendar_tasks;
-CREATE POLICY "Users can create own calendar_tasks" ON calendar_tasks FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own calendar_tasks" ON calendar_tasks;
-CREATE POLICY "Users can update own calendar_tasks" ON calendar_tasks FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own calendar_tasks" ON calendar_tasks;
-CREATE POLICY "Users can delete own calendar_tasks" ON calendar_tasks FOR DELETE USING (auth.uid() = user_id);
+-- Tabelle entfernen (VORSICHT: Loescht alle Profile-Daten!)
+drop table if exists public.profiles;
 
--- Timer Sessions
-DROP POLICY IF EXISTS "Users can view own timer_sessions" ON timer_sessions;
-CREATE POLICY "Users can view own timer_sessions" ON timer_sessions FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own timer_sessions" ON timer_sessions;
-CREATE POLICY "Users can create own timer_sessions" ON timer_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
-
--- Logbuch Entries
-DROP POLICY IF EXISTS "Users can view own logbuch_entries" ON logbuch_entries;
-CREATE POLICY "Users can view own logbuch_entries" ON logbuch_entries FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own logbuch_entries" ON logbuch_entries;
-CREATE POLICY "Users can create own logbuch_entries" ON logbuch_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own logbuch_entries" ON logbuch_entries;
-CREATE POLICY "Users can update own logbuch_entries" ON logbuch_entries FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can delete own logbuch_entries" ON logbuch_entries;
-CREATE POLICY "Users can delete own logbuch_entries" ON logbuch_entries FOR DELETE USING (auth.uid() = user_id);
-
--- Check-In Responses
-DROP POLICY IF EXISTS "Users can view own checkin_responses" ON checkin_responses;
-CREATE POLICY "Users can view own checkin_responses" ON checkin_responses FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can create own checkin_responses" ON checkin_responses;
-CREATE POLICY "Users can create own checkin_responses" ON checkin_responses FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users can update own checkin_responses" ON checkin_responses;
-CREATE POLICY "Users can update own checkin_responses" ON checkin_responses FOR UPDATE USING (auth.uid() = user_id);
-
--- DONE: Policies restored to original state (no approval check)
+-- ============================================
+-- DONE: Approval System entfernt
+-- ============================================
