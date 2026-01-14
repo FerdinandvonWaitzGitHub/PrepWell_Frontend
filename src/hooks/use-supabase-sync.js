@@ -1111,10 +1111,18 @@ export function useCalendarBlocksSync() {
       // Guard against null/undefined blocks array
       if (!blocks || !Array.isArray(blocks)) return;
       blocks.forEach(block => {
-        // Check if ID should be auto-generated: null, undefined, or local prefixes
-        const isLocalId = !block.id || block.id?.startsWith('block-') || block.id?.startsWith('slot-') || block.id?.startsWith('local-') || block.id?.startsWith('private-');
-        // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
-        const blockId = isLocalId ? crypto.randomUUID() : block.id;
+        // UUID validation regex (standard UUID format: 8-4-4-4-12 hex chars)
+        const isValidUuid = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        // Check if ID should be auto-generated: null, undefined, local prefixes, or invalid UUID format
+        // T19 FIX: Also catch IDs like "2026-01-14-1" (date-position format) that aren't valid UUIDs
+        const needsNewId = !block.id ||
+          block.id?.startsWith('block-') ||
+          block.id?.startsWith('slot-') ||
+          block.id?.startsWith('local-') ||
+          block.id?.startsWith('private-') ||
+          !isValidUuid(block.id);
+        // Generate a new UUID if needed (prevents "invalid input syntax for type uuid" error)
+        const blockId = needsNewId ? crypto.randomUUID() : block.id;
         // Ensure position is an integer within valid range (DB: CHECK position >= 1 AND position <= 4)
         const rawPos = block.position != null ? Math.floor(Number(block.position)) : null;
         const positionInt = (rawPos !== null && rawPos >= 1 && rawPos <= 4) ? rawPos : null;
@@ -1244,10 +1252,17 @@ export function useCalendarBlocksSync() {
 
       if (slots.length > 0) {
         const dataToInsert = slots.map(slot => {
-          // Check if ID should be auto-generated: null, undefined, or local prefixes
-          const isLocalId = !slot.id || slot.id?.startsWith('slot-') || slot.id?.startsWith('local-') || slot.id?.startsWith('private-');
-          // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
-          const slotId = isLocalId ? crypto.randomUUID() : slot.id;
+          // UUID validation regex (standard UUID format: 8-4-4-4-12 hex chars)
+          const isValidUuid = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+          // Check if ID should be auto-generated: null, undefined, local prefixes, or invalid UUID format
+          // T19 FIX: Also catch IDs like "2026-01-14-1" (date-position format) that aren't valid UUIDs
+          const needsNewId = !slot.id ||
+            slot.id?.startsWith('slot-') ||
+            slot.id?.startsWith('local-') ||
+            slot.id?.startsWith('private-') ||
+            !isValidUuid(slot.id);
+          // Generate a new UUID if needed (prevents "invalid input syntax for type uuid" error)
+          const slotId = needsNewId ? crypto.randomUUID() : slot.id;
           // Ensure position is an integer within valid range (DB: CHECK position >= 1 AND position <= 4)
           const rawPos = slot.position != null ? Math.floor(Number(slot.position)) : null;
           const positionInt = (rawPos !== null && rawPos >= 1 && rawPos <= 4) ? rawPos : null;

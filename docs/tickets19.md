@@ -147,6 +147,35 @@ await supabase.from('calendar_blocks').upsert(dataToInsert, { onConflict: 'id' }
 - [x] 400 Bad Request - insert zu upsert geändert
 - [x] Position Constraint - Validierung für DB CHECK (1-4 oder null)
 - [x] Error Logging - Detaillierte Fehlermeldungen hinzugefügt
+- [x] UUID Validierung - IDs wie "2026-01-14-1" zu echten UUIDs konvertiert
+
+---
+
+## Fehler 4: Invalid UUID Format (KRITISCH) - GEFIXT
+
+### Symptom
+```
+message: 'invalid input syntax for type uuid: "2026-01-14-1"'
+code: '22P02'
+```
+
+### Ursache
+Block-IDs wurden im Format `"YYYY-MM-DD-N"` (Datum-Position) generiert statt als UUID.
+Die Datenbank erwartet aber UUIDs für die `id` Spalte.
+
+### Lösung: UUID Validierung hinzugefügt
+```javascript
+// UUID validation regex (standard UUID format: 8-4-4-4-12 hex chars)
+const isValidUuid = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+// Check if ID needs replacement
+const needsNewId = !block.id ||
+  block.id?.startsWith('slot-') ||
+  !isValidUuid(block.id);
+
+// Generate new UUID if current ID is invalid
+const blockId = needsNewId ? crypto.randomUUID() : block.id;
+```
 
 ---
 
