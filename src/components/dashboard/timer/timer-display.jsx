@@ -102,7 +102,7 @@ const TimerDisplay = ({ onClick }) => {
         <div className="py-1 rounded-md flex flex-col items-end gap-0.5">
           <div className={`
             text-sm font-medium leading-5 text-right
-            ${isPaused ? 'text-neutral-600' : isBreak ? 'text-green-700' : 'text-neutral-900'}
+            ${isPaused ? 'text-neutral-600' : isBreak ? 'text-green-700' : 'text-neutral-950'}
           `}>
             {isPaused && '⏸ '}{primaryText}
           </div>
@@ -112,7 +112,7 @@ const TimerDisplay = ({ onClick }) => {
         </div>
 
         {/* Progress Circle */}
-        <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100 flex justify-center items-center">
+        <div className="p-2 bg-white rounded-md shadow-xs border border-neutral-200 flex justify-center items-center">
           <CircularProgress
             progress={progress}
             size={24}
@@ -124,7 +124,7 @@ const TimerDisplay = ({ onClick }) => {
         {/* T16-W6: Play/Pause Button - always visible for now */}
         <div
           onClick={handlePlayPause}
-          className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100 flex justify-center items-center hover:bg-neutral-50 transition-colors cursor-pointer"
+          className="p-2 bg-white rounded-md shadow-xs border border-neutral-200 flex justify-center items-center hover:bg-neutral-50 transition-colors cursor-pointer"
           title={isPaused ? 'Fortsetzen' : 'Pausieren'}
           role="button"
           tabIndex={0}

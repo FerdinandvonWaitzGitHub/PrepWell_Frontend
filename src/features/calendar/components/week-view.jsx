@@ -80,8 +80,12 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   };
 
   // Helper: Format date to YYYY-MM-DD
+  // KA-002 FIX: Verwende lokale Zeit statt UTC (toISOString verschiebt um 1 Tag)
   const formatDateKey = (date) => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Helper: Get position-based time blocks
@@ -303,8 +307,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
   };
 
-  // Handle time slot click - open add block dialog
-  const handleSlotClick = (date, time) => {
+  // Handle time block click - open add block dialog
+  const handleTimeBlockClick = (date, time) => {
     setSelectedDate(date);
     setSelectedTime(time);
     setIsAddDialogOpen(true);
@@ -369,7 +373,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         updatePrivateBlock(dateKey, updatedBlock.id, updatedBlock);
       }
     } else {
-      // BUG-023 FIX: Check if this is a time block or a Lernplan slot
+      // BUG-023 FIX: Check if this is a time block or a Lernplan block
       const dayTimeBlocks = (timeBlocksByDate || {})[dateKey] || [];
       const isTimeBlock = dayTimeBlocks.some(block => block.id === updatedBlock.id);
 
@@ -425,7 +429,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   };
 
   // Delete a block - uses CalendarContext
-  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan slots
+  // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan blocks
   const handleDeleteBlock = async (date, blockId) => {
     const dateKey = date ? formatDateKey(date) : null;
     if (!dateKey) return;
@@ -462,7 +466,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   };
 
   // BUG-023 FIX: Add a new learning block - uses timeBlocksByDate
-  // Creates time blocks (NOT slots) for Week/Dashboard views
+  // Creates time blocks (NOT position-based blocks) for Week/Dashboard views
   // This ensures blocks created here are NEVER shown in Month view
   const handleAddBlock = async (_date, blockData) => {
     const startDate = selectedDate || new Date();
@@ -493,10 +497,10 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     console.log('[handleAddBlock] Time block created successfully');
   };
 
-  // Calculate end time based on start time and block size (1 slot = 2 hours)
+  // Calculate end time based on start time and block size (1 block = 2 hours)
   const calculateEndTime = (startTime, blockSize) => {
     const [hours, minutes] = startTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes + (blockSize * 120); // 2 hours per slot
+    const totalMinutes = hours * 60 + minutes + (blockSize * 120); // 2 hours per block
     const endHours = Math.floor(totalMinutes / 60) % 24;
     const endMins = totalMinutes % 60;
     return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
@@ -628,10 +632,10 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         currentDate={currentDate}
         blocks={blocks}
         privateBlocks={privateBlocks}
-        lernplanBlocks={isExamMode ? visibleBlocksByDate : {}} // T6.2 FIX: Hide in Normal mode
+        lernplanBlocks={visibleBlocksByDate || {}} // KA-001: Auch im Normalmodus anzeigen (wenn Blöcke existieren)
         lernplanHeaderBlocks={lernplanHeaderBlocks}
         onBlockClick={handleBlockClick}
-        onSlotClick={handleSlotClick}
+        onTimeBlockClick={handleTimeBlockClick}
         onTaskToggle={handleTaskToggle}
         onRemoveTaskFromBlock={handleRemoveTaskFromBlock}
         onTimeRangeSelect={handleTimeRangeSelect}
@@ -695,6 +699,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         open={isCreateThemeOpen}
         onOpenChange={setIsCreateThemeOpen}
         date={selectedDate}
+        initialTime={selectedTime}
+        initialEndTime={selectedEndTime}
         onSave={handleAddBlock}
         availableBlocks={4}
       />
@@ -704,6 +710,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         open={isCreateRepetitionOpen}
         onOpenChange={setIsCreateRepetitionOpen}
         date={selectedDate}
+        initialTime={selectedTime}
+        initialEndTime={selectedEndTime}
         onSave={handleAddBlock}
         availableBlocks={4}
       />
@@ -713,6 +721,8 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         open={isCreateExamOpen}
         onOpenChange={setIsCreateExamOpen}
         date={selectedDate}
+        initialTime={selectedTime}
+        initialEndTime={selectedEndTime}
         onSave={handleAddBlock}
         availableBlocks={4}
       />

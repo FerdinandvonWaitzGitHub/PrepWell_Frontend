@@ -17,11 +17,11 @@ import { supabase } from '../services/supabase';
 const STORAGE_KEYS = {
   contentPlans: 'prepwell_content_plans',
   publishedThemenlisten: 'prepwell_published_themenlisten',
-  blocks: 'prepwell_calendar_blocks', // formerly slots: prepwell_calendar_slots
+  blocks: 'prepwell_calendar_blocks',
   contents: 'prepwell_contents',
   tasks: 'prepwell_tasks',
-  privateSessions: 'prepwell_private_sessions', // formerly privateBlocks: prepwell_private_blocks
-  timeSessions: 'prepwell_time_sessions', // formerly timeBlocks: prepwell_time_blocks (BUG-023)
+  privateSessions: 'prepwell_private_sessions',
+  timeSessions: 'prepwell_time_sessions',
   lernplanMetadata: 'prepwell_lernplan_metadata',
   archivedLernplaene: 'prepwell_archived_lernplaene',
   exams: 'prepwell_exams',
@@ -34,14 +34,10 @@ const STORAGE_KEYS = {
   wizardDraft: 'prepwell_lernplan_wizard_draft',
   settings: 'prepwell_settings',
   gradeSystem: 'prepwell_grade_system',
-  customSubjects: 'prepwell_custom_subjects', // Legacy
-  subjectSettings: 'prepwell_subject_settings', // T-SET-1: { colorOverrides: {}, customSubjects: [] }
-  studiengang: 'prepwell_studiengang', // T7: Studiengang (jura, medizin, informatik, etc.)
+  customSubjects: 'prepwell_custom_subjects',
+  subjectSettings: 'prepwell_subject_settings',
+  studiengang: 'prepwell_studiengang',
   logbuchEntries: 'prepwell_logbuch_entries',
-  // Legacy keys for migration
-  slots: 'prepwell_calendar_slots', // deprecated, use blocks
-  privateBlocks: 'prepwell_private_blocks', // deprecated, use privateSessions
-  timeBlocks: 'prepwell_time_blocks', // deprecated, use timeSessions
 };
 
 /**
@@ -76,6 +72,72 @@ const saveToStorage = (key, data) => {
   } catch (error) {
     console.error(`Error saving ${key} to localStorage:`, error);
   }
+};
+
+/**
+ * KA-002 Fix: Clean up invalid data from blocksByDate
+ * Removes:
+ * - Date keys that have empty arrays (caused by deleteBlock bug)
+ * - Invalid date keys (null, undefined, non-YYYY-MM-DD format)
+ * @param {Object} data - The blocksByDate object
+ * @returns {Object} Cleaned object without invalid entries
+ */
+const cleanupEmptyArrays = (data) => {
+  if (!data || typeof data !== 'object') return data;
+
+  const cleaned = {};
+  let hadIssues = false;
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+  Object.entries(data).forEach(([key, value]) => {
+    // Skip invalid date keys
+    if (!key || key === 'null' || key === 'undefined' || !datePattern.test(key)) {
+      hadIssues = true;
+      console.log(`[KA-002] Removing invalid date key: ${key}`);
+      return;
+    }
+
+    // Skip empty arrays
+    if (Array.isArray(value) && value.length === 0) {
+      hadIssues = true;
+      console.log(`[KA-002] Removing empty array for date: ${key}`);
+      return;
+    }
+
+    // Keep valid entries, but ensure all blocks have a status field
+    if (Array.isArray(value) && value.length > 0) {
+      // KA-002 FIX: Ensure all blocks have a status field
+      let blocks = value.map(block => {
+        if (block.status) return block;
+        // Set status based on whether block has content (also check topicTitle and rechtsgebiet)
+        const hasContent = !!(block.title || block.topicTitle || block.contentId || block.rechtsgebiet);
+        return { ...block, status: hasContent ? 'occupied' : 'empty' };
+      });
+
+      // KA-002 FIX: Deduplicate blocks by position (max 4 per day)
+      if (blocks.length > 4) {
+        hadIssues = true;
+        console.log(`[KA-002] Deduplicating ${blocks.length} blocks for date: ${key}`);
+        const seenPositions = new Set();
+        blocks = blocks.filter(block => {
+          const pos = block.position;
+          if (pos && !seenPositions.has(pos)) {
+            seenPositions.add(pos);
+            return true;
+          }
+          return false;
+        }).slice(0, 4);
+      }
+
+      cleaned[key] = blocks;
+    }
+  });
+
+  if (hadIssues) {
+    console.log('[KA-002] Cleaned up invalid data from blocksByDate');
+  }
+
+  return cleaned;
 };
 
 /**
@@ -1046,14 +1108,23 @@ export function useWizardDraftSync() {
 }
 
 /**
- * Hook for Calendar Slots (blocksByDate)
+ * Hook for Calendar Blocks (blocksByDate)
  * Transforms between date-keyed object format and flat array
  */
 export function useCalendarBlocksSync() {
   const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
-  const [blocksByDate, setBlocksByDate] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.blocks, {})
-  );
+  const [blocksByDate, setBlocksByDate] = useState(() => {
+    // KA-002 FIX: Load and cleanup empty arrays from localStorage
+    const rawData = loadFromStorage(STORAGE_KEYS.blocks, {});
+    const cleanedData = cleanupEmptyArrays(rawData);
+
+    // Persist cleaned data back to localStorage if there were changes
+    if (Object.keys(rawData).length !== Object.keys(cleanedData).length) {
+      saveToStorage(STORAGE_KEYS.blocks, cleanedData);
+    }
+
+    return cleanedData;
+  });
   const [loading, setLoading] = useState(false);
   const syncedRef = useRef(false);
   const userIdRef = useRef(null);
@@ -1070,16 +1141,25 @@ export function useCalendarBlocksSync() {
   const transformFromSupabase = useCallback((rows) => {
     const result = {};
     rows.forEach(row => {
-      const dateKey = row.block_date ?? row.slot_date; // T17 FIX: was slot_date only
+      const dateKey = row.block_date;
       if (!result[dateKey]) {
         result[dateKey] = [];
       }
+      // KA-002 FIX: Set status based on whether block has content
+      // A block is 'empty' if it has no title, no content_id, and no rechtsgebiet
+      // Also consider rechtsgebiet since wizard blocks often have it even without title
+      const hasContent = !!(row.title || row.content_id || row.rechtsgebiet);
+      const status = hasContent ? 'occupied' : 'empty';
+
       result[dateKey].push({
         id: row.id,
         contentId: row.content_id,
         contentPlanId: row.content_plan_id,
         position: row.position,
         title: row.title,
+        // KA-002 FIX: Also map to topicTitle for backwards compatibility with frontend code
+        topicTitle: row.title,
+        status, // KA-002 FIX: Add status field for freeBlocks counting
         rechtsgebiet: row.rechtsgebiet,
         unterrechtsgebiet: row.unterrechtsgebiet,
         blockType: row.block_type,
@@ -1117,7 +1197,6 @@ export function useCalendarBlocksSync() {
         // T19 FIX: Also catch IDs like "2026-01-14-1" (date-position format) that aren't valid UUIDs
         const needsNewId = !block.id ||
           block.id?.startsWith('block-') ||
-          block.id?.startsWith('slot-') ||
           block.id?.startsWith('local-') ||
           block.id?.startsWith('private-') ||
           !isValidUuid(block.id);
@@ -1133,7 +1212,8 @@ export function useCalendarBlocksSync() {
           content_id: block.contentId,
           content_plan_id: block.contentPlanId || null,
           position: positionInt,
-          title: block.title,
+          // KA-002 FIX: Map both title and topicTitle (wizard uses topicTitle)
+          title: block.title || block.topicTitle,
           rechtsgebiet: block.rechtsgebiet,
           unterrechtsgebiet: block.unterrechtsgebiet,
           block_type: block.blockType || 'lernblock',
@@ -1193,8 +1273,10 @@ export function useCalendarBlocksSync() {
           // User has Supabase data - use it
           const supabaseData = await fetchFromSupabase();
           if (supabaseData) {
-            setBlocksByDate(supabaseData);
-            saveToStorage(STORAGE_KEYS.blocks, supabaseData);
+            // KA-002 FIX: Also cleanup Supabase data (might have old empty arrays)
+            const cleanedSupabaseData = cleanupEmptyArrays(supabaseData);
+            setBlocksByDate(cleanedSupabaseData);
+            saveToStorage(STORAGE_KEYS.blocks, cleanedSupabaseData);
           }
         } else {
           // No Supabase data - migrate from localStorage
@@ -1221,7 +1303,7 @@ export function useCalendarBlocksSync() {
 
         syncedRef.current = true;
       } catch (err) {
-        console.error('Error syncing calendar slots:', err);
+        console.error('Error syncing calendar blocks:', err);
       } finally {
         setLoading(false);
       }
@@ -1230,10 +1312,10 @@ export function useCalendarBlocksSync() {
     initSync();
   }, [isSupabaseEnabled, isAuthenticated, user, fetchFromSupabase, transformToSupabase]);
 
-  // Save slots for a specific date
-  const saveDaySlots = useCallback(async (dateKey, slots) => {
-    const updated = { ...blocksByDate, [dateKey]: slots };
-    if (slots.length === 0) {
+  // Save blocks for a specific date
+  const saveDayBlocks = useCallback(async (dateKey, blocks) => {
+    const updated = { ...blocksByDate, [dateKey]: blocks };
+    if (blocks.length === 0) {
       delete updated[dateKey];
     }
     setBlocksByDate(updated);
@@ -1248,45 +1330,45 @@ export function useCalendarBlocksSync() {
       await supabase
         .from('calendar_blocks')
         .delete()
-        .eq('block_date', dateKey); // T17 FIX: was slot_date
+        .eq('block_date', dateKey);
 
-      if (slots.length > 0) {
-        const dataToInsert = slots.map(slot => {
+      if (blocks.length > 0) {
+        const dataToInsert = blocks.map(block => {
           // UUID validation regex (standard UUID format: 8-4-4-4-12 hex chars)
           const isValidUuid = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
           // Check if ID should be auto-generated: null, undefined, local prefixes, or invalid UUID format
           // T19 FIX: Also catch IDs like "2026-01-14-1" (date-position format) that aren't valid UUIDs
-          const needsNewId = !slot.id ||
-            slot.id?.startsWith('slot-') ||
-            slot.id?.startsWith('local-') ||
-            slot.id?.startsWith('private-') ||
-            !isValidUuid(slot.id);
+          const needsNewId = !block.id ||
+            block.id?.startsWith('block-') ||
+            block.id?.startsWith('local-') ||
+            block.id?.startsWith('private-') ||
+            !isValidUuid(block.id);
           // Generate a new UUID if needed (prevents "invalid input syntax for type uuid" error)
-          const slotId = needsNewId ? crypto.randomUUID() : slot.id;
+          const blockId = needsNewId ? crypto.randomUUID() : block.id;
           // Ensure position is an integer within valid range (DB: CHECK position >= 1 AND position <= 4)
-          const rawPos = slot.position != null ? Math.floor(Number(slot.position)) : null;
+          const rawPos = block.position != null ? Math.floor(Number(block.position)) : null;
           const positionInt = (rawPos !== null && rawPos >= 1 && rawPos <= 4) ? rawPos : null;
           return {
-            id: slotId,
+            id: blockId,
             user_id: user.id,
-            block_date: dateKey, // T17 FIX: was slot_date
-            content_id: slot.contentId,
-            content_plan_id: slot.contentPlanId || null,
+            block_date: dateKey,
+            content_id: block.contentId,
+            content_plan_id: block.contentPlanId || null,
             position: positionInt,
-            title: slot.title,
-            rechtsgebiet: slot.rechtsgebiet,
-            unterrechtsgebiet: slot.unterrechtsgebiet,
-            block_type: slot.blockType || 'lernblock',
-            is_locked: slot.isLocked || false,
-            is_from_lernplan: slot.isFromLernplan || false,
+            title: block.title,
+            rechtsgebiet: block.rechtsgebiet,
+            unterrechtsgebiet: block.unterrechtsgebiet,
+            block_type: block.blockType || 'lernblock',
+            is_locked: block.isLocked || false,
+            is_from_lernplan: block.isFromLernplan || false,
             // PRD: BlockAllocation hat KEINE Zeit-Felder
-            repeat_enabled: slot.repeatEnabled || false,
-            repeat_type: slot.repeatType,
-            repeat_count: slot.repeatCount,
-            series_id: slot.seriesId,
-            custom_days: slot.customDays,
-            tasks: slot.tasks || [],
-            metadata: slot.metadata || {},
+            repeat_enabled: block.repeatEnabled || false,
+            repeat_type: block.repeatType,
+            repeat_count: block.repeatCount,
+            series_id: block.seriesId,
+            custom_days: block.customDays,
+            tasks: block.tasks || [],
+            metadata: block.metadata || {},
           };
         });
 
@@ -1297,7 +1379,7 @@ export function useCalendarBlocksSync() {
           .select();
 
         if (error) {
-          console.error('[saveDaySlots] Supabase error details:', {
+          console.error('[saveDayBlocks] Supabase error details:', {
             message: error.message,
             details: error.details,
             hint: error.hint,
@@ -1310,29 +1392,29 @@ export function useCalendarBlocksSync() {
 
       return { success: true, source: 'supabase' };
     } catch (err) {
-      console.error('Error saving calendar slots:', err);
+      console.error('Error saving calendar blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
   }, [blocksByDate, isSupabaseEnabled, isAuthenticated, user?.id]);
 
-  // Save all slots (for bulk operations like wizard)
-  const saveAllSlots = useCallback(async (newSlotsByDate) => {
-    setBlocksByDate(newSlotsByDate);
-    saveToStorage(STORAGE_KEYS.blocks, newSlotsByDate);
+  // Save all blocks (for bulk operations like wizard)
+  const saveAllBlocks = useCallback(async (newBlocksByDate) => {
+    setBlocksByDate(newBlocksByDate);
+    saveToStorage(STORAGE_KEYS.blocks, newBlocksByDate);
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
       return { success: true, source: 'localStorage' };
     }
 
     try {
-      // Delete all existing slots
+      // Delete all existing blocks
       await supabase
         .from('calendar_blocks')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
 
-      // Insert new slots (use upsert for safety)
-      const dataToInsert = transformToSupabase(newSlotsByDate, user.id);
+      // Insert new blocks (use upsert for safety)
+      const dataToInsert = transformToSupabase(newBlocksByDate, user.id);
       if (dataToInsert.length > 0) {
         const { error, data } = await supabase
           .from('calendar_blocks')
@@ -1340,7 +1422,7 @@ export function useCalendarBlocksSync() {
           .select();
 
         if (error) {
-          console.error('[saveAllSlots] Supabase error details:', {
+          console.error('[saveAllBlocks] Supabase error details:', {
             message: error.message,
             details: error.details,
             hint: error.hint,
@@ -1353,13 +1435,13 @@ export function useCalendarBlocksSync() {
 
       return { success: true, source: 'supabase' };
     } catch (err) {
-      console.error('Error saving all calendar slots:', err);
+      console.error('Error saving all calendar blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
   }, [isSupabaseEnabled, isAuthenticated, user, transformToSupabase]);
 
-  // Clear all slots
-  const clearAllSlots = useCallback(async () => {
+  // Clear all blocks
+  const clearAllBlocks = useCallback(async () => {
     setBlocksByDate({});
     saveToStorage(STORAGE_KEYS.blocks, {});
 
@@ -1375,19 +1457,16 @@ export function useCalendarBlocksSync() {
 
       return { success: true, source: 'supabase' };
     } catch (err) {
-      console.error('Error clearing calendar slots:', err);
+      console.error('Error clearing calendar blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
   }, [isSupabaseEnabled, isAuthenticated]);
 
   return {
     blocksByDate,
-    setBlocksByDate: saveAllSlots,
-    setSlotsByDate: saveAllSlots, // Legacy alias
-    saveDayBlocks: saveDaySlots,
-    saveDaySlots, // Legacy alias
-    clearAllBlocks: clearAllSlots,
-    clearAllSlots, // Legacy alias
+    setBlocksByDate: saveAllBlocks,
+    saveDayBlocks,
+    clearAllBlocks,
     loading,
     isAuthenticated,
     isSupabaseEnabled,
@@ -1439,7 +1518,7 @@ export function useCalendarTasksSync() {
         description: row.description,
         priority: mapPriorityFromDb(row.priority),
         completed: row.completed,
-        linkedSlotId: row.linked_block_id ?? row.linked_slot_id,
+        linkedBlockId: row.linked_block_id,
         metadata: row.metadata || {},
         createdAt: row.created_at,
       });
@@ -1510,7 +1589,7 @@ export function useCalendarTasksSync() {
                 description: task.description,
                 priority: validPriority,
                 completed: task.completed || false,
-                linked_block_id: task.linkedSlotId || null, // T17 FIX: was linked_slot_id
+                linked_block_id: task.linkedBlockId || null,
                 metadata: task.metadata || {},
               });
             });
@@ -1581,7 +1660,7 @@ export function useCalendarTasksSync() {
             description: task.description,
             priority: validPriority,
             completed: task.completed || false,
-            linked_block_id: task.linkedSlotId || null,
+            linked_block_id: task.linkedBlockId || null,
             metadata: task.metadata || {},
           };
         });
@@ -1821,7 +1900,7 @@ export function usePrivateSessionsSync() {
 
         const dataToInsert = validBlocks.map(block => {
           // Check if ID should be auto-generated: null, undefined, or local prefixes
-          const isLocalId = !block.id || block.id?.startsWith('private-') || block.id?.startsWith('local-') || block.id?.startsWith('slot-');
+          const isLocalId = !block.id || block.id?.startsWith('private-') || block.id?.startsWith('local-') || block.id?.startsWith('block-');
           // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
           const blockId = isLocalId ? crypto.randomUUID() : block.id;
           return {
@@ -1904,7 +1983,7 @@ export function usePrivateSessionsSync() {
 
           const dataToInsert = validBlocks.map(block => {
             // Check if ID should be auto-generated: null, undefined, or local prefixes
-            const isLocalId = !block.id || block.id?.startsWith('private-') || block.id?.startsWith('local-') || block.id?.startsWith('slot-');
+            const isLocalId = !block.id || block.id?.startsWith('private-') || block.id?.startsWith('local-') || block.id?.startsWith('block-');
             // Generate a new UUID if this is a local ID (prevents null constraint violation in batch inserts)
             const blockId = isLocalId ? crypto.randomUUID() : block.id;
             return {
@@ -1957,7 +2036,7 @@ export function usePrivateSessionsSync() {
 
 /**
  * Hook for Time Blocks (timeSessionsByDate)
- * BUG-023 FIX: Strictly separated from calendar_slots (Month view)
+ * BUG-023 FIX: Strictly separated from calendar_blocks (Month view)
  * Time blocks are time-based (start_time, end_time) for Week/Dashboard views
  */
 export function useTimeSessionsSync() {
@@ -2366,7 +2445,7 @@ export function useArchivedLernplaeneSync() {
       if (error) throw error;
       return (data || []).map(row => ({
         id: row.id,
-        slots: row.slots_data || {},
+        blocks: row.blocks_data || {},
         metadata: {
           name: row.name,
           description: row.description,
@@ -2412,7 +2491,7 @@ export function useArchivedLernplaeneSync() {
               description: plan.metadata?.description,
               start_date: plan.metadata?.startDate,
               end_date: plan.metadata?.endDate,
-              slots_data: plan.slots || {},
+              blocks_data: plan.blocks || {},
               metadata: plan.metadata || {},
               archived_at: plan.metadata?.archivedAt || new Date().toISOString(),
             }));
@@ -2437,7 +2516,7 @@ export function useArchivedLernplaeneSync() {
   const archivePlan = useCallback(async (planData) => {
     const newPlan = {
       id: planData.id || `archive_${Date.now()}`,
-      slots: planData.slots,
+      blocks: planData.blocks || {},
       metadata: planData.metadata,
     };
 
@@ -2458,7 +2537,7 @@ export function useArchivedLernplaeneSync() {
           description: planData.metadata?.description,
           start_date: planData.metadata?.startDate,
           end_date: planData.metadata?.endDate,
-          slots_data: planData.slots || {},
+          blocks_data: planData.blocks || {},
           metadata: planData.metadata || {},
           archived_at: planData.metadata?.archivedAt || new Date().toISOString(),
         });

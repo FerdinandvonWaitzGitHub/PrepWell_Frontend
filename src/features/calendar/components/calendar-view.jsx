@@ -345,7 +345,26 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
 
     // Get blocks for this date, or create empty ones
     // BUG-010 FIX: Use displayBlocksByDate to exclude archived content plans
-    const dayBlocks = displayBlocksByDate[dateKey] || createDayBlocks(date);
+    // KA-002 FIX: Empty arrays [] are truthy, so check length explicitly
+    const existingBlocks = displayBlocksByDate[dateKey];
+
+    let dayBlocks = (existingBlocks && existingBlocks.length > 0)
+      ? existingBlocks
+      : createDayBlocks(date);
+
+    // KA-002 FIX: Deduplicate blocks by position (max 4 blocks per day, positions 1-4)
+    // This fixes data corruption where a day might have 8+ blocks instead of 4
+    if (dayBlocks.length > 4) {
+      const seenPositions = new Set();
+      dayBlocks = dayBlocks.filter(block => {
+        const pos = block.position;
+        if (pos && !seenPositions.has(pos)) {
+          seenPositions.add(pos);
+          return true;
+        }
+        return false;
+      }).slice(0, 4);
+    }
 
     // Convert block allocations to learning sessions for display
     // Note: Private sessions are NOT shown in month view (BUG-023)
@@ -449,10 +468,14 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
   }, [selectedBlock, selectedDay?.date]);
 
   // Get available blocks for a specific date
+  // KA-002 FIX: Empty arrays [] are truthy, so check length explicitly
   const getAvailableBlocksForDate = (date) => {
     if (!date) return 3;
     const dateKey = formatDateKey(date);
-    const dayBlocks = allBlocksByDate[dateKey] || createDayBlocks(date);
+    const existingBlocks = allBlocksByDate[dateKey];
+    const dayBlocks = (existingBlocks && existingBlocks.length > 0)
+      ? existingBlocks
+      : createDayBlocks(date);
     return dayBlocks.filter(s => s.status === 'empty').length;
   };
 
@@ -462,7 +485,11 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     if (!date) return [];
     const dateKey = formatDateKey(date);
     // BUG-010 FIX: Use displayBlocksByDate to exclude archived content plans
-    const dayBlocks = displayBlocksByDate[dateKey] || createDayBlocks(date);
+    // KA-002 FIX: Empty arrays [] are truthy, so check length explicitly
+    const existingBlocks = displayBlocksByDate[dateKey];
+    const dayBlocks = (existingBlocks && existingBlocks.length > 0)
+      ? existingBlocks
+      : createDayBlocks(date);
     const blocks = blocksToLearningSessions(dayBlocks);
 
     // Note: Private sessions are NOT shown in month view (BUG-023)

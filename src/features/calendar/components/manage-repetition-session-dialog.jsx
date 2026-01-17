@@ -45,10 +45,8 @@ const ManageRepetitionBlockDialog = ({
   onSave,
   onDelete,
   availableBlocks = 4,
-  availableSlots // Legacy alias
 }) => {
-  // Support legacy prop name
-  const maxBlocks = availableSlots ?? availableBlocks;
+  const maxBlocks = availableBlocks;
 
   // W5: Get studiengang context for subject selection
   const { isJura } = useStudiengang();
@@ -243,7 +241,7 @@ const ManageRepetitionBlockDialog = ({
     onOpenChange(false);
   };
 
-  // Calculate total available slots (current block size + free slots)
+  // Calculate total available blocks (current block size + free blocks)
   const totalAvailableBlocks = (block?.blockSize || 0) + maxBlocks;
 
   return (

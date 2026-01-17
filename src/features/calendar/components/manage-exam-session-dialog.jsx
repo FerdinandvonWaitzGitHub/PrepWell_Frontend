@@ -52,11 +52,9 @@ const ManageExamBlockDialog = ({
   onSave,
   onDelete,
   availableBlocks = 4,
-  availableSlots, // Legacy alias
   mode = 'block' // 'block' = Monatsansicht (has blockSize), 'session' = Wochenansicht (NO blockSize per PRD §3.1)
 }) => {
-  // Support legacy prop name
-  const maxBlocks = availableSlots ?? availableBlocks;
+  const maxBlocks = availableBlocks;
   // Use central Unterrechtsgebiete context
   const {
     getUnterrechtsgebieteByRechtsgebiet,
@@ -179,7 +177,7 @@ const ManageExamBlockDialog = ({
     setSelectedUnterrechtsgebiet(newItem);
   };
 
-  // Calculate total available slots (current block size + free slots)
+  // Calculate total available blocks (current block size + free blocks)
   const totalAvailableBlocks = (block?.blockSize || 0) + maxBlocks;
 
   // Save and close handler

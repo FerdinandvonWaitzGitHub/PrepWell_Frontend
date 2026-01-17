@@ -272,7 +272,7 @@ const SettingsContent = ({ className = '' }) => {
 
       {/* Lernmodus Section */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <h3 className="text-lg font-medium text-neutral-900 mb-4">Lernmodus</h3>
+        <h3 className="text-2xl font-extralight text-neutral-950 mb-4">Lernmodus</h3>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between py-3 border-b border-neutral-100">
@@ -341,7 +341,7 @@ const SettingsContent = ({ className = '' }) => {
 
       {/* Studium Section */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+        <h3 className="text-2xl font-extralight text-neutral-950 mb-4 flex items-center gap-2">
           <GraduationCap className="w-5 h-5" />
           Studium
         </h3>
@@ -375,7 +375,7 @@ const SettingsContent = ({ className = '' }) => {
       {/* T-SET-1: Fächerfarben für Nicht-Juristen */}
       {!isJura && hasStudiengang && (
         <div className="bg-white rounded-lg border border-neutral-200 p-6">
-          <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+          <h3 className="text-2xl font-extralight text-neutral-950 mb-4 flex items-center gap-2">
             <BookOpen className="w-5 h-5" />
             Fächer
           </h3>
@@ -386,7 +386,7 @@ const SettingsContent = ({ className = '' }) => {
       {/* Jura Section - nur bei Jura-Studiengang anzeigen */}
       {isJura && (
         <div className="bg-white rounded-lg border border-neutral-200 p-6">
-          <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+          <h3 className="text-2xl font-extralight text-neutral-950 mb-4 flex items-center gap-2">
             <Scale className="w-5 h-5" />
             Jura
           </h3>
@@ -478,7 +478,7 @@ const SettingsContent = ({ className = '' }) => {
 
       {/* Profil Section */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+        <h3 className="text-2xl font-extralight text-neutral-950 mb-4 flex items-center gap-2">
           <User className="w-5 h-5" />
           Profil
         </h3>
@@ -556,92 +556,86 @@ const SettingsContent = ({ className = '' }) => {
         </div>
       </div>
 
-      {/* Benachrichtigungen Section */}
+      {/* Mentor Section */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
-          <Bell className="w-5 h-5" />
-          Benachrichtigungen
+        <h3 className="text-2xl font-extralight text-neutral-950 mb-4 flex items-center gap-2">
+          <Brain className="w-5 h-5" />
+          Mentor
         </h3>
 
         <div className="space-y-4">
-          {/* Email Notifications */}
-          <div className="flex items-center justify-between py-3 border-b border-neutral-100">
-            <div className="flex items-center gap-3">
-              <Mail className="w-5 h-5 text-neutral-400" />
-              <div>
-                <p className="text-sm font-medium text-neutral-900">E-Mail Benachrichtigungen</p>
-                <p className="text-xs text-neutral-500">Updates und Neuigkeiten per E-Mail</p>
-              </div>
-            </div>
-            <button
-              onClick={() => handleSettingChange('notifications', 'emailEnabled', !settings.notifications.emailEnabled)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                settings.notifications.emailEnabled ? 'bg-blue-600' : 'bg-neutral-300'
-              }`}
-            >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                settings.notifications.emailEnabled ? 'left-7' : 'left-1'
-              }`} />
-            </button>
-          </div>
-
-          {/* Push Notifications */}
-          <div className="flex items-center justify-between py-3 border-b border-neutral-100">
-            <div className="flex items-center gap-3">
-              <Bell className="w-5 h-5 text-neutral-400" />
-              <div>
-                <p className="text-sm font-medium text-neutral-900">Push Benachrichtigungen</p>
-                <p className="text-xs text-neutral-500">Benachrichtigungen im Browser</p>
-              </div>
-            </div>
-            <button
-              onClick={() => handleSettingChange('notifications', 'pushEnabled', !settings.notifications.pushEnabled)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                settings.notifications.pushEnabled ? 'bg-blue-600' : 'bg-neutral-300'
-              }`}
-            >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                settings.notifications.pushEnabled ? 'left-7' : 'left-1'
-              }`} />
-            </button>
-          </div>
-
-          {/* Reminders */}
+          {/* Mentor Toggle */}
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-neutral-400" />
+              <Brain className="w-5 h-5 text-neutral-400" />
               <div>
-                <p className="text-sm font-medium text-neutral-900">Erinnerungen</p>
-                <p className="text-xs text-neutral-500">Tägliche Lernerinnerungen</p>
+                <p className="text-sm font-medium text-neutral-900">Mentor aktivieren</p>
+                <p className="text-xs text-neutral-500">
+                  Check-Ins, Statistiken und Wohlbefinden-Tracking
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {settings.notifications.remindersEnabled && (
-                <input
-                  type="time"
-                  value={settings.notifications.reminderTime}
-                  onChange={(e) => handleSettingChange('notifications', 'reminderTime', e.target.value)}
-                  className="px-2 py-1 text-sm border border-neutral-200 rounded"
-                />
-              )}
-              <button
-                onClick={() => handleSettingChange('notifications', 'remindersEnabled', !settings.notifications.remindersEnabled)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  settings.notifications.remindersEnabled ? 'bg-blue-600' : 'bg-neutral-300'
-                }`}
-              >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  settings.notifications.remindersEnabled ? 'left-7' : 'left-1'
-                }`} />
-              </button>
-            </div>
+            <button
+              onClick={() => isMentorActivated ? deactivateMentor() : activateMentor()}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                isMentorActivated ? 'bg-blue-600' : 'bg-neutral-300'
+              }`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                isMentorActivated ? 'left-7' : 'left-1'
+              }`} />
+            </button>
           </div>
+
+          {/* Check-in Anzahl Einstellung */}
+          {isMentorActivated && (
+            <div className="flex items-center justify-between py-3 border-t border-neutral-100">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Check-ins pro Tag</p>
+                  <p className="text-xs text-neutral-500">
+                    Wähle zwischen einem oder zwei täglichen Check-ins
+                  </p>
+                </div>
+              </div>
+              <select
+                value={settings.checkin?.checkInCount || 2}
+                onChange={(e) => handleSettingChange('checkin', 'checkInCount', parseInt(e.target.value))}
+                className="px-3 py-2 text-sm border border-neutral-200 rounded-lg"
+              >
+                <option value={1}>1 Check-in (nur Morgen)</option>
+                <option value={2}>2 Check-ins (Morgen & Abend)</option>
+              </select>
+            </div>
+          )}
+
+          {isMentorActivated && (
+            <div className="py-3 bg-blue-50 rounded-lg p-4">
+              <p className="text-sm text-blue-700">
+                {settings.checkin?.checkInCount === 1
+                  ? 'Der Mentor ist aktiv. Du erhältst täglich einen Morgen-Check-in.'
+                  : 'Der Mentor ist aktiv. Du erhältst morgens und abends Check-in Fragen.'
+                }
+                {' '}Du kannst deine Statistiken im Mentor-Bereich einsehen.
+              </p>
+            </div>
+          )}
+
+          {!isMentorActivated && (
+            <div className="py-3 bg-neutral-50 rounded-lg p-4">
+              <p className="text-sm text-neutral-600">
+                Aktiviere den Mentor, um tägliche Check-ins durchzuführen und
+                detaillierte Statistiken über dein Lernverhalten zu erhalten.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Lerneinstellungen Section */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+        <h3 className="text-2xl font-extralight text-neutral-950 mb-4 flex items-center gap-2">
           <Target className="w-5 h-5" />
           Lerneinstellungen
         </h3>
@@ -809,86 +803,92 @@ const SettingsContent = ({ className = '' }) => {
         </div>
       </div>
 
-      {/* FEAT-001: Mentor Section */}
+      {/* Benachrichtigungen Section */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
-          <Brain className="w-5 h-5" />
-          Mentor
+        <h3 className="text-2xl font-extralight text-neutral-950 mb-4 flex items-center gap-2">
+          <Bell className="w-5 h-5" />
+          Benachrichtigungen
         </h3>
 
         <div className="space-y-4">
-          {/* Mentor Toggle */}
-          <div className="flex items-center justify-between py-3">
+          {/* Email Notifications */}
+          <div className="flex items-center justify-between py-3 border-b border-neutral-100">
             <div className="flex items-center gap-3">
-              <Brain className="w-5 h-5 text-neutral-400" />
+              <Mail className="w-5 h-5 text-neutral-400" />
               <div>
-                <p className="text-sm font-medium text-neutral-900">Mentor aktivieren</p>
-                <p className="text-xs text-neutral-500">
-                  Check-Ins, Statistiken und Wohlbefinden-Tracking
-                </p>
+                <p className="text-sm font-medium text-neutral-900">E-Mail Benachrichtigungen</p>
+                <p className="text-xs text-neutral-500">Updates und Neuigkeiten per E-Mail</p>
               </div>
             </div>
             <button
-              onClick={() => isMentorActivated ? deactivateMentor() : activateMentor()}
+              onClick={() => handleSettingChange('notifications', 'emailEnabled', !settings.notifications.emailEnabled)}
               className={`relative w-12 h-6 rounded-full transition-colors ${
-                isMentorActivated ? 'bg-blue-600' : 'bg-neutral-300'
+                settings.notifications.emailEnabled ? 'bg-blue-600' : 'bg-neutral-300'
               }`}
             >
               <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                isMentorActivated ? 'left-7' : 'left-1'
+                settings.notifications.emailEnabled ? 'left-7' : 'left-1'
               }`} />
             </button>
           </div>
 
-          {/* TICKET-3: Check-in Anzahl Einstellung */}
-          {isMentorActivated && (
-            <div className="flex items-center justify-between py-3 border-t border-neutral-100">
-              <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-neutral-400" />
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">Check-ins pro Tag</p>
-                  <p className="text-xs text-neutral-500">
-                    Wähle zwischen einem oder zwei täglichen Check-ins
-                  </p>
-                </div>
+          {/* Push Notifications */}
+          <div className="flex items-center justify-between py-3 border-b border-neutral-100">
+            <div className="flex items-center gap-3">
+              <Bell className="w-5 h-5 text-neutral-400" />
+              <div>
+                <p className="text-sm font-medium text-neutral-900">Push Benachrichtigungen</p>
+                <p className="text-xs text-neutral-500">Benachrichtigungen im Browser</p>
               </div>
-              <select
-                value={settings.checkin?.checkInCount || 2}
-                onChange={(e) => handleSettingChange('checkin', 'checkInCount', parseInt(e.target.value))}
-                className="px-3 py-2 text-sm border border-neutral-200 rounded-lg"
+            </div>
+            <button
+              onClick={() => handleSettingChange('notifications', 'pushEnabled', !settings.notifications.pushEnabled)}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                settings.notifications.pushEnabled ? 'bg-blue-600' : 'bg-neutral-300'
+              }`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                settings.notifications.pushEnabled ? 'left-7' : 'left-1'
+              }`} />
+            </button>
+          </div>
+
+          {/* Reminders */}
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-neutral-400" />
+              <div>
+                <p className="text-sm font-medium text-neutral-900">Erinnerungen</p>
+                <p className="text-xs text-neutral-500">Tägliche Lernerinnerungen</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {settings.notifications.remindersEnabled && (
+                <input
+                  type="time"
+                  value={settings.notifications.reminderTime}
+                  onChange={(e) => handleSettingChange('notifications', 'reminderTime', e.target.value)}
+                  className="px-2 py-1 text-sm border border-neutral-200 rounded"
+                />
+              )}
+              <button
+                onClick={() => handleSettingChange('notifications', 'remindersEnabled', !settings.notifications.remindersEnabled)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  settings.notifications.remindersEnabled ? 'bg-blue-600' : 'bg-neutral-300'
+                }`}
               >
-                <option value={1}>1 Check-in (nur Morgen)</option>
-                <option value={2}>2 Check-ins (Morgen & Abend)</option>
-              </select>
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  settings.notifications.remindersEnabled ? 'left-7' : 'left-1'
+                }`} />
+              </button>
             </div>
-          )}
-
-          {isMentorActivated && (
-            <div className="py-3 bg-blue-50 rounded-lg p-4">
-              <p className="text-sm text-blue-700">
-                {settings.checkin?.checkInCount === 1
-                  ? 'Der Mentor ist aktiv. Du erhältst täglich einen Morgen-Check-in.'
-                  : 'Der Mentor ist aktiv. Du erhältst morgens und abends Check-in Fragen.'
-                }
-                {' '}Du kannst deine Statistiken im Mentor-Bereich einsehen.
-              </p>
-            </div>
-          )}
-
-          {!isMentorActivated && (
-            <div className="py-3 bg-neutral-50 rounded-lg p-4">
-              <p className="text-sm text-neutral-600">
-                Aktiviere den Mentor, um tägliche Check-ins durchzuführen und
-                detaillierte Statistiken über dein Lernverhalten zu erhalten.
-              </p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
       {/* Darstellung Section */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center gap-2">
+        <h3 className="text-2xl font-extralight text-neutral-950 mb-4 flex items-center gap-2">
           <Sun className="w-5 h-5" />
           Darstellung
         </h3>

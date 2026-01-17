@@ -182,16 +182,16 @@ export const template2 = {
   ],
 };
 
-// Template 3: Slot-basierte Struktur
+// Template 3: Block-basierte Struktur
 export const template3 = {
-  id: 'examen-slots',
-  title: 'Examen mit Slots (12 Monate)',
-  description: 'Flexible Slot-basierte Struktur für paralleles Lernen in verschiedenen Themenbereichen.',
+  id: 'examen-blocks',
+  title: 'Examen mit Blöcken (12 Monate)',
+  description: 'Flexible Block-basierte Struktur für paralleles Lernen in verschiedenen Themenbereichen.',
   duration: '12 Monate',
   difficulty: 'Mittel',
   rechtsgebiete: ['Zivilrecht', 'Öffentliches Recht', 'Strafrecht'],
   highlights: [
-    'Slot A-D Rotation',
+    'Block A-D Rotation',
     'Flexibles Timing',
     'Alle Nebengebiete',
     'IPR integriert',

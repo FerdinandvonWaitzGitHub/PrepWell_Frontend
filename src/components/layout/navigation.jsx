@@ -105,18 +105,18 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
   };
 
   return (
-    <nav className={`flex items-center gap-8 ${className}`}>
+    <nav className={`flex items-center gap-6 ${className}`}>
       {navItems.map((item, index) => {
         const active = isActive(item);
         const hasSubmenu = !!item.submenu;
         const disabled = isNavItemDisabled(item.key);
 
         // Figma Design System:
-        // - Active: font-medium (500), text-neutral-900, border bottom
+        // - Active: font-medium (500), text-neutral-900, NO border
         // - Inactive: font-light (300), text-neutral-500
-        // - Disabled: text-neutral-300, cursor-not-allowed
-        const disabledClass = 'text-neutral-300 cursor-not-allowed font-light';
-        const activeClass = 'text-neutral-900 font-medium border-b border-neutral-900 pb-1';
+        // - Disabled: text-neutral-200, cursor-not-allowed
+        const disabledClass = 'text-neutral-200 cursor-not-allowed font-light';
+        const activeClass = 'text-neutral-900 font-medium';
         const normalClass = 'text-neutral-500 font-light hover:text-neutral-900';
 
         const getItemClass = () => {
@@ -158,14 +158,14 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
 
             {/* Dropdown Menu */}
             {hasSubmenu && openDropdown === item.key && !disabled && (
-              <div className="absolute top-full left-0 mt-2 bg-white border border-neutral-200 rounded-lg shadow-sm py-2 min-w-[180px] z-50">
+              <div className="absolute top-full left-0 mt-2 bg-white border border-neutral-200 rounded-md shadow-sm p-2 min-w-[228px] z-50">
                 {item.submenu.map((subItem, subIndex) => {
                   // FEAT-002: Handle Coming Soon items
                   if (subItem.comingSoon) {
                     return (
                       <span
                         key={subIndex}
-                        className="block px-4 py-2 text-sm text-neutral-400 cursor-not-allowed"
+                        className="block p-2 text-sm text-neutral-200 cursor-not-allowed rounded-sm"
                       >
                         {subItem.label}
                         <span className="ml-2 text-xs bg-neutral-100 px-1.5 py-0.5 rounded">
@@ -180,9 +180,9 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
                       key={subIndex}
                       to={subItem.to}
                       onClick={() => setOpenDropdown(null)}
-                      className={`block px-4 py-2 text-sm transition-colors ${
+                      className={`block p-2 text-sm rounded-sm transition-colors ${
                         subItem.key === currentPage
-                          ? 'bg-neutral-100 text-neutral-900 font-medium'
+                          ? 'bg-neutral-100 text-neutral-950 font-medium'
                           : 'text-neutral-500 font-light hover:bg-neutral-50 hover:text-neutral-900'
                       }`}
                     >

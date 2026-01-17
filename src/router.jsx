@@ -66,7 +66,7 @@ function ProtectedRoute({ children }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-gray-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -80,7 +80,7 @@ function ProtectedRoute({ children }) {
   if (approvalLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-gray-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -103,7 +103,7 @@ function HomePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-gray-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -116,7 +116,7 @@ function HomePage() {
   if (approvalLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-gray-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

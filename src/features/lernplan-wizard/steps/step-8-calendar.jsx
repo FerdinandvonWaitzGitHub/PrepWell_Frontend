@@ -729,7 +729,7 @@ const Step8Calendar = () => {
         onOpenChange={setIsCreateThemeDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
-        availableSlots={getAvailableBlocksForDate(selectedBlockDay)}
+        availableBlocks={getAvailableBlocksForDate(selectedBlockDay)}
       />
 
       {/* Edit Repetition Session Dialog (for Wiederholung) */}
@@ -738,7 +738,7 @@ const Step8Calendar = () => {
         onOpenChange={setIsCreateRepetitionDialogOpen}
         date={selectedBlockDay}
         onSave={handleAddBlock}
-        availableSlots={getAvailableBlocksForDate(selectedBlockDay)}
+        availableBlocks={getAvailableBlocksForDate(selectedBlockDay)}
       />
 
       {/* Edit Exam Session Dialog (for Klausur) */}

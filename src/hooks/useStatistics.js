@@ -11,7 +11,7 @@ import { useCheckIn } from '../contexts/checkin-context';
  */
 export const useStatistics = () => {
   const {
-    slotsByDate,
+    blocksByDate,
     tasksByDate,
     contentPlans,
     lernplanMetadata,
@@ -23,7 +23,13 @@ export const useStatistics = () => {
   const { wellScore: checkInWellScore, wellScoreTrend: checkInWellScoreTrend } = useCheckIn();
 
   // Helper functions
-  const getDateKey = (date) => date.toISOString().split('T')[0];
+  // KA-002 FIX: Verwende lokale Zeit statt UTC
+  const getDateKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   const today = new Date();
   const todayKey = getDateKey(today);
 
@@ -173,15 +179,15 @@ export const useStatistics = () => {
    * FÄCHER/RECHTSGEBIETE STATISTIKEN
    */
   const faecherStats = useMemo(() => {
-    const allSlots = Object.values(slotsByDate || {}).flat();
-    const totalBlocks = allSlots.length;
+    const allBlocks = Object.values(blocksByDate || {}).flat();
+    const totalBlocks = allBlocks.length;
 
     // Count blocks by Rechtsgebiet
     const rgCounts = {};
     const rgProgress = {};
 
-    allSlots.forEach(slot => {
-      const content = getContent?.(slot.contentId);
+    allBlocks.forEach(block => {
+      const content = getContent?.(block.contentId);
       if (content?.rechtsgebiet) {
         rgCounts[content.rechtsgebiet] = (rgCounts[content.rechtsgebiet] || 0) + 1;
       }
@@ -243,7 +249,7 @@ export const useStatistics = () => {
       balanceScore,
       totalBlocks
     };
-  }, [slotsByDate, contentPlans, getContent]);
+  }, [blocksByDate, contentPlans, getContent]);
 
   /**
    * AUFGABEN & THEMEN STATISTIKEN
@@ -372,19 +378,19 @@ export const useStatistics = () => {
       : stoffProgress > 0 ? 100 : 0;
 
     // Count days with learning activity
-    const activeDays = new Set(Object.keys(slotsByDate || {})).size;
+    const activeDays = new Set(Object.keys(blocksByDate || {})).size;
     const missedDays = Math.max(0, daysSinceStart - activeDays);
 
     // Plan fulfillment
-    const allSlots = Object.values(slotsByDate || {}).flat();
-    const lernplanSlots = allSlots.filter(s => s.isFromLernplan);
-    const completedSlots = lernplanSlots.filter(s => {
-      // A slot is considered completed if all its tasks are done
+    const allBlocks = Object.values(blocksByDate || {}).flat();
+    const lernplanBlocks = allBlocks.filter(s => s.isFromLernplan);
+    const completedBlocks = lernplanBlocks.filter(s => {
+      // A block is considered completed if all its tasks are done
       return s.tasks?.every(t => t.completed) || false;
     });
 
-    const planFulfillmentTotal = lernplanSlots.length > 0
-      ? (completedSlots.length / lernplanSlots.length) * 100
+    const planFulfillmentTotal = lernplanBlocks.length > 0
+      ? (completedBlocks.length / lernplanBlocks.length) * 100
       : 0;
 
     return {
@@ -398,7 +404,7 @@ export const useStatistics = () => {
       activeDays,
       examDate: metadata.examDate
     };
-  }, [lernplanMetadata, slotsByDate, aufgabenStats, today]);
+  }, [lernplanMetadata, blocksByDate, aufgabenStats, today]);
 
   /**
    * KONSISTENZ & GEWOHNHEITEN
@@ -467,26 +473,26 @@ export const useStatistics = () => {
    * WIEDERHOLUNGEN
    */
   const wiederholungStats = useMemo(() => {
-    const allSlots = Object.values(slotsByDate || {}).flat();
-    const repetitionSlots = allSlots.filter(s => s.blockType === 'repetition' || s.repeatEnabled);
+    const allBlocks = Object.values(blocksByDate || {}).flat();
+    const repetitionBlocks = allBlocks.filter(s => s.blockType === 'repetition' || s.repeatEnabled);
 
     // Count by content/topic
     const repByContent = {};
-    repetitionSlots.forEach(slot => {
-      const contentId = slot.contentId;
+    repetitionBlocks.forEach(block => {
+      const contentId = block.contentId;
       if (contentId) {
         repByContent[contentId] = (repByContent[contentId] || 0) + 1;
       }
     });
 
     return {
-      totalRepetitions: repetitionSlots.length,
+      totalRepetitions: repetitionBlocks.length,
       avgRepetitionsPerTopic: Object.keys(repByContent).length > 0
-        ? repetitionSlots.length / Object.keys(repByContent).length
+        ? repetitionBlocks.length / Object.keys(repByContent).length
         : 0,
       topicsWithRepetitions: Object.keys(repByContent).length
     };
-  }, [slotsByDate]);
+  }, [blocksByDate]);
 
   /**
    * KLAUSUREN & LEISTUNGEN (from ExamsContext)
@@ -588,7 +594,7 @@ export const useStatistics = () => {
    */
   const heatmapData = useMemo(() => {
     const data = [];
-    const allSlots = slotsByDate || {};
+    const allBlocks = blocksByDate || {};
     const allSessions = timerHistory || [];
 
     // Create a map of date -> timer duration
@@ -604,10 +610,10 @@ export const useStatistics = () => {
       date.setDate(date.getDate() - i);
       const dateKey = getDateKey(date);
 
-      // Get planned slots for this day
-      const daySlots = allSlots[dateKey] || [];
-      const plannedMinutes = daySlots.reduce((sum) => {
-        // Estimate 25 minutes per slot block
+      // Get planned blocks for this day
+      const dayBlocks = allBlocks[dateKey] || [];
+      const plannedMinutes = dayBlocks.reduce((sum) => {
+        // Estimate 25 minutes per block
         return sum + 25;
       }, 0);
 
@@ -639,7 +645,7 @@ export const useStatistics = () => {
         totalDays: 30
       }
     };
-  }, [slotsByDate, timerHistory, today]);
+  }, [blocksByDate, timerHistory, today]);
 
   /**
    * FLAT STATISTICS - For sidebar display
@@ -944,9 +950,9 @@ export const useStatistics = () => {
         color: '#10B981',
         data: (() => {
           const rgData = { 'ÖffR': 0, 'ZivR': 0, 'StrR': 0, 'Quer': 0 };
-          const allSlots = Object.values(slotsByDate || {}).flat();
-          allSlots.forEach(slot => {
-            const content = getContent?.(slot.contentId);
+          const allBlocks = Object.values(blocksByDate || {}).flat();
+          allBlocks.forEach(block => {
+            const content = getContent?.(block.contentId);
             if (content?.rechtsgebiet) {
               const rg = content.rechtsgebiet;
               if (rg.includes('oeffentlich') || rg.includes('öffentlich')) rgData['ÖffR']++;
@@ -1085,11 +1091,11 @@ export const useStatistics = () => {
         name: 'Ausfallquote',
         color: '#EF4444',
         data: generateWeeklyData(8, (weekStart, weekEnd) => {
-          const allSlots = Object.entries(slotsByDate || {})
+          const allBlocks = Object.entries(blocksByDate || {})
             .filter(([date]) => date >= getDateKey(weekStart) && date <= getDateKey(weekEnd))
-            .flatMap(([, slots]) => slots);
-          const planned = allSlots.length;
-          const completed = allSlots.filter(s => s.completed).length;
+            .flatMap(([, blocks]) => blocks);
+          const planned = allBlocks.length;
+          const completed = allBlocks.filter(s => s.completed).length;
           return planned > 0 ? Math.round(((planned - completed) / planned) * 100) : 0;
         }),
         xLabels: ['W-8', 'W-7', 'W-6', 'W-5', 'W-4', 'W-3', 'W-2', 'W-1'],
@@ -1102,10 +1108,10 @@ export const useStatistics = () => {
         name: 'Wiederholungs-Blöcke',
         color: '#0EA5E9',
         data: generateWeeklyData(12, (weekStart, weekEnd) => {
-          const allSlots = Object.entries(slotsByDate || {})
+          const allBlocks = Object.entries(blocksByDate || {})
             .filter(([date]) => date >= getDateKey(weekStart) && date <= getDateKey(weekEnd))
-            .flatMap(([, slots]) => slots);
-          return allSlots.filter(s => s.blockType === 'repetition' || s.repeatEnabled).length;
+            .flatMap(([, blocks]) => blocks);
+          return allBlocks.filter(s => s.blockType === 'repetition' || s.repeatEnabled).length;
         }),
         xLabels: ['W-12', 'W-10', 'W-8', 'W-6', 'W-4', 'W-2', 'Jetzt'],
         yMax: 20,
@@ -1175,7 +1181,7 @@ export const useStatistics = () => {
         unit: '%'
       }
     };
-  }, [timerHistory, tasksByDate, slotsByDate, exams, today, getContent]);
+  }, [timerHistory, tasksByDate, blocksByDate, exams, today, getContent]);
 
   // Helper to get chart data for selected statistics
   const getChartSeriesForIds = (ids) => {
@@ -1303,7 +1309,7 @@ export const useStatistics = () => {
   const dailyPerformance = useMemo(() => {
     const performance = {};
     const allSessions = timerHistory || [];
-    const allSlots = slotsByDate || {};
+    const allBlocks = blocksByDate || {};
     const allTasks = tasksByDate || {};
 
     // Create a map of date -> timer duration
@@ -1315,20 +1321,20 @@ export const useStatistics = () => {
 
     // Calculate performance for each date that has any activity
     const allDates = new Set([
-      ...Object.keys(allSlots),
+      ...Object.keys(allBlocks),
       ...Object.keys(allTasks),
       ...Object.keys(durationByDate)
     ]);
 
     allDates.forEach(dateKey => {
-      const daySlots = allSlots[dateKey] || [];
+      const dayBlocks = allBlocks[dateKey] || [];
       const dayTasks = allTasks[dateKey] || [];
       const dayDuration = durationByDate[dateKey] || 0;
 
       // Calculate score based on:
       // - Timer activity (weight: 40%)
       // - Completed tasks (weight: 30%)
-      // - Planned slots done (weight: 30%)
+      // - Planned blocks done (weight: 30%)
 
       let score = 0;
 
@@ -1342,10 +1348,10 @@ export const useStatistics = () => {
         ? (completedTasks / dayTasks.length) * 30
         : (completedTasks > 0 ? 30 : 0);
 
-      // Slot activity score (0-30 points)
-      const slotScore = daySlots.length > 0 ? 30 : 0;
+      // Block activity score (0-30 points)
+      const blockScore = dayBlocks.length > 0 ? 30 : 0;
 
-      score = Math.round(timerScore + taskScore + slotScore);
+      score = Math.round(timerScore + taskScore + blockScore);
 
       if (score > 0) {
         performance[dateKey] = { score };
@@ -1353,7 +1359,7 @@ export const useStatistics = () => {
     });
 
     return performance;
-  }, [timerHistory, slotsByDate, tasksByDate]);
+  }, [timerHistory, blocksByDate, tasksByDate]);
 
   return {
     // All statistics categories

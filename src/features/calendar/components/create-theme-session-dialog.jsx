@@ -34,7 +34,6 @@ const CreateThemeBlockDialog = ({
   date,
   onSave,
   availableBlocks = 4,
-  availableSlots, // Legacy alias
   mode = 'session', // PRD §3.1: 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
   // Task sources
   availableTasks = [],      // To-Dos
@@ -43,8 +42,7 @@ const CreateThemeBlockDialog = ({
   initialStartTime,
   initialEndTime,
 }) => {
-  // Support legacy prop name
-  const maxBlocks = availableSlots ?? availableBlocks;
+  const maxBlocks = availableBlocks;
 
   // W5: Get studiengang context for subject selection
   const { isJura } = useStudiengang();

@@ -33,13 +33,11 @@ const ManageThemeBlockDialog = ({
   onDelete,
   onUnscheduleTask,         // FR1: Callback to move task back to To-Do list
   availableBlocks = 4,
-  availableSlots, // Legacy alias
   // Task sources
   availableTasks = [],      // To-Dos
   themeLists = [],          // Themenlisten
 }) => {
-  // Support legacy prop name
-  const maxBlocks = availableSlots ?? availableBlocks;
+  const maxBlocks = availableBlocks;
 
   // W5: Get studiengang context for subject selection
   const { isJura } = useStudiengang();

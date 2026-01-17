@@ -41,7 +41,7 @@ const MethodCard = ({ method, isSelected, onSelect, disabled }) => {
         disabled
           ? 'opacity-60 cursor-not-allowed'
           : isSelected
-            ? 'outline outline-2 outline-offset-[-2px] outline-slate-600 cursor-pointer'
+            ? 'outline outline-2 outline-offset-[-2px] outline-neutral-900 cursor-pointer'
             : 'outline outline-1 outline-offset-[-1px] outline-neutral-200 hover:outline-neutral-300 cursor-pointer'
       }`}
       onClick={handleClick}
@@ -80,7 +80,7 @@ const MethodCard = ({ method, isSelected, onSelect, disabled }) => {
             disabled
               ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
               : isSelected
-                ? 'bg-slate-600 text-white'
+                ? 'bg-neutral-900 text-white'
                 : 'outline outline-1 outline-offset-[-1px] outline-neutral-300 text-neutral-700 hover:bg-neutral-50'
           }`}
         >

@@ -1,6 +1,6 @@
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { AlertTriangle, X, Lock } from 'lucide-react';
-import { getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
+import { AlertTriangle, Lock } from 'lucide-react';
+import { getRechtsgebietColor, getColorClasses } from '../../../utils/rechtsgebiet-colors';
 
 /**
  * WeekGrid component
@@ -23,11 +23,11 @@ import { getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
  * - useCallback for event handlers
  */
 
-// Block type colors - visually distinct for each type (static, no re-creation)
+// Block type colors for multi-day and header blocks (static, no re-creation)
 const BLOCK_COLORS = {
-  // Learning blocks (theme/lernblock) - primary color
-  theme: 'bg-primary-100 border-primary-200 hover:bg-primary-150',
-  lernblock: 'bg-primary-100 border-primary-200 hover:bg-primary-150',
+  // Learning blocks (theme/lernblock) - neutral color
+  theme: 'bg-neutral-100 border-neutral-200 hover:bg-neutral-50',
+  lernblock: 'bg-neutral-100 border-neutral-200 hover:bg-neutral-50',
   // Repetition - purple tint
   repetition: 'bg-purple-100 border-purple-200 hover:bg-purple-150',
   // Exam - amber/orange for urgency
@@ -40,6 +40,31 @@ const BLOCK_COLORS = {
   buffer: 'bg-orange-100 border-orange-200 hover:bg-orange-150',
   // Vacation days - green for rest
   vacation: 'bg-green-100 border-green-200 hover:bg-green-150'
+};
+
+/**
+ * KA-001: Session-Farblogik
+ * - Kein Rechtsgebiet → Grau (neutral)
+ * - Mit Rechtsgebiet → Farbe aus Einstellungen
+ */
+const getSessionColorClasses = (session) => {
+  // Rechtsgebiet-ID aus verschiedenen möglichen Feldern
+  const rgId = session?.rechtsgebiet || session?.rechtsgebietId || session?.metadata?.rgId;
+
+  if (!rgId) {
+    // Standard: Grau
+    return {
+      container: 'bg-neutral-50 border-neutral-300 hover:bg-neutral-100',
+      text: 'text-neutral-700'
+    };
+  }
+
+  // Rechtsgebiet-Farbe aus Einstellungen
+  const colors = getRechtsgebietColor(rgId);
+  return {
+    container: `${colors.bg} ${colors.border} hover:opacity-90`,
+    text: colors.text
+  };
 };
 
 // Block type display names
@@ -131,7 +156,7 @@ const WeekGrid = memo(function WeekGrid({
   lernplanBlocks = {}, // Month-view Lernplan blocks (position-based)
   lernplanHeaderBlocks = [], // BUG-023 FIX: Exam-mode header bar blocks
   onBlockClick,
-  onSlotClick,
+  onTimeBlockClick,
   onLernplanBlockClick,
   // T9: New callbacks from ZeitplanWidget
   onTaskToggle,           // (block, task) => void - Toggle task completion
@@ -169,10 +194,14 @@ const WeekGrid = memo(function WeekGrid({
   const hourHeight = 54;
 
   // T9: Auto-scroll to show 08:00-17:00 by default on mount (only if today is in current week)
+  // KA-001: Header-Höhe wird in der scroll position berücksichtigt
   useEffect(() => {
     if (scrollContainerRef.current) {
       // Always scroll to 08:00 so that 08:00-17:00 is visible
       const scrollToHour = 8;
+      // KA-001: Berechne Header-Höhe dynamisch (wird nach erstem Render korrekt sein)
+      const stickyHeader = scrollContainerRef.current.querySelector('.sticky');
+      const currentHeaderHeight = stickyHeader?.offsetHeight || 127; // Fallback: 58 + 69 = 127
       const scrollPosition = scrollToHour * hourHeight;
       scrollContainerRef.current.scrollTop = scrollPosition;
     }
@@ -236,8 +265,8 @@ const WeekGrid = memo(function WeekGrid({
   const startHour = 0;
   const endHour = 24;
 
-  // Generate time slots
-  const timeSlots = useMemo(() => {
+  // Generate time blocks for the day (hourly rows)
+  const timeBlocks = useMemo(() => {
     return Array.from(
       { length: endHour - startHour },
       (_, i) => startHour + i
@@ -245,19 +274,94 @@ const WeekGrid = memo(function WeekGrid({
   }, [startHour, endHour]);
 
   // Format date key for comparison (YYYY-MM-DD)
+  // KA-002 FIX: Verwende lokale Zeit statt UTC (toISOString verschiebt um 1 Tag)
   const formatDateKey = (date) => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  // T10: Lernplan blocks (month view) grouped by date and sorted by position
+  // T10: Lernplan blocks (month view) grouped by date and by groupId
+  // KA-001 FIX: Gruppiere Blöcke nach groupId wie blocksToLearningSessions
   const lernplanBlocksByDate = useMemo(() => {
     const byDate = {};
+
     Object.entries(lernplanBlocks || {}).forEach(([dateKey, blocksForDay]) => {
+      // Filter: nur nicht-leere Blöcke
       const filtered = (blocksForDay || []).filter(block => block && block.status !== 'empty');
-      byDate[dateKey] = filtered.sort((a, b) => (a.position || 0) - (b.position || 0));
+
+      if (filtered.length === 0) return;
+
+      // Gruppiere nach groupId (wie blocksToLearningSessions in blockUtils.ts)
+      const groupedBlocks = {};
+      const ungroupedBlocks = [];
+      const processedGroupIds = new Set();
+
+      filtered.forEach(block => {
+        const groupId = block.groupId;
+
+        if (groupId) {
+          // Block gehört zu einer Gruppe
+          if (!groupedBlocks[groupId]) {
+            groupedBlocks[groupId] = [];
+          }
+          groupedBlocks[groupId].push(block);
+        } else {
+          // Einzelner Block ohne Gruppe
+          ungroupedBlocks.push(block);
+        }
+      });
+
+      // Erstelle eine Session pro Gruppe (mit blockSize = Anzahl Blöcke)
+      const sessions = [];
+
+      // Gruppierte Blöcke: nur EINE Session pro Gruppe
+      Object.entries(groupedBlocks).forEach(([groupId, groupBlocks]) => {
+        if (processedGroupIds.has(groupId)) return;
+        processedGroupIds.add(groupId);
+
+        // Sortiere nach groupIndex/position
+        groupBlocks.sort((a, b) => (a.groupIndex || a.position || 0) - (b.groupIndex || b.position || 0));
+
+        // Nimm den ersten Block als Referenz und setze blockSize
+        const firstBlock = groupBlocks[0];
+        sessions.push({
+          ...firstBlock,
+          blockSize: groupBlocks.length,
+          groupSize: groupBlocks.length
+        });
+      });
+
+      // Ungroupierte Blöcke: je eine Session
+      ungroupedBlocks.forEach(block => {
+        sessions.push({
+          ...block,
+          blockSize: block.blockSize || 1,
+          groupSize: block.groupSize || 1
+        });
+      });
+
+      // Sortiere nach Position des ersten Blocks
+      sessions.sort((a, b) => (a.position || 0) - (b.position || 0));
+
+      if (sessions.length > 0) {
+        byDate[dateKey] = sessions;
+      }
     });
     return byDate;
   }, [lernplanBlocks]);
+
+  // KA-001: Berechne maximale Anzahl Blöcke pro Tag für dynamische Row-Höhe
+  const maxLernplanBlocksPerDay = useMemo(() => {
+    let max = 0;
+    weekDates.forEach(date => {
+      const dateKey = formatDateKey(date);
+      const blocksCount = (lernplanBlocksByDate[dateKey] || []).length;
+      if (blocksCount > max) max = blocksCount;
+    });
+    return max;
+  }, [weekDates, lernplanBlocksByDate]);
 
   const hasLernplanBlocksRow = useMemo(() => {
     return weekDates.some(date => {
@@ -266,7 +370,7 @@ const WeekGrid = memo(function WeekGrid({
     });
   }, [weekDates, lernplanBlocksByDate]);
 
-  // Count blocks per day to detect full days (4 slots max)
+  // Count blocks per day to detect full days (4 blocks max)
   const blocksPerDay = useMemo(() => {
     const counts = {};
     regularBlocks.forEach(block => {
@@ -276,7 +380,7 @@ const WeekGrid = memo(function WeekGrid({
     return counts;
   }, [regularBlocks]);
 
-  // Check if a day has all slots full (4 or more blocks)
+  // Check if a day has all blocks full (4 or more blocks)
   const isDayFull = (date) => {
     const dateKey = formatDateKey(date);
     return (blocksPerDay[dateKey] || 0) >= 4;
@@ -331,12 +435,12 @@ const WeekGrid = memo(function WeekGrid({
     return formatDateKey(date) === formatDateKey(today);
   };
 
-  // Handle slot click - memoized to prevent child re-renders
-  const handleSlotClick = useCallback((date, hour) => {
-    if (onSlotClick) {
-      onSlotClick(date, `${hour.toString().padStart(2, '0')}:00`);
+  // Handle time block click - memoized to prevent child re-renders
+  const handleTimeBlockClick = useCallback((date, hour) => {
+    if (onTimeBlockClick) {
+      onTimeBlockClick(date, `${hour.toString().padStart(2, '0')}:00`);
     }
-  }, [onSlotClick]);
+  }, [onTimeBlockClick]);
 
   // T9: Check collision with existing blocks for a specific date
   const hasCollisionForDate = useCallback((date, startHour, endHour) => {
@@ -470,8 +574,8 @@ const WeekGrid = memo(function WeekGrid({
   const getRowHeight = (hour) => {
     let maxBlockSize = 1;
     weekDates.forEach(date => {
-      const blocksInSlot = getBlocksForDateAndHour(date, hour);
-      blocksInSlot.forEach(block => {
+      const blocksInHour = getBlocksForDateAndHour(date, hour);
+      blocksInHour.forEach(block => {
         if (block.blockSize) {
           maxBlockSize = Math.max(maxBlockSize, block.blockSize);
         }
@@ -548,231 +652,234 @@ const WeekGrid = memo(function WeekGrid({
   const visibleMultiDayRows = multiDayRows.slice(0, 2);
   const hiddenRowsCount = multiDayRows.length - 2;
 
+  // KA-001: CSS Grid Template für einheitliches Layout (Header + Body)
+  const gridTemplateColumns = 'minmax(30px, 30px) repeat(7, minmax(0, 1fr))';
+
+  // KA-001: Berechne Header-Höhe für korrekten Auto-Scroll
+  // Basis: 58px (Wochentage)
+  // + dynamische Lernplan-Row-Höhe wenn vorhanden
+  // + 69px Multi-Day Row wenn vorhanden
+  // + 40px wenn Exam-Mode Header
+  const lernplanRowHeight = hasLernplanBlocksRow ? Math.max(48, maxLernplanBlocksPerDay * 36 + 12) : 0;
+  const headerHeight = 58 + lernplanRowHeight + (hasMultiDayBlocks ? 69 : 0) + (hasLernplanHeaderBlocks ? 40 : 0);
+
   return (
-    <div className={`flex flex-col bg-white flex-1 overflow-hidden rounded-lg border border-neutral-200 shadow-sm ${className}`}>
-      {/* FIXED Header - NOT scrollable */}
-      {/* T13: Wrapper with pr-[17px] compensates for scrollbar width in body to align columns */}
-      <div className="pr-[17px]">
-        <table className="w-full border-collapse table-fixed flex-shrink-0">
-          <thead className="bg-white">
-              <tr>
-                {/* Time column header */}
-                <th className="w-14 border-b border-r border-neutral-200 bg-neutral-50/50" />
+    <div className={`flex flex-col bg-white flex-1 overflow-hidden rounded-[5px] border border-neutral-200 ${className}`}>
+      {/* KA-001 FIX: Ein einziger Scroll-Container für Header UND Body */}
+      {/* Header ist sticky, Body scrollt darunter - keine Alignment-Probleme mehr! */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden">
 
-              {/* Weekday headers */}
-              {WEEK_DAYS.map((day, index) => {
-                const date = weekDates[index];
-                const today = isToday(date);
-                const isFull = isDayFull(date);
+        {/* KA-001: STICKY Header - klebt am oberen Rand beim Scrollen */}
+        <div className="sticky top-0 z-20 bg-white">
+          {/* Tages-Header Zeile */}
+          <div
+            className="grid border-b border-neutral-200"
+            style={{ gridTemplateColumns }}
+          >
+          {/* Zeit-Spalte Header (leer) */}
+          <div className="h-[58px] border-r border-neutral-200 bg-neutral-50/50" />
 
-                return (
-                  <th
-                    key={day}
-                    className={`h-16 border-b border-r border-neutral-200 last:border-r-0 font-normal transition-colors ${
-                      today ? 'bg-primary-100/50' : isFull ? 'bg-amber-50' : 'bg-neutral-50/50'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center justify-center relative py-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-sm font-semibold tracking-tight ${today ? 'text-primary-600' : 'text-neutral-800'}`}>
-                          {day}
-                        </span>
-                        {isFull && (
-                          <span className="group relative">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-neutral-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              Alle Slots belegt
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                      <span className={`text-xs font-medium ${today ? 'text-primary-500' : 'text-neutral-400'}`}>
-                        {formatDateDisplay(date)}
+          {/* Wochentags-Header */}
+          {WEEK_DAYS.map((day, index) => {
+            const date = weekDates[index];
+            const today = isToday(date);
+            const isFull = isDayFull(date);
+
+            return (
+              <div
+                key={day}
+                className={`h-[58px] border-r border-neutral-200 last:border-r-0 pl-5 py-2 flex flex-col gap-0.5 justify-center transition-colors ${
+                  isFull ? 'bg-amber-50' : 'bg-neutral-50/50'
+                }`}
+              >
+                {/* KA-001: Tagname mit blauem Heute-Indikator */}
+                <div className="flex items-center gap-2.5">
+                  {today && (
+                    <span className="w-[7px] h-[7px] rounded-full bg-blue-500 flex-shrink-0" />
+                  )}
+                  <span className={`text-sm font-medium ${today ? 'text-neutral-950' : 'text-neutral-950'}`}>
+                    {day}
+                  </span>
+                  {isFull && (
+                    <span className="group relative">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-neutral-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                        Alle Bloecke belegt
                       </span>
-                    </div>
-                  </th>
-                );
-              })}
-            </tr>
+                    </span>
+                  )}
+                </div>
+                {/* KA-001: Datum */}
+                <span className="text-sm font-normal text-neutral-500">
+                  {formatDateDisplay(date)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
 
-            {/* T10: Lernplan blocks row (Month view) */}
-            {hasLernplanBlocksRow && (
-              <tr className="h-12 bg-gradient-to-b from-neutral-50 to-neutral-100/50 border-b border-neutral-200">
-                {/* Label cell */}
-                <th className="align-middle border-r border-neutral-200 bg-neutral-100/50 px-2">
-                  <span className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Plan</span>
-                </th>
+        {/* T10: Lernplan blocks row (Month view) - KA-001: CSS Grid */}
+        {/* KA-001 FIX: Dynamische Höhe basierend auf max Blöcke pro Tag */}
+        {/* Jeder Block ist ca. 32px hoch + 4px gap = 36px pro Block, min 48px */}
+        {hasLernplanBlocksRow && (
+          <div
+            className="grid bg-gradient-to-b from-neutral-50 to-neutral-100/50 border-b border-neutral-200"
+            style={{
+              gridTemplateColumns,
+              minHeight: `${Math.max(48, maxLernplanBlocksPerDay * 36 + 12)}px`
+            }}
+          >
+            {/* Label cell */}
+            <div className="flex items-center justify-center border-r border-neutral-200 bg-neutral-100/50 px-2">
+              <span className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Plan</span>
+            </div>
 
-                {/* Lernplan block cells for each day */}
-                {weekDates.map((date, dayIndex) => {
-                  const dateKey = formatDateKey(date);
-                  const blocksForDay = lernplanBlocksByDate[dateKey] || [];
+            {/* Lernplan block cells for each day */}
+            {weekDates.map((date, dayIndex) => {
+              const dateKey = formatDateKey(date);
+              const blocksForDay = lernplanBlocksByDate[dateKey] || [];
 
-                  return (
-                    <th
-                      key={`lernplan-month-${dayIndex}`}
-                      className="border-r border-neutral-200 last:border-r-0 p-1.5 font-normal bg-transparent align-top"
-                    >
-                      <div className="flex flex-col gap-1">
-                        {blocksForDay.map((block) => (
-                          <LernplanBlockChip
-                            key={block.id}
-                            block={block}
-                            onClick={onLernplanBlockClick ? () => onLernplanBlockClick(block, date) : undefined}
-                          />
-                        ))}
-                      </div>
-                    </th>
-                  );
-                })}
-              </tr>
-            )}
+              return (
+                <div
+                  key={`lernplan-month-${dayIndex}`}
+                  className="border-r border-neutral-200 last:border-r-0 p-1.5 bg-transparent"
+                >
+                  <div className="flex flex-col gap-1">
+                    {blocksForDay.map((block) => (
+                      <LernplanBlockChip
+                        key={block.id}
+                        block={block}
+                        onClick={onLernplanBlockClick ? () => onLernplanBlockClick(block, date) : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-            {/* Multi-day events rows (sticky with header) */}
-            {visibleMultiDayRows.length > 0 ? (
-              visibleMultiDayRows.map((row, rowIndex) => {
-                const isLastRow = rowIndex === visibleMultiDayRows.length - 1;
-                return (
-                  <tr key={`multiday-${rowIndex}`} className={`h-9 bg-white ${isLastRow ? 'border-b border-neutral-200' : ''}`}>
-                    {/* Empty label cell */}
-                    <th className={`align-middle border-r border-neutral-200 bg-neutral-50/30 ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`} />
+        {/* Multi-day events row (Private Langzeit-Termine) - KA-001: CSS Grid */}
+        {/* KA-001: Nur anzeigen wenn Multi-Day Events existieren */}
+        {hasMultiDayBlocks && (
+          <div
+            className="grid h-[69px] border-b border-neutral-200"
+            style={{ gridTemplateColumns }}
+          >
+          {/* Empty label cell */}
+          <div className="border-r border-neutral-200 bg-neutral-50/30" />
 
-                    {/* Multi-day block cells */}
-                    {weekDates.map((date, dayIndex) => {
-                      // Find block that starts on this day in this row
-                      const blockStartingHere = row.find(block => {
-                        const info = getMultiDayBlockInfo(block, date);
-                        return info.isStart && info.startDayIndex === dayIndex;
-                      });
+          {/* Multi-day event cells - simplified display without colspan */}
+          {weekDates.map((date, dayIndex) => {
+            const dateKey = formatDateKey(date);
+            // Find all multi-day blocks that span this day
+            const blocksOnThisDay = visibleMultiDayRows.flat().filter(block => {
+              const info = getMultiDayBlockInfo(block, date);
+              return dayIndex >= info.startDayIndex && dayIndex <= info.endDayIndex;
+            });
 
-                      // Check if this cell is covered by a spanning block
-                      const isCoveredBySpan = row.some(block => {
-                        const info = getMultiDayBlockInfo(block, date);
-                        return dayIndex > info.startDayIndex && dayIndex <= info.endDayIndex;
-                      });
-
-                      if (isCoveredBySpan) {
-                        return null; // Cell is covered by colspan
-                      }
-
-                      if (blockStartingHere) {
-                        const info = getMultiDayBlockInfo(blockStartingHere, date);
-                        const colorClass = BLOCK_COLORS[blockStartingHere.blockType] || BLOCK_COLORS.private;
-
-                        return (
-                          <th
-                            key={`${rowIndex}-${dayIndex}`}
-                            colSpan={info.span}
-                            className={`border-r border-neutral-100 last:border-r-0 p-0.5 font-normal bg-white ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`}
-                          >
-                            <button
-                              draggable="false"
-                              onClick={() => onBlockClick && onBlockClick(blockStartingHere, date)}
-                              className={`w-full h-6 rounded border px-2 text-left overflow-hidden cursor-pointer transition-colors select-none ${colorClass}`}
-                            >
-                              <div className="text-xs font-medium text-neutral-900 truncate">
-                                {blockStartingHere.title}
-                              </div>
-                            </button>
-                          </th>
-                        );
-                      }
-
-                      return (
-                        <th
-                          key={`${rowIndex}-${dayIndex}`}
-                          className={`border-r border-neutral-100 last:border-r-0 font-normal bg-white ${rowIndex === 0 ? 'border-t border-neutral-200' : ''}`}
-                        />
-                      );
-                    })}
-                  </tr>
-                )
-              })
-            ) : (
-              /* Empty reserved row for multi-day events */
-              <tr className="h-6 bg-neutral-50/30 border-b border-neutral-200">
-                <th className="align-middle border-r border-t border-neutral-200 bg-neutral-50/30" />
-                {weekDates.map((_, dayIndex) => (
-                  <th
-                    key={`empty-${dayIndex}`}
-                    className="border-r border-t border-neutral-200 last:border-r-0 font-normal bg-neutral-50/30"
-                  />
-                ))}
-              </tr>
-            )}
-
-            {/* BUG-023 FIX: Lernplan blocks header bar (Exam mode only) */}
-            {hasLernplanHeaderBlocks && (
-              <tr className="h-10 bg-blue-50 border-b border-blue-200">
-                {/* Label cell */}
-                <th className="align-middle border-r border-blue-200 bg-blue-50 px-1">
-                  <span className="text-xs text-blue-600 font-medium">Lernplan</span>
-                </th>
-
-                {/* Lernplan block cells for each day */}
-                {weekDates.map((date, dayIndex) => {
-                  const dateKey = formatDateKey(date);
-                  const blocksForDay = lernplanHeaderBlocksByDate[dateKey] || [];
+            return (
+              <div
+                key={`multiday-${dayIndex}`}
+                className="border-r border-neutral-200 last:border-r-0 p-1 flex flex-col gap-1 overflow-hidden"
+              >
+                {blocksOnThisDay.slice(0, 2).map((block) => {
+                  const info = getMultiDayBlockInfo(block, date);
+                  const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.private;
+                  const isStart = info.isStart && info.startDayIndex === dayIndex;
 
                   return (
-                    <th
-                      key={`lernplan-${dayIndex}`}
-                      className="border-r border-blue-100 last:border-r-0 p-1 font-normal bg-blue-50"
+                    <button
+                      key={block.id}
+                      draggable="false"
+                      onClick={() => onBlockClick && onBlockClick(block, date)}
+                      className={`h-6 rounded border px-2 text-left overflow-hidden cursor-pointer transition-colors select-none ${colorClass} ${
+                        !isStart ? 'opacity-60' : ''
+                      }`}
                     >
-                      <div className="flex gap-1 flex-wrap">
-                        {blocksForDay.map((block) => {
-                          const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.lernblock;
-                          return (
-                            <button
-                              key={block.id}
-                              draggable="false"
-                              onClick={() => onBlockClick && onBlockClick(block, date)}
-                              className={`flex-1 min-w-0 h-7 rounded border px-1.5 text-left overflow-hidden cursor-pointer transition-colors select-none ${colorClass}`}
-                              title={`${block.title} (${block.startTime}-${block.endTime})`}
-                            >
-                              <div className="text-xs font-medium text-neutral-900 truncate">
-                                {block.title}
-                              </div>
-                            </button>
-                          );
-                        })}
+                      <div className="text-xs font-medium text-neutral-900 truncate">
+                        {isStart ? block.title : '→'}
                       </div>
-                    </th>
+                    </button>
                   );
                 })}
-              </tr>
-            )}
-          </thead>
-        </table>
-      </div>
+                {blocksOnThisDay.length > 2 && (
+                  <span className="text-xs text-neutral-400 px-1">+{blocksOnThisDay.length - 2}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        )}
 
-      {/* Scrollable Time Grid - Only this part scrolls */}
-      {/* T13: overflow-y-scroll ensures scrollbar is always visible, keeping column alignment with header */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-scroll overflow-x-hidden">
-        {/* T9 FIX: Div-based time grid (replaces table tbody) */}
-        {/* This allows proper drag-to-select across multiple hours */}
-        <div className="flex" style={{ height: `${24 * hourHeight}px` }}>
-          {/* Time Labels Column */}
-          <div className="w-14 flex-shrink-0 bg-neutral-50/30 border-r border-neutral-200">
-            {timeSlots.map((hour) => (
+        {/* BUG-023 FIX: Lernplan blocks header bar (Exam mode only) - KA-001: CSS Grid */}
+        {hasLernplanHeaderBlocks && (
+          <div
+            className="grid h-10 bg-blue-50 border-b border-blue-200"
+            style={{ gridTemplateColumns }}
+          >
+            {/* Label cell */}
+            <div className="flex items-center justify-center border-r border-blue-200 bg-blue-50 px-1">
+              <span className="text-xs text-blue-600 font-medium">Lernplan</span>
+            </div>
+
+            {/* Lernplan block cells for each day */}
+            {weekDates.map((date, dayIndex) => {
+              const dateKey = formatDateKey(date);
+              const blocksForDay = lernplanHeaderBlocksByDate[dateKey] || [];
+
+              return (
+                <div
+                  key={`lernplan-${dayIndex}`}
+                  className="border-r border-blue-100 last:border-r-0 p-1 bg-blue-50 flex gap-1 flex-wrap"
+                >
+                  {blocksForDay.map((block) => {
+                    const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.lernblock;
+                    return (
+                      <button
+                        key={block.id}
+                        draggable="false"
+                        onClick={() => onBlockClick && onBlockClick(block, date)}
+                        className={`flex-1 min-w-0 h-7 rounded border px-1.5 text-left overflow-hidden cursor-pointer transition-colors select-none ${colorClass}`}
+                        title={`${block.title} (${block.startTime}-${block.endTime})`}
+                      >
+                        <div className="text-xs font-medium text-neutral-900 truncate">
+                          {block.title}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        </div>
+        {/* Ende des STICKY Headers */}
+
+        {/* KA-001: Zeit-Grid Body - scrollt unter dem sticky Header */}
+        <div className="grid" style={{ gridTemplateColumns, height: `${24 * hourHeight}px` }}>
+          {/* KA-001: Zeit-Labels Spalte (30px, Format: nur Stunde) */}
+          <div className="bg-neutral-50/30 border-r border-neutral-200">
+            {timeBlocks.map((hour) => (
               <div
                 key={hour}
-                className="text-right pr-2 text-xs font-medium text-neutral-400 border-b border-neutral-100"
+                className="text-right pr-1 text-xs font-light text-neutral-400 border-b border-neutral-100"
                 style={{ height: `${hourHeight}px`, paddingTop: '4px' }}
               >
-                {hour.toString().padStart(2, '0')}:00
+                {hour}
               </div>
             ))}
           </div>
 
-          {/* Day Columns */}
+          {/* Day Columns - KA-001: Grid-Zellen (kein flex-1 mehr nötig) */}
           {weekDates.map((date, dayIndex) => {
             const dateKey = formatDateKey(date);
             const isTodayColumn = dayIndex === getTodayColumnIndex;
             const selectionOverlay = getSelectionOverlay(dayIndex);
 
-            // Get ALL blocks for this day (not just per hour)
-            const dayBlocks = regularBlocks.filter(block => {
+            // Get ALL sessions for this day (not just per hour)
+            const daySessions = regularBlocks.filter(block => {
               const blockDate = block.startDate || block.date;
               return blockDate === dateKey && block.startTime;
             });
@@ -780,7 +887,7 @@ const WeekGrid = memo(function WeekGrid({
             return (
               <div
                 key={`day-${dayIndex}`}
-                className={`flex-1 relative border-r border-neutral-100 last:border-r-0 ${
+                className={`relative border-r border-neutral-200 last:border-r-0 ${
                   dragState.isDragging && dragState.dayIndex === dayIndex ? 'cursor-ns-resize' : 'cursor-pointer'
                 }`}
                 onMouseDown={(e) => {
@@ -820,28 +927,19 @@ const WeekGrid = memo(function WeekGrid({
                   const rect = e.currentTarget.getBoundingClientRect();
                   const y = e.clientY - rect.top;
                   const hour = Math.floor(y / hourHeight);
-                  handleSlotClick(date, hour);
+                  handleTimeBlockClick(date, hour);
                 }}
               >
                 {/* Hour grid lines */}
-                {timeSlots.map((hour) => (
+                {timeBlocks.map((hour) => (
                   <div
                     key={hour}
-                    className={`absolute left-0 right-0 border-b pointer-events-none ${hour % 2 === 0 ? 'border-neutral-200' : 'border-neutral-100'}`}
+                    className="absolute left-0 right-0 border-b border-neutral-300 pointer-events-none"
                     style={{ top: `${hour * hourHeight}px`, height: `${hourHeight}px` }}
                   />
                 ))}
 
-                {/* T9: Current time indicator */}
-                {isTodayColumn && (
-                  <div
-                    className="absolute left-0 right-0 z-30 pointer-events-none flex items-center"
-                    style={{ top: `${currentTimePosition}px` }}
-                  >
-                    <div className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
-                    <div className="flex-1 h-0.5 bg-red-500" />
-                  </div>
-                )}
+                {/* KA-001: Current time indicator ENTFERNT (vom User gewünscht) */}
 
                 {/* T9: Drag-to-select overlay */}
                 {selectionOverlay && (
@@ -872,39 +970,40 @@ const WeekGrid = memo(function WeekGrid({
                   </div>
                 )}
 
-                {/* Blocks */}
-                {dayBlocks.map((block) => {
-                  const colorClass = BLOCK_COLORS[block.blockType] || BLOCK_COLORS.theme;
-                  const isDragOver = dragOverBlockId === block.id;
+                {/* KA-001: Session-Karten mit dynamischer Farblogik */}
+                {daySessions.map((session) => {
+                  // KA-001: Neue Farblogik - grau default, Rechtsgebiet-Farbe wenn angegeben
+                  const sessionColors = getSessionColorClasses(session);
+                  const isDragOver = dragOverBlockId === session.id;
 
-                  // Calculate block position and height
-                  const [startH, startM] = block.startTime.split(':').map(Number);
-                  const blockTopPx = (startH + startM / 60) * hourHeight;
+                  // Calculate session position and height
+                  const [startH, startM] = session.startTime.split(':').map(Number);
+                  const sessionTopPx = (startH + startM / 60) * hourHeight;
 
                   let durationHours = 1;
-                  if (block.endTime) {
-                    const [endH, endM] = block.endTime.split(':').map(Number);
+                  if (session.endTime) {
+                    const [endH, endM] = session.endTime.split(':').map(Number);
                     durationHours = (endH + endM / 60) - (startH + startM / 60);
-                  } else if (block.duration) {
-                    durationHours = block.duration;
+                  } else if (session.duration) {
+                    durationHours = session.duration;
                   }
-                  const blockHeight = Math.max(44, durationHours * hourHeight - 8);
+                  const sessionHeight = Math.max(44, durationHours * hourHeight - 8);
 
                   // T9: Drag & Drop handlers
-                  const handleBlockDragOver = (e) => {
+                  const handleSessionDragOver = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     e.dataTransfer.dropEffect = 'copy';
-                    setDragOverBlockId(block.id);
+                    setDragOverBlockId(session.id);
                   };
 
-                  const handleBlockDragLeave = (e) => {
+                  const handleSessionDragLeave = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setDragOverBlockId(null);
                   };
 
-                  const handleBlockDrop = (e) => {
+                  const handleSessionDrop = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setDragOverBlockId(null);
@@ -913,9 +1012,9 @@ const WeekGrid = memo(function WeekGrid({
                       const data = JSON.parse(e.dataTransfer.getData('application/json'));
                       if (onDropTaskToBlock) {
                         if (data.type === 'task') {
-                          onDropTaskToBlock(block, data.task, data.source, 'task');
+                          onDropTaskToBlock(session, data.task, data.source, 'task');
                         } else if (data.type === 'thema') {
-                          onDropTaskToBlock(block, data.thema, data.source, 'thema');
+                          onDropTaskToBlock(session, data.thema, data.source, 'thema');
                         }
                       }
                     } catch (err) {
@@ -923,32 +1022,31 @@ const WeekGrid = memo(function WeekGrid({
                     }
                   };
 
-                  // T9: Blocked state rendering
-                  if (block.isBlocked) {
+                  // Blocked state rendering
+                  if (session.isBlocked) {
                     return (
                       <div
-                        key={block.id}
-                        className="absolute left-1 right-1 rounded-lg border-2 border-neutral-300 p-2 flex flex-col items-center justify-center cursor-pointer z-10 bg-neutral-100 group"
+                        key={session.id}
+                        className="absolute left-1 right-1 rounded-[5px] border-2 border-neutral-300 p-2 flex flex-col items-center justify-center cursor-pointer z-10 bg-neutral-100 group"
                         style={{
-                          top: `${blockTopPx + 4}px`,
-                          height: `${blockHeight}px`,
+                          top: `${sessionTopPx + 4}px`,
+                          height: `${sessionHeight}px`,
                           backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(163, 163, 163, 0.1) 10px, rgba(163, 163, 163, 0.1) 20px)',
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (onBlockClick) onBlockClick(block, date);
+                          if (onBlockClick) onBlockClick(session, date);
                         }}
                       >
                         <div className="flex items-center gap-1.5 relative">
                           <Lock className="w-3.5 h-3.5 text-neutral-400" />
-                          <span className="text-xs font-medium text-neutral-500">Blockiert</span>
-                          {/* Tooltip */}
+                          <span className="text-sm font-light text-neutral-400">Blockiert</span>
                           <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-neutral-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">
                             Lernzeitraum blockiert
                           </span>
                         </div>
-                        {block.title && (
-                          <p className="text-xs text-neutral-400 mt-0.5 truncate max-w-full">{block.title}</p>
+                        {session.title && (
+                          <p className="text-xs text-neutral-400 mt-0.5 truncate max-w-full">{session.title}</p>
                         )}
                       </div>
                     );
@@ -956,124 +1054,48 @@ const WeekGrid = memo(function WeekGrid({
 
                   return (
                     <div
-                      key={block.id}
-                      className={`absolute left-2 right-2 rounded-md border shadow-xs px-2.5 py-2 text-left overflow-hidden cursor-pointer transition-all z-10 select-none ${
+                      key={session.id}
+                      className={`absolute left-1 right-1 rounded-[5px] border p-2.5 text-left overflow-hidden cursor-pointer transition-all z-10 select-none ${
                         isDragOver
                           ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300 shadow-md'
-                          : `${colorClass} hover:shadow-sm hover:-translate-y-0.5`
+                          : sessionColors.container
                       }`}
                       style={{
-                        top: `${blockTopPx + 4}px`,
-                        height: `${blockHeight}px`,
+                        top: `${sessionTopPx + 4}px`,
+                        height: `${sessionHeight}px`,
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (onBlockClick) onBlockClick(block, date);
+                        if (onBlockClick) onBlockClick(session, date);
                       }}
-                      onDragOver={handleBlockDragOver}
-                      onDragEnter={handleBlockDragOver}
-                      onDragLeave={handleBlockDragLeave}
-                      onDrop={handleBlockDrop}
+                      onDragOver={handleSessionDragOver}
+                      onDragEnter={handleSessionDragOver}
+                      onDragLeave={handleSessionDragLeave}
+                      onDrop={handleSessionDrop}
                     >
                       {/* Drop indicator overlay */}
                       {isDragOver && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-blue-100/90 rounded-lg z-10 pointer-events-none">
+                        <div className="absolute inset-0 flex items-center justify-center bg-blue-100/90 rounded-[5px] z-10 pointer-events-none">
                           <span className="text-xs font-medium text-blue-600">Hier ablegen</span>
                         </div>
                       )}
 
-                      {/* Block content */}
-                      <div className="flex items-center gap-2">
-                        <div className="text-xs font-medium text-neutral-900 truncate flex-1">
-                          {block.title}
-                        </div>
-                        {block.startTime && block.endTime && blockHeight > 40 && (
-                          <span className="text-xs text-neutral-500 shrink-0">
-                            {block.startTime}-{block.endTime}
+                      {/* KA-001: Session-Inhalt - Zeit beibehalten, Aufgaben entfernt */}
+                      <div className="flex flex-col gap-1">
+                        {/* Zeit-Anzeige: BEIBEHALTEN (ohne Sekunden) */}
+                        {session.startTime && session.endTime && (
+                          <span className="text-xs text-neutral-500">
+                            {session.startTime.slice(0, 5)} - {session.endTime.slice(0, 5)}
                           </span>
                         )}
-                        {/* T9: Task progress indicator */}
-                        {block.tasks && block.tasks.length > 0 && (
-                          <span className="text-xs text-neutral-500 shrink-0">
-                            {block.tasks.filter(t => t.completed).length}/{block.tasks.length}
-                          </span>
-                        )}
+
+                        {/* Titel */}
+                        <p className={`text-sm font-light truncate ${sessionColors.text}`}>
+                          {session.title}
+                        </p>
+
+                        {/* KA-001: Aufgaben ENTFERNT - nur im Dialog sichtbar */}
                       </div>
-
-                      {/* T9: Progress bar */}
-                      {block.tasks && block.tasks.length > 0 && blockHeight > 50 && (() => {
-                        const completedCount = block.tasks.filter(t => t.completed).length;
-                        const totalCount = block.tasks.length;
-                        const progressPercent = Math.round((completedCount / totalCount) * 100);
-                        return (
-                          <div className="w-full bg-neutral-200 rounded-full h-1 mt-1">
-                            <div
-                              className={`h-1 rounded-full transition-all ${
-                                progressPercent === 100 ? 'bg-green-500' : 'bg-neutral-600'
-                              }`}
-                              style={{ width: `${progressPercent}%` }}
-                            />
-                          </div>
-                        );
-                      })()}
-
-                      {/* T9: Tasks list */}
-                      {block.tasks && block.tasks.length > 0 && blockHeight > 70 && (() => {
-                        const maxVisible = Math.min(3, Math.floor((blockHeight - 50) / 18));
-                        const visibleTasks = block.tasks.slice(0, maxVisible);
-                        const hiddenCount = block.tasks.length - maxVisible;
-
-                        return (
-                          <div className="flex flex-col gap-0.5 mt-1.5">
-                            {visibleTasks.map((task, taskIndex) => (
-                              <div key={task.id || taskIndex} className="flex items-center gap-1.5 group/task">
-                                {/* T9: Checkbox for task completion */}
-                                {onTaskToggle ? (
-                                  <input
-                                    type="checkbox"
-                                    checked={task.completed || false}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      onTaskToggle(block, task);
-                                    }}
-                                    className="w-3 h-3 rounded border-neutral-300 text-primary-600 cursor-pointer shrink-0"
-                                  />
-                                ) : (
-                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                    task.completed ? 'bg-green-500' : 'bg-neutral-400'
-                                  }`} />
-                                )}
-                                <span className={`text-xs truncate flex-1 ${
-                                  task.completed ? 'text-neutral-400 line-through' : 'text-neutral-600'
-                                }`}>
-                                  {task.themaTitle && (
-                                    <span className="text-neutral-400 mr-0.5">{task.themaTitle}:</span>
-                                  )}
-                                  {task.text}
-                                </span>
-                                {/* X button to remove task */}
-                                {onRemoveTaskFromBlock && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onRemoveTaskFromBlock(block, task);
-                                    }}
-                                    className="p-0.5 text-neutral-300 hover:text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0"
-                                    title="Aus Session entfernen"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                            {hiddenCount > 0 && (
-                              <span className="text-xs text-neutral-400">
-                                +{hiddenCount} weitere
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
                     </div>
                   );
                 })}
@@ -1081,7 +1103,10 @@ const WeekGrid = memo(function WeekGrid({
             );
           })}
         </div>
+        {/* Ende des Zeit-Grid Body */}
+
       </div>
+      {/* Ende des Scroll-Containers */}
     </div>
   );
 });

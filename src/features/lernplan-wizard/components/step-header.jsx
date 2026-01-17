@@ -15,7 +15,7 @@ const StepHeader = ({ step, title, description }) => {
 
       {/* Title */}
       <div className="w-full py-[5px] flex justify-center items-center">
-        <h1 className="text-center text-3xl md:text-5xl font-extralight text-neutral-900 leading-tight md:leading-[48px]">
+        <h1 className="text-center text-3xl md:text-5xl font-extralight text-neutral-950 leading-tight md:leading-[48px]">
           {title}
         </h1>
       </div>

@@ -45,7 +45,7 @@ const Step4Tagesbloecke = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const blockOptions = [1, 2, 3, 4]; // Max 4 slots per day
+  const blockOptions = [1, 2, 3, 4]; // Max 4 blocks per day
 
   // Calculate blocks based on calendar days (weekStructure is configured in Step 5)
   // Using 5-day week assumption for the estimate

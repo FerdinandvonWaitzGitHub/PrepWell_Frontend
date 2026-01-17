@@ -57,7 +57,7 @@ const LearningSession = memo(function LearningSession({
   // Render out of range message
   if (isOutOfRange) {
     return (
-      <div className={`bg-primary-100 border border-primary-200 rounded px-4.5 py-5 pointer-events-none ${className}`}>
+      <div className={`bg-neutral-100 border border-neutral-200 rounded px-4.5 py-5 pointer-events-none ${className}`}>
         <p className="text-xs text-neutral-600">nicht im Lernzeitraum</p>
       </div>
     );
@@ -89,7 +89,7 @@ const LearningSession = memo(function LearningSession({
       case 'theme':
       case 'lernblock':
       default:
-        return 'bg-primary-50 border-primary-100'; // Primary for learning
+        return 'bg-neutral-100 border-neutral-200'; // Neutral for learning (consistent with week-grid.jsx)
     }
   };
 

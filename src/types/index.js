@@ -35,7 +35,7 @@
 
 /**
  * @typedef {Object} Block
- * Ein Platzhalter für einen Tag - referenziert Content (formerly Slot)
+ * Ein Platzhalter für einen Tag - referenziert Content
  *
  * @property {string} id - Unique ID des Blocks
  * @property {string} date - Datum im Format "YYYY-MM-DD"
@@ -49,7 +49,7 @@
 
 /**
  * @typedef {Object} BlockTask
- * Eine Aufgabe die einem Block zugewiesen wurde (formerly SlotTask)
+ * Eine Aufgabe die einem Block zugewiesen wurde
  *
  * @property {string} id - Unique ID
  * @property {string} [sourceId] - Original-ID wenn aus anderer Quelle
@@ -98,7 +98,7 @@ export const POSITION_TIME_MAP = {
 };
 
 /**
- * Erzeugt eine Session aus Block und Content (formerly createBlockFromSlotAndContent)
+ * Erzeugt eine Session aus Block und Content
  * @param {Block} block
  * @param {Content} content
  * @param {Object} [timeOverride] - Optionale Zeitüberschreibung
@@ -135,9 +135,6 @@ export function createSessionFromBlockAndContent(block, content, timeOverride = 
   };
 }
 
-// Legacy alias for backwards compatibility
-export const createBlockFromSlotAndContent = createSessionFromBlockAndContent;
-
 /**
  * Generiert eine eindeutige ID
  * @param {string} [prefix]
@@ -152,6 +149,5 @@ export function generateId(prefix = '') {
 export default {
   POSITION_TIME_MAP,
   createSessionFromBlockAndContent,
-  createBlockFromSlotAndContent, // Legacy alias
   generateId,
 };

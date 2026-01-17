@@ -321,23 +321,3 @@ export function blocksToLearningSessions(blocks: LegacyBlock[]): DisplaySession[
   return sessions;
 }
 
-// =============================================================================
-// LEGACY ALIASES
-// =============================================================================
-
-/** @deprecated Use createEmptyBlock */
-export const createEmptySlot = createEmptyBlock;
-/** @deprecated Use createDayBlocks */
-export const createDaySlots = createDayBlocks;
-/** @deprecated Use countFreeBlocks */
-export const countFreeSlots = countFreeBlocks;
-/** @deprecated Use getAvailableBlockPositions */
-export const getAvailableSlotPositions = getAvailableBlockPositions;
-/** @deprecated Use createTopicBlocks */
-export const createTopicSlots = createTopicBlocks;
-/** @deprecated Use updateDayBlocks */
-export const updateDaySlots = updateDayBlocks;
-/** @deprecated Use groupBlocksByTopic */
-export const groupSlotsByTopic = groupBlocksByTopic;
-/** @deprecated Use blocksToLearningSessions */
-export const slotsToLearningBlocks = blocksToLearningSessions;

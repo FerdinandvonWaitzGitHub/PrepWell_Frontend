@@ -54,7 +54,7 @@ const DashboardPage = () => {
     displayDate,
     dateString,
     currentLernblock: _currentLernblock,
-    todayBlocks: todaySlots,
+    todayBlocks,
     todayPrivateBlocks, // BUG-023 FIX: Private blocks only (for ZeitplanWidget)
     aufgaben,
     dayProgress,
@@ -363,7 +363,7 @@ const DashboardPage = () => {
             tasks: block.tasks || [],
           });
         } else {
-          // Merge multi-slot blocks
+          // Merge multi-position blocks
           const existing = blockMap.get(blockId);
           existing.size += 1;
           existing.positions.push(block.position);
@@ -1085,13 +1085,13 @@ const DashboardPage = () => {
 
   // BUG-023 FIX: Dashboard shows manually-created blocks (not Lernplan wizard blocks)
   // - Private blocks: from todayPrivateBlocks
-  // - Lernblöcke, Wiederholungsblöcke, Klausurblöcke: from todaySlots where isFromLernplan !== true
+  // - Lernblöcke, Wiederholungsblöcke, Klausurblöcke: from todayBlocks where isFromLernplan !== true
   const topics = [];
 
-  // Filter todaySlots to get only manually-created blocks (not from Wizard)
+  // Filter todayBlocks to get only manually-created blocks (not from Wizard)
   const manuallyCreatedBlocks = useMemo(() => {
-    return todaySlots.filter(block => block.isFromLernplan !== true);
-  }, [todaySlots]);
+    return todayBlocks.filter(block => block.isFromLernplan !== true);
+  }, [todayBlocks]);
 
   // BUG-022 FIX: Calculate daily learning goal with proper priority:
   // 1. User-defined setting from Settings page (dailyGoalHours)
@@ -1113,7 +1113,7 @@ const DashboardPage = () => {
     }
 
     // Priority 2: Calculate from planned Lernplan blocks for today
-    const learningBlocks = todaySlots.filter(block =>
+    const learningBlocks = todayBlocks.filter(block =>
       block.blockType !== 'private' && block.isFromLernplan === true
     );
 
@@ -1135,7 +1135,7 @@ const DashboardPage = () => {
 
     // Priority 3: If no settings and no blocks planned, return 0
     return totalMinutes;
-  }, [todaySlots]);
+  }, [todayBlocks]);
 
   // BUG-009 FIX: Force periodic re-calculation of learning minutes when timer is active
   const [progressUpdateTick, setProgressUpdateTick] = useState(0);
@@ -1337,7 +1337,7 @@ const DashboardPage = () => {
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
         onUnscheduleTask={handleUnscheduleTaskFromBlock}
-        availableSlots={4}
+        availableBlocks={4}
         availableTasks={availableAufgaben}
         themeLists={themeLists}
       />
@@ -1350,7 +1350,7 @@ const DashboardPage = () => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={4}
+        availableBlocks={4}
       />
 
       {/* Manage Exam Session Dialog */}
@@ -1361,7 +1361,7 @@ const DashboardPage = () => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
-        availableSlots={4}
+        availableBlocks={4}
       />
 
       {/* Manage Private Session Dialog */}
@@ -1389,7 +1389,7 @@ const DashboardPage = () => {
         onOpenChange={setIsCreateThemeOpen}
         date={currentDateObj}
         onSave={handleAddBlock}
-        availableSlots={4}
+        availableBlocks={4}
         availableTasks={availableAufgaben}
         themeLists={themeLists}
         initialStartTime={selectedTimeRange?.startTime}
@@ -1402,7 +1402,7 @@ const DashboardPage = () => {
         onOpenChange={setIsCreateRepetitionOpen}
         date={currentDateObj}
         onSave={handleAddBlock}
-        availableSlots={4}
+        availableBlocks={4}
         initialStartTime={selectedTimeRange?.startTime}
         initialEndTime={selectedTimeRange?.endTime}
       />
@@ -1413,7 +1413,7 @@ const DashboardPage = () => {
         onOpenChange={setIsCreateExamOpen}
         date={currentDateObj}
         onSave={handleAddBlock}
-        availableSlots={4}
+        availableBlocks={4}
         initialStartTime={selectedTimeRange?.startTime}
         initialEndTime={selectedTimeRange?.endTime}
       />

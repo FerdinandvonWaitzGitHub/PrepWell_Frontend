@@ -150,10 +150,10 @@ export function useLeistungen() {
 }
 
 /**
- * Hook for Kalender Slots
+ * Hook for Kalender Blocks
  */
-export function useSlots(lernplanId: string | null | undefined) {
-  return useApi(() => kalenderApi.getSlots(lernplanId!), [lernplanId], {
+export function useBlocks(lernplanId: string | null | undefined) {
+  return useApi(() => kalenderApi.getBlocks(lernplanId!), [lernplanId], {
     immediate: !!lernplanId,
     initialData: [],
   });

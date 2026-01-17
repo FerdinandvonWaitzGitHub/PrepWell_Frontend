@@ -42,6 +42,7 @@ export default {
           700: '#404040',
           800: '#262626',
           900: '#171717',
+          950: '#0A0A0A',  // Figma: Stärkster Kontrast (Priority Hover)
         },
         // Blue variants
         blue: {
@@ -96,7 +97,7 @@ export default {
         'sm': '4px',
         'DEFAULT': '6px',
         'md': '8px',      // Figma card radius
-        'lg': '12px',
+        'lg': '10px',     // KORRIGIERT: Figma rounded-lg (war 12px)
         'xl': '16px',
       },
       boxShadow: {

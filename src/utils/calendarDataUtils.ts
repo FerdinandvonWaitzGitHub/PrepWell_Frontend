@@ -154,9 +154,6 @@ export function createBlock(
   };
 }
 
-/** @deprecated Use createBlock */
-export const createSlot = createBlock;
-
 // =============================================================================
 // TIME UTILITIES
 // =============================================================================
@@ -200,9 +197,6 @@ export function createSessionFromBlockAndContent(
     tasks: block.tasks || [],
   };
 }
-
-/** @deprecated Use createSessionFromBlockAndContent */
-export const createBlockFromSlotAndContent = createSessionFromBlockAndContent;
 
 /**
  * Build a Session from Block and Content
@@ -289,9 +283,6 @@ export function migrateLegacyBlock(legacyBlock: LegacyBlockData): {
   return { block, content };
 }
 
-/** @deprecated Use migrateLegacyBlock */
-export const migrateLegacySlot = migrateLegacyBlock;
-
 /**
  * Migrate all legacy blocks by date
  */
@@ -367,16 +358,13 @@ export default {
   generateId,
   createContent,
   createBlock,
-  createSlot,
   getTimeForPosition,
   createSessionFromBlockAndContent,
-  createBlockFromSlotAndContent,
   buildSession,
   buildBlock,
   buildSessionsForDay,
   buildBlocksForDay,
   migrateLegacyBlock,
-  migrateLegacySlot,
   migrateLegacyData,
   buildDisplaySession,
   buildDisplayBlock,

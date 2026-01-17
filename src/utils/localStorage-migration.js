@@ -58,16 +58,18 @@ const migrateKey = (oldKey, newKey) => {
       safeLocalStorage.setItem(newKey, oldData);
       console.log(`[Migration] Migrated ${oldKey} → ${newKey}`);
 
-      // Optionally remove old key after successful migration
-      // Uncomment the line below to remove old keys:
-      // safeLocalStorage.removeItem(oldKey);
+      // Remove old key after successful migration
+      safeLocalStorage.removeItem(oldKey);
+      console.log(`[Migration] Removed old key: ${oldKey}`);
 
       return true;
     }
 
-    // If both exist, keep both (no data loss)
+    // If both exist, remove old key (new key has priority)
     if (oldData && newData) {
-      console.log(`[Migration] Both ${oldKey} and ${newKey} exist, keeping both`);
+      safeLocalStorage.removeItem(oldKey);
+      console.log(`[Migration] Both keys exist, removed old key: ${oldKey}`);
+      return true;
     }
 
     return false;

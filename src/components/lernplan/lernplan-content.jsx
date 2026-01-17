@@ -39,7 +39,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
     updateLernplanMetadata,
     archiveCurrentPlan,
     deleteCurrentPlan,
-    slotsByDate,
+    blocksByDate,
     // New Content Plans (Lernpläne & Themenlisten)
     contentPlans,
     createContentPlan,
@@ -256,20 +256,20 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowArchived(false)}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               !showArchived
-                ? 'bg-primary-100 text-primary-700'
-                : 'text-neutral-600 hover:bg-neutral-100'
+                ? 'bg-neutral-900 text-neutral-50'
+                : 'text-neutral-500 hover:bg-neutral-100'
             }`}
           >
             Aktiv
           </button>
           <button
             onClick={() => setShowArchived(true)}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               showArchived
-                ? 'bg-primary-100 text-primary-700'
-                : 'text-neutral-600 hover:bg-neutral-100'
+                ? 'bg-neutral-900 text-neutral-50'
+                : 'text-neutral-500 hover:bg-neutral-100'
             }`}
           >
             Archiv
@@ -313,10 +313,10 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
             <h3 className="text-sm font-medium text-neutral-700 mb-3">Kalender-Lernpläne</h3>
             <div className="flex flex-col gap-3">
               {archivedCalendarPlans.map((plan) => (
-                <div key={plan.id} className="bg-white rounded-lg border border-neutral-200 p-4">
+                <div key={plan.id} className="bg-white rounded border border-neutral-200 p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className="font-medium text-neutral-900">
+                      <h4 className="text-2xl font-extralight text-neutral-950">
                         {plan.metadata?.name || 'Lernplan'}
                       </h4>
                       <p className="text-sm text-neutral-500 mt-1">
@@ -361,12 +361,12 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
-                    <span className="px-2 py-0.5 bg-neutral-100 rounded">
-                      {Object.keys(plan.slots || {}).length} Tage
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-neutral-100 rounded-md text-xs font-medium text-neutral-900">
+                      {Object.keys(plan.blocks || {}).length} Tage
                     </span>
                     {plan.metadata?.blocksPerDay && (
-                      <span className="px-2 py-0.5 bg-neutral-100 rounded">
+                      <span className="px-2 py-0.5 bg-neutral-100 rounded-md text-xs font-medium text-neutral-900">
                         {plan.metadata.blocksPerDay} Blöcke/Tag
                       </span>
                     )}
@@ -392,8 +392,8 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
               />
             ) : (
               /* View Mode: Clean Summary Card */
-              <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
-                <div className="p-4">
+              <div className="rounded border border-neutral-200 bg-white overflow-hidden">
+                <div className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       {isEditingCalendarPlanName ? (
@@ -425,10 +425,10 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-neutral-900">
+                          <h4 className="text-2xl font-extralight text-neutral-950">
                             {activeCalendarPlan.name || 'Lernplan'}
                           </h4>
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded-md bg-neutral-900 text-neutral-50">
                             Aktiv
                           </span>
                         </div>
@@ -485,7 +485,7 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
                         <line x1="8" y1="2" x2="8" y2="6" />
                         <line x1="3" y1="10" x2="21" y2="10" />
                       </svg>
-                      {Object.keys(slotsByDate || {}).length} Tage
+                      {Object.keys(blocksByDate || {}).length} Tage
                     </span>
                     {activeCalendarPlan.blocksPerDay && (
                       <span className="flex items-center gap-1">

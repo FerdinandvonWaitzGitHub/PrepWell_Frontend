@@ -3,7 +3,7 @@ import { WeekView } from '../features/calendar/components';
 
 /**
  * CalendarWeekPage - Kalender Wochenansicht
- * Calendar week view with time slots
+ * Calendar week view with time blocks
  *
  * Figma: "✅ Kalender > Wochenansicht" (Node-ID: 2136:3140)
  * Status: ✅ Base layout implemented with placeholders

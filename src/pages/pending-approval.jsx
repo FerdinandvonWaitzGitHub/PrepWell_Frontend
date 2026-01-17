@@ -32,11 +32,11 @@ export default function PendingApproval() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50">
       <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-blue-600">PrepWell</h1>
+          <h1 className="text-3xl font-bold text-gray-950">PrepWell</h1>
         </div>
 
         {/* Status Icon */}
@@ -85,7 +85,7 @@ export default function PendingApproval() {
           <button
             onClick={handleCheckStatus}
             disabled={checking}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-gray-900 text-white py-2.5 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {checking ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -110,8 +110,8 @@ export default function PendingApproval() {
         <div className="mt-6 pt-6 border-t border-neutral-200 text-center">
           <p className="text-sm text-neutral-500">
             Fragen? Kontaktiere uns unter{' '}
-            <a href="mailto:support@prepwell.de" className="text-blue-600 hover:underline">
-              support@prepwell.de
+            <a href="mailto:team@prepwell.de" className="text-gray-900 hover:underline">
+              team@prepwell.de
             </a>
           </p>
         </div>

@@ -225,7 +225,7 @@ const ContentPlanEditCard = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg border ${isNew ? 'border-primary-300 ring-2 ring-primary-100' : 'border-neutral-200'} overflow-hidden`}>
+    <div className={`bg-white rounded border ${isNew ? 'border-primary-300 ring-2 ring-primary-100' : 'border-neutral-200'} overflow-hidden`}>
       {/* Header Bar */}
       <div
         className="flex items-center h-[70px] px-4 cursor-pointer hover:bg-neutral-50"
@@ -240,22 +240,22 @@ const ContentPlanEditCard = ({
         </button>
 
         {/* Type Badge */}
-        <span className={`px-2 py-0.5 text-xs font-medium rounded mr-3 ${
-          plan.type === 'themenliste' ? 'bg-yellow-100 text-yellow-700' : 'bg-primary-100 text-primary-700'
+        <span className={`px-2 py-0.5 text-xs font-semibold rounded-md mr-3 ${
+          plan.type === 'themenliste' ? 'bg-amber-100 text-amber-800' : 'bg-neutral-100 text-neutral-900'
         }`}>
           {plan.type === 'themenliste' ? 'Themenliste' : 'Lernplan'}
         </span>
 
         {/* Mode Badge (only for Lernplan) */}
         {plan.type === 'lernplan' && plan.mode === 'examen' && (
-          <span className="px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-700 mr-3">
+          <span className="px-2 py-0.5 text-xs font-semibold rounded-md bg-purple-100 text-purple-800 mr-3">
             Examen
           </span>
         )}
 
         {/* Title - Input in edit mode, text in view mode */}
         {viewMode ? (
-          <h3 className="flex-1 min-w-0 px-2 py-1 text-base font-medium text-neutral-900 truncate">
+          <h3 className="flex-1 min-w-0 px-2 py-1 text-lg font-medium text-neutral-950 truncate">
             {plan.name || (plan.type === 'themenliste' ? 'Themenliste' : 'Lernplan')}
           </h3>
         ) : (

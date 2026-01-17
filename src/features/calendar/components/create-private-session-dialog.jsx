@@ -35,7 +35,7 @@ const weekdayOptions = [
  * Create Private Block Dialog Component
  * Dialog for creating new private appointments/events
  *
- * @param {string} mode - 'block' for time-based (Week/Dashboard), 'slot' for position-based (Month)
+ * @param {string} mode - 'session' for time-based (Week/Dashboard), 'block' for position-based (Month)
  */
 const CreatePrivateBlockDialog = ({
   open,
@@ -45,11 +45,9 @@ const CreatePrivateBlockDialog = ({
   initialTime = null, // Optional: wenn vom Wochenansicht-Klick
   initialEndTime = null, // T4.1: Optional end time from drag-to-select
   availableBlocks = 4,
-  availableSlots, // Legacy alias
   mode = 'session' // 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
 }) => {
-  // Support legacy prop name
-  const maxBlocks = availableSlots ?? availableBlocks;
+  const maxBlocks = availableBlocks;
 
   // Form state
   const [allocationSize, setAllocationSize] = useState(1); // For allocation mode (Month)
@@ -127,10 +125,14 @@ const CreatePrivateBlockDialog = ({
   };
 
   // Format date for input field (YYYY-MM-DD)
+  // KA-002 FIX: Verwende lokale Zeit statt UTC
   const formatDateForInput = (date) => {
     if (!date) return '';
     const d = new Date(date);
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Format date for display

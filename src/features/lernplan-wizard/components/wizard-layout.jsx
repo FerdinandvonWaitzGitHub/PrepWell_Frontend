@@ -100,7 +100,7 @@ const WizardLayout = ({ children }) => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header - Simplified without main navigation */}
-      <header className="h-[72px] px-8 flex items-center justify-between border-b border-neutral-100">
+      <header className="h-[72px] px-8 flex items-center justify-between border-b border-neutral-200">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
@@ -145,7 +145,7 @@ const WizardLayout = ({ children }) => {
       {/* Footer with navigation buttons */}
       {/* BUG-P4 FIX: Hide footer for Step 12 (has own navigation) */}
       {!hasCustomNavigation && (
-        <footer className="border-t border-neutral-100 px-4 sm:px-8 py-4">
+        <footer className="border-t border-neutral-200 px-4 sm:px-8 py-4">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             {/* Back button */}
             <Button

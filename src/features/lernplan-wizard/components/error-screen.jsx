@@ -69,7 +69,7 @@ const ErrorScreen = ({ error, onRetry, onCancel, onGoBackToMethodSelection }) =>
             Erneut versuchen
           </Button>
           {onGoBackToMethodSelection && (
-            <Button variant="secondary" onClick={onGoBackToMethodSelection} className="w-full">
+            <Button variant="default" onClick={onGoBackToMethodSelection} className="w-full">
               Andere Methode wählen
             </Button>
           )}

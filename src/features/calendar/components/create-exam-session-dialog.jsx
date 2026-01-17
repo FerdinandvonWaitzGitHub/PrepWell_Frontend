@@ -53,7 +53,6 @@ const CreateExamBlockDialog = ({
   date,
   onSave,
   availableBlocks = 4,
-  availableSlots, // Legacy alias
   mode = 'session', // PRD §3.1: 'session' = Uhrzeiten (Woche/Startseite), 'block' = Block-Größe (Monatsansicht)
   // T4.1: Initial time values from drag-to-select
   initialStartTime,
@@ -68,8 +67,7 @@ const CreateExamBlockDialog = ({
   // Hierarchy labels for dynamic naming
   const { level1, level2 } = useHierarchyLabels();
 
-  // Support legacy prop name
-  const maxBlocks = availableSlots ?? availableBlocks;
+  const maxBlocks = availableBlocks;
 
   // Toggle state for showing details
   const [showDetails, setShowDetails] = useState(false);

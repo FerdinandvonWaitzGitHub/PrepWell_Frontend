@@ -139,7 +139,7 @@ const TaskItem = ({
           type="checkbox"
           checked={task.completed}
           onChange={() => onToggle(task.id)}
-          className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 flex-shrink-0"
+          className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 shadow-xs flex-shrink-0"
         />
         <input
           type="text"
@@ -186,7 +186,7 @@ const TaskItem = ({
         checked={task.completed}
         onChange={() => onToggle(task.id)}
         onClick={(e) => e.stopPropagation()}
-        className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 flex-shrink-0"
+        className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 shadow-xs flex-shrink-0"
       />
       <div className="flex-1 min-w-0">
         <span className={`text-sm ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
@@ -208,10 +208,10 @@ const TaskItem = ({
           const nextPriority = nextLevel === 0 ? 'none' : nextLevel === 1 ? 'medium' : 'high';
           onTogglePriority(task.id, nextPriority);
         }}
-        className={`px-1.5 py-0.5 rounded text-sm font-semibold transition-colors ${
+        className={`px-1.5 py-0.5 rounded text-xl font-semibold transition-colors ${
           priorityLevel === 0
-            ? 'text-neutral-300 hover:text-neutral-500'
-            : 'text-neutral-700 hover:text-neutral-900'
+            ? 'text-neutral-200 hover:text-neutral-400'
+            : 'text-neutral-900 hover:text-neutral-950'
         }`}
         title={priorityLevel === 0 ? 'Keine Priorität' : priorityLevel === 1 ? 'Mittlere Priorität' : 'Hohe Priorität'}
       >
@@ -307,7 +307,7 @@ const TaskList = ({
       </div>
 
       {/* Task Items - TICKET-5: Double-click to edit */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         {tasks.map((task) => (
           <div key={task.id} onDoubleClick={() => handleStartEdit(task)}>
             <TaskItem
@@ -358,7 +358,7 @@ const TaskList = ({
         type="button"
         onClick={handleAddNew}
         disabled={isAddingNew}
-        className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 transition-colors disabled:opacity-50"
+        className="flex items-center gap-2 text-xs font-medium text-neutral-500 hover:text-neutral-700 transition-colors disabled:opacity-50"
       >
         <PlusIcon />
         <span>Neue Aufgabe</span>
@@ -782,7 +782,7 @@ const ThemeListThemaRow = memo(function ThemeListThemaRow({
                       onChange={() => onToggleAufgabe(aufgabe.id)}
                       onClick={(e) => e.stopPropagation()}
                       disabled={isScheduled || !hasTitle || isEditing}
-                      className={`h-4 w-4 rounded border-neutral-300 focus:ring-neutral-500 ${
+                      className={`h-4 w-4 rounded border-neutral-300 focus:ring-neutral-500 shadow-xs ${
                         isScheduled ? 'text-neutral-400' : 'text-neutral-900'
                       }`}
                     />
@@ -834,10 +834,10 @@ const ThemeListThemaRow = memo(function ThemeListThemaRow({
                           e.stopPropagation();
                           onToggleAufgabePriority?.(unterrechtsgebietId, kapitelId, thema.id, aufgabe.id, aufgabe.priority || 'none', rechtsgebietId);
                         }}
-                        className={`px-1 py-0.5 rounded text-xs font-semibold transition-colors ${
+                        className={`px-1 py-0.5 rounded text-xl font-semibold transition-colors ${
                           (aufgabe.priority || 'none') === 'none'
-                            ? 'text-neutral-300 hover:text-neutral-500 opacity-0 group-hover:opacity-100'
-                            : 'text-neutral-700 hover:text-neutral-900'
+                            ? 'text-neutral-200 hover:text-neutral-400 opacity-0 group-hover:opacity-100'
+                            : 'text-neutral-900 hover:text-neutral-950'
                         }`}
                         title={
                           (aufgabe.priority || 'none') === 'none' ? 'Keine Priorität' :

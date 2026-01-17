@@ -230,14 +230,14 @@ export function redistributeBlocks(blocksByDate, metadata, fromDate = null) {
     });
   });
 
-  // Get available slots (future dates)
-  const availableSlots = [];
+  // Get available blocks (future dates)
+  const availableBlocks = [];
   Object.entries(blocksByDate).forEach(([dateKey, blocks]) => {
     const blockDate = new Date(dateKey + 'T12:00:00');
     if (blockDate >= todayDate) {
       blocks.forEach(block => {
         if (!block.completed && !block.topicTitle) {
-          availableSlots.push({ date: dateKey, position: block.position, block });
+          availableBlocks.push({ date: dateKey, position: block.position, block });
         }
       });
     }
@@ -255,7 +255,7 @@ export function redistributeBlocks(blocksByDate, metadata, fromDate = null) {
 
   // Redistribute based on mode
   const newBlocksByDate = { ...protectedDates };
-  let slotIndex = 0;
+  let blockIndex = 0;
 
   if (verteilungsmodus === 'gemischt') {
     // Mixed: Distribute evenly across all RGs
@@ -263,20 +263,20 @@ export function redistributeBlocks(blocksByDate, metadata, fromDate = null) {
     const rgIds = Object.keys(blocksByRg);
     let rgIndex = 0;
 
-    while (slotIndex < availableSlots.length) {
+    while (blockIndex < availableBlocks.length) {
       let assigned = false;
 
       // Try to assign from each RG in round-robin
-      for (let i = 0; i < rgIds.length && slotIndex < availableSlots.length; i++) {
+      for (let i = 0; i < rgIds.length && blockIndex < availableBlocks.length; i++) {
         const currentRgIndex = (rgIndex + i) % rgIds.length;
         const currentRgId = rgIds[currentRgIndex];
 
         if (blocksByRg[currentRgId]?.length > 0) {
           const block = blocksByRg[currentRgId].shift();
-          const slot = availableSlots[slotIndex];
+          const targetBlock = availableBlocks[blockIndex];
 
           const assignedBlock = {
-            ...slot.block,
+            ...targetBlock.block,
             topicTitle: block.topicTitle,
             tasks: block.tasks,
             metadata: block.metadata,
@@ -284,12 +284,12 @@ export function redistributeBlocks(blocksByDate, metadata, fromDate = null) {
             unterrechtsgebiet: block.unterrechtsgebiet,
           };
 
-          if (!newBlocksByDate[slot.date]) {
-            newBlocksByDate[slot.date] = [];
+          if (!newBlocksByDate[targetBlock.date]) {
+            newBlocksByDate[targetBlock.date] = [];
           }
-          newBlocksByDate[slot.date].push(assignedBlock);
+          newBlocksByDate[targetBlock.date].push(assignedBlock);
 
-          slotIndex++;
+          blockIndex++;
           assigned = true;
         }
       }
@@ -299,20 +299,20 @@ export function redistributeBlocks(blocksByDate, metadata, fromDate = null) {
     }
   } else if (verteilungsmodus === 'fokussiert') {
     // Focused: One RG per day
-    const sortedDates = [...new Set(availableSlots.map(s => s.date))].sort();
+    const sortedDates = [...new Set(availableBlocks.map(s => s.date))].sort();
     const rgIds = Object.keys(blocksByRg);
     let rgIndex = 0;
 
     sortedDates.forEach(dateKey => {
-      const slotsForDay = availableSlots.filter(s => s.date === dateKey);
+      const blocksForDay = availableBlocks.filter(s => s.date === dateKey);
       const currentRgId = rgIds[rgIndex % rgIds.length];
 
-      slotsForDay.forEach(slot => {
+      blocksForDay.forEach(targetBlock => {
         if (blocksByRg[currentRgId]?.length > 0) {
           const block = blocksByRg[currentRgId].shift();
 
           const assignedBlock = {
-            ...slot.block,
+            ...targetBlock.block,
             topicTitle: block.topicTitle,
             tasks: block.tasks,
             metadata: block.metadata,
@@ -320,15 +320,15 @@ export function redistributeBlocks(blocksByDate, metadata, fromDate = null) {
             unterrechtsgebiet: block.unterrechtsgebiet,
           };
 
-          if (!newBlocksByDate[slot.date]) {
-            newBlocksByDate[slot.date] = [];
+          if (!newBlocksByDate[targetBlock.date]) {
+            newBlocksByDate[targetBlock.date] = [];
           }
-          newBlocksByDate[slot.date].push(assignedBlock);
+          newBlocksByDate[targetBlock.date].push(assignedBlock);
         }
       });
 
       // Switch RG for next day (only if we used blocks from current RG)
-      if (slotsForDay.length > 0) {
+      if (blocksForDay.length > 0) {
         rgIndex++;
       }
     });
@@ -342,11 +342,11 @@ export function redistributeBlocks(blocksByDate, metadata, fromDate = null) {
     });
 
     allBlocks.forEach(block => {
-      if (slotIndex < availableSlots.length) {
-        const slot = availableSlots[slotIndex];
+      if (blockIndex < availableBlocks.length) {
+        const targetBlock = availableBlocks[blockIndex];
 
         const assignedBlock = {
-          ...slot.block,
+          ...targetBlock.block,
           topicTitle: block.topicTitle,
           tasks: block.tasks,
           metadata: block.metadata,
@@ -354,12 +354,12 @@ export function redistributeBlocks(blocksByDate, metadata, fromDate = null) {
           unterrechtsgebiet: block.unterrechtsgebiet,
         };
 
-        if (!newBlocksByDate[slot.date]) {
-          newBlocksByDate[slot.date] = [];
+        if (!newBlocksByDate[targetBlock.date]) {
+          newBlocksByDate[targetBlock.date] = [];
         }
-        newBlocksByDate[slot.date].push(assignedBlock);
+        newBlocksByDate[targetBlock.date].push(assignedBlock);
 
-        slotIndex++;
+        blockIndex++;
       }
     });
   }

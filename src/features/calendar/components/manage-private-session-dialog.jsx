@@ -112,10 +112,14 @@ const ManagePrivateBlockDialog = ({
   const isSeriesBlock = block?.seriesId != null;
 
   // Format date for input field (YYYY-MM-DD)
+  // KA-002 FIX: Verwende lokale Zeit statt UTC
   const formatDateForInput = (date) => {
     if (!date) return '';
     const d = new Date(date);
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Format date for display

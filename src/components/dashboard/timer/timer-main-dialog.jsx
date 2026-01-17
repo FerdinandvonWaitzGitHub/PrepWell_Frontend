@@ -1168,7 +1168,7 @@ const TimerMainDialog = ({ open, onOpenChange, dailyLearningGoalMinutes = 0 }) =
             </p>
           </div>
 
-          {/* Timer Content (slotFrTimerFunktion) */}
+          {/* Timer Content */}
           <div className="self-stretch flex justify-center">
             {renderContent()}
           </div>

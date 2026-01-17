@@ -79,7 +79,7 @@ export const DialogDescription = ({ children, className = '' }) => {
 };
 
 /**
- * Dialog Body/Slot for main content
+ * Dialog Body for main content
  */
 export const DialogBody = ({ children, className = '' }) => {
   return (

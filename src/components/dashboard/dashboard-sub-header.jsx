@@ -95,13 +95,13 @@ const TimerWidget = ({ onClick }) => {
     return (
       <button
         onClick={onClick}
-        className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors"
+        className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-white border border-neutral-200 shadow-xs hover:bg-neutral-50 transition-colors"
       >
         <div className="flex flex-col items-end gap-0.5">
           <span className="text-sm font-medium text-neutral-700">Timer starten</span>
           <span className="text-xs text-neutral-500">{currentTime}</span>
         </div>
-        <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100">
+        <div className="p-2 bg-white rounded-lg border border-neutral-200 shadow-xs">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-neutral-400">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
@@ -153,7 +153,7 @@ const TimerWidget = ({ onClick }) => {
       {/* Main timer area - opens dialog */}
       <button
         onClick={onClick}
-        className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors"
+        className="inline-flex justify-end items-center gap-4 px-3 py-1.5 rounded-lg bg-white border border-neutral-200 shadow-xs hover:bg-neutral-50 transition-colors"
       >
         <div className="flex flex-col items-end gap-0.5">
           <span className={`text-sm font-medium ${isPaused ? 'text-neutral-500' : 'text-neutral-900'}`}>
@@ -161,7 +161,7 @@ const TimerWidget = ({ onClick }) => {
           </span>
           <span className="text-xs text-neutral-500">{getSecondaryLabel()}</span>
         </div>
-        <div className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100">
+        <div className="p-2 bg-white rounded-lg border border-neutral-200 shadow-xs">
           <CircularProgress progress={progress} size={24} strokeWidth={2.5} />
         </div>
       </button>
@@ -170,7 +170,7 @@ const TimerWidget = ({ onClick }) => {
       {isHovered && (
         <button
           onClick={handlePlayPause}
-          className="p-2 bg-white rounded-lg shadow-sm border border-neutral-100 hover:bg-neutral-50 transition-colors"
+          className="p-2 bg-white rounded-lg shadow-xs border border-neutral-200 hover:bg-neutral-50 transition-colors"
           title={isPaused ? 'Fortsetzen' : 'Pausieren'}
         >
           {isPaused ? (
@@ -206,7 +206,7 @@ const DashboardSubHeader = ({
   tasksCompleted = 0,
   tasksTotal = 0,
   learningMinutesCompleted = 0,
-  learningMinutesGoal = 0, // BUG-022 FIX: Default to 0, not 480 - goal comes from settings or planned slots
+  learningMinutesGoal = 0, // BUG-022 FIX: Default to 0, not 480 - goal comes from settings or planned blocks
   checkInDone = false,
   checkInStatus = null, // TICKET-1: Detailed check-in status { morningDone, eveningDone, count, allDone }
   isMentorActivated = false, // T16-W1: Only show check-in if mentor is activated
@@ -313,7 +313,7 @@ const DashboardSubHeader = ({
     const skippedLabel = getSkippedLabel();
     if (skippedLabel && !checkInDone) {
       return (
-        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-500 text-sm">
+        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-neutral-50 shadow-xs text-neutral-500 text-xs">
           {/* Info icon - neutral gray */}
           <svg className="w-4 h-4 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" />
@@ -327,7 +327,7 @@ const DashboardSubHeader = ({
     if (checkInDone) {
       // TICKET-1 FIX: Show correct icon and label based on completion status
       return (
-        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-white text-neutral-500 text-sm">
+        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-white shadow-xs text-neutral-500 text-xs">
           <span>{getCheckInStatusLabel()}</span>
           {renderCheckIcon()}
         </div>
@@ -337,7 +337,7 @@ const DashboardSubHeader = ({
     if (!checkInEnabled) {
       // Disabled state (grayed out)
       return (
-        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-400 text-sm cursor-not-allowed">
+        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-neutral-50 text-neutral-400 text-xs cursor-not-allowed">
           <span>Abend-Check-in</span>
           <span className="text-neutral-300">→</span>
         </div>
@@ -349,7 +349,7 @@ const DashboardSubHeader = ({
     return (
       <button
         onClick={handleCheckInClick}
-        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-neutral-200 bg-white text-neutral-800 hover:bg-neutral-50 text-sm transition-colors"
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-white shadow-xs text-neutral-800 hover:bg-neutral-50 text-xs transition-colors"
       >
         <span>{label}</span>
         <span className="text-neutral-500">→</span>
@@ -364,11 +364,11 @@ const DashboardSubHeader = ({
     <section className="px-8 py-4 border-b border-neutral-200 bg-white">
       <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-4">
         {/* Left Side */}
-        <div className="flex flex-wrap items-center gap-6">
+        <div className="flex flex-wrap items-center gap-7.5">
           {/* Date & Title */}
           <div className="flex flex-col gap-0.5">
             <p className="text-sm font-medium text-neutral-900">{displayDate}</p>
-            <p className="text-xs text-neutral-500">Dashboard</p>
+            <p className="text-sm text-neutral-500">Dashboard</p>
           </div>
 
           {/* T16-W1: Check-In Button - only show if mentor is activated */}
@@ -380,14 +380,13 @@ const DashboardSubHeader = ({
               <span className="text-xs text-neutral-600">
                 {`${formatHoursMinutes(learningMinutesCompleted)} von ${formatHoursMinutes(learningMinutesGoal)} Tageslernziel`}
               </span>
-              <div className="w-full flex items-center gap-1">
-                <div className="flex-1 bg-neutral-200 rounded-full h-1.5">
+              <div className="w-full flex items-center">
+                <div className="flex-1 bg-neutral-200 rounded-full h-1">
                   <div
-                    className="h-1.5 rounded-full transition-all bg-neutral-900"
+                    className="h-1 rounded-full transition-all bg-neutral-900"
                     style={{ width: `${progressPercentage}%` }}
                   />
                 </div>
-                <div className="w-16 bg-neutral-100 rounded-full h-1.5" />
               </div>
             </div>
           )}

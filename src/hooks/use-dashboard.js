@@ -17,9 +17,13 @@ import { useMentor } from '../contexts/mentor-context';
 
 /**
  * Format date to YYYY-MM-DD
+ * KA-002 FIX: Verwende lokale Zeit statt UTC (toISOString verschiebt um 1 Tag)
  */
 const formatDate = (date) => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 /**
@@ -73,7 +77,7 @@ export function useDashboard() {
     updateTask: updateTaskInContext,
     toggleTaskComplete,
     deleteTask: deleteTaskFromContext,
-    getBlocksForDate, // NEW: Get derived blocks from context
+    getSessionsForDate, // Get derived sessions from blocks (PRD §3.1)
   } = useCalendar();
 
   // Derived date values
@@ -138,41 +142,41 @@ export function useDashboard() {
     });
   }, [dateString, timeBlocksByDate]);
 
-  // Get blocks for today from CalendarContext (uses new Content→Block→Session model)
-  // BUG-023 FIX: Combine Lernplan blocks (position-based) with time blocks (time-based)
+  // Get sessions for today from CalendarContext (PRD §3.1: Sessions have times)
+  // BUG-023 FIX: Combine Lernplan sessions (position-based) with time blocks (time-based)
   const todayBlocks = useMemo(() => {
-    // getBlocksForDate returns derived blocks from blocksByDate (Lernplan)
-    const lernplanBlocks = getBlocksForDate(dateString);
+    // getSessionsForDate returns derived sessions from blocksByDate (Lernplan)
+    const lernplanSessions = getSessionsForDate(dateString);
 
-    // Transform Lernplan blocks to zeitplan widget format
-    const lernplanFormatted = lernplanBlocks.map(block => ({
-      id: block.id,
-      startHour: block.startHour,
-      duration: block.duration,
-      title: block.title || 'Lernblock',
-      description: block.description || '',
-      tags: block.blockType ? [block.blockType] : [],
-      isBlocked: block.isLocked || block.isBlocked || false,
-      blockType: block.blockType,
-      rechtsgebiet: block.rechtsgebiet,
-      unterrechtsgebiet: block.unterrechtsgebiet,
-      isFromLernplan: block.isFromLernplan || false, // Wizard-created vs manual
+    // Transform Lernplan sessions to zeitplan widget format
+    const lernplanFormatted = lernplanSessions.map(session => ({
+      id: session.id,
+      startHour: session.startHour,
+      duration: session.duration,
+      title: session.title || 'Lernblock',
+      description: session.description || '',
+      tags: session.blockType ? [session.blockType] : [],
+      isBlocked: session.isLocked || session.isBlocked || false,
+      blockType: session.blockType,
+      rechtsgebiet: session.rechtsgebiet,
+      unterrechtsgebiet: session.unterrechtsgebiet,
+      isFromLernplan: session.isFromLernplan || false, // Wizard-created vs manual
       // Time data
-      hasTime: block.hasTime || false,
-      startTime: block.startTime,
-      endTime: block.endTime,
+      hasTime: session.hasTime || false,
+      startTime: session.startTime,
+      endTime: session.endTime,
       // Repeat data
-      repeatEnabled: block.repeatEnabled || false,
-      repeatType: block.repeatType,
-      repeatCount: block.repeatCount,
+      repeatEnabled: session.repeatEnabled || false,
+      repeatType: session.repeatType,
+      repeatCount: session.repeatCount,
       // Tasks
-      tasks: block.tasks || [],
+      tasks: session.tasks || [],
     }));
 
-    // BUG-023 FIX: Combine Lernplan blocks with time blocks
+    // BUG-023 FIX: Combine Lernplan sessions with time blocks
     // Time blocks come from timeBlocksByDate (user-created in Dashboard/Week)
     return [...lernplanFormatted, ...todayTimeBlocks];
-  }, [dateString, getBlocksForDate, todayTimeBlocks]);
+  }, [dateString, getSessionsForDate, todayTimeBlocks]);
 
   // Check if there are "real" Lernplan blocks (from wizard, not manual)
   const hasRealLernplanBlocks = useMemo(() => {
@@ -384,7 +388,6 @@ export function useDashboard() {
 
     // Data from CalendarContext
     todayBlocks,
-    todaySlots: todayBlocks, // Legacy alias for backward compatibility
     todayPrivateBlocks,
     aufgaben,
     currentLernblock,
@@ -398,7 +401,6 @@ export function useDashboard() {
     checkInStatus, // TICKET-1: Detailed check-in status for correct icon display
     hasActiveLernplan: hasActiveLernplan(),
     hasRealLernplanBlocks, // true if wizard-created blocks exist for today
-    hasRealLernplanSlots: hasRealLernplanBlocks, // Legacy alias
     isMentorActivated,
     isCheckInButtonEnabled: isMentorActivated ? isCheckInButtonEnabled : !checkInDone,
     wasMorningSkipped,

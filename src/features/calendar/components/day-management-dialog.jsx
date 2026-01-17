@@ -40,10 +40,8 @@ const DayManagementDialog = ({
   onUpdateBlock,
   onDeleteBlock,
   availableBlocks = 4,
-  availableSlots // Legacy alias
 }) => {
-  // Support legacy prop name
-  const maxBlocks = availableSlots ?? availableBlocks;
+  const maxBlocks = availableBlocks;
   // State for selected block
   const [selectedBlock, setSelectedBlock] = useState(null);
 

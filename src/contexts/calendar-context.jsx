@@ -45,6 +45,9 @@ const STORAGE_KEY_THEME_LISTS = 'prepwell_theme_lists';
 const STORAGE_KEY_CONTENT_PLANS = 'prepwell_content_plans';
 const STORAGE_KEY_CUSTOM_UNTERRECHTSGEBIETE = 'prepwell_custom_unterrechtsgebiete';
 
+// Maximum blocks per day (1-4 positions)
+const MAX_BLOCKS_PER_DAY = 4;
+
 /**
  * Load data from localStorage
  */
@@ -227,7 +230,15 @@ export const CalendarProvider = ({ children }) => {
     }
 
     if (archivedContentPlanIds.size === 0) {
-      return blocksByDate; // No archived plans, return all blocks
+      // KA-002 FIX: Still need to filter out empty arrays from blocksByDate
+      // Empty arrays can exist if user deleted all blocks from a day
+      const cleaned = {};
+      Object.entries(blocksByDate).forEach(([dateKey, blocks]) => {
+        if (Array.isArray(blocks) && blocks.length > 0) {
+          cleaned[dateKey] = blocks;
+        }
+      });
+      return cleaned;
     }
 
     const result = {};
@@ -349,7 +360,7 @@ export const CalendarProvider = ({ children }) => {
     await deleteArchivedPlanSync(archiveId);
 
     // Restore blocks using sync hook
-    await setBlocksByDateSync(planToRestore.blocks || planToRestore.slots);
+    await setBlocksByDateSync(planToRestore.blocks);
 
     // Restore metadata using sync hook
     const restoredMetadata = {
@@ -763,7 +774,11 @@ export const CalendarProvider = ({ children }) => {
           nextDate.setDate(startDate.getDate() + (i * 7)); // Default to weekly
       }
 
-      dates.push(nextDate.toISOString().split('T')[0]);
+      // KA-002 FIX: Verwende lokale Zeit statt UTC
+      const year = nextDate.getFullYear();
+      const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+      const day = String(nextDate.getDate()).padStart(2, '0');
+      dates.push(`${year}-${month}-${day}`);
     }
 
     return dates;
@@ -824,8 +839,14 @@ export const CalendarProvider = ({ children }) => {
     const originalBlock = createBlock(true);
     let updatedBlocks = { ...blocksByDate };
 
-    // Add original block to the first date
+    // KA-003 FIX: Validate 4-block limit before adding original block
     const currentBlocks = updatedBlocks[dateKey] || [];
+    if (currentBlocks.length >= MAX_BLOCKS_PER_DAY) {
+      console.error(`[CalendarContext] Cannot add block: Day ${dateKey} already has ${MAX_BLOCKS_PER_DAY} blocks`);
+      return null; // Return null to indicate failure
+    }
+
+    // Add original block to the first date
     updatedBlocks[dateKey] = [...currentBlocks, originalBlock];
 
     // If repeat is enabled, create blocks for all repeat dates
@@ -837,11 +858,21 @@ export const CalendarProvider = ({ children }) => {
         blockData.customDays || []
       );
 
+      // KA-003 FIX: Filter out dates that already have 4 blocks
+      const skippedDates = [];
       repeatDates.forEach(repeatDateKey => {
-        const repeatBlock = createBlock(false);
         const existingBlocks = updatedBlocks[repeatDateKey] || [];
+        if (existingBlocks.length >= MAX_BLOCKS_PER_DAY) {
+          skippedDates.push(repeatDateKey);
+          return; // Skip this date
+        }
+        const repeatBlock = createBlock(false);
         updatedBlocks[repeatDateKey] = [...existingBlocks, repeatBlock];
       });
+
+      if (skippedDates.length > 0) {
+        console.warn(`[CalendarContext] Skipped ${skippedDates.length} repeat dates due to 4-block limit:`, skippedDates);
+      }
     }
 
     setBlocksByDate(updatedBlocks);
@@ -1203,10 +1234,14 @@ export const CalendarProvider = ({ children }) => {
     const currentBlocks = blocksByDate[dateKey] || [];
     const filteredBlocks = currentBlocks.filter(block => block.id !== blockId);
 
-    const updatedBlocks = {
-      ...blocksByDate,
-      [dateKey]: filteredBlocks,
-    };
+    const updatedBlocks = { ...blocksByDate };
+
+    // KA-002 FIX: Remove empty date entries to prevent ghost blocks
+    if (filteredBlocks.length > 0) {
+      updatedBlocks[dateKey] = filteredBlocks;
+    } else {
+      delete updatedBlocks[dateKey];
+    }
 
     setBlocksByDate(updatedBlocks);
     saveToStorage(STORAGE_KEY_BLOCKS, updatedBlocks);
@@ -2593,7 +2628,9 @@ export const CalendarProvider = ({ children }) => {
    * Called on app mount to release items that were scheduled but not completed by midnight
    */
   const cleanupExpiredSchedules = useCallback(() => {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // KA-002 FIX: Verwende lokale Zeit statt UTC
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     let hasChanges = false;
 
     const updated = contentPlans.map(plan => {
@@ -2720,7 +2757,8 @@ export const CalendarProvider = ({ children }) => {
     const end = new Date(endDate);
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateKey = d.toISOString().split('T')[0];
+      // KA-002 FIX: Verwende lokale Zeit statt UTC
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       result[dateKey] = getDayData(dateKey);
     }
 
@@ -2771,16 +2809,12 @@ export const CalendarProvider = ({ children }) => {
     getContent,
     deleteContent,
     addBlockWithContent,
-    addSlotWithContent: addBlockWithContent, // Legacy alias
     buildSessionFromBlock,
-    buildBlockFromSlot: buildSessionFromBlock, // Legacy alias
     getSessionsForDate,
-    getBlocksForDate: getSessionsForDate, // Legacy alias
 
     // Block Delete Actions
     deleteBlock,
     deleteSeriesBlocks,
-    deleteSeriesSlots: deleteSeriesBlocks, // Legacy alias
 
     // Private Block Actions
     addPrivateBlock,

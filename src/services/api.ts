@@ -159,29 +159,29 @@ export const lernplaeneApi = {
 };
 
 // =============================================================================
-// KALENDER / SLOTS API
+// KALENDER / BLOCKS API
 // =============================================================================
 
 export const kalenderApi = {
-  getSlots: <T>(lernplanId: string): Promise<T[]> =>
-    fetchApi(`/kalender/${lernplanId}/slots`),
+  getBlocks: <T>(lernplanId: string): Promise<T[]> =>
+    fetchApi(`/kalender/${lernplanId}/blocks`),
 
-  updateSlots: <T>(lernplanId: string, slots: T[]): Promise<T[]> =>
-    fetchApi(`/kalender/${lernplanId}/slots`, {
+  updateBlocks: <T>(lernplanId: string, blocks: T[]): Promise<T[]> =>
+    fetchApi(`/kalender/${lernplanId}/blocks`, {
       method: 'PUT',
-      body: slots,
+      body: blocks,
     }),
 
-  updateSlot: <T>(lernplanId: string, slot: T): Promise<T> =>
-    fetchApi(`/kalender/${lernplanId}/slots`, {
+  updateBlock: <T>(lernplanId: string, block: T): Promise<T> =>
+    fetchApi(`/kalender/${lernplanId}/blocks`, {
       method: 'POST',
-      body: slot,
+      body: block,
     }),
 
-  bulkUpdateSlots: <T>(lernplanId: string, slots: T[]): Promise<T[]> =>
-    fetchApi(`/kalender/${lernplanId}/slots/bulk`, {
+  bulkUpdateBlocks: <T>(lernplanId: string, blocks: T[]): Promise<T[]> =>
+    fetchApi(`/kalender/${lernplanId}/blocks/bulk`, {
       method: 'POST',
-      body: slots,
+      body: blocks,
     }),
 };
 

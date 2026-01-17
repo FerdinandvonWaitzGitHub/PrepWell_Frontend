@@ -24,10 +24,8 @@ const ManageFreetimeBlockDialog = ({
   onSave,
   onDelete,
   availableBlocks = 4,
-  availableSlots // Legacy alias
 }) => {
-  // Support legacy prop name
-  const maxBlocks = availableSlots ?? availableBlocks;
+  const maxBlocks = availableBlocks;
   // Form state
   const [blockSize, setBlockSize] = useState(2);
   const [title, setTitle] = useState('');
