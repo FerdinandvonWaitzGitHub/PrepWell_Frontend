@@ -72,13 +72,28 @@ const ThemenlisteEditorPage = () => {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // Check for existing draft on mount
+  // T23 FIX: Only show draft dialog if draft has meaningful content
   useEffect(() => {
     try {
       const draftJson = localStorage.getItem(DRAFT_KEY);
       if (draftJson) {
         const draft = JSON.parse(draftJson);
-        setPendingDraft(draft);
-        setShowDraftDialog(true);
+        const plan = draft?.contentPlan;
+
+        // Check if draft has meaningful content (name OR at least one Rechtsgebiet)
+        const hasContent = plan && (
+          (plan.name && plan.name.trim().length > 0) ||
+          (plan.rechtsgebiete && plan.rechtsgebiete.length > 0)
+        );
+
+        if (hasContent) {
+          setPendingDraft(draft);
+          setShowDraftDialog(true);
+        } else {
+          // Empty draft - remove it and start fresh
+          localStorage.removeItem(DRAFT_KEY);
+          setDraftLoaded(true);
+        }
       } else {
         setDraftLoaded(true);
       }

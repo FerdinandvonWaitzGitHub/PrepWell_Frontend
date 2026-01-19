@@ -11,14 +11,15 @@
 
 Der Themenliste Editor aus T22 hat mehrere kritische Bugs und UX-Probleme:
 
-| # | Problem | Typ | Schwere |
-|---|---------|-----|---------|
-| 1 | Rechtsgebiete/Unterrechtsgebiete können nicht gelöscht werden | Feature fehlt | Hoch |
-| 2 | Hierarchieebenen klappen nicht automatisch auf | UX | Hoch |
-| 3 | "Fehler beim Speichern" - `saveContentPlanToSupabase is not a function` | Bug | Kritisch |
-| 4 | Kein "Fertig"-Button zum Abschließen | Feature fehlt | Hoch |
-| 5 | Themenlisten akkumulieren sich endlos in Lernpläne | Bug | Kritisch |
-| 6 | React setState-during-render Warning | Bug | Mittel |
+| # | Problem | Typ | Schwere | Status |
+|---|---------|-----|---------|--------|
+| 1 | Rechtsgebiete/Unterrechtsgebiete können nicht gelöscht werden | Feature fehlt | Hoch | ✅ |
+| 2 | Hierarchieebenen klappen nicht automatisch auf | UX | Hoch | ✅ |
+| 3 | "Fehler beim Speichern" - `saveContentPlanToSupabase is not a function` | Bug | Kritisch | ✅ |
+| 4 | Kein "Fertig"-Button zum Abschließen | Feature fehlt | Hoch | ✅ |
+| 5 | Themenlisten akkumulieren sich endlos in Lernpläne | Bug | Kritisch | ✅ |
+| 6 | React setState-during-render Warning | Bug | Mittel | ✅ |
+| 7 | Draft-Dialog erscheint bei leerem Draft | Bug | Mittel | ✅ |
 
 ---
 
@@ -434,6 +435,13 @@ Context-Funktionen erst in `useEffect` oder Event-Handlern verwenden.
    - Pending-Items für leere Eingaben
    - Visuelle Hinweise verbessern
 
+### Phase 4: Nachträgliche Bug Fixes
+
+7. **Draft-Dialog erscheint bei leerem Draft** (Problem 7) ✅
+   - Draft-Dialog wurde auch bei leerem Draft angezeigt
+   - Fix: Prüfe ob Draft Inhalt hat (Name oder Rechtsgebiete)
+   - Leere Drafts werden automatisch gelöscht
+
 ---
 
 ## Betroffene Dateien
@@ -449,13 +457,14 @@ Context-Funktionen erst in `useEffect` oder Event-Handlern verwenden.
 
 ## Testplan
 
-- [ ] Neuer Editor öffnen → keine setState Warning
-- [ ] Rechtsgebiet hinzufügen → keine neue Themenliste in DB
-- [ ] Änderungen machen → Auto-Save funktioniert ohne Fehler
-- [ ] "Fertig" klicken → Draft gelöscht, Navigation zu /lernplan
-- [ ] Rechtsgebiet löschen → funktioniert
-- [ ] Unterrechtsgebiet löschen → funktioniert
-- [ ] Auto-Expand bei neuem Rechtsgebiet → leere Felder erscheinen
+- [x] Neuer Editor öffnen → keine setState Warning
+- [x] Rechtsgebiet hinzufügen → keine neue Themenliste in DB
+- [x] Änderungen machen → Auto-Save funktioniert ohne Fehler
+- [x] "Fertig" klicken → Draft gelöscht, Navigation zu /lernplan
+- [x] Rechtsgebiet löschen → funktioniert
+- [x] Unterrechtsgebiet löschen → funktioniert
+- [x] Auto-Expand bei neuem Rechtsgebiet → leere Felder erscheinen
+- [x] Leerer Editor öffnen → kein Draft-Dialog
 
 ---
 
