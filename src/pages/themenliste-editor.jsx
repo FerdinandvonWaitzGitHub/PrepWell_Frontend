@@ -103,20 +103,6 @@ const ThemenlisteEditorPage = () => {
     }
   }, []);
 
-  // Save draft to localStorage on changes
-  useEffect(() => {
-    if (!draftLoaded || !hasChanges) return;
-
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({
-        contentPlan,
-        lastModified: new Date().toISOString()
-      }));
-    } catch (e) {
-      console.error('Error saving draft:', e);
-    }
-  }, [contentPlan, hasChanges, draftLoaded]);
-
   // Handle resume draft
   const handleResumeDraft = useCallback(() => {
     if (pendingDraft?.contentPlan) {
@@ -139,26 +125,43 @@ const ThemenlisteEditorPage = () => {
     setDraftLoaded(true);
   }, []);
 
-  // T23 FIX: Auto-save effect with lazy creation pattern
-  // First save creates the plan in DB, subsequent saves update it
+  // T23 FIX Problem 8: Auto-save to DB with status='draft'
+  // Drafts are saved to DB but filtered out in Lernpläne view
+  // Only when "Fertig" is clicked, status changes to 'active'
   useEffect(() => {
     if (!hasChanges || !draftLoaded) return;
 
     const timeoutId = setTimeout(async () => {
       setAutoSaveStatus('saving');
       try {
+        // Also save to localStorage as backup
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          contentPlan,
+          lastModified: new Date().toISOString()
+        }));
+
+        // Save to DB with status='draft' - will not appear in Lernpläne
         if (!isSavedToDb) {
-          // First save: create new plan in DB
+          // First save: create new plan in DB with draft status
           const savedPlan = await createContentPlan({
             ...contentPlan,
             id: undefined, // Let server generate ID
+            status: 'draft', // Draft status - filtered out in Lernpläne
           });
           // Update local state with server-generated ID
           setContentPlan(prev => ({ ...prev, id: savedPlan.id }));
           setIsSavedToDb(true);
+          // Update localStorage with new ID
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            contentPlan: { ...contentPlan, id: savedPlan.id },
+            lastModified: new Date().toISOString()
+          }));
         } else {
-          // Subsequent saves: update existing plan
-          await updateContentPlan(contentPlan.id, contentPlan);
+          // Subsequent saves: update existing draft
+          await updateContentPlan(contentPlan.id, {
+            ...contentPlan,
+            status: 'draft', // Keep draft status
+          });
         }
         setAutoSaveStatus('saved');
         setHasChanges(false);

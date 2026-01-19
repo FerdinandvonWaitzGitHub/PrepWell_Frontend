@@ -20,6 +20,7 @@ Der Themenliste Editor aus T22 hat mehrere kritische Bugs und UX-Probleme:
 | 5 | Themenlisten akkumulieren sich endlos in Lernpläne | Bug | Kritisch | ✅ |
 | 6 | React setState-during-render Warning | Bug | Mittel | ✅ |
 | 7 | Draft-Dialog erscheint bei leerem Draft | Bug | Mittel | ✅ |
+| 8 | Themenliste wird in Lernpläne angezeigt bevor "Fertig" geklickt wird | Bug | Kritisch | ✅ |
 
 ---
 
@@ -442,29 +443,43 @@ Context-Funktionen erst in `useEffect` oder Event-Handlern verwenden.
    - Fix: Prüfe ob Draft Inhalt hat (Name oder Rechtsgebiete)
    - Leere Drafts werden automatisch gelöscht
 
+8. **Themenliste wird in Lernpläne angezeigt bevor "Fertig" geklickt** (Problem 8) ✅
+   - Jede Änderung im Editor erstellte sofort einen Eintrag in Lernpläne
+   - Erwartetes Verhalten: Themenliste erst in Lernpläne sichtbar nach Klick auf "Fertig"
+   - Lösung:
+     - Auto-Save speichert mit `status: 'draft'` in DB
+     - `getContentPlansByType()` filtert Drafts standardmäßig aus
+     - Drafts sind in Lernpläne nicht sichtbar
+     - Klick auf "Fertig" ändert Status zu `'active'`
+     - localStorage dient als Backup für Recovery
+   - Persistenz: Drafts bleiben in DB erhalten auch bei Browser-Refresh
+
 ---
 
 ## Betroffene Dateien
 
 | Datei | Änderungen |
 |-------|------------|
-| `src/pages/themenliste-editor.jsx` | State-Init, Auto-Save, Delete-Handler, handleFinish |
+| `src/pages/themenliste-editor.jsx` | State-Init, Auto-Save mit draft-Status, Delete-Handler, handleFinish |
 | `src/features/themenliste/components/themen-navigation.jsx` | Delete-Buttons, Auto-Expand, Pending-Items |
 | `src/features/themenliste/components/themenliste-footer.jsx` | Fertig-Button |
 | `src/features/themenliste/components/delete-confirm-dialog.jsx` | Neue Typen (rechtsgebiet, unterrechtsgebiet, kapitel) |
+| `src/contexts/calendar-context.jsx` | getContentPlansByType filtert Drafts aus |
 
 ---
 
 ## Testplan
 
 - [x] Neuer Editor öffnen → keine setState Warning
-- [x] Rechtsgebiet hinzufügen → keine neue Themenliste in DB
+- [x] Rechtsgebiet hinzufügen → Auto-Save mit status='draft' in DB
 - [x] Änderungen machen → Auto-Save funktioniert ohne Fehler
-- [x] "Fertig" klicken → Draft gelöscht, Navigation zu /lernplan
+- [x] Draft nicht in Lernpläne sichtbar → getContentPlansByType filtert Drafts
+- [x] "Fertig" klicken → Status wird 'active', erscheint in Lernpläne
 - [x] Rechtsgebiet löschen → funktioniert
 - [x] Unterrechtsgebiet löschen → funktioniert
 - [x] Auto-Expand bei neuem Rechtsgebiet → leere Felder erscheinen
 - [x] Leerer Editor öffnen → kein Draft-Dialog
+- [x] Browser-Refresh während Bearbeitung → Draft bleibt in DB erhalten
 
 ---
 

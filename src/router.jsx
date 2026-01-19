@@ -199,7 +199,12 @@ const router = createBrowserRouter([
     path: '/onboarding',
     element: <ProtectedRoute><LazyRoute><OnboardingPage /></LazyRoute></ProtectedRoute>,
   },
-]);
+], {
+  // T25: Opt-in to React Router v7 behavior
+  future: {
+    v7_startTransition: true,
+  },
+});
 
 /**
  * AppRouter component
@@ -210,7 +215,7 @@ const router = createBrowserRouter([
 export default function AppRouter() {
   return (
     <AppProviders>
-      <RouterProvider router={router} />
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
     </AppProviders>
   );
 }

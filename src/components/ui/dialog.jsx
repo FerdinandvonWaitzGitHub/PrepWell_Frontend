@@ -5,7 +5,16 @@ import { Icon } from './icon';
  * Dialog/Modal component for overlays and pop-ups
  * Used for day management, forms, and confirmations
  */
-export const Dialog = ({ open, onOpenChange, children }) => {
+export const Dialog = ({ open, onOpenChange, onClose, children }) => {
+  // Support both onOpenChange (new) and onClose (legacy) props
+  const handleClose = () => {
+    if (onOpenChange) {
+      onOpenChange(false);
+    } else if (onClose) {
+      onClose();
+    }
+  };
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -24,7 +33,7 @@ export const Dialog = ({ open, onOpenChange, children }) => {
       {/* Overlay */}
       <div
         className="fixed inset-0 bg-black/50"
-        onClick={() => onOpenChange(false)}
+        onClick={handleClose}
       />
       {/* Dialog Content */}
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto">

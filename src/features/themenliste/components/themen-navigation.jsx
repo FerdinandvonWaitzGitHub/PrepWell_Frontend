@@ -149,16 +149,6 @@ const ThemenNavigation = ({
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowUrgDropdown(showUrgDropdown === rg.id ? null : rg.id);
-                  }}
-                  className="p-1 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded"
-                  title={`${hierarchyLabels?.level2 || 'Untergebiet'} hinzufügen`}
-                >
-                  <Plus size={14} />
-                </button>
                 {/* T23: Delete Rechtsgebiet */}
                 <button
                   onClick={(e) => {
@@ -175,7 +165,7 @@ const ThemenNavigation = ({
 
             {/* Untergebiet Dropdown */}
             {showUrgDropdown === rg.id && (
-              <div className="ml-6 mr-2 mb-2 p-2 bg-neutral-50 rounded-lg border border-neutral-200">
+              <div className="ml-10 mr-2 mb-2 p-2 bg-neutral-50 rounded-lg border border-neutral-200">
                 <div className="text-xs font-medium text-neutral-500 mb-2">
                   {hierarchyLabels?.level2 || 'Untergebiet'} hinzufügen:
                 </div>
@@ -214,7 +204,7 @@ const ThemenNavigation = ({
 
             {/* Unterrechtsgebiete */}
             {expandedRg.has(rg.id) && (rg.unterrechtsgebiete || []).map(urg => (
-              <div key={urg.id} className="ml-4">
+              <div key={urg.id} className="ml-10">
                 {/* Untergebiet Header */}
                 <div
                   className={`flex items-center justify-between px-3 py-1.5 hover:bg-neutral-50 cursor-pointer rounded-lg group transition-colors ${
@@ -231,20 +221,6 @@ const ThemenNavigation = ({
                     <span className="text-sm text-neutral-700">{urg.name}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (showKapitelLevel) {
-                          setAddingKapitelIn({ rgId: rg.id, urgId: urg.id });
-                        } else {
-                          setAddingThemaIn({ rgId: rg.id, urgId: urg.id });
-                        }
-                      }}
-                      className="p-1 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded"
-                      title={showKapitelLevel ? `${hierarchyLabels?.level3 || 'Kapitel'} hinzufügen` : `${hierarchyLabels?.level4 || 'Thema'} hinzufügen`}
-                    >
-                      <Plus size={12} />
-                    </button>
                     {/* T23: Delete Unterrechtsgebiet */}
                     <button
                       onClick={(e) => {
@@ -263,7 +239,7 @@ const ThemenNavigation = ({
                 {showKapitelLevel && expandedUrg.has(urg.id) && (
                   <>
                     {(urg.kapitel || []).map(kap => (
-                      <div key={kap.id} className="ml-4">
+                      <div key={kap.id} className="ml-10">
                         {/* Kapitel Header */}
                         <div
                           className="flex items-center justify-between px-3 py-1.5 hover:bg-neutral-50 cursor-pointer rounded-lg group"
@@ -278,16 +254,6 @@ const ThemenNavigation = ({
                             <span className="text-xs text-neutral-600">{kap.title}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setAddingThemaIn({ rgId: rg.id, urgId: urg.id, kapitelId: kap.id });
-                              }}
-                              className="p-1 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded"
-                              title={`${hierarchyLabels?.level4 || 'Thema'} hinzufügen`}
-                            >
-                              <Plus size={10} />
-                            </button>
                             {/* T23: Delete Kapitel */}
                             <button
                               onClick={(e) => {
@@ -306,9 +272,9 @@ const ThemenNavigation = ({
                         {expandedKap.has(kap.id) && (kap.themen || []).map(thema => (
                           <div
                             key={thema.id}
-                            className={`ml-4 flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer ${
+                            className={`ml-16 flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer group ${
                               selectedThemaId === thema.id
-                                ? 'bg-neutral-100 border-l-2 border-neutral-900'
+                                ? 'bg-blue-50'
                                 : 'hover:bg-neutral-50'
                             }`}
                             onClick={() => onSelectThema(thema.id)}
@@ -333,7 +299,7 @@ const ThemenNavigation = ({
 
                         {/* Add Thema in Kapitel Input */}
                         {addingThemaIn?.kapitelId === kap.id && (
-                          <div className="ml-4 px-3 py-2">
+                          <div className="ml-16 px-3 py-2">
                             <input
                               type="text"
                               value={newThemaName}
@@ -348,12 +314,23 @@ const ThemenNavigation = ({
                             />
                           </div>
                         )}
+
+                        {/* T23: "+ Neues Thema" Button (Jura/Kapitel) */}
+                        {expandedKap.has(kap.id) && addingThemaIn?.kapitelId !== kap.id && (
+                          <button
+                            onClick={() => setAddingThemaIn({ rgId: rg.id, urgId: urg.id, kapitelId: kap.id })}
+                            className="ml-16 mt-1 flex items-center gap-1.5 px-3 py-1.5 text-xs text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 rounded-lg w-[calc(100%-1rem)]"
+                          >
+                            <Plus size={10} />
+                            <span>Neues {hierarchyLabels?.level4 || 'Thema'}</span>
+                          </button>
+                        )}
                       </div>
                     ))}
 
                     {/* Add Kapitel Input */}
                     {addingKapitelIn?.urgId === urg.id && (
-                      <div className="ml-4 px-3 py-2">
+                      <div className="ml-10 px-3 py-2">
                         <input
                           type="text"
                           value={newKapitelName}
@@ -377,9 +354,9 @@ const ThemenNavigation = ({
                     {(urg.themen || []).map(thema => (
                       <div
                         key={thema.id}
-                        className={`ml-4 flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer group ${
+                        className={`ml-16 flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer group ${
                           selectedThemaId === thema.id
-                            ? 'bg-neutral-100 border-l-2 border-neutral-900'
+                            ? 'bg-blue-50'
                             : 'hover:bg-neutral-50'
                         }`}
                         onClick={() => onSelectThema(thema.id)}
@@ -404,7 +381,7 @@ const ThemenNavigation = ({
 
                     {/* Add Thema Input (non-Jura) */}
                     {addingThemaIn?.urgId === urg.id && !addingThemaIn?.kapitelId && (
-                      <div className="ml-4 px-3 py-2">
+                      <div className="ml-16 px-3 py-2">
                         <input
                           type="text"
                           value={newThemaName}
@@ -419,10 +396,32 @@ const ThemenNavigation = ({
                         />
                       </div>
                     )}
+
+                    {/* T23: "+ Neues Thema" Button (non-Jura) */}
+                    {addingThemaIn?.urgId !== urg.id && (
+                      <button
+                        onClick={() => setAddingThemaIn({ rgId: rg.id, urgId: urg.id })}
+                        className="ml-16 mt-1 flex items-center gap-1.5 px-3 py-1.5 text-xs text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 rounded-lg w-[calc(100%-1rem)]"
+                      >
+                        <Plus size={12} />
+                        <span>Neues {hierarchyLabels?.level4 || 'Thema'}</span>
+                      </button>
+                    )}
                   </>
                 )}
               </div>
             ))}
+
+            {/* T23: "+ Neues Unterrechtsgebiet" Button */}
+            {expandedRg.has(rg.id) && showUrgDropdown !== rg.id && (
+              <button
+                onClick={() => setShowUrgDropdown(rg.id)}
+                className="ml-10 mt-1 flex items-center gap-1.5 px-3 py-1.5 text-xs text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 rounded-lg"
+              >
+                <Plus size={12} />
+                <span>Neues {hierarchyLabels?.level2 || 'Unterrechtsgebiet'}</span>
+              </button>
+            )}
           </div>
         ))}
 

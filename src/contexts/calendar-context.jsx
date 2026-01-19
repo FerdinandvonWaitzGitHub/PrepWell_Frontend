@@ -1615,10 +1615,14 @@ export const CalendarProvider = ({ children }) => {
    * @param {boolean} includeArchived - Include archived plans
    * @returns {Array} Filtered plans
    */
-  const getContentPlansByType = useCallback((type = 'all', includeArchived = false) => {
+  const getContentPlansByType = useCallback((type = 'all', includeArchived = false, includeDrafts = false) => {
     let plans = contentPlans;
     if (!includeArchived) {
       plans = plans.filter(p => !p.archived);
+    }
+    // T23 Problem 8: Filter out drafts by default - they should not appear in Lernpläne
+    if (!includeDrafts) {
+      plans = plans.filter(p => p.status !== 'draft');
     }
     if (type !== 'all') {
       plans = plans.filter(p => p.type === type);

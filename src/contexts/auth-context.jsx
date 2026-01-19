@@ -229,6 +229,15 @@ export function AuthProvider({ children }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        // AUTH DEBUG: Log all auth state changes
+        console.group(`🔐 [AUTH STATE CHANGE] Event: ${_event}`);
+        console.log('Event Type:', _event);
+        console.log('Has Session:', !!session);
+        console.log('User ID:', session?.user?.id || 'none');
+        console.log('Session expires_at:', session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'N/A');
+        console.log('Access Token (first 20 chars):', session?.access_token?.substring(0, 20) || 'none');
+        console.groupEnd();
+
         try {
           // T17 FIX: Skip approval check on token refresh or if already approved
           // This prevents spinner loops when tab returns from background
@@ -285,6 +294,9 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const handleVisibilityChange = () => {
+      // AUTH DEBUG: Log visibility changes
+      console.log(`🔐 [AUTH DEBUG] Visibility changed to: ${document.visibilityState}`);
+
       if (document.visibilityState === 'visible') {
         // Clear any existing timeout
         if (visibilityTimeoutRef.current) {

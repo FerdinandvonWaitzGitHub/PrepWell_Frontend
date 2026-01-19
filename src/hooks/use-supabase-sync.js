@@ -334,6 +334,9 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
             });
 
             if (localOnlyItems.length > 0) {
+              // T25: Debug logging to identify sync bottlenecks
+              console.log(`[useSupabaseSync] ${tableName}: ${localOnlyItems.length} local-only items to sync`);
+
               // Robust batch sync with chunking and fallback (T12 Fix 4)
               const CHUNK_SIZE = 100;
               const itemsToSync = localOnlyItems.map(item => ({
@@ -1703,24 +1706,32 @@ export function useCalendarTasksSync() {
  * Hook for Private Blocks (privateSessionsByDate)
  */
 // Helper to filter out invalid date keys from date-keyed objects
-const filterValidDateKeys = (dateKeyedObj) => {
+// T25: Also saves cleaned data back to storage to prevent repeated warnings
+const filterValidDateKeys = (dateKeyedObj, storageKey = null) => {
   if (!dateKeyedObj || typeof dateKeyedObj !== 'object') return {};
   const result = {};
+  let hadInvalidKeys = false;
   Object.entries(dateKeyedObj).forEach(([key, value]) => {
     // Only include valid YYYY-MM-DD date keys
     if (key && key !== 'null' && key !== 'undefined' && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
       result[key] = value;
     } else if (key) {
-      console.warn(`[filterValidDateKeys] Removing invalid date key:`, key);
+      console.warn(`[filterValidDateKeys] Removing invalid date key: "${key}"`);
+      hadInvalidKeys = true;
     }
   });
+  // T25: Save cleaned data back to storage to prevent repeated warnings
+  if (hadInvalidKeys && storageKey) {
+    saveToStorage(storageKey, result);
+    console.log(`[filterValidDateKeys] Cleaned invalid keys from ${storageKey}`);
+  }
   return result;
 };
 
 export function usePrivateSessionsSync() {
   const { user, isAuthenticated, isSupabaseEnabled } = useAuth();
   const [privateSessionsByDate, setPrivateSessionsByDate] = useState(() =>
-    filterValidDateKeys(loadFromStorage(STORAGE_KEYS.privateSessions, {}))
+    filterValidDateKeys(loadFromStorage(STORAGE_KEYS.privateSessions, {}), STORAGE_KEYS.privateSessions)
   );
   const [loading, setLoading] = useState(false);
   const syncedRef = useRef(false);
