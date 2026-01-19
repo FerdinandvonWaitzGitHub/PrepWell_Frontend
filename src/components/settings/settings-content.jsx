@@ -96,7 +96,7 @@ const SettingsContent = ({ className = '' }) => {
   } = useAuth();
 
   const { flattenAllKapitel, archiveLernplanForReactivation } = useCalendar();
-  const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang } = useStudiengang();
+  const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang, setKapitelEbeneAktiviert } = useStudiengang();
   // FEAT-001: Get mentor activation status and functions
   const { isActivated: isMentorActivated, activateMentor, deactivateMentor } = useMentor();
 
@@ -188,6 +188,8 @@ const SettingsContent = ({ className = '' }) => {
       flattenAllKapitel?.();
     }
     handleSettingChange('jura', 'chapterLevelEnabled', newValue);
+    // T22: Sync with StudiengangContext for Themenliste-Editor
+    setKapitelEbeneAktiviert(newValue);
   };
 
   const handlePasswordChange = async () => {

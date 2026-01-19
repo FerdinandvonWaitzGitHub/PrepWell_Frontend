@@ -121,11 +121,17 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
   };
 
   // Create new content plan
+  // T22: For Themenliste, navigate to the new editor page
   const handleCreateNew = (type = 'lernplan') => {
-    const newPlan = createContentPlan({ type, name: '' });
-    setExpandedIds(prev => new Set([...prev, newPlan.id]));
-    setNewPlanId(newPlan.id);
-    setIsEditMode(true);
+    if (type === 'themenliste') {
+      // Navigate to new Themenliste editor page
+      navigate('/lernplan/themenliste/neu');
+    } else {
+      const newPlan = createContentPlan({ type, name: '' });
+      setExpandedIds(prev => new Set([...prev, newPlan.id]));
+      setNewPlanId(newPlan.id);
+      setIsEditMode(true);
+    }
   };
 
   // Calendar Plan handlers

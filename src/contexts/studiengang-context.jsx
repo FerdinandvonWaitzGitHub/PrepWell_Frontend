@@ -9,6 +9,7 @@ import { useAuth } from './auth-context';
 import { supabase } from '../services/supabase';
 
 const STORAGE_KEY = 'prepwell_studiengang'; // T7: Dedicated key for studiengang
+const KAPITEL_KEY = 'prepwell_kapitel_ebene'; // T22: Key for Kapitel-Ebene setting
 
 const StudiengangContext = createContext(null);
 
@@ -33,6 +34,23 @@ export const StudiengangProvider = ({ children }) => {
       return settings.studium?.studiengang || null;
     } catch {
       return null;
+    }
+  });
+
+  // T22: Kapitel-Ebene Einstellung (default: false)
+  // Reads from dedicated key first, then falls back to existing settings structure
+  const [kapitelEbeneAktiviert, setKapitelEbeneAktiviertState] = useState(() => {
+    try {
+      // Check dedicated key first
+      const stored = localStorage.getItem(KAPITEL_KEY);
+      if (stored !== null) {
+        return JSON.parse(stored);
+      }
+      // Fallback to existing settings structure
+      const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+      return settings.jura?.chapterLevelEnabled || false;
+    } catch {
+      return false;
     }
   });
 
@@ -81,6 +99,32 @@ export const StudiengangProvider = ({ children }) => {
     }
   }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
+  // T22: Kapitel-Ebene setzen und speichern
+  const setKapitelEbeneAktiviert = useCallback(async (enabled) => {
+    setKapitelEbeneAktiviertState(enabled);
+
+    // Save to localStorage (instant)
+    try {
+      localStorage.setItem(KAPITEL_KEY, JSON.stringify(enabled));
+    } catch (e) {
+      console.error('[StudiengangContext] Error saving kapitel setting to localStorage:', e);
+    }
+
+    // Lazy sync to Supabase
+    if (isSupabaseEnabled && isAuthenticated && user?.id && supabase) {
+      try {
+        await supabase
+          .from('user_settings')
+          .upsert({
+            user_id: user.id,
+            kapitel_ebene_aktiviert: enabled,
+          }, { onConflict: 'user_id' });
+      } catch (e) {
+        console.warn('[StudiengangContext] Supabase sync for kapitel failed:', e);
+      }
+    }
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
+
   // Auf localStorage-Änderungen hören (für Sync zwischen Tabs)
   useEffect(() => {
     const handleStorageChange = () => {
@@ -112,9 +156,13 @@ export const StudiengangProvider = ({ children }) => {
     isJura,
     hasStudiengang: !!studiengang,
 
+    // T22: Kapitel-Ebene Einstellung (nur für Juristen relevant)
+    kapitelEbeneAktiviert,
+    setKapitelEbeneAktiviert,
+
     // Alle verfügbaren Studiengänge
     studiengaenge: STUDIENGAENGE,
-  }), [studiengang, setStudiengang, studiengangName, hierarchyLabels, isJura]);
+  }), [studiengang, setStudiengang, studiengangName, hierarchyLabels, isJura, kapitelEbeneAktiviert, setKapitelEbeneAktiviert]);
 
   return (
     <StudiengangContext.Provider value={value}>

@@ -30,6 +30,9 @@ const PendingApprovalPage = lazy(() => import('./pages/pending-approval'));
 // Lernplan Wizard (large, code-split)
 const LernplanWizardPage = lazy(() => import('./features/lernplan-wizard').then(m => ({ default: m.LernplanWizardPage })));
 
+// Themenliste Editor (T22)
+const ThemenlisteEditorPage = lazy(() => import('./pages/themenliste-editor'));
+
 /**
  * Loading fallback for lazy-loaded components
  */
@@ -145,6 +148,11 @@ const router = createBrowserRouter([
   {
     path: '/lernplan/erstellen',
     element: <ProtectedRoute><LazyRoute><LernplanWizardPage /></LazyRoute></ProtectedRoute>,
+  },
+  {
+    // T22: Themenliste Editor - neue Themenliste erstellen
+    path: '/lernplan/themenliste/neu',
+    element: <ProtectedRoute><LazyRoute><ThemenlisteEditorPage /></LazyRoute></ProtectedRoute>,
   },
   {
     path: '/kalender/woche',
