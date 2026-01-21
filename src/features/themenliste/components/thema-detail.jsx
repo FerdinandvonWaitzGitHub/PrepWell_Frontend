@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 
 /**
  * ThemaDetail - Right panel showing selected Thema with Aufgaben
+ * T27: Updated to match Figma design (color bar, typography)
  */
 const ThemaDetail = ({
   thema,
@@ -16,6 +17,17 @@ const ThemaDetail = ({
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [newAufgabeName, setNewAufgabeName] = useState('');
   const [isAddingAufgabe, setIsAddingAufgabe] = useState(false);
+
+  // T27: Get color bar class based on rechtsgebietId
+  const getColorBarClass = (rechtsgebietId) => {
+    switch (rechtsgebietId) {
+      case 'oeffentliches-recht': return 'bg-green-500';
+      case 'zivilrecht': return 'bg-blue-500';
+      case 'strafrecht': return 'bg-red-500';
+      case 'querschnitt': return 'bg-purple-500';
+      default: return 'bg-neutral-400';
+    }
+  };
 
   // Priority display helpers
   const getPriorityDisplay = (priority) => {
@@ -59,10 +71,10 @@ const ThemaDetail = ({
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-neutral-50 overflow-hidden">
-      {/* Thema Header */}
-      <div className="p-6 bg-white border-b border-neutral-200">
-        {/* Thema Name */}
+    <div className="w-full h-full flex flex-col bg-white overflow-hidden">
+      {/* T27: Thema Header - extralight typography */}
+      <div className="px-12 pt-6 pb-4 bg-white">
+        {/* Thema Name - T27: text-2xl extralight */}
         {isEditingName ? (
           <input
             type="text"
@@ -70,134 +82,150 @@ const ThemaDetail = ({
             onChange={(e) => onUpdateThema(thema.id, { name: e.target.value })}
             onBlur={() => setIsEditingName(false)}
             onKeyDown={(e) => e.key === 'Enter' && setIsEditingName(false)}
-            className="w-full text-xl font-medium text-neutral-900 bg-transparent border-b border-neutral-300 focus:border-neutral-900 focus:outline-none pb-1"
+            className="w-full text-2xl font-extralight text-neutral-950 bg-transparent border-b border-neutral-300 focus:border-neutral-900 focus:outline-none pb-1"
             autoFocus
           />
         ) : (
           <h2
-            className="text-xl font-medium text-neutral-900 cursor-pointer hover:text-neutral-700"
+            className="text-2xl font-extralight text-neutral-950 cursor-pointer hover:text-neutral-700"
             onClick={() => setIsEditingName(true)}
           >
             {thema.name}
           </h2>
         )}
 
-        {/* Thema Description */}
+        {/* Thema Description - T27: neutral-400 */}
         {isEditingDescription ? (
           <textarea
             value={thema.description || ''}
             onChange={(e) => onUpdateThema(thema.id, { description: e.target.value })}
             onBlur={() => setIsEditingDescription(false)}
             placeholder="Beschreibung hinzufügen..."
-            className="w-full mt-2 text-sm text-neutral-500 bg-transparent border border-neutral-200 rounded-lg p-2 focus:border-neutral-400 focus:outline-none resize-none"
+            className="w-full mt-2 text-sm text-neutral-400 bg-transparent border border-neutral-200 rounded-lg p-2 focus:border-neutral-400 focus:outline-none resize-none"
             rows={2}
             autoFocus
           />
         ) : (
           <p
-            className="mt-1 text-sm text-neutral-500 cursor-pointer hover:text-neutral-600"
+            className="mt-1 text-sm text-neutral-400 cursor-pointer hover:text-neutral-500"
             onClick={() => setIsEditingDescription(true)}
           >
-            {thema.description || 'Beschreibung hinzufügen...'}
+            {thema.description || 'Beschreibung'}
           </p>
         )}
       </div>
 
-      {/* Aufgaben List */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="space-y-2">
-          {(thema.aufgaben || []).map((aufgabe) => {
-            const priority = getPriorityDisplay(aufgabe.priority);
+      {/* T27: Aufgaben List with color bar */}
+      <div className="flex-1 overflow-y-auto px-12 pb-6">
+        <div className="flex gap-4">
+          {/* T27: Vertical color bar (5px width) */}
+          <div className={`w-1.5 rounded-full ${getColorBarClass(thema.rechtsgebietId)}`} />
 
-            return (
-              <div
-                key={aufgabe.id}
-                className="flex items-center gap-3 p-3 bg-white rounded-lg border border-neutral-200 group"
-              >
-                {/* Checkbox (visual only for now) */}
-                <div className="w-5 h-5 rounded border border-neutral-300 flex-shrink-0" />
+          {/* Aufgaben Container */}
+          <div className="flex-1 space-y-2.5">
+            {(thema.aufgaben || []).map((aufgabe) => {
+              const priority = getPriorityDisplay(aufgabe.priority);
 
-                {/* Aufgabe Name */}
-                <span className="flex-1 text-sm text-neutral-800">{aufgabe.name}</span>
-
-                {/* Priority Buttons */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => onTogglePriority(thema.id, aufgabe.id)}
-                    className={`px-2 py-1 text-xs font-bold rounded transition-colors ${
-                      priority.color || 'text-neutral-300 hover:bg-neutral-100'
-                    }`}
-                    title="Priorität ändern"
-                  >
-                    {priority.text || '○'}
-                  </button>
-                </div>
-
-                {/* Delete Button */}
-                <button
-                  onClick={() => onDeleteAufgabe(aufgabe.id)}
-                  className="p-1.5 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                  title={`${hierarchyLabels?.level5 || 'Aufgabe'} löschen`}
+              return (
+                <div
+                  key={aufgabe.id}
+                  className="flex items-center justify-between px-2.5 py-1.5 bg-white rounded-md border border-neutral-200 group"
                 >
-                  <Trash2 size={14} />
+                  <div className="flex items-center gap-2">
+                    {/* T27: Checkbox - 16x16 (w-4 h-4) */}
+                    <div className="w-4 h-4 rounded-sm border border-neutral-200 flex-shrink-0 shadow-xs" />
+                    {/* Aufgabe Name */}
+                    <span className="text-sm font-medium text-neutral-950">{aufgabe.name}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {/* Priority Buttons - T27: Two !! buttons */}
+                    <button
+                      onClick={() => onTogglePriority(thema.id, aufgabe.id)}
+                      className={`px-1 py-0.5 text-xl font-semibold leading-none rounded transition-colors ${
+                        priority.color || 'text-neutral-200 hover:text-neutral-400'
+                      }`}
+                      title="Priorität ändern"
+                    >
+                      !
+                    </button>
+                    <button
+                      onClick={() => onTogglePriority(thema.id, aufgabe.id)}
+                      className={`px-1 py-0.5 text-xl font-semibold leading-none rounded transition-colors ${
+                        aufgabe.priority === 'high' ? 'text-red-600' : 'text-neutral-200 hover:text-neutral-400'
+                      }`}
+                      title="Priorität ändern"
+                    >
+                      !
+                    </button>
+
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => onDeleteAufgabe(aufgabe.id)}
+                      className="p-1 text-neutral-200 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      title={`${hierarchyLabels?.level5 || 'Aufgabe'} löschen`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* T27: Add Aufgabe - simpler style */}
+            {isAddingAufgabe ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newAufgabeName}
+                  onChange={(e) => setNewAufgabeName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddAufgabe();
+                    if (e.key === 'Escape') {
+                      setIsAddingAufgabe(false);
+                      setNewAufgabeName('');
+                    }
+                  }}
+                  placeholder={`Neue ${hierarchyLabels?.level5 || 'Aufgabe'}...`}
+                  className="flex-1 px-2.5 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-neutral-400"
+                  autoFocus
+                />
+                <button
+                  onClick={handleAddAufgabe}
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-brand-primary rounded-md hover:opacity-90"
+                >
+                  Hinzufügen
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAddingAufgabe(false);
+                    setNewAufgabeName('');
+                  }}
+                  className="px-3 py-1.5 text-sm text-neutral-500 hover:text-neutral-700"
+                >
+                  Abbrechen
                 </button>
               </div>
-            );
-          })}
+            ) : (
+              <button
+                onClick={() => setIsAddingAufgabe(true)}
+                className="flex items-center gap-2 py-2 text-xs font-medium text-neutral-500 hover:text-neutral-700"
+              >
+                <Plus size={16} />
+                <span>Neue Aufgabe</span>
+              </button>
+            )}
+
+            {/* Empty State */}
+            {(thema.aufgaben || []).length === 0 && !isAddingAufgabe && (
+              <div className="text-center py-8">
+                <p className="text-sm text-neutral-400">
+                  Noch keine {hierarchyLabels?.level5Plural || 'Aufgaben'} hinzugefügt
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* Add Aufgabe */}
-        {isAddingAufgabe ? (
-          <div className="mt-3 flex items-center gap-2">
-            <input
-              type="text"
-              value={newAufgabeName}
-              onChange={(e) => setNewAufgabeName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddAufgabe();
-                if (e.key === 'Escape') {
-                  setIsAddingAufgabe(false);
-                  setNewAufgabeName('');
-                }
-              }}
-              placeholder={`Neue ${hierarchyLabels?.level5 || 'Aufgabe'}...`}
-              className="flex-1 px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-400"
-              autoFocus
-            />
-            <button
-              onClick={handleAddAufgabe}
-              className="px-3 py-2 text-sm font-medium text-white bg-neutral-900 rounded-lg hover:bg-neutral-800"
-            >
-              Hinzufügen
-            </button>
-            <button
-              onClick={() => {
-                setIsAddingAufgabe(false);
-                setNewAufgabeName('');
-              }}
-              className="px-3 py-2 text-sm text-neutral-500 hover:text-neutral-700"
-            >
-              Abbrechen
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsAddingAufgabe(true)}
-            className="mt-3 flex items-center gap-2 px-3 py-2 text-sm text-neutral-500 hover:text-neutral-700 hover:bg-white rounded-lg border border-dashed border-neutral-300 w-full"
-          >
-            <Plus size={16} />
-            <span>Neue {hierarchyLabels?.level5 || 'Aufgabe'}</span>
-          </button>
-        )}
-
-        {/* Empty State */}
-        {(thema.aufgaben || []).length === 0 && !isAddingAufgabe && (
-          <div className="text-center py-8">
-            <p className="text-sm text-neutral-400">
-              Noch keine {hierarchyLabels?.level5Plural || 'Aufgaben'} hinzugefügt
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

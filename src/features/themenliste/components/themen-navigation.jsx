@@ -274,7 +274,7 @@ const ThemenNavigation = ({
                             key={thema.id}
                             className={`ml-16 flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer group ${
                               selectedThemaId === thema.id
-                                ? 'bg-blue-50'
+                                ? 'bg-neutral-100'
                                 : 'hover:bg-neutral-50'
                             }`}
                             onClick={() => onSelectThema(thema.id)}
@@ -356,7 +356,7 @@ const ThemenNavigation = ({
                         key={thema.id}
                         className={`ml-16 flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer group ${
                           selectedThemaId === thema.id
-                            ? 'bg-blue-50'
+                            ? 'bg-neutral-100'
                             : 'hover:bg-neutral-50'
                         }`}
                         onClick={() => onSelectThema(thema.id)}

@@ -55,6 +55,10 @@ export default {
           100: '#DCFCE7',
           600: '#16A34A',
         },
+        // T27: Brand color for primary actions (Figma Themenliste)
+        brand: {
+          primary: '#3e596b',
+        },
       },
       fontFamily: {
         sans: ['DM Sans', 'sans-serif'],
@@ -76,6 +80,7 @@ export default {
         'xl': ['20px', { lineHeight: '28px' }],
         '2xl': ['24px', { lineHeight: '32px' }],  // Figma H1
         '3xl': ['30px', { lineHeight: '36px' }],
+        '5xl': ['48px', { lineHeight: '48px' }],  // T27: Figma Themenliste H1 Title
       },
       spacing: {
         '0.5': '2px',

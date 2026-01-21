@@ -184,6 +184,7 @@ const ThemenlisteEditorPage = () => {
   const genId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   // Find selected Thema
+  // T27: Include rechtsgebietId for color bar in ThemaDetail
   const selectedThema = useMemo(() => {
     if (!selectedThemaId) return null;
 
@@ -192,11 +193,11 @@ const ThemenlisteEditorPage = () => {
         if (showKapitelLevel) {
           for (const kap of urg.kapitel || []) {
             const thema = kap.themen?.find(t => t.id === selectedThemaId);
-            if (thema) return { ...thema, kapitelId: kap.id, urgId: urg.id, rgId: rg.id };
+            if (thema) return { ...thema, kapitelId: kap.id, urgId: urg.id, rgId: rg.id, rechtsgebietId: rg.rechtsgebietId };
           }
         } else {
           const thema = urg.themen?.find(t => t.id === selectedThemaId);
-          if (thema) return { ...thema, urgId: urg.id, rgId: rg.id };
+          if (thema) return { ...thema, urgId: urg.id, rgId: rg.id, rechtsgebietId: rg.rechtsgebietId };
         }
       }
     }
