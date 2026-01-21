@@ -213,6 +213,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     transformFromSupabase = (d) => d,
     onConflict = 'id', // Default onConflict column, can be overridden
     enabled = true, // Set to false to disable Supabase sync (localStorage only)
+    limit = null, // Limit number of rows fetched (null = no limit)
   } = options;
 
   // Use refs to store transform functions to avoid infinite loops
@@ -231,10 +232,17 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     }
 
     try {
-      const { data: supabaseData, error: fetchError } = await supabase
+      let query = supabase
         .from(tableName)
         .select('*')
         .order(orderBy, { ascending: orderDirection === 'asc' });
+
+      // Apply limit if specified (prevents timeout on large tables)
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data: supabaseData, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
       return supabaseData?.map(transformFromSupabaseRef.current) || [];
@@ -242,7 +250,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       console.error(`Error fetching from ${tableName}:`, err);
       return null;
     }
-  }, [enabled, isSupabaseEnabled, isAuthenticated, tableName, orderBy, orderDirection]);
+  }, [enabled, isSupabaseEnabled, isAuthenticated, tableName, orderBy, orderDirection, limit]);
 
   // Sync LocalStorage data to Supabase (on first login)
   const syncToSupabase = useCallback(async (localData) => {
@@ -810,11 +818,13 @@ export function useCheckInSync() {
 
 /**
  * Hook for Timer Sessions (History)
+ * Limited to 1000 most recent sessions to prevent Supabase timeout (57014)
  */
 export function useTimerHistorySync() {
   return useSupabaseSync('timer_sessions', STORAGE_KEYS.timerHistory, [], {
     orderBy: 'created_at',
     orderDirection: 'desc',
+    limit: 1000, // Prevent statement timeout on large tables
     transformToSupabase: (session) => ({
       session_type: session.type || 'pomodoro',
       duration_seconds: session.duration,
