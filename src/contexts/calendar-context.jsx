@@ -117,7 +117,7 @@ export const CalendarProvider = ({ children }) => {
     privateSessionsByDate,
     saveDayBlocks,
     saveDayBlocksBatch,
-    loading: privateBlocksLoading,
+    loading: privateSessionsLoading, // T30: Renamed from privateBlocksLoading
   } = usePrivateSessionsSync();
 
   // Time Blocks - synced with Supabase (BUG-023 FIX: Separate from calendar_blocks)
@@ -127,7 +127,7 @@ export const CalendarProvider = ({ children }) => {
     saveDayBlocks: saveTimeBlocksDayBlocks,
     saveDayBlocksBatch: saveTimeBlocksDayBlocksBatch,
     clearAllBlocks: clearAllTimeBlocks,
-    loading: timeBlocksLoading,
+    loading: timeSessionsLoading, // T30: Renamed from timeBlocksLoading
   } = useTimeSessionsSync();
 
   // Archived Lernpläne - synced with Supabase
@@ -732,15 +732,26 @@ export const CalendarProvider = ({ children }) => {
    * Calculate repeat dates based on repeat settings
    * @param {string} startDateKey - Starting date (YYYY-MM-DD)
    * @param {string} repeatType - 'daily', 'weekly', 'monthly', or 'custom'
-   * @param {number} repeatCount - Number of repetitions
+   * @param {number} repeatCount - Number of repetitions (used when repeatEndMode !== 'date')
    * @param {Array} customDays - For 'custom' type, array of weekday indices (0=Sun, 1=Mon, etc.)
+   * @param {string} repeatEndMode - 'count' or 'date' (optional, defaults to 'count')
+   * @param {string} repeatEndDate - End date string YYYY-MM-DD (used when repeatEndMode === 'date')
    * @returns {Array} Array of date strings (YYYY-MM-DD)
    */
-  const calculateRepeatDates = useCallback((startDateKey, repeatType, repeatCount, customDays = []) => {
+  const calculateRepeatSession = useCallback((startDateKey, repeatType, repeatCount, customDays = [], repeatEndMode = 'count', repeatEndDate = null) => {
     const dates = [];
     const startDate = new Date(startDateKey + 'T12:00:00'); // Use noon to avoid timezone issues
 
-    for (let i = 1; i <= repeatCount; i++) {
+    // FIX: Support both count-based and date-based repeat endings
+    const useEndDate = repeatEndMode === 'date' && repeatEndDate;
+    const endDateObj = useEndDate ? new Date(repeatEndDate + 'T23:59:59') : null;
+    // T30 FIX: repeatCount is TOTAL sessions (incl. original), so we need repeatCount-1 additional dates
+    const maxIterations = useEndDate ? 365 : Math.max(0, repeatCount - 1);
+
+    let iteration = 0;
+    let i = 1;
+
+    while (iteration < maxIterations) {
       let nextDate = new Date(startDate);
 
       switch (repeatType) {
@@ -774,11 +785,24 @@ export const CalendarProvider = ({ children }) => {
           nextDate.setDate(startDate.getDate() + (i * 7)); // Default to weekly
       }
 
+      // FIX: Check if we've passed the end date (for date mode)
+      if (useEndDate && nextDate > endDateObj) {
+        break;
+      }
+
+      // FIX: Check if we've reached the count (for count mode)
+      if (!useEndDate && iteration >= repeatCount) {
+        break;
+      }
+
       // KA-002 FIX: Verwende lokale Zeit statt UTC
       const year = nextDate.getFullYear();
       const month = String(nextDate.getMonth() + 1).padStart(2, '0');
       const day = String(nextDate.getDate()).padStart(2, '0');
       dates.push(`${year}-${month}-${day}`);
+
+      iteration++;
+      i++;
     }
 
     return dates;
@@ -851,7 +875,7 @@ export const CalendarProvider = ({ children }) => {
 
     // If repeat is enabled, create blocks for all repeat dates
     if (blockData.repeatEnabled && blockData.repeatType && blockData.repeatCount > 0) {
-      const repeatDates = calculateRepeatDates(
+      const repeatDates = calculateRepeatSession(
         dateKey,
         blockData.repeatType,
         blockData.repeatCount,
@@ -879,7 +903,7 @@ export const CalendarProvider = ({ children }) => {
     saveToStorage(STORAGE_KEY_BLOCKS, updatedBlocks);
 
     return { block: originalBlock, content };
-  }, [blocksByDate, contentsById, saveContent, calculateRepeatDates]);
+  }, [blocksByDate, contentsById, saveContent, calculateRepeatSession]);
 
   /**
    * Build a display session from block (merges block + content)
@@ -955,64 +979,93 @@ export const CalendarProvider = ({ children }) => {
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {Object} block - The private block data
    */
-  const addPrivateBlock = useCallback(async (dateKey, block) => {
+  const addPrivateSession = useCallback(async (dateKey, block) => {
     // Generate a series ID if this is a repeating appointment
     const seriesId = block.repeatEnabled ? `private-series-${Date.now()}` : null;
 
-    console.log('[addPrivateBlock] Called with:', { dateKey, repeatEnabled: block.repeatEnabled, repeatType: block.repeatType, repeatCount: block.repeatCount, seriesId });
+    console.log('[addPrivateSession] Called with:', {
+      dateKey,
+      repeatEnabled: block.repeatEnabled,
+      repeatType: block.repeatType,
+      repeatCount: block.repeatCount,
+      repeatEndMode: block.repeatEndMode,
+      repeatEndDate: block.repeatEndDate,
+      seriesId
+    });
 
-    // Create the base block with ID
-    const createBlock = (isOriginal = true) => ({
+    // FIX: Support both count-based and date-based repeat endings
+    const hasRepeat = block.repeatEnabled && block.repeatType &&
+      (block.repeatCount > 0 || (block.repeatEndMode === 'date' && block.repeatEndDate));
+
+    // T30: Calculate repeat dates first to know total count
+    let repeatDates = [];
+    if (hasRepeat) {
+      repeatDates = calculateRepeatSession(
+        dateKey,
+        block.repeatType,
+        block.repeatCount,
+        block.customDays || [],
+        block.repeatEndMode || 'count',
+        block.repeatEndDate
+      );
+      console.log('[addPrivateSession] Repeat dates calculated:', repeatDates);
+    }
+
+    // T30: Total sessions = 1 (original) + repeatDates.length
+    const seriesTotal = hasRepeat ? 1 + repeatDates.length : null;
+
+    // Generate the original session ID first (needed for seriesOriginId)
+    const originalSessionId = `private-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // T30: Create the base session with ID and series metadata
+    const createSession = (isOriginal = true, seriesIndex = null) => ({
       ...block,
-      id: `private-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: isOriginal ? originalSessionId : `private-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       blockType: 'private',
       createdAt: new Date().toISOString(),
       // Series linking
       seriesId: seriesId,
-      // Only store repeat settings on the original block
+      // T30: Series metadata for display (stored on ALL sessions in series)
+      seriesIndex: hasRepeat ? seriesIndex : null,
+      seriesTotal: hasRepeat ? seriesTotal : null,
+      seriesOriginId: hasRepeat ? originalSessionId : null,
+      // Only store repeat settings on the original session
       repeatEnabled: isOriginal ? (block.repeatEnabled || false) : false,
       repeatType: isOriginal ? block.repeatType : null,
       repeatCount: isOriginal ? block.repeatCount : null,
+      repeatEndMode: isOriginal ? block.repeatEndMode : null,
+      repeatEndDate: isOriginal ? block.repeatEndDate : null,
       customDays: isOriginal ? block.customDays : null,
     });
 
-    // Create the original block for the first date
-    const originalBlock = createBlock(true);
+    // T30: Create the original session for the first date (index = 1)
+    const originalSession = createSession(true, 1);
 
     // Collect all updates to avoid stale closure issues
-    // Each date gets its own array of blocks
+    // Each date gets its own array of sessions
     const updatesToMake = {
-      [dateKey]: [...(privateSessionsByDate[dateKey] || []), originalBlock],
+      [dateKey]: [...(privateSessionsByDate[dateKey] || []), originalSession],
     };
 
-    // If repeat is enabled, collect blocks for all repeat dates
-    if (block.repeatEnabled && block.repeatType && block.repeatCount > 0) {
-      const repeatDates = calculateRepeatDates(
-        dateKey,
-        block.repeatType,
-        block.repeatCount,
-        block.customDays || []
-      );
-
-      console.log('[addPrivateBlock] Repeat dates calculated:', repeatDates);
-
-      // Add each repeat block to the updates map
-      repeatDates.forEach(repeatDateKey => {
-        const repeatBlock = createBlock(false);
-        const existingBlocks = updatesToMake[repeatDateKey] || privateSessionsByDate[repeatDateKey] || [];
-        updatesToMake[repeatDateKey] = [...existingBlocks, repeatBlock];
+    // If repeat is enabled, collect sessions for all repeat dates
+    if (hasRepeat) {
+      // T30: Each repeat date gets an incrementing index (starting at 2)
+      repeatDates.forEach((repeatDateKey, idx) => {
+        const repeatSession = createSession(false, idx + 2); // Index starts at 2 (original is 1)
+        const existingSessions = updatesToMake[repeatDateKey] || privateSessionsByDate[repeatDateKey] || [];
+        updatesToMake[repeatDateKey] = [...existingSessions, repeatSession];
       });
     }
 
-    console.log('[addPrivateBlock] Updates to make:', Object.keys(updatesToMake).length, 'dates');
+    console.log('[addPrivateSession] Updates to make:', Object.keys(updatesToMake).length, 'dates');
 
     // Use batch save to update all dates in one atomic operation
     await saveDayBlocksBatch(updatesToMake);
 
-    console.log('[addPrivateBlock] Batch save completed');
+    console.log('[addPrivateSession] Batch save completed');
 
-    return originalBlock;
-  }, [privateSessionsByDate, saveDayBlocksBatch, calculateRepeatDates]);
+    return originalSession;
+  }, [privateSessionsByDate, saveDayBlocksBatch, calculateRepeatSession]);
 
   /**
    * Update a private block
@@ -1038,7 +1091,7 @@ export const CalendarProvider = ({ children }) => {
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {string} blockId - The block ID to delete
    */
-  const deletePrivateBlock = useCallback(async (dateKey, blockId) => {
+  const deletePrivateSession = useCallback(async (dateKey, blockId) => {
     const currentBlocks = privateSessionsByDate[dateKey] || [];
     const filteredBlocks = currentBlocks.filter(block => block.id !== blockId);
 
@@ -1096,29 +1149,67 @@ export const CalendarProvider = ({ children }) => {
    * @param {string} dateKey - The date key (YYYY-MM-DD)
    * @param {Object} block - The time block data (must have startTime, endTime)
    */
-  const addTimeBlock = useCallback(async (dateKey, block) => {
-    // Generate a series ID if this is a repeating block
-    const seriesId = block.repeatEnabled ? `timeblock-series-${Date.now()}` : null;
+  const addTimeSession = useCallback(async (dateKey, block) => {
+    // Generate a series ID if this is a repeating session
+    const seriesId = block.repeatEnabled ? `timesession-series-${Date.now()}` : null;
 
-    console.log('[addTimeBlock] Called with:', { dateKey, repeatEnabled: block.repeatEnabled, repeatType: block.repeatType, repeatCount: block.repeatCount, seriesId });
+    console.log('[addTimeSession] Called with:', {
+      dateKey,
+      repeatEnabled: block.repeatEnabled,
+      repeatType: block.repeatType,
+      repeatCount: block.repeatCount,
+      repeatEndMode: block.repeatEndMode,
+      repeatEndDate: block.repeatEndDate,
+      seriesId
+    });
 
-    // Create the base block with ID
-    const createBlock = (isOriginal = true) => ({
+    // FIX: Support both count-based and date-based repeat endings
+    const hasRepeat = block.repeatEnabled && block.repeatType &&
+      (block.repeatCount > 0 || (block.repeatEndMode === 'date' && block.repeatEndDate));
+
+    // T30: Calculate repeat dates first to know total count
+    let repeatDates = [];
+    if (hasRepeat) {
+      repeatDates = calculateRepeatSession(
+        dateKey,
+        block.repeatType,
+        block.repeatCount,
+        block.customDays || [],
+        block.repeatEndMode || 'count',
+        block.repeatEndDate
+      );
+      console.log('[addTimeSession] Repeat dates calculated:', repeatDates);
+    }
+
+    // T30: Total sessions = 1 (original) + repeatDates.length
+    const seriesTotal = hasRepeat ? 1 + repeatDates.length : null;
+
+    // Generate the original block ID first (needed for seriesOriginId)
+    const originalBlockId = `timeblock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // T30: Create the base block with ID and series metadata
+    const createBlock = (isOriginal = true, seriesIndex = null) => ({
       ...block,
-      id: `timeblock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: isOriginal ? originalBlockId : `timeblock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       blockType: block.blockType || 'lernblock',
       createdAt: new Date().toISOString(),
       // Series linking
       seriesId: seriesId,
+      // T30: Series metadata for display (stored on ALL blocks in series)
+      seriesIndex: hasRepeat ? seriesIndex : null,
+      seriesTotal: hasRepeat ? seriesTotal : null,
+      seriesOriginId: hasRepeat ? originalBlockId : null,
       // Only store repeat settings on the original block
       repeatEnabled: isOriginal ? (block.repeatEnabled || false) : false,
       repeatType: isOriginal ? block.repeatType : null,
       repeatCount: isOriginal ? block.repeatCount : null,
+      repeatEndMode: isOriginal ? block.repeatEndMode : null,
+      repeatEndDate: isOriginal ? block.repeatEndDate : null,
       customDays: isOriginal ? block.customDays : null,
     });
 
-    // Create the original block for the first date
-    const originalBlock = createBlock(true);
+    // T30: Create the original block for the first date (index = 1)
+    const originalBlock = createBlock(true, 1);
 
     // Collect all updates to avoid stale closure issues
     const updatesToMake = {
@@ -1126,32 +1217,24 @@ export const CalendarProvider = ({ children }) => {
     };
 
     // If repeat is enabled, collect blocks for all repeat dates
-    if (block.repeatEnabled && block.repeatType && block.repeatCount > 0) {
-      const repeatDates = calculateRepeatDates(
-        dateKey,
-        block.repeatType,
-        block.repeatCount,
-        block.customDays || []
-      );
-
-      console.log('[addTimeBlock] Repeat dates calculated:', repeatDates);
-
-      repeatDates.forEach(repeatDateKey => {
-        const repeatBlock = createBlock(false);
+    if (hasRepeat) {
+      // T30: Each repeat date gets an incrementing index (starting at 2)
+      repeatDates.forEach((repeatDateKey, idx) => {
+        const repeatBlock = createBlock(false, idx + 2); // Index starts at 2 (original is 1)
         const existingBlocks = updatesToMake[repeatDateKey] || timeSessionsByDate[repeatDateKey] || [];
         updatesToMake[repeatDateKey] = [...existingBlocks, repeatBlock];
       });
     }
 
-    console.log('[addTimeBlock] Updates to make:', Object.keys(updatesToMake).length, 'dates');
+    console.log('[addTimeSession] Updates to make:', Object.keys(updatesToMake).length, 'dates');
 
     // Use batch save to update all dates in one atomic operation
     await saveTimeBlocksDayBlocksBatch(updatesToMake);
 
-    console.log('[addTimeBlock] Batch save completed');
+    console.log('[addTimeSession] Batch save completed');
 
     return originalBlock;
-  }, [timeSessionsByDate, saveTimeBlocksDayBlocksBatch, calculateRepeatDates]);
+  }, [timeSessionsByDate, saveTimeBlocksDayBlocksBatch, calculateRepeatSession]);
 
   /**
    * Update a time block
@@ -2776,10 +2859,8 @@ export const CalendarProvider = ({ children }) => {
     visibleBlocksByDate, // BUG-010 FIX: Filtered blocks (excludes archived plans)
     lernplanMetadata,
     archivedLernplaene,
-    privateSessionsByDate,
-    privateBlocksByDate: privateSessionsByDate, // Alias for backward compatibility
-    timeSessionsByDate, // BUG-023 FIX: Separate time-based blocks for Week/Dashboard
-    timeBlocksByDate: timeSessionsByDate, // Alias for backward compatibility
+    privateSessionsByDate, // T30: Renamed from privateBlocksByDate
+    timeSessionsByDate, // T30: Renamed from timeBlocksByDate, BUG-023 FIX: Separate time-based sessions for Week/Dashboard
     tasksByDate,
     themeLists,
     contentPlans,
@@ -2790,8 +2871,8 @@ export const CalendarProvider = ({ children }) => {
     contentPlansLoading,
     blocksLoading,
     tasksLoading,
-    privateBlocksLoading,
-    timeBlocksLoading, // BUG-023 FIX
+    privateSessionsLoading, // T30: Renamed from privateBlocksLoading
+    timeSessionsLoading, // T30: Renamed from timeBlocksLoading, BUG-023 FIX
     archivedLoading,
     metadataLoading,
     publishedThemenlistenLoading,
@@ -2820,15 +2901,15 @@ export const CalendarProvider = ({ children }) => {
     deleteBlock,
     deleteSeriesBlocks,
 
-    // Private Block Actions
-    addPrivateBlock,
+    // Private Session Actions (T30: Renamed from Block to Session)
+    addPrivateSession,
     updatePrivateBlock,
-    deletePrivateBlock,
+    deletePrivateSession,
     deleteSeriesPrivateBlocks,
     getPrivateBlocks,
 
-    // Time Block Actions (BUG-023 FIX: Separate from block allocations)
-    addTimeBlock,
+    // Time Session Actions (T30: Renamed from Block to Session, BUG-023 FIX: Separate from block allocations)
+    addTimeSession,
     updateTimeBlock,
     deleteTimeBlock,
     deleteSeriesTimeBlocks,
@@ -2929,16 +3010,16 @@ export const CalendarProvider = ({ children }) => {
     privateSessionsByDate, timeSessionsByDate, tasksByDate, themeLists,
     contentPlans, customUnterrechtsgebiete, contentsById, publishedThemenlisten,
     // Loading states
-    contentPlansLoading, blocksLoading, tasksLoading, privateBlocksLoading,
-    timeBlocksLoading, archivedLoading, metadataLoading, publishedThemenlistenLoading,
+    contentPlansLoading, blocksLoading, tasksLoading, privateSessionsLoading,
+    timeSessionsLoading, archivedLoading, metadataLoading, publishedThemenlistenLoading,
     isAuthenticated,
     // Functions (useCallback ensures stable references)
     setCalendarData, updateDayBlocks, getDayBlocks, updateLernplanMetadata,
     archiveCurrentPlan, deleteCurrentPlan, restoreArchivedPlan, deleteArchivedPlan,
     clearAllData, saveContent, getContent, deleteContent, addBlockWithContent,
     buildSessionFromBlock, getSessionsForDate, deleteBlock, deleteSeriesBlocks,
-    addPrivateBlock, updatePrivateBlock, deletePrivateBlock, deleteSeriesPrivateBlocks,
-    getPrivateBlocks, addTimeBlock, updateTimeBlock, deleteTimeBlock,
+    addPrivateSession, updatePrivateBlock, deletePrivateSession, deleteSeriesPrivateBlocks,
+    getPrivateBlocks, addTimeSession, updateTimeBlock, deleteTimeBlock,
     deleteSeriesTimeBlocks, getTimeBlocks, clearAllTimeBlocks,
     addTask, updateTask, toggleTaskComplete, deleteTask, getTasks,
     scheduleTaskToBlock, unscheduleTaskFromBlock, // FR1: Task scheduling

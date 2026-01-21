@@ -19,7 +19,7 @@ import { blocksToLearningSessions } from '../../../utils/blockUtils';
  * Weekly calendar view for exam mode
  * Displays week schedule with time-based blocks
  *
- * Data flow: CalendarContext (blocksByDate + privateBlocksByDate) → WeekView
+ * Data flow: CalendarContext (blocksByDate + privateSessionsByDate) → WeekView
  */
 const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const [currentDate, setCurrentDate] = useState(initialDate);
@@ -30,21 +30,22 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const { isExamMode } = useAppMode();
 
   // Get data from CalendarContext (Single Source of Truth)
-  // BUG-023 FIX: Use timeBlocksByDate for user-created blocks (time-based)
+  // BUG-023 FIX: Use timeSessionsByDate for user-created blocks (time-based)
   // Use visibleBlocksByDate only for Lernplan-generated blocks (position-based, header only)
   const {
     blocksByDate,
     visibleBlocksByDate, // BUG-010 FIX: Filtered Lernplan blocks for header display
-    privateBlocksByDate,
-    timeBlocksByDate, // BUG-023 FIX: Time-based blocks for Week/Dashboard
+    privateSessionsByDate,
+    timeSessionsByDate, // BUG-023 FIX: Time-based blocks for Week/Dashboard
     updateDayBlocks,
-    addPrivateBlock,
+    addPrivateSession, // T30: Renamed from addPrivateBlock
     updatePrivateBlock,
-    deletePrivateBlock,
+    deletePrivateSession, // T30: Renamed from deletePrivateBlock
     deleteSeriesPrivateBlocks,
-    addTimeBlock,
+    addTimeSession, // T30: Renamed from addTimeBlock
     updateTimeBlock,
     deleteTimeBlock,
+    deleteSeriesTimeBlocks, // T29-BUG-FIX: For series deletion
   } = useCalendar();
 
   // Dialog states
@@ -110,7 +111,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
 
   // Transform CalendarContext blocks to week view format
   // BUG-023 FIX: Combine time blocks (user-created) with Lernplan blocks
-  // - Time blocks: Stored in timeBlocksByDate, always shown in time grid
+  // - Time blocks: Stored in timeSessionsByDate, always shown in time grid
   // - Lernplan blocks: Stored in visibleBlocksByDate
   //   - Normal mode: Hidden
   //   - Exam mode: Shown in header bar (not time grid)
@@ -124,7 +125,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       const dateKey = formatDateKey(d);
 
       // BUG-023 FIX: Add time blocks (user-created in Week/Dashboard)
-      const dayTimeBlocks = (timeBlocksByDate || {})[dateKey] || [];
+      const dayTimeBlocks = (timeSessionsByDate || {})[dateKey] || [];
       dayTimeBlocks.forEach(block => {
         weekBlocks.push({
           id: block.id,
@@ -146,6 +147,11 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
           tasks: block.tasks || [],
           isFromLernplan: false, // Always false for time blocks
           isTimeBlock: true, // Mark as time block for identification
+          // T30: Include all series metadata for display and deletion
+          seriesId: block.seriesId,
+          seriesIndex: block.seriesIndex,
+          seriesTotal: block.seriesTotal,
+          seriesOriginId: block.seriesOriginId,
         });
       });
 
@@ -205,7 +211,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     }
 
     return { blocks: weekBlocks, lernplanHeaderBlocks: weekLernplanBlocks };
-  }, [currentDate, timeBlocksByDate, visibleBlocksByDate, isExamMode]);
+  }, [currentDate, timeSessionsByDate, visibleBlocksByDate, isExamMode]);
 
   // Transform CalendarContext private blocks to week view format
   // BUG-012 FIX: Include multi-day blocks that span into the current week
@@ -216,12 +222,12 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     const weekEndKey = formatDateKey(sunday);
     const processedIds = new Set(); // Avoid duplicates for multi-day blocks
 
-    console.log('[WeekView privateBlocks useMemo] Recalculating...');
-    console.log('[WeekView privateBlocks useMemo] privateBlocksByDate keys:', Object.keys(privateBlocksByDate));
-    console.log('[WeekView privateBlocks useMemo] Week range:', weekStartKey, 'to', weekEndKey);
+    console.log('[WeekView privateSessions useMemo] Recalculating...');
+    console.log('[WeekView privateSessions useMemo] privateSessionsByDate keys:', Object.keys(privateSessionsByDate));
+    console.log('[WeekView privateSessions useMemo] Week range:', weekStartKey, 'to', weekEndKey);
 
     // Check ALL private blocks (from any date) to see if they overlap with current week
-    Object.entries(privateBlocksByDate).forEach(([dateKey, dayBlocks]) => {
+    Object.entries(privateSessionsByDate).forEach(([dateKey, dayBlocks]) => {
       dayBlocks.forEach(block => {
         // Skip if already processed (multi-day blocks could appear on multiple start dates)
         if (processedIds.has(block.id)) return;
@@ -251,9 +257,9 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       });
     });
 
-    console.log('[WeekView] Total privateBlocks for week:', weekPrivateBlocks.length);
+    console.log('[WeekView] Total privateSessions for week:', weekPrivateBlocks.length);
     return weekPrivateBlocks;
-  }, [currentDate, privateBlocksByDate]);
+  }, [currentDate, privateSessionsByDate]);
 
   // Get week number - returns "Kalenderwoche X" format
   const getWeekNumber = (date) => {
@@ -344,43 +350,43 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
 
     if (updatedBlock.blockType === 'private') {
       // Check if we need to create/update a series
-      const originalBlock = ((privateBlocksByDate || {})[dateKey] || []).find(b => b.id === updatedBlock.id);
+      const originalBlock = ((privateSessionsByDate || {})[dateKey] || []).find(b => b.id === updatedBlock.id);
       const hadSeries = originalBlock?.seriesId != null;
       const wantsSeries = updatedBlock.repeatEnabled && updatedBlock.repeatType && updatedBlock.repeatCount > 0;
 
-      console.log('[handleUpdateBlock] Private block update:', { hadSeries, wantsSeries, originalBlock, updatedBlock });
+      console.log('[handleUpdateSession] Private session update:', { hadSeries, wantsSeries, originalBlock, updatedBlock });
 
       if (wantsSeries && !hadSeries) {
-        // User enabled repeat on an existing non-series block
-        // Delete old block and create new series
-        console.log('[handleUpdateBlock] Creating new series from existing block');
-        await deletePrivateBlock(dateKey, updatedBlock.id);
-        await addPrivateBlock(dateKey, updatedBlock);
+        // User enabled repeat on an existing non-series session
+        // Delete old session and create new series
+        console.log('[handleUpdateSession] Creating new series from existing session');
+        await deletePrivateSession(dateKey, updatedBlock.id);
+        await addPrivateSession(dateKey, updatedBlock);
       } else if (!wantsSeries && hadSeries) {
-        // User disabled repeat on a series block
-        // Delete entire series and create single block
-        console.log('[handleUpdateBlock] Converting series block to single block');
+        // User disabled repeat on a series session
+        // Delete entire series and create single session
+        console.log('[handleUpdateSession] Converting series session to single session');
         await deleteSeriesPrivateBlocks(originalBlock.seriesId);
-        await addPrivateBlock(dateKey, { ...updatedBlock, repeatEnabled: false, repeatType: null, repeatCount: null });
+        await addPrivateSession(dateKey, { ...updatedBlock, repeatEnabled: false, repeatType: null, repeatCount: null });
       } else if (wantsSeries && hadSeries) {
         // User changed repeat settings on existing series
         // Delete old series and create new one
-        console.log('[handleUpdateBlock] Updating series with new repeat settings');
+        console.log('[handleUpdateSession] Updating series with new repeat settings');
         await deleteSeriesPrivateBlocks(originalBlock.seriesId);
-        await addPrivateBlock(dateKey, updatedBlock);
+        await addPrivateSession(dateKey, updatedBlock);
       } else {
         // No series change, just update the single block
-        console.log('[handleUpdateBlock] Simple update, no series change');
+        console.log('[handleUpdateSession] Simple update, no series change');
         updatePrivateBlock(dateKey, updatedBlock.id, updatedBlock);
       }
     } else {
       // BUG-023 FIX: Check if this is a time block or a Lernplan block
-      const dayTimeBlocks = (timeBlocksByDate || {})[dateKey] || [];
+      const dayTimeBlocks = (timeSessionsByDate || {})[dateKey] || [];
       const isTimeBlock = dayTimeBlocks.some(block => block.id === updatedBlock.id);
 
       if (isTimeBlock) {
         // Update time block (user-created in Week/Dashboard)
-        console.log('[handleUpdateBlock] BUG-023 FIX: Updating time block');
+        console.log('[handleUpdateSession] BUG-023 FIX: Updating time session');
         await updateTimeBlock(dateKey, updatedBlock.id, {
           title: updatedBlock.title,
           description: updatedBlock.description,
@@ -436,20 +442,20 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     if (!dateKey) return;
 
     // Check if it's a private block
-    const dayPrivateBlocks = (privateBlocksByDate || {})[dateKey] || [];
+    const dayPrivateBlocks = (privateSessionsByDate || {})[dateKey] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
 
     if (isPrivate) {
-      deletePrivateBlock(dateKey, blockId);
+      deletePrivateSession(dateKey, blockId);
       return;
     }
 
     // BUG-023 FIX: Check if it's a time block
-    const dayTimeBlocks = (timeBlocksByDate || {})[dateKey] || [];
+    const dayTimeBlocks = (timeSessionsByDate || {})[dateKey] || [];
     const isTimeBlock = dayTimeBlocks.some(b => b.id === blockId);
 
     if (isTimeBlock) {
-      console.log('[handleDeleteBlock] BUG-023 FIX: Deleting time block');
+      console.log('[handleDeleteSession] BUG-023 FIX: Deleting time session');
       await deleteTimeBlock(dateKey, blockId);
       return;
     }
@@ -466,14 +472,14 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
     updateDayBlocks(dateKey, updatedBlocks);
   };
 
-  // BUG-023 FIX: Add a new learning block - uses timeBlocksByDate
+  // BUG-023 FIX: Add a new learning block - uses timeSessionsByDate
   // Creates time blocks (NOT position-based blocks) for Week/Dashboard views
   // This ensures blocks created here are NEVER shown in Month view
   const handleAddBlock = async (_date, blockData) => {
     const startDate = selectedDate || new Date();
     const dateKey = formatDateKey(startDate);
 
-    console.log('[handleAddBlock] BUG-023 FIX: Creating time block for date:', dateKey);
+    console.log('[handleAddSession] BUG-023 FIX: Creating time session for date:', dateKey);
 
     // Create time block data (time-based, NOT position-based)
     const timeBlockData = {
@@ -484,18 +490,20 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       unterrechtsgebiet: blockData.unterrechtsgebiet,
       startTime: blockData.startTime || '09:00',
       endTime: blockData.endTime || '10:00',
-      // Repeat settings (handled by addTimeBlock)
+      // Repeat settings (handled by addTimeSession)
       repeatEnabled: blockData.repeatEnabled || false,
       repeatType: blockData.repeatType,
       repeatCount: blockData.repeatCount,
+      repeatEndMode: blockData.repeatEndMode, // FIX: Pass end mode for series
+      repeatEndDate: blockData.repeatEndDate, // FIX: Pass end date for series
       customDays: blockData.customDays,
       tasks: blockData.tasks || [],
     };
 
-    // Use addTimeBlock which stores in timeBlocksByDate (NOT blocksByDate)
-    await addTimeBlock(dateKey, timeBlockData);
+    // Use addTimeSession which stores in timeSessionsByDate (NOT blocksByDate)
+    await addTimeSession(dateKey, timeBlockData);
 
-    console.log('[handleAddBlock] Time block created successfully');
+    console.log('[handleAddSession] Time session created successfully');
   };
 
   // Calculate end time based on start time and block size (1 block = 2 hours)
@@ -599,12 +607,14 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   // Add a new private block - uses CalendarContext
   const handleAddPrivateBlock = async (_date, blockData) => {
     const dateKey = selectedDate ? formatDateKey(selectedDate) : new Date().toISOString().split('T')[0];
-    console.log('[handleAddPrivateBlock] Creating block for date:', dateKey, 'with repeat:', {
+    console.log('[handleAddPrivateSession] Creating session for date:', dateKey, 'with repeat:', {
       repeatEnabled: blockData.repeatEnabled,
       repeatType: blockData.repeatType,
       repeatCount: blockData.repeatCount,
+      repeatEndMode: blockData.repeatEndMode,
+      repeatEndDate: blockData.repeatEndDate,
     });
-    const result = await addPrivateBlock(dateKey, {
+    const result = await addPrivateSession(dateKey, {
       ...blockData,
       startTime: blockData.startTime || selectedTime || '09:00',
       endTime: blockData.endTime || calculateEndTime(selectedTime || '09:00', blockData.blockSize || 1),
@@ -616,9 +626,11 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
       repeatEnabled: blockData.repeatEnabled || false,
       repeatType: blockData.repeatType,
       repeatCount: blockData.repeatCount,
+      repeatEndMode: blockData.repeatEndMode, // FIX: Pass end mode for series
+      repeatEndDate: blockData.repeatEndDate, // FIX: Pass end date for series
       customDays: blockData.customDays,
     });
-    console.log('[handleAddPrivateBlock] Block created:', result);
+    console.log('[handleAddPrivateSession] Session created:', result);
   };
 
   return (
@@ -651,6 +663,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         block={selectedBlock}
         onSave={handleUpdateBlock}
         onDelete={handleDeleteBlock}
+        onDeleteSeries={deleteSeriesTimeBlocks}
         availableBlocks={4}
       />
 

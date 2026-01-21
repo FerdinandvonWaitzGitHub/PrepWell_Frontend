@@ -27,12 +27,11 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
       key: 'verwaltung-leistungen'
     });
   } else {
-    // Leistungen (Noten) in Normal mode - Coming Soon
+    // Leistungen (Noten) in Normal mode - T28 implemented
     verwaltungSubmenu.push({
       label: 'Leistungen',
       to: '/verwaltung/leistungen',
-      key: 'verwaltung-leistungen',
-      comingSoon: true
+      key: 'verwaltung-leistungen'
     });
   }
 

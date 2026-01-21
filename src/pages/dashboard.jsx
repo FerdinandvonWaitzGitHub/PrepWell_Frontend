@@ -100,17 +100,17 @@ const DashboardPage = () => {
   }, [mentorIsActivated, isCheckInNeeded, checkInLoading, navigate]);
 
   // CalendarContext for CRUD operations
-  // BUG-023 FIX: Use timeBlocksByDate and addTimeBlock for user-created blocks
+  // BUG-023 FIX: Use timeSessionsByDate and addTimeSession for user-created sessions
   const {
     blocksByDate,
-    privateBlocksByDate,
-    timeBlocksByDate, // BUG-023 FIX: Time-based blocks
+    privateSessionsByDate,
+    timeSessionsByDate, // BUG-023 FIX: Time-based sessions
     updateDayBlocks,
-    addPrivateBlock,
+    addPrivateSession, // T30: Renamed from addPrivateBlock
     updatePrivateBlock,
-    deletePrivateBlock,
+    deletePrivateSession, // T30: Renamed from deletePrivateBlock
     deleteSeriesPrivateBlocks,
-    addTimeBlock, // BUG-023 FIX: Use this instead of addBlockWithContent
+    addTimeSession, // T30: Renamed from addTimeBlock, BUG-023 FIX: Use this instead of addBlockWithContent
     updateTimeBlock,
     deleteTimeBlock,
     // NEW DATA MODEL: Content management
@@ -557,11 +557,11 @@ const DashboardPage = () => {
     }
   }, []);
 
-  // BUG-023 FIX: Add a new learning block - uses timeBlocksByDate
+  // BUG-023 FIX: Add a new learning block - uses timeSessionsByDate
   // Creates time blocks (NOT block allocations) for Dashboard/Week views
   // This ensures blocks created here are NEVER shown in Month view
   const handleAddBlock = useCallback(async (_date, blockData) => {
-    console.log('[Dashboard handleAddBlock] BUG-023 FIX: Creating time block');
+    console.log('[Dashboard handleAddSession] BUG-023 FIX: Creating time session');
 
     // Create time block data (time-based, NOT position-based)
     const timeBlockData = {
@@ -572,7 +572,7 @@ const DashboardPage = () => {
       unterrechtsgebiet: blockData.unterrechtsgebiet,
       startTime: blockData.startTime || '09:00',
       endTime: blockData.endTime || '10:00',
-      // Repeat settings (handled by addTimeBlock)
+      // Repeat settings (handled by addTimeSession)
       repeatEnabled: blockData.repeatEnabled || false,
       repeatType: blockData.repeatType,
       repeatCount: blockData.repeatCount,
@@ -580,11 +580,11 @@ const DashboardPage = () => {
       tasks: blockData.tasks || [],
     };
 
-    // Use addTimeBlock which stores in timeBlocksByDate (NOT blocksByDate)
-    await addTimeBlock(dateString, timeBlockData);
+    // Use addTimeSession which stores in timeSessionsByDate (NOT blocksByDate)
+    await addTimeSession(dateString, timeBlockData);
 
-    console.log('[Dashboard handleAddBlock] Time block created successfully');
-  }, [dateString, addTimeBlock]);
+    console.log('[Dashboard handleAddSession] Time session created successfully');
+  }, [dateString, addTimeSession]);
 
   // Update a block (updates both Block and Content)
   // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan blocks
@@ -596,7 +596,7 @@ const DashboardPage = () => {
     }
 
     // BUG-023 FIX: Check if this is a time block
-    const dayTimeBlocks = (timeBlocksByDate || {})[dateString] || [];
+    const dayTimeBlocks = (timeSessionsByDate || {})[dateString] || [];
     const dayLernplanBlocks = (blocksByDate || {})[dateString] || [];
     const isTimeBlock = dayTimeBlocks.some(block => block.id === updatedBlock.id) || updatedBlock.isTimeBlock;
 
@@ -633,7 +633,7 @@ const DashboardPage = () => {
 
     if (isTimeBlock) {
       // Update time block (user-created in Dashboard/Week)
-      console.log('[Dashboard handleUpdateBlock] BUG-023 FIX: Updating time block');
+      console.log('[Dashboard handleUpdateSession] BUG-023 FIX: Updating time session');
       await updateTimeBlock(dateString, updatedBlock.id, {
         title: updatedBlock.title,
         description: updatedBlock.description,
@@ -695,22 +695,22 @@ const DashboardPage = () => {
       return block;
     });
     updateDayBlocks(dateString, updatedBlocks);
-  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updatePrivateBlock, updateTimeBlock, saveContent, unscheduleAufgabeFromBlock]);
+  }, [dateString, blocksByDate, timeSessionsByDate, updateDayBlocks, updatePrivateBlock, updateTimeBlock, saveContent, unscheduleAufgabeFromBlock]);
 
   // Delete a block (removes Block, Content remains for potential reuse)
   // BUG-023 FIX: Check time blocks first, then private blocks, then Lernplan blocks
   // T5.4 FIX: Unschedule all tasks in the block before deletion
   const handleDeleteBlock = useCallback(async (_date, blockId) => {
-    const dayPrivateBlocks = (privateBlocksByDate || {})[dateString] || [];
+    const dayPrivateBlocks = (privateSessionsByDate || {})[dateString] || [];
     const isPrivate = dayPrivateBlocks.some(b => b.id === blockId);
 
     if (isPrivate) {
-      deletePrivateBlock(dateString, blockId);
+      deletePrivateSession(dateString, blockId);
       return;
     }
 
     // BUG-023 FIX: Check if it's a time block
-    const dayTimeBlocks = (timeBlocksByDate || {})[dateString] || [];
+    const dayTimeBlocks = (timeSessionsByDate || {})[dateString] || [];
     const dayLernplanBlocks = (blocksByDate || {})[dateString] || [];
     const isTimeBlock = dayTimeBlocks.some(b => b.id === blockId);
 
@@ -736,7 +736,7 @@ const DashboardPage = () => {
     }
 
     if (isTimeBlock) {
-      console.log('[Dashboard handleDeleteBlock] BUG-023 FIX: Deleting time block');
+      console.log('[Dashboard handleDeleteSession] BUG-023 FIX: Deleting time session');
       await deleteTimeBlock(dateString, blockId);
       return;
     }
@@ -752,25 +752,25 @@ const DashboardPage = () => {
     });
     updateDayBlocks(dateString, updatedBlocks);
     // Note: Content is NOT deleted - it can be reused later
-  }, [dateString, blocksByDate, timeBlocksByDate, privateBlocksByDate, updateDayBlocks, deletePrivateBlock, deleteTimeBlock, unscheduleAufgabeFromBlock]);
+  }, [dateString, blocksByDate, timeSessionsByDate, privateSessionsByDate, updateDayBlocks, deletePrivateSession, deleteTimeBlock, unscheduleAufgabeFromBlock]);
 
-  // Add a new private block
+  // Add a new private session
   const handleAddPrivateBlock = useCallback((_date, blockData) => {
-    addPrivateBlock(dateString, {
+    addPrivateSession(dateString, {
       ...blockData,
       startTime: blockData.startTime || '09:00',
       endTime: blockData.endTime || '11:00',
     });
-  }, [dateString, addPrivateBlock]);
+  }, [dateString, addPrivateSession]);
 
   // Handle dropping a task or thema onto a block
   // Supports both contentId and topicId patterns for cross-view compatibility
   // TICKET-7: Ensures a task can only be scheduled to ONE block at a time
   // T5.4: Extended to support dropping complete thema with all aufgaben
-  // FIX: Now checks BOTH blocksByDate (Lernplan) AND timeBlocksByDate (manual time blocks)
+  // FIX: Now checks BOTH blocksByDate (Lernplan) AND timeSessionsByDate (manual time blocks)
   const handleDropTaskToBlock = useCallback((block, droppedItem, source, itemType = 'task') => {
     const lernplanBlocks = (blocksByDate || {})[dateString] || [];
-    const timeBlocks = (timeBlocksByDate || {})[dateString] || [];
+    const timeBlocks = (timeSessionsByDate || {})[dateString] || [];
     let itemsWereAdded = false;
     let targetBlockId = null;
     let targetIsTimeBlock = false;
@@ -969,13 +969,13 @@ const DashboardPage = () => {
         blockTitle: block.title || 'Lernblock',
       });
     }
-  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, scheduleTaskToBlock, scheduleAufgabeToBlock, scheduleThemaToBlock]);
+  }, [dateString, blocksByDate, timeSessionsByDate, updateDayBlocks, updateTimeBlock, scheduleTaskToBlock, scheduleAufgabeToBlock, scheduleThemaToBlock]);
 
   // Handle removing a task from a block (for unscheduling)
   // This removes the task from the block AND marks it as available again in themenliste
   const handleRemoveTaskFromBlock = useCallback((block, task) => {
     const lernplanBlocks = (blocksByDate || {})[dateString] || [];
-    const timeBlocks = (timeBlocksByDate || {})[dateString] || [];
+    const timeBlocks = (timeSessionsByDate || {})[dateString] || [];
 
     // Bug 1b fix: Helper to check if block matches target
     // Enhanced matching to handle all ID formats (timeblock-xxx, UUIDs, contentIds, topicIds)
@@ -1027,13 +1027,13 @@ const DashboardPage = () => {
       // For themenliste tasks, unschedule (they can't be deleted, only unscheduled)
       unscheduleAufgabeFromBlock(task.sourceId);
     }
-  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, removeTask, unscheduleAufgabeFromBlock]);
+  }, [dateString, blocksByDate, timeSessionsByDate, updateDayBlocks, updateTimeBlock, removeTask, unscheduleAufgabeFromBlock]);
 
   // FR1: Handle unscheduling a task from a block (returns it to To-Do list)
   // This removes the task from the block AND marks it as available again
   const handleUnscheduleTaskFromBlock = useCallback((block, task) => {
     const lernplanBlocks = (blocksByDate || {})[dateString] || [];
-    const timeBlocks = (timeBlocksByDate || {})[dateString] || [];
+    const timeBlocks = (timeSessionsByDate || {})[dateString] || [];
 
     // Helper to check if block matches target
     const isBlockMatch = (blk, targetBlock) => {
@@ -1078,7 +1078,7 @@ const DashboardPage = () => {
     } else if (task.source === 'themenliste' && task.sourceId && unscheduleAufgabeFromBlock) {
       unscheduleAufgabeFromBlock(task.sourceId);
     }
-  }, [dateString, blocksByDate, timeBlocksByDate, updateDayBlocks, updateTimeBlock, unscheduleTaskFromBlock, unscheduleAufgabeFromBlock]);
+  }, [dateString, blocksByDate, timeSessionsByDate, updateDayBlocks, updateTimeBlock, unscheduleTaskFromBlock, unscheduleAufgabeFromBlock]);
 
   // Current date as Date object for dialogs
   const currentDateObj = new Date(dateString);

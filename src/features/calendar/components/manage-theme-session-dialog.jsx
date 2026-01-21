@@ -10,7 +10,7 @@ import {
   DialogClose
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
-import { ChevronDownIcon, PlusIcon, TrashIcon, CheckIcon } from '../../../components/ui/icon';
+import { ChevronDownIcon, PlusIcon, TrashIcon, CheckIcon, Repeat2Icon } from '../../../components/ui/icon';
 import { useStudiengang } from '../../../contexts/studiengang-context';
 import { getAllSubjects, getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
 import { validateTimeRange } from '../../../utils/time-validation';
@@ -32,6 +32,7 @@ const ManageThemeBlockDialog = ({
   block,
   onSave,
   onDelete,
+  onDeleteSeries,           // T29-BUG-FIX: Callback to delete entire series
   onUnscheduleTask,         // FR1: Callback to move task back to To-Do list
   availableBlocks = 4,
   // Task sources
@@ -78,6 +79,13 @@ const ManageThemeBlockDialog = ({
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // T29-BUG-FIX: Series action state
+  const [showSeriesChoice, setShowSeriesChoice] = useState(false);
+  const [seriesAction, setSeriesAction] = useState(null); // 'delete'
+
+  // T29-BUG-FIX: Check if block is part of a series
+  const isSeriesBlock = block?.seriesId != null;
+
   // Load block data when dialog opens
   useEffect(() => {
     if (open && block) {
@@ -96,6 +104,9 @@ const ManageThemeBlockDialog = ({
       setSelectedThemeListId(null);
       setIsRepeatTypeOpen(false);
       setShowDeleteConfirm(false);
+      // T29-BUG-FIX: Reset series states
+      setShowSeriesChoice(false);
+      setSeriesAction(null);
       // W5: Load rechtsgebiet from block
       setSelectedRechtsgebiet(block.rechtsgebiet || null);
       setIsRechtsgebietOpen(false);
@@ -323,12 +334,47 @@ const ManageThemeBlockDialog = ({
     onOpenChange(false);
   };
 
-  // Delete handler
-  const handleDelete = () => {
+  // T29-BUG-FIX: Delete handler - shows series choice if applicable
+  const handleDeleteClick = () => {
+    if (isSeriesBlock) {
+      setSeriesAction('delete');
+      setShowSeriesChoice(true);
+    } else {
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  // T29-BUG-FIX: Delete single block
+  const handleDeleteSingle = () => {
     if (onDelete && block) {
       onDelete(date, block.id);
       onOpenChange(false);
     }
+  };
+
+  // T29-BUG-FIX: Delete entire series
+  const handleDeleteEntireSeries = () => {
+    if (onDeleteSeries && block?.seriesId) {
+      onDeleteSeries(block.seriesId);
+      onOpenChange(false);
+    } else if (onDelete && block) {
+      // Fallback to single delete if series delete not available
+      onDelete(date, block.id);
+      onOpenChange(false);
+    }
+  };
+
+  // T29-BUG-FIX: Handle series choice selection
+  const handleSeriesChoice = (choice) => {
+    if (seriesAction === 'delete') {
+      if (choice === 'single') {
+        handleDeleteSingle();
+      } else if (choice === 'series') {
+        handleDeleteEntireSeries();
+      }
+    }
+    setShowSeriesChoice(false);
+    setSeriesAction(null);
   };
 
   // Discard handler
@@ -740,6 +786,26 @@ const ManageThemeBlockDialog = ({
               )}
             </div>
           </div>
+
+          {/* T30: Series indicator with position info */}
+          {isSeriesBlock && (
+            <div className="p-3 bg-violet-50 rounded-lg border border-violet-100">
+              <div className="flex items-center gap-2 mb-1">
+                <Repeat2Icon size={14} className="text-violet-600" />
+                <span className="text-sm font-medium text-violet-800">
+                  Serientermin {block.seriesIndex || '?'} von {block.seriesTotal || '?'}
+                </span>
+              </div>
+              {block.seriesTotal && block.seriesIndex && block.seriesTotal > block.seriesIndex && (
+                <p className="text-xs text-violet-600">
+                  {block.seriesTotal - block.seriesIndex} weitere Termine folgen
+                </p>
+              )}
+              <p className="text-xs text-violet-500 mt-1">
+                Beim Löschen kannst du wählen, ob nur dieser oder alle Termine gelöscht werden sollen.
+              </p>
+            </div>
+          )}
         </DialogBody>
 
         <DialogFooter className="justify-between">
@@ -747,12 +813,38 @@ const ManageThemeBlockDialog = ({
             <Button variant="default" onClick={handleDiscard}>
               Abbrechen
             </Button>
-            {showDeleteConfirm ? (
+            {/* T29-BUG-FIX: Series choice dialog */}
+            {showSeriesChoice ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-neutral-600">
+                  Was möchtest du löschen?
+                </span>
+                <Button
+                  variant="default"
+                  onClick={() => handleSeriesChoice('single')}
+                >
+                  Nur diesen
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => handleSeriesChoice('series')}
+                  className="text-red-600 hover:bg-red-50"
+                >
+                  Gesamte Serie
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => { setShowSeriesChoice(false); setSeriesAction(null); }}
+                >
+                  Abbrechen
+                </Button>
+              </div>
+            ) : showDeleteConfirm ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-red-600">Wirklich löschen?</span>
                 <Button
                   variant="default"
-                  onClick={handleDelete}
+                  onClick={handleDeleteSingle}
                   className="text-red-600 hover:bg-red-50"
                 >
                   Ja, löschen
@@ -767,11 +859,11 @@ const ManageThemeBlockDialog = ({
             ) : (
               <Button
                 variant="default"
-                onClick={() => setShowDeleteConfirm(true)}
+                onClick={handleDeleteClick}
                 className="gap-2 text-red-600 hover:bg-red-50"
               >
                 <TrashIcon size={16} />
-                Löschen
+                {isSeriesBlock ? 'Löschen (Serie)' : 'Löschen'}
               </Button>
             )}
           </div>

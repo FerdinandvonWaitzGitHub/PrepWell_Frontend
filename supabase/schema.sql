@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS calendar_blocks (
   repeat_enabled BOOLEAN DEFAULT FALSE,
   repeat_type TEXT,
   repeat_count INT,
-  series_id UUID,
+  series_id TEXT,  -- T30: Changed from UUID to TEXT (IDs are strings like "private-series-...")
   custom_days JSONB,
   tasks JSONB DEFAULT '[]',
   metadata JSONB DEFAULT '{}',
@@ -219,7 +219,7 @@ CREATE TABLE IF NOT EXISTS custom_unterrechtsgebiete (
   UNIQUE(user_id, name, rechtsgebiet)
 );
 
--- Leistungen (Exams/Grades - Normal Mode)
+-- Leistungen (Exams/Grades - Normal Mode) - DEPRECATED: Use semester_leistungen instead
 CREATE TABLE IF NOT EXISTS leistungen (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -233,6 +233,33 @@ CREATE TABLE IF NOT EXISTS leistungen (
   ects INT,
   semester TEXT,
   status exam_status DEFAULT 'ausstehend',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Semester-Leistungen für Normal Mode (T28 - getrennt von Übungsklausuren)
+CREATE TABLE IF NOT EXISTS semester_leistungen (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  -- Pflichtfelder
+  rechtsgebiet TEXT NOT NULL,
+  titel TEXT NOT NULL,
+
+  -- Optionale Felder
+  beschreibung TEXT,
+  semester TEXT,
+  datum DATE,
+  uhrzeit TEXT,
+  ects INTEGER,
+  note DECIMAL(3,1),
+  noten_system TEXT DEFAULT 'punkte' CHECK (noten_system IN ('punkte', 'noten')),
+  status TEXT DEFAULT 'ausstehend' CHECK (status IN ('angemeldet', 'ausstehend', 'bestanden', 'nicht bestanden')),
+
+  -- Kalender-Integration
+  in_kalender BOOLEAN DEFAULT FALSE,
+
+  -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -266,7 +293,7 @@ CREATE TABLE IF NOT EXISTS private_sessions (
   repeat_enabled BOOLEAN DEFAULT FALSE,
   repeat_type TEXT,
   repeat_count INT,
-  series_id UUID,
+  series_id TEXT,  -- T30: Changed from UUID to TEXT (IDs are strings like "private-series-...")
   custom_days JSONB,
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -317,7 +344,7 @@ CREATE TABLE IF NOT EXISTS time_sessions (
   repeat_enabled BOOLEAN DEFAULT FALSE,
   repeat_type TEXT,
   repeat_count INT,
-  series_id UUID,
+  series_id TEXT,  -- T30: Changed from UUID to TEXT (IDs are strings like "private-series-...")
   custom_days JSONB,
   tasks JSONB DEFAULT '[]',
   metadata JSONB DEFAULT '{}',
@@ -424,6 +451,11 @@ CREATE INDEX IF NOT EXISTS idx_contents_lernplan_id ON contents(lernplan_id);
 -- leistungen
 CREATE INDEX IF NOT EXISTS idx_leistungen_user_id ON leistungen(user_id);
 
+-- semester_leistungen (T28)
+CREATE INDEX IF NOT EXISTS idx_semester_leistungen_user_id ON semester_leistungen(user_id);
+CREATE INDEX IF NOT EXISTS idx_semester_leistungen_datum ON semester_leistungen(datum);
+CREATE INDEX IF NOT EXISTS idx_semester_leistungen_user_datum ON semester_leistungen(user_id, datum);
+
 -- lernplaene
 CREATE INDEX IF NOT EXISTS idx_lernplaene_user_id ON lernplaene(user_id);
 CREATE INDEX IF NOT EXISTS idx_lernplaene_archived ON lernplaene(archived);
@@ -462,6 +494,86 @@ CREATE INDEX IF NOT EXISTS idx_uebungsklausuren_user_id ON uebungsklausuren(user
 CREATE INDEX IF NOT EXISTS idx_user_settings_studiengang ON user_settings(studiengang);
 
 -- ============================================
+-- SCHEMA MIGRATIONS (T17: Column Renames)
+-- ============================================
+
+-- T17: Rename block_date to session_date in private_sessions (if old column exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'private_sessions' AND column_name = 'block_date'
+  ) THEN
+    ALTER TABLE private_sessions RENAME COLUMN block_date TO session_date;
+  END IF;
+END $$;
+
+-- ============================================
+-- SCHEMA MIGRATIONS (T30: Series Info)
+-- ============================================
+
+-- T30: Add series metadata columns to time_sessions
+-- NOTE: series_origin_id is TEXT (not UUID) because session IDs are strings like "timeblock-..."
+ALTER TABLE time_sessions ADD COLUMN IF NOT EXISTS series_index INT;
+ALTER TABLE time_sessions ADD COLUMN IF NOT EXISTS series_total INT;
+ALTER TABLE time_sessions ADD COLUMN IF NOT EXISTS series_origin_id TEXT;
+ALTER TABLE time_sessions ADD COLUMN IF NOT EXISTS repeat_end_mode TEXT;
+ALTER TABLE time_sessions ADD COLUMN IF NOT EXISTS repeat_end_date DATE;
+
+-- T30: Fix column type if it was previously created as UUID
+-- This is safe to run even if column is already TEXT
+DO $$
+BEGIN
+  ALTER TABLE time_sessions ALTER COLUMN series_origin_id TYPE TEXT;
+EXCEPTION
+  WHEN undefined_column THEN NULL;
+  WHEN others THEN NULL;
+END $$;
+
+-- T30: Add series metadata columns to private_sessions
+-- NOTE: series_origin_id is TEXT (not UUID) because session IDs are strings like "private-..."
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS series_index INT;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS series_total INT;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS series_origin_id TEXT;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS repeat_end_mode TEXT;
+ALTER TABLE private_sessions ADD COLUMN IF NOT EXISTS repeat_end_date DATE;
+
+-- T30: Fix column type if it was previously created as UUID
+DO $$
+BEGIN
+  ALTER TABLE private_sessions ALTER COLUMN series_origin_id TYPE TEXT;
+EXCEPTION
+  WHEN undefined_column THEN NULL;
+  WHEN others THEN NULL;
+END $$;
+
+-- T30: Fix series_id column type if it was previously created as UUID
+-- This affects calendar_blocks, private_sessions, and time_sessions
+DO $$
+BEGIN
+  ALTER TABLE calendar_blocks ALTER COLUMN series_id TYPE TEXT;
+EXCEPTION
+  WHEN undefined_column THEN NULL;
+  WHEN others THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE private_sessions ALTER COLUMN series_id TYPE TEXT;
+EXCEPTION
+  WHEN undefined_column THEN NULL;
+  WHEN others THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE time_sessions ALTER COLUMN series_id TYPE TEXT;
+EXCEPTION
+  WHEN undefined_column THEN NULL;
+  WHEN others THEN NULL;
+END $$;
+
+-- ============================================
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================
 
@@ -475,6 +587,7 @@ ALTER TABLE content_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_unterrechtsgebiete ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leistungen ENABLE ROW LEVEL SECURITY;
+ALTER TABLE semester_leistungen ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lernplaene ENABLE ROW LEVEL SECURITY;
 ALTER TABLE logbuch_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private_sessions ENABLE ROW LEVEL SECURITY;
@@ -578,6 +691,16 @@ DROP POLICY IF EXISTS "Users can update own leistungen" ON leistungen;
 CREATE POLICY "Users can update own leistungen" ON leistungen FOR UPDATE USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Users can delete own leistungen" ON leistungen;
 CREATE POLICY "Users can delete own leistungen" ON leistungen FOR DELETE USING (auth.uid() = user_id);
+
+-- Semester Leistungen (T28)
+DROP POLICY IF EXISTS "Users can view own semester_leistungen" ON semester_leistungen;
+CREATE POLICY "Users can view own semester_leistungen" ON semester_leistungen FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create own semester_leistungen" ON semester_leistungen;
+CREATE POLICY "Users can create own semester_leistungen" ON semester_leistungen FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own semester_leistungen" ON semester_leistungen;
+CREATE POLICY "Users can update own semester_leistungen" ON semester_leistungen FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own semester_leistungen" ON semester_leistungen;
+CREATE POLICY "Users can delete own semester_leistungen" ON semester_leistungen FOR DELETE USING (auth.uid() = user_id);
 
 -- Lernplaene
 DROP POLICY IF EXISTS "Users can view own lernplaene" ON lernplaene;
@@ -809,6 +932,10 @@ CREATE TRIGGER update_contents_updated_at BEFORE UPDATE ON contents
 
 DROP TRIGGER IF EXISTS update_leistungen_updated_at ON leistungen;
 CREATE TRIGGER update_leistungen_updated_at BEFORE UPDATE ON leistungen
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS update_semester_leistungen_updated_at ON semester_leistungen;
+CREATE TRIGGER update_semester_leistungen_updated_at BEFORE UPDATE ON semester_leistungen
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 DROP TRIGGER IF EXISTS update_lernplaene_updated_at ON lernplaene;

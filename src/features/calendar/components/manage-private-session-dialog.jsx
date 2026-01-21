@@ -10,7 +10,7 @@ import {
   DialogClose
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
-import { TrashIcon, CheckIcon, ChevronDownIcon } from '../../../components/ui/icon';
+import { TrashIcon, CheckIcon, ChevronDownIcon, Repeat2Icon } from '../../../components/ui/icon';
 import { validateTimeRange } from '../../../utils/time-validation';
 
 // Repeat type options
@@ -491,11 +491,22 @@ const ManagePrivateBlockDialog = ({
               )}
             </div>
 
-            {/* Series indicator */}
+            {/* T30: Series indicator with position info */}
             {isSeriesBlock && (
               <div className="p-3 bg-violet-50 rounded-lg border border-violet-100">
-                <p className="text-sm text-violet-700">
-                  🔄 Dieser Termin ist Teil einer Serie. Beim Löschen kannst du wählen, ob nur dieser Termin oder die gesamte Serie gelöscht werden soll.
+                <div className="flex items-center gap-2 mb-1">
+                  <Repeat2Icon size={14} className="text-violet-600" />
+                  <span className="text-sm font-medium text-violet-800">
+                    Serientermin {block.seriesIndex || '?'} von {block.seriesTotal || '?'}
+                  </span>
+                </div>
+                {block.seriesTotal && block.seriesIndex && block.seriesTotal > block.seriesIndex && (
+                  <p className="text-xs text-violet-600">
+                    {block.seriesTotal - block.seriesIndex} weitere Termine folgen
+                  </p>
+                )}
+                <p className="text-xs text-violet-500 mt-1">
+                  Beim Löschen kannst du wählen, ob nur dieser oder alle Termine gelöscht werden sollen.
                 </p>
               </div>
             )}

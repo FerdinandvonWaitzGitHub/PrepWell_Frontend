@@ -46,11 +46,11 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
   const {
     blocksByDate,
     visibleBlocksByDate, // BUG-010 FIX: Use filtered blocks for display
-    privateBlocksByDate,
+    privateSessionsByDate,
     updateDayBlocks: updateContextDayBlocks,
-    addPrivateBlock,
-    deletePrivateBlock,
-    addTimeBlock, // Bug 2a fix: Also add to time_sessions for week view sync
+    addPrivateSession, // T30: Renamed from addPrivateBlock
+    deletePrivateSession, // T30: Renamed from deletePrivateBlock
+    addTimeSession, // T30: Renamed from addTimeBlock, Bug 2a fix: Also add to time_sessions for week view sync
   } = useCalendar();
 
   // Use context data directly
@@ -62,7 +62,7 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     const dateKey = formatDateKey(date);
 
     // Check if this is a private block
-    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    const dayPrivateBlocks = privateSessionsByDate[dateKey] || [];
     const isPrivateBlock = updatedBlockData.isPrivate || dayPrivateBlocks.some(b => b.id === updatedBlockData.id);
 
     if (isPrivateBlock) {
@@ -154,12 +154,12 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     const dateKey = formatDateKey(date);
 
     // Check if this is a private block
-    const dayPrivateBlocks = privateBlocksByDate[dateKey] || [];
+    const dayPrivateBlocks = privateSessionsByDate[dateKey] || [];
     const isPrivateBlock = isPrivate || dayPrivateBlocks.some(b => b.id === blockId);
 
     if (isPrivateBlock) {
-      // Delete private block
-      deletePrivateBlock(dateKey, blockId);
+      // Delete private session
+      deletePrivateSession(dateKey, blockId);
       return;
     }
 
@@ -234,8 +234,8 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     const firstPosition = positions[0] || 1;
     const defaults = defaultTimes[firstPosition] || defaultTimes[1];
 
-    if (addTimeBlock) {
-      addTimeBlock(dateKey, {
+    if (addTimeSession) {
+      addTimeSession(dateKey, {
         id: sharedBlockId, // Bug 2a fix: Use same ID for linking
         title: blockData.title,
         blockType: blockData.blockType,
@@ -250,10 +250,10 @@ const CalendarView = ({ initialDate = new Date(), className = '' }) => {
     }
   };
 
-  // Add a private block (with repeat support)
+  // Add a private session (with repeat support)
   const handleAddPrivateBlock = (date, blockData) => {
     const dateKey = formatDateKey(date);
-    addPrivateBlock(dateKey, {
+    addPrivateSession(dateKey, {
       ...blockData,
       startTime: blockData.startTime || '09:00',
       endTime: blockData.endTime || '11:00',

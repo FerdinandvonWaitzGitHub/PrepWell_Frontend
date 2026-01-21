@@ -66,10 +66,10 @@ export function useDashboard() {
   const { isActivated: isMentorActivated } = useMentor();
 
   // Get data from CalendarContext (Single Source of Truth)
-  // BUG-023 FIX: Also get timeBlocksByDate for user-created time blocks
+  // BUG-023 FIX: Also get timeSessionsByDate for user-created time blocks
   const {
-    privateBlocksByDate,
-    timeBlocksByDate, // BUG-023 FIX: Time-based blocks for Dashboard
+    privateSessionsByDate,
+    timeSessionsByDate, // BUG-023 FIX: Time-based blocks for Dashboard
     tasksByDate,
     lernplanMetadata,
     hasActiveLernplan,
@@ -110,7 +110,7 @@ export function useDashboard() {
 
   // BUG-023 FIX: Get time blocks for today (user-created in Dashboard/Week)
   const todayTimeBlocks = useMemo(() => {
-    const blocks = (timeBlocksByDate || {})[dateString] || [];
+    const blocks = (timeSessionsByDate || {})[dateString] || [];
     return blocks.map(block => {
       // Calculate startHour and duration from startTime and endTime
       const [startH, startM] = (block.startTime || '09:00').split(':').map(Number);
@@ -138,9 +138,14 @@ export function useDashboard() {
         repeatType: block.repeatType,
         repeatCount: block.repeatCount,
         tasks: block.tasks || [],
+        // T30: Include series metadata for display and deletion
+        seriesId: block.seriesId,
+        seriesIndex: block.seriesIndex,
+        seriesTotal: block.seriesTotal,
+        seriesOriginId: block.seriesOriginId,
       };
     });
-  }, [dateString, timeBlocksByDate]);
+  }, [dateString, timeSessionsByDate]);
 
   // Get sessions for today from CalendarContext (PRD §3.1: Sessions have times)
   // BUG-023 FIX: Combine Lernplan sessions (position-based) with time blocks (time-based)
@@ -174,7 +179,7 @@ export function useDashboard() {
     }));
 
     // BUG-023 FIX: Combine Lernplan sessions with time blocks
-    // Time blocks come from timeBlocksByDate (user-created in Dashboard/Week)
+    // Time blocks come from timeSessionsByDate (user-created in Dashboard/Week)
     return [...lernplanFormatted, ...todayTimeBlocks];
   }, [dateString, getSessionsForDate, todayTimeBlocks]);
 
@@ -185,8 +190,8 @@ export function useDashboard() {
 
   // Get private blocks for today
   const todayPrivateBlocks = useMemo(() => {
-    return (privateBlocksByDate || {})[dateString] || [];
-  }, [dateString, privateBlocksByDate]);
+    return (privateSessionsByDate || {})[dateString] || [];
+  }, [dateString, privateSessionsByDate]);
 
   // Get tasks for today from CalendarContext
   const aufgaben = useMemo(() => {

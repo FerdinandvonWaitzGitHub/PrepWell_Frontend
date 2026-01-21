@@ -1,6 +1,7 @@
 import { Header, SubHeader } from '../components/layout';
-import { LeistungenContent } from '../components/verwaltung';
 import UebungsklausurenContent from '../components/uebungsklausuren/uebungsklausuren-content';
+import { SemesterleistungenContent } from '../components/semesterleistungen';
+import { SemesterLeistungenProvider } from '../contexts/semester-leistungen-context';
 import { useAppMode } from '../contexts/appmode-context';
 
 /**
@@ -9,7 +10,7 @@ import { useAppMode } from '../contexts/appmode-context';
  *
  * Shows different content based on app mode:
  * - Exam Mode: UebungsklausurenContent (practice exams for Staatsexamen)
- * - Normal Mode: LeistungenContent (semester exams/grades)
+ * - Normal Mode: SemesterleistungenContent (T28 - semester performances)
  *
  * Figma: "✅ Verwaltung -> Leistungen" (Node-ID: 2119:851)
  * Status: ✅ Implemented based on Figma design
@@ -30,7 +31,9 @@ const VerwaltungLeistungenPage = () => {
         {isExamMode ? (
           <UebungsklausurenContent className="flex-1 min-h-0" />
         ) : (
-          <LeistungenContent className="flex-1 min-h-0" />
+          <SemesterLeistungenProvider>
+            <SemesterleistungenContent className="flex-1 min-h-0" />
+          </SemesterLeistungenProvider>
         )}
 
         {/* Footer */}

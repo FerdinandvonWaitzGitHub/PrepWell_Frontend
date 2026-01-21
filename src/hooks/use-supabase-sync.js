@@ -38,6 +38,7 @@ const STORAGE_KEYS = {
   subjectSettings: 'prepwell_subject_settings',
   studiengang: 'prepwell_studiengang',
   logbuchEntries: 'prepwell_logbuch_entries',
+  semesterLeistungen: 'prepwell_semester_leistungen',
 };
 
 /**
@@ -701,6 +702,47 @@ export function useExamsSync() {
       semester: row.semester,
       status: row.status,
       createdAt: row.created_at,
+    }),
+  });
+}
+
+/**
+ * Hook for Semester-Leistungen (T28 - Normal Mode)
+ * Completely separate from Übungsklausuren (Exam Mode)
+ */
+export function useSemesterLeistungenSync() {
+  return useSupabaseSync('semester_leistungen', STORAGE_KEYS.semesterLeistungen, [], {
+    orderBy: 'datum',
+    orderDirection: 'desc',
+    transformToSupabase: (leistung) => ({
+      id: leistung.id?.startsWith('local-') ? undefined : leistung.id,
+      rechtsgebiet: leistung.rechtsgebiet,
+      titel: leistung.titel,
+      beschreibung: leistung.beschreibung,
+      semester: leistung.semester,
+      datum: leistung.datum,
+      uhrzeit: leistung.uhrzeit,
+      ects: leistung.ects,
+      note: leistung.note,
+      noten_system: leistung.notenSystem || 'punkte',
+      status: leistung.status || 'ausstehend',
+      in_kalender: leistung.inKalender || false,
+    }),
+    transformFromSupabase: (row) => ({
+      id: row.id,
+      rechtsgebiet: row.rechtsgebiet,
+      titel: row.titel,
+      beschreibung: row.beschreibung,
+      semester: row.semester,
+      datum: row.datum,
+      uhrzeit: row.uhrzeit,
+      ects: row.ects,
+      note: row.note,
+      notenSystem: row.noten_system,
+      status: row.status,
+      inKalender: row.in_kalender,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }),
   });
 }
@@ -1772,6 +1814,12 @@ export function usePrivateSessionsSync() {
         repeatType: row.repeat_type,
         repeatCount: row.repeat_count,
         seriesId: row.series_id,
+        // T30: Series metadata
+        seriesIndex: row.series_index,
+        seriesTotal: row.series_total,
+        seriesOriginId: row.series_origin_id,
+        repeatEndMode: row.repeat_end_mode,
+        repeatEndDate: row.repeat_end_date,
         customDays: row.custom_days,
         blockType: 'private',
         metadata: row.metadata || {},
@@ -1854,6 +1902,12 @@ export function usePrivateSessionsSync() {
                 repeat_type: nullSafe(block.repeatType),
                 repeat_count: nullSafe(block.repeatCount),
                 series_id: nullSafe(block.seriesId),
+                // T30: Series metadata
+                series_index: typeof block.seriesIndex === 'number' ? block.seriesIndex : null,
+                series_total: typeof block.seriesTotal === 'number' ? block.seriesTotal : null,
+                series_origin_id: nullSafe(block.seriesOriginId),
+                repeat_end_mode: nullSafe(block.repeatEndMode),
+                repeat_end_date: nullSafe(block.repeatEndDate),
                 custom_days: nullSafe(block.customDays),
                 metadata: block.metadata || {},
               });
@@ -2088,6 +2142,12 @@ export function useTimeSessionsSync() {
         repeatType: row.repeat_type,
         repeatCount: row.repeat_count,
         seriesId: row.series_id,
+        // T30: Series metadata
+        seriesIndex: row.series_index,
+        seriesTotal: row.series_total,
+        seriesOriginId: row.series_origin_id,
+        repeatEndMode: row.repeat_end_mode,
+        repeatEndDate: row.repeat_end_date,
         customDays: row.custom_days,
         tasks: row.tasks || [],
         metadata: row.metadata || {},
@@ -2175,10 +2235,8 @@ export function useTimeSessionsSync() {
                 blockType = 'lernblock';
               }
 
-              // Validate series_id is UUID or null
-              const seriesId = block.seriesId && typeof block.seriesId === 'string' &&
-                block.seriesId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-                ? block.seriesId : null;
+              // T30: series_id is now TEXT (not UUID), so accept any string
+              const seriesId = block.seriesId || null;
 
               dataToInsert.push({
                 user_id: user.id,
@@ -2194,6 +2252,12 @@ export function useTimeSessionsSync() {
                 repeat_type: block.repeatType || null,
                 repeat_count: typeof block.repeatCount === 'number' ? block.repeatCount : null,
                 series_id: seriesId,
+                // T30: Series metadata
+                series_index: typeof block.seriesIndex === 'number' ? block.seriesIndex : null,
+                series_total: typeof block.seriesTotal === 'number' ? block.seriesTotal : null,
+                series_origin_id: block.seriesOriginId || null,
+                repeat_end_mode: block.repeatEndMode || null,
+                repeat_end_date: block.repeatEndDate || null,
                 custom_days: block.customDays || null,
                 tasks: Array.isArray(block.tasks) ? block.tasks : [],
                 metadata: block.metadata && typeof block.metadata === 'object' ? block.metadata : {},
@@ -2263,10 +2327,8 @@ export function useTimeSessionsSync() {
             blockType = 'lernblock';
           }
 
-          // Validate series_id is UUID or null
-          const seriesId = block.seriesId && typeof block.seriesId === 'string' &&
-            block.seriesId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-            ? block.seriesId : null;
+          // T30: series_id is now TEXT (not UUID), so accept any string
+          const seriesId = block.seriesId || null;
 
           return {
             id: blockId,
@@ -2283,6 +2345,12 @@ export function useTimeSessionsSync() {
             repeat_type: block.repeatType || null,
             repeat_count: typeof block.repeatCount === 'number' ? block.repeatCount : null,
             series_id: seriesId,
+            // T30: Series metadata
+            series_index: typeof block.seriesIndex === 'number' ? block.seriesIndex : null,
+            series_total: typeof block.seriesTotal === 'number' ? block.seriesTotal : null,
+            series_origin_id: block.seriesOriginId || null,
+            repeat_end_mode: block.repeatEndMode || null,
+            repeat_end_date: block.repeatEndDate || null,
             custom_days: block.customDays || null,
             tasks: Array.isArray(block.tasks) ? block.tasks : [],
             metadata: block.metadata && typeof block.metadata === 'object' ? block.metadata : {},
@@ -2346,10 +2414,8 @@ export function useTimeSessionsSync() {
               blockType = 'lernblock';
             }
 
-            // Validate series_id is UUID or null
-            const seriesId = block.seriesId && typeof block.seriesId === 'string' &&
-              block.seriesId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-              ? block.seriesId : null;
+            // T30: series_id is now TEXT (not UUID), so accept any string
+            const seriesId = block.seriesId || null;
 
             return {
               id: blockId,
@@ -2366,6 +2432,12 @@ export function useTimeSessionsSync() {
               repeat_type: block.repeatType || null,
               repeat_count: typeof block.repeatCount === 'number' ? block.repeatCount : null,
               series_id: seriesId,
+              // T30: Series metadata
+              series_index: typeof block.seriesIndex === 'number' ? block.seriesIndex : null,
+              series_total: typeof block.seriesTotal === 'number' ? block.seriesTotal : null,
+              series_origin_id: block.seriesOriginId || null,
+              repeat_end_mode: block.repeatEndMode || null,
+              repeat_end_date: block.repeatEndDate || null,
               custom_days: block.customDays || null,
               tasks: Array.isArray(block.tasks) ? block.tasks : [],
               metadata: block.metadata && typeof block.metadata === 'object' ? block.metadata : {},
