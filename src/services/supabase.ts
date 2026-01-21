@@ -1,6 +1,67 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { safeSessionStorage } from '../utils/safe-storage';
 
+// =============================================================================
+// AUTH DEBUG MODE - Intercept all fetch requests to Supabase auth endpoints
+// This helps identify the source of 400 errors
+// =============================================================================
+const AUTH_DEBUG = true; // Set to false to disable debug logging
+
+if (AUTH_DEBUG && typeof window !== 'undefined') {
+  const originalFetch = window.fetch;
+  window.fetch = async function (...args) {
+    const [input, init] = args;
+    const url = typeof input === 'string' ? input : input instanceof Request ? input.url : '';
+
+    // Only log auth-related requests
+    if (url.includes('/auth/v1/')) {
+      const method = init?.method || 'GET';
+      console.group(`🔐 [AUTH DEBUG] ${method} ${url.split('/auth/v1/')[1] || url}`);
+      console.log('URL:', url);
+      console.log('Method:', method);
+      console.log('Headers:', init?.headers);
+      if (init?.body) {
+        try {
+          // Don't log passwords
+          const body = JSON.parse(init.body as string);
+          if (body.password) body.password = '***HIDDEN***';
+          console.log('Body:', body);
+        } catch {
+          console.log('Body:', '[non-JSON]');
+        }
+      }
+      console.log('Call Stack:', new Error().stack);
+
+      try {
+        const response = await originalFetch.apply(this, args);
+        const clonedResponse = response.clone();
+
+        if (!response.ok) {
+          console.error(`❌ Response Status: ${response.status} ${response.statusText}`);
+          try {
+            const errorBody = await clonedResponse.text();
+            console.error('Error Response Body:', errorBody);
+          } catch {
+            console.error('Could not read error response body');
+          }
+        } else {
+          console.log(`✅ Response Status: ${response.status}`);
+        }
+
+        console.groupEnd();
+        return response;
+      } catch (error) {
+        console.error('❌ Fetch Error:', error);
+        console.groupEnd();
+        throw error;
+      }
+    }
+
+    return originalFetch.apply(this, args);
+  };
+  console.log('🔐 [AUTH DEBUG] Fetch interceptor installed - monitoring all /auth/v1/ requests');
+}
+
 // Try environment variables first, fallback to hardcoded values
 // Note: Anon key is safe to expose - it's meant for public frontend use
 const supabaseUrl =

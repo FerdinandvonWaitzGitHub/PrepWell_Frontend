@@ -316,6 +316,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
 
   // Handle block type selection from AddThemeDialog
   const handleSelectBlockType = (type) => {
+    console.log('[handleSelectBlockType] type:', type, 'selectedDate:', selectedDate, 'selectedTime:', selectedTime, 'selectedEndTime:', selectedEndTime);
     setIsAddDialogOpen(false);
     switch (type) {
       case 'lernblock':
@@ -699,7 +700,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         open={isCreateThemeOpen}
         onOpenChange={setIsCreateThemeOpen}
         date={selectedDate}
-        initialTime={selectedTime}
+        initialStartTime={selectedTime}
         initialEndTime={selectedEndTime}
         onSave={handleAddBlock}
         availableBlocks={4}
@@ -710,7 +711,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         open={isCreateRepetitionOpen}
         onOpenChange={setIsCreateRepetitionOpen}
         date={selectedDate}
-        initialTime={selectedTime}
+        initialStartTime={selectedTime}
         initialEndTime={selectedEndTime}
         onSave={handleAddBlock}
         availableBlocks={4}
@@ -721,7 +722,7 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
         open={isCreateExamOpen}
         onOpenChange={setIsCreateExamOpen}
         date={selectedDate}
-        initialTime={selectedTime}
+        initialStartTime={selectedTime}
         initialEndTime={selectedEndTime}
         onSave={handleAddBlock}
         availableBlocks={4}

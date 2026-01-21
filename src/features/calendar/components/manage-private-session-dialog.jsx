@@ -11,6 +11,7 @@ import {
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
 import { TrashIcon, CheckIcon, ChevronDownIcon } from '../../../components/ui/icon';
+import { validateTimeRange } from '../../../utils/time-validation';
 
 // Repeat type options
 const repeatTypeOptions = [
@@ -66,6 +67,9 @@ const ManagePrivateBlockDialog = ({
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Time validation error
+  const [timeError, setTimeError] = useState(null);
+
   // Series action state
   const [showSeriesChoice, setShowSeriesChoice] = useState(false);
   const [seriesAction, setSeriesAction] = useState(null); // 'delete' or 'edit'
@@ -107,6 +111,23 @@ const ManagePrivateBlockDialog = ({
       setSeriesAction(null);
     }
   }, [open, block, date]);
+
+  // Validate time range when start/end time or date changes
+  useEffect(() => {
+    // Same day: validate time range
+    if (startDate === endDate) {
+      const validation = validateTimeRange(startTime, endTime);
+      setTimeError(validation.valid ? null : validation.error);
+    } else if (startDate && endDate && startDate < endDate) {
+      // Different days, end date is after start date - valid
+      setTimeError(null);
+    } else if (startDate && endDate && startDate > endDate) {
+      // End date is before start date - invalid
+      setTimeError('Das Enddatum muss nach dem Startdatum liegen');
+    } else {
+      setTimeError(null);
+    }
+  }, [startTime, endTime, startDate, endDate]);
 
   // Check if block is part of a series
   const isSeriesBlock = block?.seriesId != null;
@@ -166,11 +187,11 @@ const ManagePrivateBlockDialog = ({
     return startH + startM / 60;
   };
 
-  // Generate time options in 5-minute intervals
+  // Generate time options in 15-minute intervals
   const generateTimeOptions = () => {
     const options = [];
     for (let h = 0; h < 24; h++) {
-      for (let m = 0; m < 60; m += 5) {
+      for (let m = 0; m < 60; m += 15) {
         const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         options.push(time);
       }
@@ -183,6 +204,8 @@ const ManagePrivateBlockDialog = ({
   // Save and close handler
   const handleSaveAndClose = () => {
     if (!date || !onSave) return;
+    // Validate time before saving
+    if (timeError) return;
     onSave(date, {
       ...block,
       id: block?.id || `private-${Date.now()}`,
@@ -325,6 +348,10 @@ const ManagePrivateBlockDialog = ({
                   ))}
                 </select>
               </div>
+              {/* Time validation error */}
+              {timeError && (
+                <p className="text-sm text-red-600">{timeError}</p>
+              )}
             </div>
 
             {/* Beschreibung */}
@@ -551,6 +578,7 @@ const ManagePrivateBlockDialog = ({
           <Button
             variant="primary"
             onClick={handleSaveAndClose}
+            disabled={!!timeError}
             className="rounded-3xl gap-2"
           >
             Fertig

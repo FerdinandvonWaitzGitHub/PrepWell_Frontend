@@ -12,6 +12,7 @@ import {
 import Button from '../../../components/ui/button';
 import { PlusIcon, MinusIcon, TrashIcon, CheckIcon, ChevronDownIcon } from '../../../components/ui/icon';
 import { useUnterrechtsgebiete } from '../../../contexts';
+import { validateTimeRange } from '../../../utils/time-validation';
 
 // Repeat type options
 const repeatTypeOptions = [
@@ -73,6 +74,7 @@ const ManageExamBlockDialog = ({
   // Time settings
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:00');
+  const [timeError, setTimeError] = useState(null);
 
   // Repeat settings
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -114,8 +116,15 @@ const ManageExamBlockDialog = ({
       setShowDeleteConfirm(false);
       setIsCreatingUnterrechtsgebiet(false);
       setNewUnterrechtsgebietName('');
+      setTimeError(null);
     }
   }, [open, block]);
+
+  // Validate time range when start/end time changes
+  useEffect(() => {
+    const validation = validateTimeRange(startTime, endTime);
+    setTimeError(validation.valid ? null : validation.error);
+  }, [startTime, endTime]);
 
   // Toggle custom day
   const toggleCustomDay = (dayId) => {
@@ -235,6 +244,8 @@ const ManageExamBlockDialog = ({
 
   // Check if form is valid for saving
   const isFormValid = () => {
+    // Validate time range
+    if (timeError) return false;
     // If details toggle is off, always valid
     if (!showDetails) return true;
     // If details toggle is on, need rechtsgebiet and unterrechtsgebiet
@@ -264,6 +275,7 @@ const ManageExamBlockDialog = ({
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
+                  step="900"
                   className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
@@ -273,10 +285,14 @@ const ManageExamBlockDialog = ({
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
+                  step="900"
                   className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
             </div>
+            {timeError && (
+              <p className="text-sm text-red-500 mt-1">{timeError}</p>
+            )}
           </div>
 
           {/* Wiederholung */}

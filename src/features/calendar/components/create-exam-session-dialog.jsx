@@ -13,6 +13,7 @@ import Button from '../../../components/ui/button';
 import { PlusIcon, MinusIcon, ChevronDownIcon } from '../../../components/ui/icon';
 import { useUnterrechtsgebiete } from '../../../contexts';
 import { useHierarchyLabels } from '../../../hooks/use-hierarchy-labels';
+import { validateTimeRange } from '../../../utils/time-validation';
 
 // Repeat type options
 const repeatTypeOptions = [
@@ -81,6 +82,7 @@ const CreateExamBlockDialog = ({
   // Time settings
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:00');
+  const [timeError, setTimeError] = useState(null);
 
   // Repeat settings
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -118,8 +120,17 @@ const CreateExamBlockDialog = ({
       setIsRepeatTypeOpen(false);
       setIsCreatingUnterrechtsgebiet(false);
       setNewUnterrechtsgebietName('');
+      setTimeError(null);
     }
   }, [open, initialStartTime, initialEndTime]);
+
+  // Validate time range when start/end time changes (Session mode only)
+  useEffect(() => {
+    if (mode === 'session') {
+      const validation = validateTimeRange(startTime, endTime);
+      setTimeError(validation.valid ? null : validation.error);
+    }
+  }, [startTime, endTime, mode]);
 
   // Toggle custom day
   const toggleCustomDay = (dayId) => {
@@ -235,6 +246,8 @@ const CreateExamBlockDialog = ({
 
   // Check if form is valid for saving
   const isFormValid = () => {
+    // In session mode, validate time range
+    if (mode === 'session' && timeError) return false;
     // If details toggle is off, always valid (simple exam block)
     if (!showDetails) return true;
     // If details toggle is on, need rechtsgebiet and unterrechtsgebiet
@@ -294,6 +307,7 @@ const CreateExamBlockDialog = ({
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
+                    step="900"
                     className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                   />
                 </div>
@@ -303,10 +317,14 @@ const CreateExamBlockDialog = ({
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
+                    step="900"
                     className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                   />
                 </div>
               </div>
+              {timeError && (
+                <p className="text-sm text-red-500 mt-1">{timeError}</p>
+              )}
             </div>
           )}
 

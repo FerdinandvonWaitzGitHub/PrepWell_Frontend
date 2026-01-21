@@ -13,6 +13,7 @@ import Button from '../../../components/ui/button';
 import { ChevronDownIcon, PlusIcon, TrashIcon, CheckIcon } from '../../../components/ui/icon';
 import { useStudiengang } from '../../../contexts/studiengang-context';
 import { getAllSubjects, getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
+import { validateTimeRange } from '../../../utils/time-validation';
 
 /**
  * Manage Theme Block Dialog Component
@@ -53,6 +54,7 @@ const ManageThemeBlockDialog = ({
   // Time settings (always required)
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:00');
+  const [timeError, setTimeError] = useState(null);
 
   // Repeat settings
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -97,8 +99,15 @@ const ManageThemeBlockDialog = ({
       // W5: Load rechtsgebiet from block
       setSelectedRechtsgebiet(block.rechtsgebiet || null);
       setIsRechtsgebietOpen(false);
+      setTimeError(null);
     }
   }, [open, block]);
+
+  // Validate time range when start/end time changes
+  useEffect(() => {
+    const validation = validateTimeRange(startTime, endTime);
+    setTimeError(validation.valid ? null : validation.error);
+  }, [startTime, endTime]);
 
   // Format date for display
   const formatDate = (date) => {
@@ -254,7 +263,10 @@ const ManageThemeBlockDialog = ({
 
   // Check if form is valid
   const isFormValid = () => {
-    return title.trim().length > 0;
+    if (title.trim().length === 0) return false;
+    // Validate time range
+    if (timeError) return false;
+    return true;
   };
 
   // Calculate duration and start hour
@@ -436,6 +448,7 @@ const ManageThemeBlockDialog = ({
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
+                  step="900"
                   className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
@@ -445,10 +458,14 @@ const ManageThemeBlockDialog = ({
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
+                  step="900"
                   className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                 />
               </div>
             </div>
+            {timeError && (
+              <p className="text-sm text-red-500 mt-1">{timeError}</p>
+            )}
           </div>
 
           {/* Wiederholung */}
@@ -758,24 +775,15 @@ const ManageThemeBlockDialog = ({
               </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="default"
-              onClick={handleSave}
-              disabled={!isFormValid()}
-            >
-              Speichern
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSaveAndClose}
-              disabled={!isFormValid()}
-              className="gap-2"
-            >
-              Fertig
-              <CheckIcon size={16} />
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            onClick={handleSaveAndClose}
+            disabled={!isFormValid()}
+            className="gap-2"
+          >
+            Fertig
+            <CheckIcon size={16} />
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

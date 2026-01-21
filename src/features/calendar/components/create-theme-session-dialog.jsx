@@ -13,6 +13,7 @@ import Button from '../../../components/ui/button';
 import { ChevronDownIcon, PlusIcon, TrashIcon } from '../../../components/ui/icon';
 import { useStudiengang } from '../../../contexts/studiengang-context';
 import { getAllSubjects, getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
+import { validateTimeRange } from '../../../utils/time-validation';
 
 /**
  * Create Theme Block Dialog Component
@@ -58,6 +59,7 @@ const CreateThemeBlockDialog = ({
   // Time settings (Session mode - Week/Dashboard)
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:00');
+  const [timeError, setTimeError] = useState(null);
 
   // Block size (Allocation mode - Month view)
   const [blockSize, setBlockSize] = useState(1);
@@ -106,8 +108,17 @@ const CreateThemeBlockDialog = ({
       // W5: Reset rechtsgebiet selection
       setSelectedRechtsgebiet(null);
       setIsRechtsgebietOpen(false);
+      setTimeError(null);
     }
   }, [open, initialStartTime, initialEndTime]);
+
+  // Validate time range when start/end time changes (Session mode only)
+  useEffect(() => {
+    if (mode === 'session') {
+      const validation = validateTimeRange(startTime, endTime);
+      setTimeError(validation.valid ? null : validation.error);
+    }
+  }, [startTime, endTime, mode]);
 
   // Format date for display
   const formatDate = (date) => {
@@ -254,7 +265,10 @@ const CreateThemeBlockDialog = ({
 
   // Check if form is valid
   const isFormValid = () => {
-    return title.trim().length > 0;
+    if (title.trim().length === 0) return false;
+    // In session mode, validate time range
+    if (mode === 'session' && timeError) return false;
+    return true;
   };
 
   // Calculate duration and start hour
@@ -436,6 +450,7 @@ const CreateThemeBlockDialog = ({
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
+                    step="900"
                     className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                   />
                 </div>
@@ -445,10 +460,14 @@ const CreateThemeBlockDialog = ({
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
+                    step="900"
                     className="px-3 py-2.5 bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
                   />
                 </div>
               </div>
+              {timeError && (
+                <p className="text-sm text-red-500 mt-1">{timeError}</p>
+              )}
             </div>
           ) : (
             /* Block mode: Block size selection for Month view */

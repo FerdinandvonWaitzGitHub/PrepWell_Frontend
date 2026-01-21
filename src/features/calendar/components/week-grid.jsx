@@ -530,6 +530,7 @@ const WeekGrid = memo(function WeekGrid({
     setTimeout(() => { dragJustCompletedRef.current = false; }, 0);
 
     if (onTimeRangeSelect) {
+      console.log('[handleDragEnd] date:', date, 'dayIndex:', dayIndex, 'weekDates:', weekDates);
       onTimeRangeSelect(date, finalStart, finalEnd);
     }
   }, [dragState, weekDates, yToTime, hasCollisionForDate, findMaxEndWithoutCollision, onTimeRangeSelect]);

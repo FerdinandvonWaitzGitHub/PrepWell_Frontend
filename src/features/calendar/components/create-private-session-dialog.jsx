@@ -11,6 +11,7 @@ import {
 } from '../../../components/ui/dialog';
 import Button from '../../../components/ui/button';
 import { CheckIcon, ChevronDownIcon } from '../../../components/ui/icon';
+import { validateTimeRange } from '../../../utils/time-validation';
 
 // Repeat type options
 const repeatTypeOptions = [
@@ -57,6 +58,7 @@ const CreatePrivateBlockDialog = ({
   const [startTime, setStartTime] = useState('09:00');
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('10:00');
+  const [timeError, setTimeError] = useState(null);
 
   // Repeat settings
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -70,11 +72,14 @@ const CreatePrivateBlockDialog = ({
 
   // Reset form when dialog opens
   useEffect(() => {
+    console.log('[CreatePrivateDialog useEffect] open:', open, 'date:', date, 'initialTime:', initialTime, 'initialEndTime:', initialEndTime);
     if (open && date) {
+      const formattedDate = formatDateForInput(date);
+      console.log('[CreatePrivateDialog] Setting startDate from:', date, '→ formatted:', formattedDate);
       setAllocationSize(1); // Reset block size for allocation mode
       setTitle('');
       setDescription('');
-      setStartDate(formatDateForInput(date));
+      setStartDate(formattedDate);
       setStartTime(initialTime || '09:00');
       setEndDate(formatDateForInput(date));
       // T4.1: Use initialEndTime if provided, otherwise calculate +1 hour from start
@@ -91,8 +96,28 @@ const CreatePrivateBlockDialog = ({
       setRepeatCount(20);
       setCustomDays([1, 3, 5]);
       setIsRepeatTypeOpen(false);
+      setTimeError(null);
     }
   }, [open, date, initialTime, initialEndTime]);
+
+  // Validate time range when start/end time or date changes (Session mode only)
+  useEffect(() => {
+    if (mode === 'session') {
+      // If same day, endTime must be after startTime
+      if (startDate === endDate) {
+        const validation = validateTimeRange(startTime, endTime);
+        setTimeError(validation.valid ? null : validation.error);
+      } else if (startDate && endDate && startDate < endDate) {
+        // Multi-day event with valid date range
+        setTimeError(null);
+      } else if (startDate && endDate && startDate > endDate) {
+        // Invalid: start date after end date
+        setTimeError('Das Enddatum muss nach dem Startdatum liegen');
+      } else {
+        setTimeError(null);
+      }
+    }
+  }, [startTime, endTime, startDate, endDate, mode]);
 
   // Toggle custom day
   const toggleCustomDay = (dayId) => {
@@ -149,11 +174,11 @@ const CreatePrivateBlockDialog = ({
     return startDate !== endDate;
   };
 
-  // Generate time options in 5-minute intervals
+  // Generate time options in 15-minute intervals
   const generateTimeOptions = () => {
     const options = [];
     for (let h = 0; h < 24; h++) {
-      for (let m = 0; m < 60; m += 5) {
+      for (let m = 0; m < 60; m += 15) {
         const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         options.push(time);
       }
@@ -166,6 +191,8 @@ const CreatePrivateBlockDialog = ({
   // Save handler
   const handleSave = () => {
     if (!date || !onSave) return;
+    // Validate time range in session mode
+    if (mode === 'session' && timeError) return;
 
     const baseData = {
       id: `private-${Date.now()}`,
@@ -318,6 +345,9 @@ const CreatePrivateBlockDialog = ({
                     ))}
                   </select>
                 </div>
+                {timeError && (
+                  <p className="text-sm text-red-500">{timeError}</p>
+                )}
               </div>
             )}
 
@@ -476,6 +506,7 @@ const CreatePrivateBlockDialog = ({
           <Button
             variant="primary"
             onClick={handleSave}
+            disabled={mode === 'session' && !!timeError}
             className="rounded-3xl gap-2"
           >
             Erstellen
