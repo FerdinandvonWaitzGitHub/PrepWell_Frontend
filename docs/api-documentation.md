@@ -1,8 +1,9 @@
 # PrepWell API-Dokumentation
 
 **Erstellt:** 21.01.2026
-**Ticket:** T26
-**Version:** 1.0
+**Aktualisiert:** 21.01.2026
+**Ticket:** T26, T28, T30
+**Version:** 1.1
 
 ---
 
@@ -11,16 +12,17 @@
 1. [Übersicht](#übersicht)
 2. [Authentifizierung (Auth)](#1-authentifizierung-auth)
 3. [Kalender (Calendar)](#2-kalender-calendar)
-4. [Sessions](#3-sessions)
+4. [Sessions](#3-sessions) *(+T30 Series-Info)*
 5. [Timer](#4-timer)
 6. [Content Plans / Themenlisten](#5-content-plans--themenlisten)
-7. [Exams / Leistungen](#6-exams--leistungen)
+7. [Exams / Leistungen](#6-exams--leistungen) *(T28 Semester-Leistungen)*
 8. [Check-In](#7-check-in)
 9. [Logbuch](#8-logbuch)
 10. [Settings](#9-settings)
 11. [Archiv](#10-archiv)
 12. [Row Level Security (RLS)](#11-row-level-security-rls-policies)
 13. [Rate Limiting & Quotas](#12-rate-limiting--quotas)
+14. [Changelog](#changelog)
 
 ---
 
@@ -422,20 +424,38 @@ supabase
 |------|------|
 | **Tabelle** | `private_sessions` |
 | **LocalStorage Key** | `prepwell_private_sessions` |
-| **Zweck** | Wochenansicht - Private Zeitblöcke (Freizeit, Termine) |
+| **Zweck** | Wochenansicht - Private Zeitblöcke (Freizeit, Termine, Reminder) |
 
 **Schema:**
 | Spalte | Typ | Beschreibung |
 |--------|-----|--------------|
 | id | uuid | Primary Key |
 | user_id | uuid | Foreign Key |
+| session_date | date | Datum |
+| end_date | date | Enddatum (bei mehrtägigen) |
 | title | text | Titel |
-| start_at | timestamp | Startzeit |
-| end_at | timestamp | Endzeit |
-| kind | text | 'privat' |
-| is_recurring | boolean | Wiederkehrend? |
-| recurrence_rule | jsonb | Wiederholungsregel |
+| description | text | Beschreibung |
+| start_time | time | Startzeit |
+| end_time | time | Endzeit |
+| all_day | boolean | Ganztägig? (Default: false) |
+| is_multi_day | boolean | Mehrtägig? (Default: false) |
+| repeat_enabled | boolean | Wiederholung aktiv? |
+| repeat_type | text | Wiederholungstyp |
+| repeat_count | int | Anzahl Wiederholungen |
+| series_id | text | Serien-ID (T30) |
+| custom_days | jsonb | Benutzerdefinierte Tage |
+| metadata | jsonb | Zusätzliche Metadaten |
 | created_at | timestamp | Erstellungsdatum |
+| updated_at | timestamp | Letzte Änderung |
+
+**T30: Serien-Informationen (Zusätzliche Spalten):**
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| series_index | int | Position in der Serie (1, 2, 3, ...) |
+| series_total | int | Gesamtzahl der Einträge in der Serie |
+| series_origin_id | text | ID des Original-Eintrags |
+| repeat_end_mode | text | 'count' \| 'date' \| 'never' |
+| repeat_end_date | date | Enddatum bei repeat_end_mode='date' |
 
 **Operationen:**
 
@@ -479,15 +499,53 @@ supabase
 |--------|-----|--------------|
 | id | uuid | Primary Key |
 | user_id | uuid | Foreign Key |
+| session_date | date | Datum |
 | title | text | Titel |
-| start_at | timestamp | Startzeit |
-| end_at | timestamp | Endzeit |
-| kind | text | 'thema' \| 'wiederholung' \| 'klausur' |
+| description | text | Beschreibung |
+| block_type | text | 'lernblock' \| 'repetition' \| 'exam' \| 'private' |
+| start_time | time | Startzeit (Pflicht) |
+| end_time | time | Endzeit (Pflicht) |
 | rechtsgebiet | text | Rechtsgebiet-ID |
-| content_id | text | Referenz zu Content |
+| unterrechtsgebiet | text | Unterrechtsgebiet |
+| repeat_enabled | boolean | Wiederholung aktiv? |
+| repeat_type | text | Wiederholungstyp |
+| repeat_count | int | Anzahl Wiederholungen |
+| series_id | text | Serien-ID (T30) |
+| custom_days | jsonb | Benutzerdefinierte Tage |
+| tasks | jsonb | Aufgaben (Default: []) |
+| metadata | jsonb | Zusätzliche Metadaten |
 | created_at | timestamp | Erstellungsdatum |
+| updated_at | timestamp | Letzte Änderung |
 
-**Operationen:** Analog zu Private Sessions (SELECT, INSERT, DELETE)
+**T30: Serien-Informationen (Zusätzliche Spalten):**
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| series_index | int | Position in der Serie (1, 2, 3, ...) |
+| series_total | int | Gesamtzahl der Einträge in der Serie |
+| series_origin_id | text | ID des Original-Eintrags |
+| repeat_end_mode | text | 'count' \| 'date' \| 'never' |
+| repeat_end_date | date | Enddatum bei repeat_end_mode='date' |
+
+**Transform App → Supabase (mit Series-Info):**
+```javascript
+transformToSupabase: (session) => ({
+  session_date: session.date,
+  title: session.title,
+  start_time: session.startTime,
+  end_time: session.endTime,
+  block_type: session.blockType,
+  rechtsgebiet: session.rechtsgebiet,
+  // T30: Series info
+  series_id: session.seriesId,
+  series_index: session.seriesIndex,
+  series_total: session.seriesTotal,
+  series_origin_id: session.seriesOriginId,
+  repeat_end_mode: session.repeatEndMode,
+  repeat_end_date: session.repeatEndDate,
+})
+```
+
+**Operationen:** Analog zu Private Sessions (SELECT, INSERT, UPDATE, DELETE)
 
 ---
 
@@ -648,35 +706,149 @@ supabase
 
 ## 6. Exams / Leistungen
 
-### 6.1 Leistungen (Exams)
+### 6.1 Semester-Leistungen (Normal Mode) - T28
 
-**Hook:** `useExamsSync()`
+**Hook:** `useSemesterLeistungenSync()`
+**Context:** `SemesterLeistungenProvider`
+**Datei:** `src/contexts/semester-leistungen-context.jsx`
+
+| Feld | Wert |
+|------|------|
+| **Tabelle** | `semester_leistungen` |
+| **LocalStorage Key** | `prepwell_semester_leistungen` |
+| **Zweck** | Universitäre Prüfungen im Normal Mode (Klausuren, Hausarbeiten) |
+| **Seite** | Verwaltung > Leistungen (Normal Mode) |
+
+**Schema:**
+| Spalte | Typ | Pflicht | Beschreibung |
+|--------|-----|---------|--------------|
+| id | uuid | Ja | Primary Key |
+| user_id | uuid | Ja | Foreign Key → auth.users |
+| rechtsgebiet | text | Ja | Rechtsgebiet/Fach-ID |
+| titel | text | Ja | Titel der Leistung |
+| beschreibung | text | Nein | Beschreibung |
+| semester | text | Nein | Semester (z.B. "WiSe 2025/26") |
+| datum | date | Nein | Prüfungsdatum |
+| uhrzeit | text | Nein | Prüfungszeit (HH:MM Format) |
+| ects | int | Nein | ECTS-Punkte |
+| note | decimal(3,1) | Nein | Note (0-18 Punkte oder 1.0-5.0) |
+| noten_system | text | Nein | 'punkte' \| 'noten' (Default: 'punkte') |
+| status | text | Nein | 'angemeldet' \| 'ausstehend' \| 'bestanden' \| 'nicht bestanden' |
+| in_kalender | boolean | Nein | Kalender-Integration aktiv? (Default: false) |
+| created_at | timestamp | Ja | Erstellungsdatum |
+| updated_at | timestamp | Ja | Auto-Update via Trigger |
+
+**Status-Optionen:**
+```javascript
+const STATUS_OPTIONEN = ['angemeldet', 'ausstehend', 'bestanden', 'nicht bestanden'];
+```
+
+**Semester-Generierung:**
+```javascript
+// Dynamisch: Aktuelles + 6 vergangene Semester
+getSemesterOptions() // → ['WiSe 2025/26', 'SoSe 2025', 'WiSe 2024/25', ...]
+```
+
+**Noten-Konvertierung:**
+```javascript
+// Punkte (0-18) ↔ Noten (1.0-5.0)
+convertNote(15, 'punkte', 'noten') // → 1.5
+convertNote(2.0, 'noten', 'punkte') // → 13
+```
+
+**Operationen:**
+
+**SELECT (Laden):**
+```javascript
+supabase
+  .from('semester_leistungen')
+  .select('*')
+  .order('created_at', { ascending: false })
+```
+
+**INSERT (Neue Leistung):**
+```javascript
+supabase
+  .from('semester_leistungen')
+  .insert({
+    user_id: user.id,
+    rechtsgebiet: 'zivilrecht',
+    titel: 'BGB AT Klausur',
+    beschreibung: 'Semesterabschlussklausur',
+    semester: 'WiSe 2025/26',
+    datum: '2026-02-15',
+    uhrzeit: '09:00',
+    ects: 6,
+    note: 12,
+    noten_system: 'punkte',
+    status: 'ausstehend',
+    in_kalender: true,
+  })
+```
+
+**UPDATE:**
+```javascript
+supabase
+  .from('semester_leistungen')
+  .update({
+    note: 14,
+    status: 'bestanden',
+    updated_at: new Date().toISOString(),
+  })
+  .eq('id', leistungId)
+```
+
+**DELETE:**
+```javascript
+supabase
+  .from('semester_leistungen')
+  .delete()
+  .eq('id', leistungId)
+```
+
+**Statistik-Berechnung (Context):**
+```javascript
+const stats = {
+  totalCount: number,           // Anzahl bewerteter Einträge
+  totalEcts: number,            // ECTS-Summe
+  gesamtdurchschnitt: number,   // Gewichteter Durchschnitt (alle)
+  rechtsgebietStats: {          // Pro Rechtsgebiet
+    [rechtsgebiet]: {
+      count: number,
+      ects: number,
+      durchschnitt: number,
+      percentage: number,
+    }
+  },
+  semesterStats: {},            // Pro Semester (sortiert newest first)
+  bestandenCount: number,
+  nichtBestandenCount: number,
+  ausstehendCount: number,
+};
+```
+
+**Kalender-Integration (T29):**
+Wenn `in_kalender: true`:
+1. Erstellt `calendar_blocks` Eintrag (Monatsansicht) mit `kind='klausur'`, `size=2`
+2. Erstellt `time_sessions` Eintrag (Wochenansicht) wenn `uhrzeit` angegeben
+3. Erstellt Reminder-`private_sessions` (3 Wochen vor Prüfung) für Anmeldung
+
+---
+
+### 6.2 Leistungen (DEPRECATED)
+
+> ⚠️ **DEPRECATED:** Diese Tabelle wird durch `semester_leistungen` ersetzt.
+> Neue Implementierungen sollten ausschließlich `semester_leistungen` verwenden.
 
 | Feld | Wert |
 |------|------|
 | **Tabelle** | `leistungen` |
 | **LocalStorage Key** | `prepwell_exams` |
-| **Zweck** | Universitäre Prüfungen/Leistungen |
-
-**Schema:**
-| Spalte | Typ | Beschreibung |
-|--------|-----|--------------|
-| id | uuid | Primary Key |
-| user_id | uuid | Foreign Key |
-| subject | text | Fach |
-| title | text | Titel |
-| description | text | Beschreibung |
-| exam_date | date | Prüfungsdatum |
-| exam_time | time | Prüfungszeit |
-| grade | numeric | Note |
-| grade_system | text | 'punkte' \| 'noten' |
-| ects | int | ECTS-Punkte |
-| semester | text | Semester |
-| status | text | 'ausstehend' \| 'bestanden' \| 'nicht_bestanden' |
+| **Status** | Deprecated |
 
 ---
 
-### 6.2 Übungsklausuren
+### 6.3 Übungsklausuren (Exam Mode)
 
 **Hook:** `useUebungsklausurenSync()`
 
@@ -977,14 +1149,15 @@ supabase
 
 | Key | Beschreibung |
 |-----|--------------|
-| `prepwell_calendar_blocks` | Kalender-Blöcke |
+| `prepwell_calendar_blocks` | Kalender-Blöcke (Monatsansicht) |
 | `prepwell_tasks` | Kalender-Aufgaben |
-| `prepwell_private_sessions` | Private Sessions |
-| `prepwell_time_sessions` | Zeit-Sessions |
-| `prepwell_content_plans` | Content Plans |
+| `prepwell_private_sessions` | Private Sessions (Wochenansicht) |
+| `prepwell_time_sessions` | Zeit-Sessions (Wochenansicht) |
+| `prepwell_content_plans` | Content Plans / Themenlisten |
 | `prepwell_published_themenlisten` | Published Themenlisten |
-| `prepwell_exams` | Leistungen |
-| `prepwell_uebungsklausuren` | Übungsklausuren |
+| `prepwell_semester_leistungen` | Semester-Leistungen (T28, Normal Mode) |
+| `prepwell_exams` | Leistungen (DEPRECATED) |
+| `prepwell_uebungsklausuren` | Übungsklausuren (Exam Mode) |
 | `prepwell_checkin_responses` | Check-In Responses |
 | `prepwell_timer_history` | Timer History |
 | `prepwell_timer_config` | Timer Config |
@@ -993,6 +1166,8 @@ supabase
 | `prepwell_archived_lernplaene` | Archived Lernpläne |
 | `prepwell_lernplan_metadata` | Lernplan Metadata |
 | `prepwell_custom_unterrechtsgebiete` | Custom Unterrechtsgebiete |
+| `prepwell_logbuch_entries` | Logbuch Einträge |
+| `prepwell_studiengang` | Studiengang (für Dynamic Labels) |
 | `prepwell-auth` | Auth Session (sessionStorage) |
 
 ---
@@ -1025,13 +1200,14 @@ WITH CHECK (auth.uid() = user_id)
 | `content_plans` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | |
 | `contents` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | |
 | `custom_unterrechtsgebiete` | ✅ Own | ✅ Own | ❌ | ✅ Own | Kein Update erlaubt |
-| `leistungen` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | |
+| `leistungen` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | DEPRECATED |
 | `lernplaene` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | |
 | `logbuch_entries` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | |
-| `private_sessions` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | |
+| `private_sessions` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | +T30 Series-Info |
 | `profiles` | ✅ Own | ❌ | ✅ Own | ❌ | Nur lesen/updaten, PK = auth.uid |
 | `published_themenlisten` | ✅ **All** | ✅ Own | ❌ | ✅ Own | **Öffentlich lesbar!** |
-| `time_sessions` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | |
+| `semester_leistungen` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | T28 Normal Mode |
+| `time_sessions` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | +T30 Series-Info |
 | `timer_sessions` | ✅ Own | ✅ Own | ❌ | ❌ | Nur lesen/erstellen |
 | `uebungsklausuren` | ✅ Own | ✅ Own | ✅ Own | ✅ Own | |
 | `user_settings` | ✅ Own | ✅ Own | ✅ Own | ❌ | Kein Delete erlaubt |
@@ -1136,4 +1312,26 @@ Supabase Dashboard zeigt:
 ## Offene Punkte / TODOs
 
 - [x] ~~Logbuch-Tabelle dokumentieren~~ ✅ Erledigt (Abschnitt 8)
+- [x] ~~Semester-Leistungen dokumentieren (T28)~~ ✅ Erledigt (Abschnitt 6.1)
+- [x] ~~Series-Info für Sessions dokumentieren (T30)~~ ✅ Erledigt (Abschnitt 3.1, 3.2)
 - [ ] Realtime Subscriptions (falls zukünftig verwendet)
+
+---
+
+## Changelog
+
+### Version 1.1 (21.01.2026)
+
+**Neue Features:**
+- **T28:** Neue `semester_leistungen` Tabelle für Normal Mode hinzugefügt (Abschnitt 6.1)
+- **T30:** Series-Informationen (`series_index`, `series_total`, `series_origin_id`, etc.) für `private_sessions` und `time_sessions` dokumentiert
+- **T29:** Kalender-Integration für Semester-Leistungen beschrieben
+
+**Änderungen:**
+- Abschnitt 6 komplett überarbeitet: `semester_leistungen` als primäre Tabelle, `leistungen` als DEPRECATED markiert
+- Session-Schemas (3.1, 3.2) mit korrekten Spaltennamen aktualisiert (`session_date`, `start_time`, `end_time`)
+- LocalStorage Keys um `prepwell_semester_leistungen`, `prepwell_logbuch_entries`, `prepwell_studiengang` erweitert
+- RLS Policies Tabelle um `semester_leistungen` erweitert
+
+### Version 1.0 (21.01.2026)
+- Initiale API-Dokumentation erstellt
