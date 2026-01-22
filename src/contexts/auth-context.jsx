@@ -5,23 +5,30 @@ const AuthContext = createContext(null);
 
 // BUG-021 FIX: All localStorage keys used by PrepWell that contain user data
 // Must match all keys in use-supabase-sync.js STORAGE_KEYS plus other app keys
+// T31 FIX: Added missing keys that were causing cross-user data leakage
 const ALL_PREPWELL_STORAGE_KEYS = [
-  // Calendar & Content
-  'prepwell_calendar_slots',
-  'prepwell_calendar_tasks',
+  // Calendar & Content - ACTIVE KEYS (from use-supabase-sync.js STORAGE_KEYS)
+  'prepwell_calendar_blocks',      // T31: Was missing - CRITICAL for Monatsansicht
+  'prepwell_private_sessions',     // T31: Was missing - CRITICAL for Wochenansicht
+  'prepwell_time_sessions',        // T31: Was missing - CRITICAL for Wochenansicht
   'prepwell_tasks',
-  'prepwell_private_blocks',
   'prepwell_content_plans',
   'prepwell_contents',
   'prepwell_published_themenlisten',
-  'prepwell_theme_lists',
+  // Calendar & Content - LEGACY KEYS (for backwards compatibility cleanup)
+  'prepwell_calendar_slots',       // Legacy: renamed to prepwell_calendar_blocks
+  'prepwell_calendar_tasks',       // Legacy: renamed to prepwell_tasks
+  'prepwell_private_blocks',       // Legacy: renamed to prepwell_private_sessions
+  'prepwell_theme_lists',          // Legacy
+  'prepwell_time_blocks',          // T31: Legacy key from migration
   // Lernplan
   'prepwell_lernplan_metadata',
   'prepwell_archived_lernplaene',
   'prepwell_lernplan_wizard_draft',
-  // Exams
+  // Exams & Leistungen
   'prepwell_exams',
   'prepwell_uebungsklausuren',
+  'prepwell_semester_leistungen',  // T31: Was missing
   // Timer
   'prepwell_timer_state',
   'prepwell_timer_history',
@@ -39,6 +46,11 @@ const ALL_PREPWELL_STORAGE_KEYS = [
   'prepwell_custom_subjects',
   'prepwell_custom_unterrechtsgebiete',
   'prepwell_mentor_activated',
+  'prepwell_subject_settings',     // T31: Was missing
+  'prepwell_studiengang',          // T31: Was missing
+  'prepwell_kapitel_ebene',        // T31: Was missing - Studiengang setting
+  // Editor Drafts
+  'prepwell_themenliste_draft',    // T31: Was missing - Themenliste-Editor drafts
   // Mentor
   'prepwell_mentor_selected_sidebar_stats',
   'prepwell_mentor_selected_charts',

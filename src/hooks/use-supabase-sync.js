@@ -193,18 +193,23 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
   const [error, setError] = useState(null);
   const syncedRef = useRef(false);
   const userIdRef = useRef(null);
+  // T31 FIX: Store defaultValue in ref to avoid infinite loop in useEffect
+  const defaultValueRef = useRef(defaultValue);
 
   // Reset syncedRef when user changes (logout/login)
   // Fix: Explicitly handle logout to null
+  // T31 FIX: Also clear in-memory state immediately to prevent UI flash of old data
   useEffect(() => {
     if (user?.id === undefined || user?.id === null) {
       syncedRef.current = false;
       userIdRef.current = null;
+      setData(defaultValueRef.current); // T31: Clear state on logout
     } else if (user?.id !== userIdRef.current) {
       syncedRef.current = false;
       userIdRef.current = user?.id;
+      setData(defaultValueRef.current); // T31: Clear state on user change to prevent UI flash
     }
-  }, [user?.id]);
+  }, [user?.id]); // T31 FIX: Remove defaultValue from deps, use ref instead
 
   const {
     orderBy = 'created_at',
@@ -227,7 +232,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
 
   // Fetch data from Supabase
   const fetchFromSupabase = useCallback(async () => {
-    if (!enabled || !isSupabaseEnabled || !isAuthenticated || !supabase) {
+    if (!enabled || !isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return null;
     }
 
@@ -235,6 +240,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       let query = supabase
         .from(tableName)
         .select('*')
+        .eq('user_id', user.id)  // T31 FIX: Always filter by user_id (defense-in-depth)
         .order(orderBy, { ascending: orderDirection === 'asc' });
 
       // Apply limit if specified (prevents timeout on large tables)
@@ -250,7 +256,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       console.error(`Error fetching from ${tableName}:`, err);
       return null;
     }
-  }, [enabled, isSupabaseEnabled, isAuthenticated, tableName, orderBy, orderDirection, limit]);
+  }, [enabled, isSupabaseEnabled, isAuthenticated, user?.id, tableName, orderBy, orderDirection, limit]);
 
   // Sync LocalStorage data to Supabase (on first login)
   const syncToSupabase = useCallback(async (localData) => {
@@ -259,10 +265,21 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     }
 
     try {
+      // T31 FIX: Check if LocalStorage data belongs to a different user
+      // This prevents migrating another user's data into the current user's Supabase
+      const lastSyncedUserId = localStorage.getItem('prepwell_last_user_id');
+      if (lastSyncedUserId && lastSyncedUserId !== user.id) {
+        console.warn(`[T31] LocalStorage contains data from different user (${lastSyncedUserId}), skipping migration for ${tableName}`);
+        // Clear the local storage for this table to prevent future issues
+        localStorage.removeItem(storageKey);
+        return;
+      }
+
       // Check if user already has data in Supabase
       const { data: existingData } = await supabase
         .from(tableName)
         .select('id')
+        .eq('user_id', user.id)  // T31 FIX: Filter by user_id
         .limit(1);
 
       if (existingData && existingData.length > 0) {
@@ -285,12 +302,14 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
           console.error(`Error syncing to ${tableName}:`, insertError);
         } else {
           console.log(`Synced ${dataToInsert.length} items to ${tableName}`);
+          // T31 FIX: Update last_user_id after successful sync
+          localStorage.setItem('prepwell_last_user_id', user.id);
         }
       }
     } catch (err) {
       console.error(`Error in syncToSupabase for ${tableName}:`, err);
     }
-  }, [enabled, isSupabaseEnabled, isAuthenticated, user, tableName]);
+  }, [enabled, isSupabaseEnabled, isAuthenticated, user, tableName, storageKey]);
 
   // Initial load and sync
   useEffect(() => {
@@ -544,14 +563,17 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
     setData(updatedData);
     saveToStorage(storageKey, updatedData);
 
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
+    // T31 FIX: Check user.id before Supabase operation
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return { success: true, source: 'localStorage' };
     }
 
     try {
+      // T31 FIX: Add user_id filter to DELETE query for defense-in-depth
       const { error: deleteError } = await supabase
         .from(tableName)
         .delete()
+        .eq('user_id', user.id)
         .eq('id', itemId);
 
       if (deleteError) throw deleteError;
@@ -560,7 +582,7 @@ export function useSupabaseSync(tableName, storageKey, defaultValue = [], option
       console.error(`Error deleting from ${tableName}:`, err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [data, isSupabaseEnabled, isAuthenticated, tableName, storageKey, defaultValue]);
+  }, [data, isSupabaseEnabled, isAuthenticated, user?.id, tableName, storageKey, defaultValue]);
 
   // Refresh data from Supabase
   const refresh = useCallback(async () => {
@@ -1185,10 +1207,18 @@ export function useCalendarBlocksSync() {
   const userIdRef = useRef(null);
 
   // Reset syncedRef when user changes (logout/login)
+  // T31 FIX: Also clear in-memory state immediately to prevent UI flash of old data
   useEffect(() => {
     if (user?.id !== userIdRef.current) {
       syncedRef.current = false;
       userIdRef.current = user?.id || null;
+      // T31: Clear state immediately on user change
+      if (user?.id === null || user?.id === undefined) {
+        setBlocksByDate({});
+      } else if (userIdRef.current !== null) {
+        // Different user logged in - clear old data
+        setBlocksByDate({});
+      }
     }
   }, [user?.id]);
 
@@ -1291,7 +1321,7 @@ export function useCalendarBlocksSync() {
 
   // Fetch from Supabase
   const fetchFromSupabase = useCallback(async () => {
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return null;
     }
 
@@ -1299,6 +1329,7 @@ export function useCalendarBlocksSync() {
       const { data, error } = await supabase
         .from('calendar_blocks')
         .select('*')
+        .eq('user_id', user.id)  // T31 FIX: Always filter by user_id
         .order('block_date', { ascending: true });
 
       if (error) throw error;
@@ -1307,21 +1338,32 @@ export function useCalendarBlocksSync() {
       console.error('Error fetching calendar blocks:', err);
       return null;
     }
-  }, [isSupabaseEnabled, isAuthenticated, user, transformFromSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id, transformFromSupabase]);
 
   // Initial sync on login
   useEffect(() => {
     const initSync = async () => {
-      if (!isSupabaseEnabled || !isAuthenticated || syncedRef.current) {
+      if (!isSupabaseEnabled || !isAuthenticated || !user?.id || syncedRef.current) {
         return;
       }
 
       setLoading(true);
       try {
+        // T31 FIX: Check if LocalStorage data belongs to a different user
+        const lastSyncedUserId = localStorage.getItem('prepwell_last_user_id');
+        const isLocalDataFromDifferentUser = lastSyncedUserId && lastSyncedUserId !== user.id;
+
+        if (isLocalDataFromDifferentUser) {
+          console.warn('[T31] calendar_blocks: LocalStorage contains data from different user, clearing...');
+          localStorage.removeItem(STORAGE_KEYS.blocks);
+          setBlocksByDate({});
+        }
+
         // Check if user has Supabase data
         const { data: existingData } = await supabase
           .from('calendar_blocks')
           .select('id')
+          .eq('user_id', user.id)  // T31 FIX: Filter by user_id
           .limit(1);
 
         if (existingData && existingData.length > 0) {
@@ -1333,8 +1375,8 @@ export function useCalendarBlocksSync() {
             setBlocksByDate(cleanedSupabaseData);
             saveToStorage(STORAGE_KEYS.blocks, cleanedSupabaseData);
           }
-        } else {
-          // No Supabase data - migrate from localStorage
+        } else if (!isLocalDataFromDifferentUser) {
+          // No Supabase data AND local data is from same user - migrate from localStorage
           const localData = loadFromStorage(STORAGE_KEYS.blocks, {});
           if (Object.keys(localData).length > 0) {
             const dataToInsert = transformToSupabase(localData, user.id);
@@ -1356,6 +1398,8 @@ export function useCalendarBlocksSync() {
           }
         }
 
+        // T31 FIX: Update last_user_id after successful sync
+        localStorage.setItem('prepwell_last_user_id', user.id);
         syncedRef.current = true;
       } catch (err) {
         console.error('Error syncing calendar blocks:', err);
@@ -1365,7 +1409,7 @@ export function useCalendarBlocksSync() {
     };
 
     initSync();
-  }, [isSupabaseEnabled, isAuthenticated, user, fetchFromSupabase, transformToSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id, fetchFromSupabase, transformToSupabase]);
 
   // Save blocks for a specific date
   const saveDayBlocks = useCallback(async (dateKey, blocks) => {
@@ -1382,9 +1426,11 @@ export function useCalendarBlocksSync() {
 
     try {
       // Delete existing blocks for this date, then insert new ones
+      // T31 FIX: Also filter by user_id for defense-in-depth
       await supabase
         .from('calendar_blocks')
         .delete()
+        .eq('user_id', user.id)
         .eq('block_date', dateKey);
 
       if (blocks.length > 0) {
@@ -1463,10 +1509,12 @@ export function useCalendarBlocksSync() {
 
     try {
       // Delete all existing blocks
+      // T31 FIX: Also filter by user_id for defense-in-depth
       await supabase
         .from('calendar_blocks')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+        .eq('user_id', user.id)
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all for this user
 
       // Insert new blocks (use upsert for safety)
       const dataToInsert = transformToSupabase(newBlocksByDate, user.id);
@@ -1500,14 +1548,16 @@ export function useCalendarBlocksSync() {
     setBlocksByDate({});
     saveToStorage(STORAGE_KEYS.blocks, {});
 
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return { success: true, source: 'localStorage' };
     }
 
     try {
+      // T31 FIX: Also filter by user_id for defense-in-depth
       await supabase
         .from('calendar_blocks')
         .delete()
+        .eq('user_id', user.id)
         .neq('id', '00000000-0000-0000-0000-000000000000');
 
       return { success: true, source: 'supabase' };
@@ -1515,7 +1565,7 @@ export function useCalendarBlocksSync() {
       console.error('Error clearing calendar blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [isSupabaseEnabled, isAuthenticated]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   return {
     blocksByDate,
@@ -1542,10 +1592,16 @@ export function useCalendarTasksSync() {
   const userIdRef = useRef(null);
 
   // Reset syncedRef when user changes (logout/login)
+  // T31 FIX: Also clear in-memory state immediately to prevent UI flash of old data
   useEffect(() => {
     if (user?.id !== userIdRef.current) {
       syncedRef.current = false;
+      const previousUserId = userIdRef.current;
       userIdRef.current = user?.id || null;
+      // T31: Clear state immediately on user change
+      if (previousUserId !== null && user?.id !== previousUserId) {
+        setTasksByDate({});
+      }
     }
   }, [user?.id]);
 
@@ -1583,7 +1639,7 @@ export function useCalendarTasksSync() {
 
   // Fetch from Supabase
   const fetchFromSupabase = useCallback(async () => {
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return null;
     }
 
@@ -1591,6 +1647,7 @@ export function useCalendarTasksSync() {
       const { data, error } = await supabase
         .from('calendar_tasks')
         .select('*')
+        .eq('user_id', user.id)  // T31 FIX: Always filter by user_id
         .order('task_date', { ascending: true });
 
       if (error) throw error;
@@ -1599,20 +1656,31 @@ export function useCalendarTasksSync() {
       console.error('Error fetching calendar tasks:', err);
       return null;
     }
-  }, [isSupabaseEnabled, isAuthenticated, user, transformFromSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id, transformFromSupabase]);
 
   // Initial sync on login
   useEffect(() => {
     const initSync = async () => {
-      if (!isSupabaseEnabled || !isAuthenticated || syncedRef.current) {
+      if (!isSupabaseEnabled || !isAuthenticated || !user?.id || syncedRef.current) {
         return;
       }
 
       setLoading(true);
       try {
+        // T31 FIX: Check if LocalStorage data belongs to a different user
+        const lastSyncedUserId = localStorage.getItem('prepwell_last_user_id');
+        const isLocalDataFromDifferentUser = lastSyncedUserId && lastSyncedUserId !== user.id;
+
+        if (isLocalDataFromDifferentUser) {
+          console.warn('[T31] calendar_tasks: LocalStorage contains data from different user, clearing...');
+          localStorage.removeItem(STORAGE_KEYS.tasks);
+          setTasksByDate({});
+        }
+
         const { data: existingData } = await supabase
           .from('calendar_tasks')
           .select('id')
+          .eq('user_id', user.id)  // T31 FIX: Filter by user_id
           .limit(1);
 
         if (existingData && existingData.length > 0) {
@@ -1621,8 +1689,8 @@ export function useCalendarTasksSync() {
             setTasksByDate(supabaseData);
             saveToStorage(STORAGE_KEYS.tasks, supabaseData);
           }
-        } else {
-          // Migrate from localStorage
+        } else if (!isLocalDataFromDifferentUser) {
+          // Migrate from localStorage only if data is from same user
           const localData = loadFromStorage(STORAGE_KEYS.tasks, {});
           const dataToInsert = [];
           // T17 FIX: Map app priorities to DB values
@@ -1656,6 +1724,8 @@ export function useCalendarTasksSync() {
           }
         }
 
+        // T31 FIX: Update last_user_id after successful sync
+        localStorage.setItem('prepwell_last_user_id', user.id);
         syncedRef.current = true;
       } catch (err) {
         console.error('Error syncing calendar tasks:', err);
@@ -1665,7 +1735,7 @@ export function useCalendarTasksSync() {
     };
 
     initSync();
-  }, [isSupabaseEnabled, isAuthenticated, user, fetchFromSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id, fetchFromSupabase]);
 
   // Save tasks for a specific date
   const saveDayTasks = useCallback(async (dateKey, tasks) => {
@@ -1682,9 +1752,11 @@ export function useCalendarTasksSync() {
 
     try {
       // Delete existing tasks for this date
+      // T31 FIX: Also filter by user_id for defense-in-depth
       await supabase
         .from('calendar_tasks')
         .delete()
+        .eq('user_id', user.id)
         .eq('task_date', dateKey);
 
       // Insert new tasks
@@ -1790,10 +1862,16 @@ export function usePrivateSessionsSync() {
   const userIdRef = useRef(null);
 
   // Reset syncedRef when user changes (logout/login)
+  // T31 FIX: Also clear in-memory state immediately to prevent UI flash of old data
   useEffect(() => {
     if (user?.id !== userIdRef.current) {
       syncedRef.current = false;
+      const previousUserId = userIdRef.current;
       userIdRef.current = user?.id || null;
+      // T31: Clear state immediately on user change
+      if (previousUserId !== null && user?.id !== previousUserId) {
+        setPrivateSessionsByDate({});
+      }
     }
   }, [user?.id]);
 
@@ -1841,7 +1919,7 @@ export function usePrivateSessionsSync() {
 
   // Fetch from Supabase
   const fetchFromSupabase = useCallback(async () => {
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return null;
     }
 
@@ -1849,6 +1927,7 @@ export function usePrivateSessionsSync() {
       const { data, error } = await supabase
         .from('private_sessions')
         .select('*')
+        .eq('user_id', user.id)  // T31 FIX: Always filter by user_id
         .order('session_date', { ascending: true });
 
       if (error) throw error;
@@ -1857,20 +1936,31 @@ export function usePrivateSessionsSync() {
       console.error('Error fetching private blocks:', err);
       return null;
     }
-  }, [isSupabaseEnabled, isAuthenticated, user, transformFromSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id, transformFromSupabase]);
 
   // Initial sync on login
   useEffect(() => {
     const initSync = async () => {
-      if (!isSupabaseEnabled || !isAuthenticated || syncedRef.current) {
+      if (!isSupabaseEnabled || !isAuthenticated || !user?.id || syncedRef.current) {
         return;
       }
 
       setLoading(true);
       try {
+        // T31 FIX: Check if LocalStorage data belongs to a different user
+        const lastSyncedUserId = localStorage.getItem('prepwell_last_user_id');
+        const isLocalDataFromDifferentUser = lastSyncedUserId && lastSyncedUserId !== user.id;
+
+        if (isLocalDataFromDifferentUser) {
+          console.warn('[T31] private_sessions: LocalStorage contains data from different user, clearing...');
+          localStorage.removeItem(STORAGE_KEYS.privateSessions);
+          setPrivateSessionsByDate({});
+        }
+
         const { data: existingData } = await supabase
           .from('private_sessions')
           .select('id')
+          .eq('user_id', user.id)  // T31 FIX: Filter by user_id
           .limit(1);
 
         if (existingData && existingData.length > 0) {
@@ -1879,8 +1969,8 @@ export function usePrivateSessionsSync() {
             setPrivateSessionsByDate(supabaseData);
             saveToStorage(STORAGE_KEYS.privateSessions, supabaseData);
           }
-        } else {
-          // Migrate from localStorage
+        } else if (!isLocalDataFromDifferentUser) {
+          // Migrate from localStorage only if data is from same user
           const localData = loadFromStorage(STORAGE_KEYS.privateSessions, {});
           const dataToInsert = [];
           Object.entries(localData).forEach(([dateKey, blocks]) => {
@@ -1934,6 +2024,8 @@ export function usePrivateSessionsSync() {
           }
         }
 
+        // T31 FIX: Update last_user_id after successful sync
+        localStorage.setItem('prepwell_last_user_id', user.id);
         syncedRef.current = true;
       } catch (err) {
         console.error('Error syncing private blocks:', err);
@@ -1943,7 +2035,7 @@ export function usePrivateSessionsSync() {
     };
 
     initSync();
-  }, [isSupabaseEnabled, isAuthenticated, user, fetchFromSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id, fetchFromSupabase]);
 
   // Save private blocks for a specific date
   const saveDayBlocks = useCallback(async (dateKey, blocks) => {
@@ -1960,9 +2052,11 @@ export function usePrivateSessionsSync() {
 
     try {
       // Delete existing sessions for this date
+      // T31 FIX: Also filter by user_id for defense-in-depth
       await supabase
         .from('private_sessions')
         .delete()
+        .eq('user_id', user.id)
         .eq('session_date', dateKey); // T17 FIX: was block_date
 
       // Insert new sessions
@@ -2043,9 +2137,11 @@ export function usePrivateSessionsSync() {
       // Process each date
       for (const [dateKey, blocks] of Object.entries(updatesMap)) {
         // Delete existing sessions for this date
+        // T31 FIX: Also filter by user_id for defense-in-depth
         await supabase
           .from('private_sessions')
           .delete()
+          .eq('user_id', user.id)
           .eq('session_date', dateKey); // T17 FIX: was block_date
 
         // Insert new sessions
@@ -2124,10 +2220,16 @@ export function useTimeSessionsSync() {
   const userIdRef = useRef(null);
 
   // Reset syncedRef when user changes (logout/login)
+  // T31 FIX: Also clear in-memory state immediately to prevent UI flash of old data
   useEffect(() => {
     if (user?.id !== userIdRef.current) {
       syncedRef.current = false;
+      const previousUserId = userIdRef.current;
       userIdRef.current = user?.id || null;
+      // T31: Clear state immediately on user change
+      if (previousUserId !== null && user?.id !== previousUserId) {
+        setTimeSessionsByDate({});
+      }
     }
   }, [user?.id]);
 
@@ -2169,7 +2271,7 @@ export function useTimeSessionsSync() {
 
   // Fetch from Supabase
   const fetchFromSupabase = useCallback(async () => {
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return null;
     }
 
@@ -2177,6 +2279,7 @@ export function useTimeSessionsSync() {
       const { data, error } = await supabase
         .from('time_sessions')
         .select('*')
+        .eq('user_id', user.id)  // T31 FIX: Always filter by user_id
         .order('session_date', { ascending: true });
 
       if (error) throw error;
@@ -2185,7 +2288,7 @@ export function useTimeSessionsSync() {
       console.error('Error fetching time blocks:', err);
       return null;
     }
-  }, [isSupabaseEnabled, isAuthenticated, user, transformFromSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id, transformFromSupabase]);
 
   // Initial sync on login
   useEffect(() => {
@@ -2202,9 +2305,20 @@ export function useTimeSessionsSync() {
 
       setLoading(true);
       try {
+        // T31 FIX: Check if LocalStorage data belongs to a different user
+        const lastSyncedUserId = localStorage.getItem('prepwell_last_user_id');
+        const isLocalDataFromDifferentUser = lastSyncedUserId && lastSyncedUserId !== user.id;
+
+        if (isLocalDataFromDifferentUser) {
+          console.warn('[T31] time_sessions: LocalStorage contains data from different user, clearing...');
+          localStorage.removeItem(STORAGE_KEYS.timeSessions);
+          setTimeSessionsByDate({});
+        }
+
         const { data: existingData, error: selectError } = await supabase
           .from('time_sessions')
           .select('id')
+          .eq('user_id', user.id)  // T31 FIX: Filter by user_id
           .limit(1);
 
         // If we can't even query, skip the migration (likely auth issue)
@@ -2220,8 +2334,8 @@ export function useTimeSessionsSync() {
             setTimeSessionsByDate(supabaseData);
             saveToStorage(STORAGE_KEYS.timeSessions, supabaseData);
           }
-        } else {
-          // Migrate from localStorage
+        } else if (!isLocalDataFromDifferentUser) {
+          // Migrate from localStorage only if data is from same user
           const localData = loadFromStorage(STORAGE_KEYS.timeSessions, {});
           const dataToInsert = [];
 
@@ -2290,6 +2404,8 @@ export function useTimeSessionsSync() {
           }
         }
 
+        // T31 FIX: Update last_user_id after successful sync
+        localStorage.setItem('prepwell_last_user_id', user.id);
         syncedRef.current = true;
       } catch (err) {
         console.error('Error syncing time blocks:', err);
@@ -2299,7 +2415,7 @@ export function useTimeSessionsSync() {
     };
 
     initSync();
-  }, [isSupabaseEnabled, isAuthenticated, user, fetchFromSupabase]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id, fetchFromSupabase]);
 
   // Save time blocks for a specific date
   const saveDayBlocks = useCallback(async (dateKey, blocks) => {
@@ -2319,9 +2435,11 @@ export function useTimeSessionsSync() {
 
     try {
       // Delete existing blocks for this date
+      // T31 FIX: Also filter by user_id for defense-in-depth
       await supabase
         .from('time_sessions')
         .delete()
+        .eq('user_id', user.id)
         .eq('session_date', dateKey);
 
       // Insert new blocks (only valid ones with required fields)
@@ -2406,9 +2524,11 @@ export function useTimeSessionsSync() {
 
     try {
       for (const [dateKey, blocks] of Object.entries(updatesMap)) {
+        // T31 FIX: Also filter by user_id for defense-in-depth
         await supabase
           .from('time_sessions')
           .delete()
+          .eq('user_id', user.id)
           .eq('session_date', dateKey);
 
         // Only insert valid blocks with required fields
@@ -2474,14 +2594,17 @@ export function useTimeSessionsSync() {
     setTimeSessionsByDate({});
     saveToStorage(STORAGE_KEYS.timeSessions, {});
 
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
+    // T31 FIX: Check user.id before Supabase operation
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return { success: true, source: 'localStorage' };
     }
 
     try {
+      // T31 FIX: Add user_id filter to DELETE query
       await supabase
         .from('time_sessions')
         .delete()
+        .eq('user_id', user.id)
         .neq('id', '00000000-0000-0000-0000-000000000000');
 
       return { success: true, source: 'supabase' };
@@ -2489,7 +2612,7 @@ export function useTimeSessionsSync() {
       console.error('Error clearing time blocks:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [isSupabaseEnabled, isAuthenticated]);
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
   return {
     timeSessionsByDate,
@@ -2649,14 +2772,17 @@ export function useArchivedLernplaeneSync() {
     setArchivedLernplaene(updated);
     saveToStorage(STORAGE_KEYS.archivedLernplaene, updated);
 
-    if (!isSupabaseEnabled || !isAuthenticated || !supabase) {
+    // T31 FIX: Check user.id before Supabase operation
+    if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user?.id) {
       return { success: true, source: 'localStorage' };
     }
 
     try {
+      // T31 FIX: Add user_id filter to DELETE query for defense-in-depth
       const { error } = await supabase
         .from('archived_lernplaene')
         .delete()
+        .eq('user_id', user.id)
         .eq('id', planId);
 
       if (error) throw error;
@@ -2665,7 +2791,7 @@ export function useArchivedLernplaeneSync() {
       console.error('Error deleting archived plan:', err);
       return { success: false, error: err, source: 'localStorage' };
     }
-  }, [archivedLernplaene, isSupabaseEnabled, isAuthenticated]);
+  }, [archivedLernplaene, isSupabaseEnabled, isAuthenticated, user?.id]);
 
   return {
     archivedLernplaene,
