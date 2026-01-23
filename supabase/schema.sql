@@ -85,9 +85,36 @@ CREATE TABLE IF NOT EXISTS content_plans (
   published_at TIMESTAMPTZ,
   rechtsgebiete JSONB DEFAULT '[]',
   imported_from TEXT,
+  -- T27/T32: New flat structure for Themenlisten
+  status TEXT CHECK (status IN ('draft', 'active')) DEFAULT 'draft',
+  selected_areas JSONB DEFAULT '[]',
+  themen JSONB DEFAULT '[]',
+  kapitel JSONB DEFAULT '[]',
+  use_kapitel BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- T32: Add new columns to existing content_plans table if they don't exist
+DO $$ BEGIN
+  ALTER TABLE content_plans ADD COLUMN IF NOT EXISTS status TEXT CHECK (status IN ('draft', 'active')) DEFAULT 'draft';
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE content_plans ADD COLUMN IF NOT EXISTS selected_areas JSONB DEFAULT '[]';
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE content_plans ADD COLUMN IF NOT EXISTS themen JSONB DEFAULT '[]';
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE content_plans ADD COLUMN IF NOT EXISTS kapitel JSONB DEFAULT '[]';
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE content_plans ADD COLUMN IF NOT EXISTS use_kapitel BOOLEAN DEFAULT FALSE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 -- Contents (Learning Material) - Must be created before aufgaben
 CREATE TABLE IF NOT EXISTS contents (
@@ -389,6 +416,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
   custom_subjects TEXT[] DEFAULT '{}',
   subject_settings JSONB DEFAULT '{}',
   studiengang TEXT,
+  themenliste_kapitel_default BOOLEAN DEFAULT FALSE, -- T27: Default für Kapitel-Ebene in neuen Themenlisten
+  kapitel_ebene_aktiviert BOOLEAN DEFAULT FALSE, -- T22: Kapitel-Ebene Aktivierung für Jura-Studenten
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -572,6 +601,16 @@ EXCEPTION
   WHEN undefined_column THEN NULL;
   WHEN others THEN NULL;
 END $$;
+
+-- ============================================
+-- SCHEMA MIGRATIONS (T27: Themenliste Kapitel Settings)
+-- ============================================
+
+-- T27: Add themenliste_kapitel_default column to user_settings
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS themenliste_kapitel_default BOOLEAN DEFAULT FALSE;
+
+-- T22: Add kapitel_ebene_aktiviert column to user_settings
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS kapitel_ebene_aktiviert BOOLEAN DEFAULT FALSE;
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)

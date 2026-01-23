@@ -32,13 +32,15 @@ const STORAGE_KEYS = {
   mentorActivated: 'prepwell_mentor_activated',
   customUnterrechtsgebiete: 'prepwell_custom_unterrechtsgebiete',
   wizardDraft: 'prepwell_lernplan_wizard_draft',
-  settings: 'prepwell_settings',
+  // T35: 'settings' key entfernt - wird nur von settings-content.jsx verwaltet (Single-Writer)
   gradeSystem: 'prepwell_grade_system',
   customSubjects: 'prepwell_custom_subjects',
   subjectSettings: 'prepwell_subject_settings',
   studiengang: 'prepwell_studiengang',
   logbuchEntries: 'prepwell_logbuch_entries',
   semesterLeistungen: 'prepwell_semester_leistungen',
+  themenlisteKapitelDefault: 'prepwell_themenliste_kapitel_default', // T27
+  kapitelEbeneAktiviert: 'prepwell_kapitel_ebene', // T22
 };
 
 /**
@@ -65,13 +67,37 @@ const loadFromStorage = (key, defaultValue) => {
 };
 
 /**
- * Save data to localStorage
+ * Save data to localStorage with quota handling
+ * If quota exceeded, attempts to clean up old data for timer_history
  */
 const saveToStorage = (key, data) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
-    console.error(`Error saving ${key} to localStorage:`, error);
+    // Handle QuotaExceededError
+    if (error.name === 'QuotaExceededError' || error.code === 22) {
+      console.warn(`[useSupabaseSync] localStorage quota exceeded for ${key}`);
+
+      // For timer_history, try to reduce data by keeping only recent entries
+      if (key === STORAGE_KEYS.timerHistory && Array.isArray(data)) {
+        const maxEntries = 1000; // Keep only last 1000 entries
+        if (data.length > maxEntries) {
+          const reducedData = data.slice(-maxEntries);
+          console.log(`[useSupabaseSync] Reducing timer_history from ${data.length} to ${reducedData.length} entries`);
+          try {
+            localStorage.setItem(key, JSON.stringify(reducedData));
+            return; // Success after reduction
+          } catch {
+            console.error(`[useSupabaseSync] Still can't save ${key} after reduction`);
+          }
+        }
+      }
+
+      // Try to clear old/large entries to make space
+      console.warn(`[useSupabaseSync] Skipping localStorage save for ${key} due to quota`);
+    } else {
+      console.error(`Error saving ${key} to localStorage:`, error);
+    }
   }
 };
 
@@ -643,6 +669,12 @@ export function useContentPlansSync() {
         is_published: plan.isPublished || false,
         rechtsgebiete: plan.rechtsgebiete || [],
         imported_from: plan.importedFrom || null,
+        // T27/T32: New flat structure for Themenlisten
+        status: plan.status || 'draft',
+        selected_areas: plan.selectedAreas || [],
+        themen: plan.themen || [],
+        kapitel: plan.kapitel || [],
+        use_kapitel: plan.useKapitel || false,
       };
     },
     transformFromSupabase: (row) => ({
@@ -660,6 +692,12 @@ export function useContentPlansSync() {
       importedFrom: row.imported_from,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      // T27/T32: New flat structure for Themenlisten
+      status: row.status || 'draft',
+      selectedAreas: row.selected_areas || [],
+      themen: row.themen || [],
+      kapitel: row.kapitel || [],
+      useKapitel: row.use_kapitel || false,
     }),
   });
 }
@@ -906,6 +944,8 @@ export function useUserSettingsSync() {
     timerConfig: loadFromStorage(STORAGE_KEYS.timerConfig, {}),
     subjectSettings: loadFromStorage(STORAGE_KEYS.subjectSettings, { colorOverrides: {}, customSubjects: [] }),
     studiengang: loadFromStorage(STORAGE_KEYS.studiengang, null), // T7
+    themenlisteKapitelDefault: loadFromStorage(STORAGE_KEYS.themenlisteKapitelDefault, false), // T27
+    kapitelEbeneAktiviert: loadFromStorage(STORAGE_KEYS.kapitelEbeneAktiviert, false), // T22
   }));
   const [loading, setLoading] = useState(false);
 
@@ -937,6 +977,8 @@ export function useUserSettingsSync() {
             timerConfig: data.timer_settings || {},
             subjectSettings: data.subject_settings || { colorOverrides: {}, customSubjects: [] },
             studiengang: data.studiengang || null, // T7
+            themenlisteKapitelDefault: data.themenliste_kapitel_default ?? false, // T27
+            kapitelEbeneAktiviert: data.kapitel_ebene_aktiviert ?? false, // T22
           };
           setSettings(newSettings);
           // Update local storage
@@ -945,6 +987,8 @@ export function useUserSettingsSync() {
           saveToStorage(STORAGE_KEYS.timerConfig, newSettings.timerConfig);
           saveToStorage(STORAGE_KEYS.subjectSettings, newSettings.subjectSettings);
           saveToStorage(STORAGE_KEYS.studiengang, newSettings.studiengang); // T7
+          saveToStorage(STORAGE_KEYS.themenlisteKapitelDefault, newSettings.themenlisteKapitelDefault); // T27
+          saveToStorage(STORAGE_KEYS.kapitelEbeneAktiviert, newSettings.kapitelEbeneAktiviert); // T22
         }
       } finally {
         setLoading(false);
@@ -975,6 +1019,12 @@ export function useUserSettingsSync() {
     if (updates.studiengang !== undefined) {
       saveToStorage(STORAGE_KEYS.studiengang, updates.studiengang); // T7
     }
+    if (updates.themenlisteKapitelDefault !== undefined) {
+      saveToStorage(STORAGE_KEYS.themenlisteKapitelDefault, updates.themenlisteKapitelDefault); // T27
+    }
+    if (updates.kapitelEbeneAktiviert !== undefined) {
+      saveToStorage(STORAGE_KEYS.kapitelEbeneAktiviert, updates.kapitelEbeneAktiviert); // T22
+    }
 
     if (!isSupabaseEnabled || !isAuthenticated || !supabase || !user) {
       return { success: true, source: 'localStorage' };
@@ -1004,6 +1054,8 @@ export function useUserSettingsSync() {
           timer_settings: mergedTimerSettings,
           subject_settings: newSettings.subjectSettings,
           studiengang: newSettings.studiengang, // T7
+          themenliste_kapitel_default: newSettings.themenlisteKapitelDefault, // T27
+          kapitel_ebene_aktiviert: newSettings.kapitelEbeneAktiviert, // T22
         }, { onConflict: 'user_id' });
 
       if (error) throw error;

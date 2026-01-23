@@ -46,6 +46,7 @@ const defaultSettings = {
     reminderTime: '09:00',
   },
   learning: {
+    dailyGoalEnabled: true, // Toggle für Tagesziel auf Startseite
     dailyGoalHours: 4,
     preferredStartTime: '08:00',
     breakDuration: 15,
@@ -96,7 +97,7 @@ const SettingsContent = ({ className = '' }) => {
   } = useAuth();
 
   const { flattenAllKapitel, archiveLernplanForReactivation } = useCalendar();
-  const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang, setKapitelEbeneAktiviert } = useStudiengang();
+  const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang, setKapitelEbeneAktiviert, themenlisteKapitelDefault, setThemenlisteKapitelDefault } = useStudiengang();
   // FEAT-001: Get mentor activation status and functions
   const { isActivated: isMentorActivated, activateMentor, deactivateMentor } = useMentor();
 
@@ -160,6 +161,8 @@ const SettingsContent = ({ className = '' }) => {
 
   const handleSave = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    // Dispatch event to notify other components (e.g., Dashboard) about settings change
+    window.dispatchEvent(new Event('prepwell-settings-changed'));
     setSaveSuccess(true);
     setHasChanges(false);
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -381,7 +384,33 @@ const SettingsContent = ({ className = '' }) => {
             <BookOpen className="w-5 h-5" />
             Fächer
           </h3>
-          <CustomSubjectsSection isJura={false} studiengang={studiengang} />
+
+          <div className="space-y-4">
+            {/* T27: Themenliste Kapitel-Standard Toggle - for non-Jura users */}
+            <div className="flex items-center justify-between py-3 border-b border-neutral-100">
+              <div className="flex items-center gap-3">
+                <Layers className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Themenlisten: Kapitel-Standard</p>
+                  <p className="text-xs text-neutral-500">
+                    Neue Themenlisten mit Kapitel-Gruppierung erstellen
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setThemenlisteKapitelDefault(!themenlisteKapitelDefault)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  themenlisteKapitelDefault ? 'bg-blue-600' : 'bg-neutral-300'
+                }`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  themenlisteKapitelDefault ? 'left-7' : 'left-1'
+                }`} />
+              </button>
+            </div>
+
+            <CustomSubjectsSection isJura={false} studiengang={studiengang} />
+          </div>
         </div>
       )}
 
@@ -466,6 +495,29 @@ const SettingsContent = ({ className = '' }) => {
               >
                 <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
                   settings.jura?.chapterLevelEnabled ? 'left-7' : 'left-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* T27: Themenliste Kapitel-Standard Toggle - integrated into Jura section */}
+            <div className="flex items-center justify-between py-3 border-t border-neutral-100">
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Themenlisten: Kapitel-Standard</p>
+                  <p className="text-xs text-neutral-500">
+                    Neue Themenlisten mit Kapitel-Gruppierung erstellen
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setThemenlisteKapitelDefault(!themenlisteKapitelDefault)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  themenlisteKapitelDefault ? 'bg-blue-600' : 'bg-neutral-300'
+                }`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  themenlisteKapitelDefault ? 'left-7' : 'left-1'
                 }`} />
               </button>
             </div>
@@ -645,26 +697,43 @@ const SettingsContent = ({ className = '' }) => {
         <div className="space-y-4">
           {/* Daily Goal */}
           <div className="py-3 border-b border-neutral-100">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-neutral-400" />
-              <div>
-                <p className="text-sm font-medium text-neutral-900">Tägliches Lernziel</p>
-                <p className="text-xs text-neutral-500">Stunden pro Tag</p>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-5 h-5 text-neutral-400" />
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Tägliches Lernziel</p>
+                  <p className="text-xs text-neutral-500">Auf Startseite anzeigen</p>
+                </div>
               </div>
+              <button
+                onClick={() => handleSettingChange('learning', 'dailyGoalEnabled', !settings.learning.dailyGoalEnabled)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  settings.learning.dailyGoalEnabled ? 'bg-blue-600' : 'bg-neutral-300'
+                }`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  settings.learning.dailyGoalEnabled ? 'left-7' : 'left-1'
+                }`} />
+              </button>
             </div>
-            <input
-              type="range"
-              min="1"
-              max="10"
-              value={settings.learning.dailyGoalHours}
-              onChange={(e) => handleSettingChange('learning', 'dailyGoalHours', parseInt(e.target.value))}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-neutral-500 mt-1">
-              <span>1h</span>
-              <span className="font-medium text-blue-600">{settings.learning.dailyGoalHours}h</span>
-              <span>10h</span>
-            </div>
+            {settings.learning.dailyGoalEnabled && (
+              <div className="ml-8 mt-2">
+                <label className="text-xs text-neutral-500">Stunden pro Tag</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={settings.learning.dailyGoalHours}
+                  onChange={(e) => handleSettingChange('learning', 'dailyGoalHours', parseInt(e.target.value))}
+                  className="w-full mt-1"
+                />
+                <div className="flex justify-between text-xs text-neutral-500 mt-1">
+                  <span>1h</span>
+                  <span className="font-medium text-blue-600">{settings.learning.dailyGoalHours}h</span>
+                  <span>10h</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Preferred Start Time */}

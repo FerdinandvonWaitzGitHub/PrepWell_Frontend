@@ -1,8 +1,8 @@
 # PrepWell - Product Requirements Document
 
-**Version:** 3.0
-**Stand:** 09. Januar 2026
-**Status:** MVP mit Supabase-Integration, Wizard-Datenfluss dokumentiert
+**Version:** 3.1
+**Stand:** 23. Januar 2026
+**Status:** MVP mit Supabase-Integration, T27 Themenliste Redesign abgeschlossen
 
 ---
 
@@ -764,6 +764,174 @@ Im Examensmodus zeigt das Dashboard einen Toggle zwischen:
 
 ---
 
+### 5.2.1 Themenliste-Editor Draft-Handling (T27)
+
+**Draft-Lifecycle:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    THEMENLISTE DRAFT-FLOW                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. ERSTELLEN: "+ Neue Themenliste" Button                      │
+│     ↓                                                           │
+│  2. PRÜFUNG: Existiert Draft?                                   │
+│     • Zuerst: localStorage (prepwell_themenliste_draft)         │
+│     • Dann: DB (content_plans mit status='draft')               │
+│     ↓                                                           │
+│  3a. DRAFT GEFUNDEN → Dialog: "Fortsetzen / Verwerfen"          │
+│      • Fortsetzen: Draft laden, weiterarbeiten                  │
+│      • Verwerfen: localStorage + DB-Draft LÖSCHEN               │
+│     ↓                                                           │
+│  3b. KEIN DRAFT → Neuer leerer Editor                           │
+│     ↓                                                           │
+│  4. AUTO-SAVE (alle 500ms bei Änderungen):                      │
+│     • localStorage: Sofort                                      │
+│     • DB: Mit status='draft'                                    │
+│     ↓                                                           │
+│  5. ABSCHLUSS:                                                  │
+│     • "Speichern": status → 'active', localStorage löschen      │
+│     • "Abbrechen": DB-Draft + localStorage LÖSCHEN              │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Wichtig:**
+- Drafts (`status='draft'`) werden NICHT in der Lernpläne-Übersicht angezeigt
+- Drafts sind NUR über "+ Neue Themenliste" erreichbar
+- Bei Abbruch wird der DB-Draft gelöscht (kein verwaister Draft)
+
+**Datenstruktur:**
+```javascript
+// localStorage Key: prepwell_themenliste_draft
+{
+  contentPlan: {
+    id: 'supabase-uuid',        // Nach erstem Auto-Save
+    type: 'themenliste',
+    status: 'draft',            // → 'active' bei Speichern
+    selectedAreas: [{id, name, rechtsgebietId, color}],
+    useKapitel: false,
+    kapitel: [],
+    themen: [{id, name, description, areaId, kapitelId?, aufgaben[]}],
+    description: '',
+    archived: false
+  },
+  lastModified: '2026-01-22T...'
+}
+```
+
+---
+
+### 5.2.2 T27 Flat Structure (Themenliste Redesign)
+
+**Implementiert:** 23. Januar 2026
+
+Die Themenlisten wurden von einer hierarchischen Struktur auf eine flache Struktur umgestellt:
+
+#### Alte Struktur (vor T27)
+```javascript
+{
+  rechtsgebiete: [
+    {
+      id: 'zivilrecht',
+      unterrechtsgebiete: [
+        {
+          id: 'bgb-at',
+          themen: [{ id, name, aufgaben }]
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Neue Flat Structure (T27)
+```javascript
+{
+  // Ausgewählte Fächer/URGs
+  selectedAreas: [
+    {
+      id: 'bgb-at',
+      name: 'BGB AT',
+      rechtsgebietId: 'zivilrecht',
+      color: 'bg-blue-500'
+    }
+  ],
+
+  // Flache Liste aller Themen mit Area-Referenz
+  themen: [
+    {
+      id: 'thema-1',
+      name: 'Vertragsschluss',
+      description: '',
+      areaId: 'bgb-at',       // Referenz auf selectedAreas[].id
+      kapitelId: null,         // Optional: Kapitel-Gruppierung
+      order: 0,
+      aufgaben: [
+        { id: 'aufg-1', name: 'Definition', completed: false }
+      ]
+    }
+  ],
+
+  // Optional: Kapitel-Gruppierung
+  useKapitel: false,
+  kapitel: [
+    { id: 'kap-1', name: 'Allgemeiner Teil', areaId: 'bgb-at', order: 0 }
+  ]
+}
+```
+
+#### Vorteile der Flat Structure
+
+| Aspekt | Hierarchisch | Flat (T27) |
+|--------|--------------|------------|
+| Themen verschieben | Komplex (Nested Updates) | Einfach (`areaId` ändern) |
+| Suche/Filter | Tiefe Iteration | Flache Iteration |
+| Supabase JSONB | Tiefe Verschachtelung | Flache Arrays |
+| React Performance | Re-Render Kaskaden | Gezielte Updates |
+
+#### Komponenten-Architektur (T27)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    THEMENLISTE EDITOR (T27)                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ThemenlisteEditorPage                                          │
+│  └── contentPlan State + currentPlanRef (T34 Fix)              │
+│      │                                                          │
+│      ├── ThemenlisteHeader                                      │
+│      │   └── AreaAutocompleteInput                             │
+│      │       • Fach-Suche (URGs für Jura, Custom für andere)   │
+│      │       • Comma-separated Display                          │
+│      │       • Inline Edit Mode                                 │
+│      │                                                          │
+│      ├── ThemenNavigation                                       │
+│      │   • Area-Tabs (farbig nach Rechtsgebiet)                │
+│      │   • Kapitel-Gruppierung (optional)                       │
+│      │   • Themen-Liste mit Drag & Drop                        │
+│      │                                                          │
+│      └── ThemaDetail                                            │
+│          • Thema-Name editierbar                               │
+│          • Aufgaben-Liste mit Checkboxes                       │
+│          • Aufgaben hinzufügen/entfernen                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Dateien (T27)
+
+| Datei | Zweck |
+|-------|-------|
+| `src/pages/themenliste-editor.jsx` | Haupt-Editor mit State Management |
+| `src/features/themenliste/components/area-autocomplete-input.jsx` | Fach-Auswahl mit Autocomplete |
+| `src/features/themenliste/components/themenliste-header.jsx` | Header mit Area-Input + Description |
+| `src/features/themenliste/components/themen-navigation.jsx` | Area-Tabs + Themen-Liste |
+| `src/features/themenliste/components/thema-detail.jsx` | Thema + Aufgaben Bearbeitung |
+| `src/components/lernplan/themenliste-t27-card.jsx` | Card-Ansicht für /lernplan |
+
+---
+
 ### 5.3 Kalender-Feature
 
 **Blocktypen:**
@@ -1021,6 +1189,32 @@ src/
 | BUG-MSW-002 | activeLernplaene erkennt Wizard-Lernpläne nicht | AppMode | ✅ Behoben |
 | BUG-P1 | Step 22 ignoriert User-Änderungen aus Step 21 | Wizard | ✅ Behoben |
 | BUG-2c | Page Refresh hängt unendlich (getSession Deadlock) | Auth | ✅ Behoben (Workaround) |
+| **T34** | **Themenliste Datenverlust bei mehreren Fächern** | Themenliste | ✅ Behoben |
+
+#### T34 Details: Kritischer Datenverlust-Bug
+
+**Problem:** Beim Erstellen einer Themenliste mit mehreren Fächern wurde nur das erste Fach gespeichert. Ursache war eine ID-Synchronisations-Kette die fehlschlug.
+
+**Root Cause:**
+1. `createContentPlan()` ignorierte Supabase-UUID und gab lokale ID zurück
+2. `currentPlanRef` wurde nicht mit Supabase-UUID synchronisiert
+3. Nachfolgende `updateContentPlan()` Aufrufe verwendeten falsche ID
+
+**Fixes (6 Stück):**
+```
+Fix 1: Draft bei /neu löschen
+Fix 2: pendingChangesRef korrekt verarbeiten
+Fix 3: handleFinish mit Ref statt Closure
+Fix 4: Synchroner Ref-Update in updatePlan
+Fix 5: currentPlanRef ID-Sync nach createContentPlan (KRITISCH)
+Fix 6: createContentPlan gibt Supabase UUID zurück (KRITISCH)
+```
+
+**Betroffene Dateien:**
+- `src/pages/themenliste-editor.jsx` (Fix 1-5)
+- `src/contexts/calendar-context.jsx` (Fix 6)
+
+**Ticket:** `docs/tickets/T34-datenmigration-analyse.md`
 
 #### BUG-2c Details: Supabase Web Locks Deadlock
 
@@ -1322,14 +1516,21 @@ const urgId = block.thema?.urgId || block.metadata?.urgId || block.unterrechtsge
 
 | Datei | Zweck |
 |-------|-------|
-| `src/contexts/calendar-context.jsx` | Kalender-State, blocksByDate, archiveAndConvertToThemenliste |
+| `src/contexts/calendar-context.jsx` | Kalender-State, blocksByDate, ContentPlans, archiveAndConvertToThemenliste |
 | `src/contexts/appmode-context.jsx` | App-Modus, activeLernplaene |
 | `src/contexts/wizard-context.jsx` | Wizard-State, completeWizard |
 | `src/features/lernplan-wizard/steps/*.jsx` | Wizard-Steps |
 | `src/components/dashboard/session-widget.jsx` | Dashboard To-Dos/Themenliste |
 | `src/components/lernplan/calendar-plan-edit-card.jsx` | Lernplan-Bearbeitung |
+| `src/components/lernplan/themenliste-t27-card.jsx` | T27 Themenliste Card für /lernplan |
 | `src/pages/profil.jsx` | Profil mit Moduswechsel |
+| `src/pages/themenliste-editor.jsx` | T27 Themenliste Editor |
+| `src/features/themenliste/components/area-autocomplete-input.jsx` | Fach-Autocomplete (T27) |
+| `src/features/themenliste/components/themenliste-header.jsx` | Themenliste Header (T27) |
+| `src/features/themenliste/components/themen-navigation.jsx` | Area-Tabs + Themen (T27) |
+| `src/features/themenliste/components/thema-detail.jsx` | Thema + Aufgaben Editor (T27) |
 | `src/hooks/use-supabase-sync.js` | Supabase-Synchronisation |
+| `src/utils/themenliste-migration.js` | getDisplayName() für T27 |
 
 ## B. Glossar
 
@@ -1337,13 +1538,17 @@ const urgId = block.thema?.urgId || block.metadata?.urgId || block.unterrechtsge
 |---------|-----------|
 | BlockAllocation | Kapazitätsplanung auf Tagesebene (Monatsansicht) |
 | Session | Zeitraum-basierter Termin (Woche/Startseite) |
-| ContentPlan | Hierarchische Themenliste oder Lernplan |
+| ContentPlan | Themenliste oder Lernplan (T27: mit Flat Structure) |
+| selectedAreas | T27: Ausgewählte Fächer/URGs in einer Themenliste |
+| themen | T27: Flache Liste aller Themen mit areaId-Referenz |
+| areaId | T27: Referenz von Thema auf selectedAreas[].id |
 | wizardState | Temporärer Zustand während Wizard-Durchlauf |
 | lernplanMetadata | Permanente Lernplan-Konfiguration nach Wizard |
 | blocksByDate | Kalender-Blöcke gruppiert nach Datum |
 | themenDraft | Themen mit Aufgaben pro URG (Wizard Step 12) |
 | lernbloeckeDraft | Blöcke mit zugewiesenen Themen (Wizard Step 15) |
 | generatedCalendar | Verteilte Blöcke mit Daten (Wizard Step 21) |
+| currentPlanRef | T34: Synchroner Ref für ContentPlan ID (Race Condition Fix) |
 
 ---
 

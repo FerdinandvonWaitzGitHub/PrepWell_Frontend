@@ -24,7 +24,9 @@ import {
   hasPresetsForProgram,
   getPresetsForProgram,
   initializeSubjectsForProgram,
+  getSubjectSettings, // T27: For Supabase sync
 } from '../../utils/rechtsgebiet-colors';
+import { useUserSettingsSync } from '../../hooks/use-supabase-sync'; // T27: Supabase sync
 
 // Fallback Icons falls nicht in ui vorhanden
 const FallbackPlusIcon = ({ size = 16 }) => (
@@ -88,6 +90,9 @@ const CustomSubjectsSection = ({ isJura = true, studiengang = null }) => {
   const [error, setError] = useState('');
   const [showPresetsDialog, setShowPresetsDialog] = useState(false); // T7
 
+  // T27: Supabase sync for subject settings
+  const { updateSettings } = useUserSettingsSync();
+
   // T7: Prüfe ob Presets verfügbar sind
   const presetsAvailable = !isJura && hasPresetsForProgram(studiengang);
   const presets = presetsAvailable ? getPresetsForProgram(studiengang) : [];
@@ -95,6 +100,12 @@ const CustomSubjectsSection = ({ isJura = true, studiengang = null }) => {
   // Subjects laden
   const loadSubjects = () => {
     setSubjects(getAllSubjects(isJura));
+  };
+
+  // T27: Sync subject settings to Supabase after any change
+  const syncToSupabase = () => {
+    const currentSettings = getSubjectSettings();
+    updateSettings({ subjectSettings: currentSettings });
   };
 
   // Initial load + storage event listener
@@ -110,12 +121,14 @@ const CustomSubjectsSection = ({ isJura = true, studiengang = null }) => {
   const handleColorChange = (subjectId, newColor) => {
     updateSubjectColor(subjectId, newColor);
     loadSubjects();
+    syncToSupabase(); // T27: Sync to Supabase
   };
 
   // Auf Default zurücksetzen
   const handleReset = (subjectId) => {
     resetToDefaultColor(subjectId);
     loadSubjects();
+    syncToSupabase(); // T27: Sync to Supabase
   };
 
   // Custom Subject löschen
@@ -123,6 +136,7 @@ const CustomSubjectsSection = ({ isJura = true, studiengang = null }) => {
     if (confirm('Dieses Fach wirklich löschen?')) {
       deleteCustomSubject(subjectId);
       loadSubjects();
+      syncToSupabase(); // T27: Sync to Supabase
     }
   };
 
@@ -141,6 +155,7 @@ const CustomSubjectsSection = ({ isJura = true, studiengang = null }) => {
       setNewName('');
       setNewColor('blue');
       loadSubjects();
+      syncToSupabase(); // T27: Sync to Supabase
     } catch (e) {
       setError(e.message);
     }
@@ -151,6 +166,7 @@ const CustomSubjectsSection = ({ isJura = true, studiengang = null }) => {
     const added = initializeSubjectsForProgram(studiengang);
     if (added > 0) {
       loadSubjects();
+      syncToSupabase(); // T27: Sync to Supabase
     }
     setShowPresetsDialog(false);
   };

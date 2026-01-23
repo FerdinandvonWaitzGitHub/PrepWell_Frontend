@@ -1,10 +1,24 @@
 import { useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ContentPlanEditCard from './content-plan-edit-card';
+import ThemenlisteT27Card from './themenliste-t27-card';
 import CalendarPlanEditCard from './calendar-plan-edit-card';
 import { Button, PlusIcon } from '../ui';
 import { useCalendar } from '../../contexts/calendar-context';
 import { X, Calendar, AlertCircle } from 'lucide-react';
+
+/**
+ * T33: Detects if a ContentPlan has the T27 flat structure
+ * T27 structure: selectedAreas[] + themen[] (flat)
+ * Old structure: rechtsgebiete[] (hierarchical)
+ *
+ * @param {Object} plan - The ContentPlan to check
+ * @returns {boolean} - True if plan has T27 structure
+ */
+function isT27Structure(plan) {
+  // T27 structure has selectedAreas array with items
+  return Array.isArray(plan.selectedAreas) && plan.selectedAreas.length > 0;
+}
 
 /**
  * LernplanContent component
@@ -66,11 +80,12 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
 
   // Filter content plans
   // BUG-P2 FIX: Removed viewMode filter - show all plans regardless of mode
+  // T27 FIX: Filter out drafts - only show active plans (status !== 'draft')
   const { filteredLernplaene, filteredThemenlisten } = useMemo(() => {
     let plans = contentPlans || [];
 
-    // Filter by archived status only
-    plans = plans.filter(p => p.archived === showArchived);
+    // Filter by archived status AND exclude drafts (only show active plans)
+    plans = plans.filter(p => p.archived === showArchived && p.status !== 'draft');
 
     // Separate by type
     const lernplaeneOnly = plans.filter(p => p.type === 'lernplan');
@@ -516,18 +531,37 @@ const LernplanContent = forwardRef(({ className = '' }, ref) => {
           <div className="mb-6">
             <h3 className="text-sm font-medium text-neutral-700 mb-3">Themenlisten</h3>
             <div className="flex flex-col gap-3">
-              {filteredThemenlisten.map((plan) => (
-                <ContentPlanEditCard
-                  key={plan.id}
-                  plan={plan}
-                  isExpanded={shouldBeExpanded(plan.id)}
-                  onToggleExpand={handleToggleExpand}
-                  isNew={newPlanId === plan.id}
-                  viewMode={!isEditMode}
-                  onArchive={archiveContentPlan}
-                  onDelete={deleteContentPlan}
-                />
-              ))}
+              {filteredThemenlisten.map((plan) => {
+                // T33: Structure detection - use T27Card for flat structure
+                if (isT27Structure(plan)) {
+                  return (
+                    <ThemenlisteT27Card
+                      key={plan.id}
+                      plan={plan}
+                      isExpanded={shouldBeExpanded(plan.id)}
+                      onToggleExpand={handleToggleExpand}
+                      isNew={newPlanId === plan.id}
+                      viewMode={!isEditMode}
+                      onArchive={archiveContentPlan}
+                      onDelete={deleteContentPlan}
+                    />
+                  );
+                }
+
+                // Legacy structure: use old ContentPlanEditCard
+                return (
+                  <ContentPlanEditCard
+                    key={plan.id}
+                    plan={plan}
+                    isExpanded={shouldBeExpanded(plan.id)}
+                    onToggleExpand={handleToggleExpand}
+                    isNew={newPlanId === plan.id}
+                    viewMode={!isEditMode}
+                    onArchive={archiveContentPlan}
+                    onDelete={deleteContentPlan}
+                  />
+                );
+              })}
             </div>
           </div>
         )}

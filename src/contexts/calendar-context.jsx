@@ -1627,26 +1627,42 @@ export const CalendarProvider = ({ children }) => {
 
   /**
    * Create a new content plan (Lernplan or Themenliste)
-   * @param {Object} planData - { name, type: 'lernplan'|'themenliste', description?, mode?, examDate? }
+   * T32 FIX: Now preserves all T27 fields (selectedAreas, themen, kapitel, useKapitel, status)
+   * @param {Object} planData - { name, type, description?, status?, selectedAreas?, themen?, kapitel?, useKapitel?, ... }
    * @returns {Object} The created plan
    */
   const createContentPlan = useCallback(async (planData) => {
+    // T32 FIX: Spread all planData fields to preserve T27 structure
+    // (selectedAreas, themen, kapitel, useKapitel, status)
     const newPlan = {
-      id: generateId(),
-      name: planData.name || '',
-      type: planData.type || 'themenliste',
-      description: planData.description || '',
-      mode: planData.mode || 'standard',
-      examDate: planData.examDate || null,
-      archived: false,
+      // Default values
+      name: '',
+      type: 'themenliste',
+      description: '',
+      mode: 'standard',
+      examDate: null,
       rechtsgebiete: [],
+      // T27: New structure defaults
+      selectedAreas: [],
+      themen: [],
+      kapitel: [],
+      useKapitel: false,
+      status: 'draft',
+      // Spread planData to override defaults (preserves all fields including status)
+      ...planData,
+      // Always override these fields
+      id: generateId(),
+      archived: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     // Save to Supabase (also updates local state)
-    await saveContentPlanToSupabase(newPlan);
-    return newPlan;
+    // T34 FIX: Use the returned data which contains the Supabase-generated UUID
+    const result = await saveContentPlanToSupabase(newPlan);
+
+    // Return the plan with Supabase UUID (if available), otherwise fall back to local plan
+    return result?.data || newPlan;
   }, [saveContentPlanToSupabase]);
 
   /**

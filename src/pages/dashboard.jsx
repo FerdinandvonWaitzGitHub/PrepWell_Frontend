@@ -158,6 +158,16 @@ const DashboardPage = () => {
     }
   });
 
+  // Daily goal enabled setting - determines if Tagesziel is shown on dashboard
+  const [dailyGoalEnabled, setDailyGoalEnabled] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
+      return settings.learning?.dailyGoalEnabled ?? true; // Default: enabled
+    } catch {
+      return true;
+    }
+  });
+
   // Listen for settings changes (when user changes settings)
   useEffect(() => {
     const handleStorageChange = () => {
@@ -165,9 +175,11 @@ const DashboardPage = () => {
         const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
         setShowThemaCheckbox(settings.learning?.progressCalculation === 'themen');
         setChapterLevelEnabled(settings.jura?.chapterLevelEnabled ?? false);
+        setDailyGoalEnabled(settings.learning?.dailyGoalEnabled ?? true);
       } catch {
         setShowThemaCheckbox(false);
         setChapterLevelEnabled(false);
+        setDailyGoalEnabled(true);
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -1094,10 +1106,16 @@ const DashboardPage = () => {
   }, [todayBlocks]);
 
   // BUG-022 FIX: Calculate daily learning goal with proper priority:
+  // 0. Check if daily goal is enabled (if disabled, return 0 to hide from dashboard)
   // 1. User-defined setting from Settings page (dailyGoalHours)
   // 2. Calculated from planned Lernplan blocks for today
   // 3. If neither, return 0 (not a hardcoded fallback)
   const dailyLearningGoalMinutes = useMemo(() => {
+    // Priority 0: Check if daily goal is enabled (uses React state for reactivity)
+    if (!dailyGoalEnabled) {
+      return 0;
+    }
+
     // Priority 1: Check if user has set a daily goal in settings
     try {
       const settingsStr = localStorage.getItem('prepwell_settings');
@@ -1135,7 +1153,7 @@ const DashboardPage = () => {
 
     // Priority 3: If no settings and no blocks planned, return 0
     return totalMinutes;
-  }, [todayBlocks]);
+  }, [todayBlocks, dailyGoalEnabled]);
 
   // BUG-009 FIX: Force periodic re-calculation of learning minutes when timer is active
   const [progressUpdateTick, setProgressUpdateTick] = useState(0);

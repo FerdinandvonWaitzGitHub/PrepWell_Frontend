@@ -1,9 +1,9 @@
 # PrepWell API-Dokumentation
 
 **Erstellt:** 21.01.2026
-**Aktualisiert:** 21.01.2026
-**Ticket:** T26, T28, T30
-**Version:** 1.1
+**Aktualisiert:** 23.01.2026
+**Ticket:** T26, T28, T30, T22, T27, T34
+**Version:** 1.3
 
 ---
 
@@ -37,8 +37,8 @@ PrepWell verwendet **Supabase** als Backend mit folgender Strategie:
 │                      Frontend (React)                       │
 ├─────────────────────────────────────────────────────────────┤
 │  Authenticated User?                                        │
-│  ├── YES → Supabase (Primary) + LocalStorage (Cache)       │
-│  └── NO  → LocalStorage only (Offline-First)               │
+│  ├── YES → Supabase (Primary) + LocalStorage (Cache)        │
+│  └── NO  → LocalStorage only (Offline-First)                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -651,29 +651,108 @@ supabase
 | exam_date | date | Examendatum (wenn mode='exam') |
 | archived | boolean | Archiviert? |
 | is_published | boolean | Veröffentlicht? |
-| rechtsgebiete | jsonb | Array von Rechtsgebieten |
+| selected_areas | jsonb | **T27:** Array von Area-Objekten |
+| themen | jsonb | **T27:** Flache Liste aller Themen |
+| use_kapitel | boolean | **T27:** Kapitel-Gruppierung aktiv? |
+| kapitel | jsonb | **T27:** Kapitel-Array (optional) |
+| rechtsgebiete | jsonb | ~~DEPRECATED~~ - Alte hierarchische Struktur |
 | imported_from | uuid | Importiert von (Plan-ID) |
 | created_at | timestamp | Erstellungsdatum |
 | updated_at | timestamp | Letzte Änderung |
 
-**Transform App → DB:**
+**T27 Flat Structure (JSONB-Felder):**
+
 ```javascript
-{
+// selected_areas: Array von Fach/URG-Objekten
+[
+  {
+    id: 'bgb-at',
+    name: 'BGB AT',
+    rechtsgebietId: 'zivilrecht',
+    color: 'bg-blue-500'
+  }
+]
+
+// themen: Flache Liste mit areaId-Referenz
+[
+  {
+    id: 'thema-1',
+    name: 'Vertragsschluss',
+    description: '',
+    areaId: 'bgb-at',        // Referenz auf selected_areas[].id
+    kapitelId: null,          // Optional: Kapitel-Gruppierung
+    order: 0,
+    aufgaben: [
+      { id: 'aufg-1', name: 'Definition', completed: false }
+    ]
+  }
+]
+
+// kapitel: Optional, wenn use_kapitel = true
+[
+  { id: 'kap-1', name: 'Allgemeiner Teil', areaId: 'bgb-at', order: 0 }
+]
+```
+
+**Transform App → Supabase:**
+```javascript
+transformToSupabase: (plan) => ({
   name: plan.name,
   type: plan.type || 'themenliste',
   mode: plan.mode === 'examen' ? 'exam' : (plan.mode || 'standard'),
-  // ... weitere Felder
-}
+  description: plan.description,
+  exam_date: plan.examDate,
+  archived: plan.archived,
+  is_published: plan.isPublished,
+  // T27 Flat Structure
+  selected_areas: plan.selectedAreas || [],
+  themen: plan.themen || [],
+  use_kapitel: plan.useKapitel || false,
+  kapitel: plan.kapitel || [],
+  imported_from: plan.importedFrom,
+})
 ```
 
-**Transform DB → App:**
+**Transform Supabase → App:**
 ```javascript
-{
-  // mode: 'exam' → 'examen' (German UI)
+transformFromSupabase: (row) => ({
+  id: row.id,
+  name: row.name,
+  type: row.type,
   mode: row.mode === 'exam' ? 'examen' : row.mode,
+  description: row.description,
   examDate: row.exam_date,
-  // ... weitere Felder
-}
+  archived: row.archived,
+  isPublished: row.is_published,
+  // T27 Flat Structure
+  selectedAreas: row.selected_areas || [],
+  themen: row.themen || [],
+  useKapitel: row.use_kapitel || false,
+  kapitel: row.kapitel || [],
+  importedFrom: row.imported_from,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+})
+```
+
+**T34: createContentPlan Rückgabewert**
+
+> ⚠️ **WICHTIG:** `createContentPlan()` gibt das Ergebnis von Supabase zurück (mit UUID), nicht den lokalen Plan!
+
+```javascript
+// calendar-context.jsx createContentPlan()
+const createContentPlan = async (plan) => {
+  const newPlan = { ...plan, id: `id-${Date.now()}` }; // Lokale ID
+  const result = await saveContentPlanToSupabase(newPlan);
+
+  // T34 FIX: Supabase UUID zurückgeben, nicht lokale ID!
+  return result?.data || newPlan;
+};
+
+// Verwendung in themenliste-editor.jsx:
+const savedPlan = await createContentPlan(planData);
+// savedPlan.id = UUID von Supabase (z.B. 'c08e835d-...')
+// NICHT die lokale ID 'id-1706012345678'
 ```
 
 ---
@@ -1035,6 +1114,8 @@ const todayEntries = allEntries.filter(entry => entry.date === today);
 | custom_subjects | jsonb | Benutzerdefinierte Fächer |
 | onboarding_complete | boolean | Onboarding abgeschlossen? |
 | app_mode | text | 'standard' \| 'exam' |
+| themenliste_kapitel_default | boolean | T27: Default für Kapitel-Ebene bei neuen Themenlisten (Default: false) |
+| kapitel_ebene_aktiviert | boolean | T22: Kapitel-Ebene global aktiviert (Default: false) |
 | created_at | timestamp | Erstellungsdatum |
 | updated_at | timestamp | Letzte Änderung |
 
@@ -1168,6 +1249,8 @@ supabase
 | `prepwell_custom_unterrechtsgebiete` | Custom Unterrechtsgebiete |
 | `prepwell_logbuch_entries` | Logbuch Einträge |
 | `prepwell_studiengang` | Studiengang (für Dynamic Labels) |
+| `prepwell_themenliste_kapitel_default` | T27: Kapitel-Ebene Default für Themenlisten |
+| `prepwell_kapitel_ebene` | T22: Kapitel-Ebene global aktiviert |
 | `prepwell-auth` | Auth Session (sessionStorage) |
 
 ---
@@ -1314,11 +1397,43 @@ Supabase Dashboard zeigt:
 - [x] ~~Logbuch-Tabelle dokumentieren~~ ✅ Erledigt (Abschnitt 8)
 - [x] ~~Semester-Leistungen dokumentieren (T28)~~ ✅ Erledigt (Abschnitt 6.1)
 - [x] ~~Series-Info für Sessions dokumentieren (T30)~~ ✅ Erledigt (Abschnitt 3.1, 3.2)
+- [x] ~~T27 Flat Structure für content_plans dokumentieren~~ ✅ Erledigt (Abschnitt 5.1)
+- [x] ~~T34 createContentPlan Rückgabewert dokumentieren~~ ✅ Erledigt (Abschnitt 5.1)
 - [ ] Realtime Subscriptions (falls zukünftig verwendet)
 
 ---
 
 ## Changelog
+
+### Version 1.3 (23.01.2026)
+
+**T27 Flat Structure für Content Plans:**
+- `content_plans` Schema komplett aktualisiert mit neuen JSONB-Feldern:
+  - `selected_areas` - Ausgewählte Fächer/URGs
+  - `themen` - Flache Liste aller Themen mit `areaId`-Referenz
+  - `use_kapitel` - Kapitel-Gruppierung aktiv?
+  - `kapitel` - Optionale Kapitel-Struktur
+- `rechtsgebiete` als DEPRECATED markiert (alte hierarchische Struktur)
+- Transform-Funktionen (`transformToSupabase`, `transformFromSupabase`) vollständig dokumentiert
+
+**T34 Fix: createContentPlan Rückgabewert:**
+- `createContentPlan()` gibt jetzt Supabase-Ergebnis mit UUID zurück
+- Dokumentiert kritischen Fix für ID-Synchronisation
+- Hinweis auf korrekten Umgang mit Rückgabewert
+
+---
+
+### Version 1.2 (22.01.2026)
+
+**Neue Features:**
+- **T27:** Neues Feld `themenliste_kapitel_default` in `user_settings` für Default-Einstellung der Kapitel-Ebene bei Themenlisten
+- **T22:** Neues Feld `kapitel_ebene_aktiviert` in `user_settings` für globale Kapitel-Ebene Aktivierung
+
+**Änderungen:**
+- `user_settings` Schema um 2 neue Spalten erweitert (Abschnitt 9.1)
+- LocalStorage Keys um `prepwell_themenliste_kapitel_default` und `prepwell_kapitel_ebene` erweitert
+
+---
 
 ### Version 1.1 (21.01.2026)
 

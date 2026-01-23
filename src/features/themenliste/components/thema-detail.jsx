@@ -4,29 +4,33 @@ import { Plus, Trash2 } from 'lucide-react';
 /**
  * ThemaDetail - Right panel showing selected Thema with Aufgaben
  * T27: Updated to match Figma design (color bar, typography)
+ * T27 Redesign: Uses selectedAreas + areaId for color lookup
  */
 const ThemaDetail = ({
   thema,
+  selectedAreas = [],
   onAddAufgabe,
   onDeleteAufgabe,
   onTogglePriority,
   onUpdateThema,
   hierarchyLabels,
+  isJura = true,
 }) => {
+  // T27: Get correct hierarchy labels based on Jura vs non-Jura
+  // Jura (5 levels): level4=Thema, level5=Aufgabe
+  // Non-Jura (4 levels): level3=Thema, level4=Aufgabe
+  const themaLabel = isJura ? hierarchyLabels?.level4 : hierarchyLabels?.level3;
+  const aufgabeLabel = isJura ? hierarchyLabels?.level5 : hierarchyLabels?.level4;
+  const aufgabeLabelPlural = isJura ? hierarchyLabels?.level5Plural : hierarchyLabels?.level4Plural;
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [newAufgabeName, setNewAufgabeName] = useState('');
   const [isAddingAufgabe, setIsAddingAufgabe] = useState(false);
 
-  // T27: Get color bar class based on rechtsgebietId
-  const getColorBarClass = (rechtsgebietId) => {
-    switch (rechtsgebietId) {
-      case 'oeffentliches-recht': return 'bg-green-500';
-      case 'zivilrecht': return 'bg-blue-500';
-      case 'strafrecht': return 'bg-red-500';
-      case 'querschnitt': return 'bg-purple-500';
-      default: return 'bg-neutral-400';
-    }
+  // T27: Get color bar class based on areaId -> selectedAreas lookup
+  const getColorBarClass = (areaId) => {
+    const area = selectedAreas.find(a => a.id === areaId);
+    return area?.color || 'bg-neutral-400';
   };
 
   // Priority display helpers
@@ -60,10 +64,10 @@ const ThemaDetail = ({
             </svg>
           </div>
           <h3 className="text-lg font-medium text-neutral-700 mb-1">
-            Kein {hierarchyLabels?.level4 || 'Thema'} ausgewählt
+            Kein {themaLabel || 'Thema'} ausgewählt
           </h3>
           <p className="text-sm text-neutral-400">
-            Wähle ein {hierarchyLabels?.level4 || 'Thema'} aus der Navigation um {hierarchyLabels?.level5Plural || 'Aufgaben'} zu bearbeiten
+            Wähle ein {themaLabel || 'Thema'} aus der Navigation um {aufgabeLabelPlural || 'Aufgaben'} zu bearbeiten
           </p>
         </div>
       </div>
@@ -113,13 +117,15 @@ const ThemaDetail = ({
             {thema.description || 'Beschreibung'}
           </p>
         )}
+
+        {/* T32: Fach selector removed - now handled in left navigation */}
       </div>
 
       {/* T27: Aufgaben List with color bar */}
       <div className="flex-1 overflow-y-auto px-12 pb-6">
         <div className="flex gap-4">
           {/* T27: Vertical color bar (5px width) */}
-          <div className={`w-1.5 rounded-full ${getColorBarClass(thema.rechtsgebietId)}`} />
+          <div className={`w-1.5 rounded-full ${getColorBarClass(thema.areaId)}`} />
 
           {/* Aufgaben Container */}
           <div className="flex-1 space-y-2.5">
@@ -163,7 +169,7 @@ const ThemaDetail = ({
                     <button
                       onClick={() => onDeleteAufgabe(aufgabe.id)}
                       className="p-1 text-neutral-200 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      title={`${hierarchyLabels?.level5 || 'Aufgabe'} löschen`}
+                      title={`${aufgabeLabel || 'Aufgabe'} löschen`}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -186,7 +192,7 @@ const ThemaDetail = ({
                       setNewAufgabeName('');
                     }
                   }}
-                  placeholder={`Neue ${hierarchyLabels?.level5 || 'Aufgabe'}...`}
+                  placeholder={`Neue ${aufgabeLabel || 'Aufgabe'}...`}
                   className="flex-1 px-2.5 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-neutral-400"
                   autoFocus
                 />
@@ -212,7 +218,7 @@ const ThemaDetail = ({
                 className="flex items-center gap-2 py-2 text-xs font-medium text-neutral-500 hover:text-neutral-700"
               >
                 <Plus size={16} />
-                <span>Neue Aufgabe</span>
+                <span>Neue {aufgabeLabel || 'Aufgabe'}</span>
               </button>
             )}
 
@@ -220,7 +226,7 @@ const ThemaDetail = ({
             {(thema.aufgaben || []).length === 0 && !isAddingAufgabe && (
               <div className="text-center py-8">
                 <p className="text-sm text-neutral-400">
-                  Noch keine {hierarchyLabels?.level5Plural || 'Aufgaben'} hinzugefügt
+                  Noch keine {aufgabeLabelPlural || 'Aufgaben'} hinzugefügt
                 </p>
               </div>
             )}

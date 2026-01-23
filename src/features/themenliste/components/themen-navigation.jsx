@@ -1,493 +1,486 @@
-import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 
 /**
- * ThemenNavigation - Left sidebar with accordion navigation
- * Supports: Rechtsgebiet → Untergebiet → (Kapitel) → Thema
- * T23 Phase 3: Auto-expand and visual hints for new items
+ * T32 Bug 4: AreaDropdown - Quick switcher for changing theme's Fach
+ * Always visible (not just on hover) for easier access
+ */
+const AreaDropdown = ({ currentAreaId, areas, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+        className="flex items-center gap-1 px-2 py-1 text-xs text-neutral-400
+                   hover:bg-neutral-100 hover:text-neutral-600 rounded border border-transparent hover:border-neutral-200 transition-all"
+        title="Fach ändern"
+      >
+        <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 min-w-[160px]">
+          {areas.map(area => (
+            <button
+              key={area.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange(area.id);
+                setOpen(false);
+              }}
+              className={`w-full px-3 py-2 text-xs text-left flex items-center gap-2
+                         hover:bg-neutral-50 ${area.id === currentAreaId ? 'bg-neutral-100 font-medium' : ''}`}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full ${area.color || 'bg-neutral-400'}`} />
+              <span className="truncate">{area.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * ThemenNavigation - Left sidebar with flat theme list
+ *
+ * T27: Redesigned from accordion hierarchy to flat list
+ * - Flat list of themes with color bars
+ * - Optional Kapitel grouping (if useKapitel=true)
+ * - Color based on theme's areaId -> selectedAreas color lookup
  */
 const ThemenNavigation = ({
-  rechtsgebiete = [],
+  themen = [],
+  kapitel = [],
+  useKapitel = false,
+  selectedAreas = [],
   selectedThemaId,
   onSelectThema,
-  onAddRechtsgebiet,
-  onAddUntergebiet,
-  onAddKapitel,
   onAddThema,
   onDeleteThema,
-  onDeleteRechtsgebiet,
-  onDeleteUnterrechtsgebiet,
+  onAddKapitel,
   onDeleteKapitel,
-  showKapitelLevel = false,
+  onUpdateKapitel,
+  onUpdateThema, // T32: Added for inline area changes
   hierarchyLabels,
-  rechtsgebietLabels,
-  rechtsgebietColors,
-  unterrechtsgebieteData,
+  isJura = true,
 }) => {
-  // Expanded state for each level
-  const [expandedRg, setExpandedRg] = useState(new Set());
-  const [expandedUrg, setExpandedUrg] = useState(new Set());
-  const [expandedKap, setExpandedKap] = useState(new Set());
-
-  // Dropdown states for adding new items
-  const [showRgDropdown, setShowRgDropdown] = useState(false);
-  const [showUrgDropdown, setShowUrgDropdown] = useState(null); // rgId
-  const [addingThemaIn, setAddingThemaIn] = useState(null); // { rgId, urgId, kapitelId? }
-  const [addingKapitelIn, setAddingKapitelIn] = useState(null); // { rgId, urgId }
+  // T27: Get correct hierarchy labels based on Jura vs non-Jura
+  // Jura (5 levels): level3=Kapitel, level4=Thema, level5=Aufgabe
+  // Non-Jura (4 levels): level2=Kapitel, level3=Thema, level4=Aufgabe
+  const themaLabel = isJura ? hierarchyLabels?.level4 : hierarchyLabels?.level3;
+  const themaLabelPlural = isJura ? hierarchyLabels?.level4Plural : hierarchyLabels?.level3Plural;
+  const kapitelLabel = isJura ? hierarchyLabels?.level3 : hierarchyLabels?.level2;
+  const [addingThemaIn, setAddingThemaIn] = useState(null); // kapitelId or 'root'
+  const [addingKapitel, setAddingKapitel] = useState(false);
   const [newThemaName, setNewThemaName] = useState('');
   const [newKapitelName, setNewKapitelName] = useState('');
+  const [selectedAreaId, setSelectedAreaId] = useState(null); // T27: Selected area for new theme
+  const [newKapitelAreaId, setNewKapitelAreaId] = useState(null); // T32: Selected area for new Kapitel
+  const [lastUsedAreaId, setLastUsedAreaId] = useState(null); // T32: Remember last used area for smart default
+  const [expandedKapitel, setExpandedKapitel] = useState(new Set(kapitel.map(k => k.id)));
 
-  // T23 Phase 3: Track newly created items for visual highlight
-  const [highlightedRg, setHighlightedRg] = useState(null);
-  const [highlightedUrg, setHighlightedUrg] = useState(null);
-
-  // Clear highlights after 3 seconds
-  useEffect(() => {
-    if (highlightedRg) {
-      const timer = setTimeout(() => setHighlightedRg(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [highlightedRg]);
-
-  useEffect(() => {
-    if (highlightedUrg) {
-      const timer = setTimeout(() => setHighlightedUrg(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [highlightedUrg]);
-
-  const toggleRg = (rgId) => {
-    setExpandedRg(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(rgId)) newSet.delete(rgId);
-      else newSet.add(rgId);
-      return newSet;
-    });
+  // Get color class for a theme based on its areaId
+  const getColorForThema = (areaId) => {
+    const area = selectedAreas.find(a => a.id === areaId);
+    if (!area?.color) return 'border-l-neutral-400';
+    // Convert bg-X-500 to border-l-X-500
+    return area.color.replace('bg-', 'border-l-');
   };
 
-  const toggleUrg = (urgId) => {
-    setExpandedUrg(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(urgId)) newSet.delete(urgId);
-      else newSet.add(urgId);
-      return newSet;
-    });
-  };
-
-  const toggleKap = (kapId) => {
-    setExpandedKap(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(kapId)) newSet.delete(kapId);
-      else newSet.add(kapId);
-      return newSet;
-    });
-  };
-
-  // Get available Rechtsgebiete (not yet added)
-  const availableRechtsgebiete = Object.keys(rechtsgebietLabels).filter(
-    rgId => !rechtsgebiete.find(rg => rg.rechtsgebietId === rgId)
-  );
-
-  // Get available Unterrechtsgebiete for a Rechtsgebiet
-  const getAvailableUntergebiete = (rgId, rg) => {
-    const allUrg = unterrechtsgebieteData[rgId] || [];
-    const usedUrgIds = (rg.unterrechtsgebiete || []).map(u => u.unterrechtsgebietId);
-    return allUrg.filter(u => !usedUrgIds.includes(u.id));
+  // Get background color class for color bar
+  const getBgColorForThema = (areaId) => {
+    const area = selectedAreas.find(a => a.id === areaId);
+    return area?.color || 'bg-neutral-400';
   };
 
   // Handle adding new Thema
-  const handleAddThema = () => {
-    if (!addingThemaIn || !newThemaName.trim()) return;
-    onAddThema(addingThemaIn.rgId, addingThemaIn.urgId, addingThemaIn.kapitelId, newThemaName.trim());
+  // T32 Bug 4b: Thema inherits Fach from parent Kapitel
+  const handleAddThema = (kapitelId = null) => {
+    if (!newThemaName.trim()) return;
+
+    let areaId;
+    if (kapitelId && useKapitel) {
+      // T32: Thema erbt Fach vom Kapitel
+      const parentKapitel = kapitel.find(k => k.id === kapitelId);
+      areaId = parentKapitel?.areaId || selectedAreas[0]?.id;
+    } else {
+      // T32: Smart Default - use selected, then last used, then first
+      areaId = selectedAreaId || lastUsedAreaId || (selectedAreas.length > 0 ? selectedAreas[0].id : null);
+    }
+
+    onAddThema(newThemaName.trim(), areaId, kapitelId);
+
+    // T32: Remember last used area for next theme
+    if (areaId) {
+      setLastUsedAreaId(areaId);
+    }
+
     setNewThemaName('');
+    setSelectedAreaId(null);
     setAddingThemaIn(null);
   };
 
   // Handle adding new Kapitel
+  // T32 Bug 4b: Pass areaId to Kapitel
   const handleAddKapitel = () => {
-    if (!addingKapitelIn || !newKapitelName.trim()) return;
-    // T23 Phase 3: Auto-expand and show Thema input
-    const newKapitelId = onAddKapitel(addingKapitelIn.rgId, addingKapitelIn.urgId, newKapitelName.trim());
-    const { rgId, urgId } = addingKapitelIn;
+    if (!newKapitelName.trim()) return;
+    // T32: Use selected area or default to first
+    const areaId = newKapitelAreaId || (selectedAreas.length > 0 ? selectedAreas[0].id : null);
+    const newKapitelId = onAddKapitel(newKapitelName.trim(), areaId);
     setNewKapitelName('');
-    setAddingKapitelIn(null);
+    setNewKapitelAreaId(null);
+    setAddingKapitel(false);
     if (newKapitelId) {
-      // Auto-expand the new Kapitel
-      setExpandedKap(prev => new Set([...prev, newKapitelId]));
-      // Show Thema input
-      setAddingThemaIn({ rgId, urgId, kapitelId: newKapitelId });
+      setExpandedKapitel(prev => new Set([...prev, newKapitelId]));
+      setAddingThemaIn(newKapitelId);
     }
   };
 
-  // Get color class for rechtsgebiet
-  const getColorClass = (rgId) => {
-    const color = rechtsgebietColors[rgId];
-    if (color === 'bg-green-500') return 'border-l-green-500';
-    if (color === 'bg-blue-500') return 'border-l-blue-500';
-    if (color === 'bg-red-500') return 'border-l-red-500';
-    if (color === 'bg-purple-500') return 'border-l-purple-500';
-    return 'border-l-neutral-400';
+  // Toggle Kapitel expansion
+  const toggleKapitel = (kapitelId) => {
+    setExpandedKapitel(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(kapitelId)) newSet.delete(kapitelId);
+      else newSet.add(kapitelId);
+      return newSet;
+    });
   };
 
-  return (
-    <div className="w-full h-full border-r border-neutral-200 bg-white overflow-y-auto">
-      <div className="p-4">
-        {/* Rechtsgebiete List */}
-        {rechtsgebiete.map(rg => (
-          <div key={rg.id} className={`mb-2 border-l-2 ${getColorClass(rg.rechtsgebietId)}`}>
-            {/* Rechtsgebiet Header */}
-            <div
-              className={`flex items-center justify-between px-3 py-2 hover:bg-neutral-50 cursor-pointer rounded-r-lg group transition-colors ${
-                highlightedRg === rg.id ? 'bg-blue-50 ring-2 ring-blue-200' : ''
-              }`}
-              onClick={() => toggleRg(rg.id)}
-            >
-              <div className="flex items-center gap-2">
-                {expandedRg.has(rg.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                <span className="text-sm font-medium text-neutral-900">
-                  {rechtsgebietLabels[rg.rechtsgebietId] || rg.rechtsgebietId}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                {/* T23: Delete Rechtsgebiet */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteRechtsgebiet?.(rg.id);
-                  }}
-                  className="p-1 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                  title={`${hierarchyLabels?.level1 || 'Rechtsgebiet'} löschen`}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
+  // Render a single theme item
+  // T32 Bug 4: Show Fach name under theme title when multiple areas exist
+  const renderThemaItem = (thema) => {
+    const themaArea = selectedAreas.find(a => a.id === thema.areaId);
 
-            {/* Untergebiet Dropdown */}
-            {showUrgDropdown === rg.id && (
-              <div className="ml-10 mr-2 mb-2 p-2 bg-neutral-50 rounded-lg border border-neutral-200">
-                <div className="text-xs font-medium text-neutral-500 mb-2">
-                  {hierarchyLabels?.level2 || 'Untergebiet'} hinzufügen:
-                </div>
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {getAvailableUntergebiete(rg.rechtsgebietId, rg).map(urg => (
-                    <button
-                      key={urg.id}
-                      onClick={() => {
-                        // T23 Phase 3: Auto-expand and show next level input
-                        const newUrgId = onAddUntergebiet(rg.id, urg.id, urg.name);
-                        setShowUrgDropdown(null);
-                        if (newUrgId) {
-                          // Auto-expand the new Untergebiet
-                          setExpandedUrg(prev => new Set([...prev, newUrgId]));
-                          // Show add input for next level
-                          if (showKapitelLevel) {
-                            setAddingKapitelIn({ rgId: rg.id, urgId: newUrgId });
-                          } else {
-                            setAddingThemaIn({ rgId: rg.id, urgId: newUrgId });
-                          }
-                          // Highlight the new Untergebiet
-                          setHighlightedUrg(newUrgId);
-                        }
-                      }}
-                      className="w-full text-left px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 rounded"
-                    >
-                      {urg.name}
-                    </button>
-                  ))}
-                  {getAvailableUntergebiete(rg.rechtsgebietId, rg).length === 0 && (
-                    <p className="text-xs text-neutral-400 px-2">Alle hinzugefügt</p>
-                  )}
-                </div>
-              </div>
-            )}
+    return (
+      <div
+        key={thema.id}
+        className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer group transition-colors ${
+          selectedThemaId === thema.id
+            ? 'bg-neutral-100'
+            : 'hover:bg-neutral-50'
+        }`}
+        onClick={() => onSelectThema(thema.id)}
+      >
+        {/* Color bar */}
+        <span className={`w-1.5 h-8 rounded-full ${getBgColorForThema(thema.areaId)}`} />
 
-            {/* Unterrechtsgebiete */}
-            {expandedRg.has(rg.id) && (rg.unterrechtsgebiete || []).map(urg => (
-              <div key={urg.id} className="ml-10">
-                {/* Untergebiet Header */}
-                <div
-                  className={`flex items-center justify-between px-3 py-1.5 hover:bg-neutral-50 cursor-pointer rounded-lg group transition-colors ${
-                    highlightedUrg === urg.id ? 'bg-blue-50 ring-2 ring-blue-200' : ''
-                  }`}
-                  onClick={() => toggleUrg(urg.id)}
-                >
-                  <div className="flex items-center gap-2">
-                    {(showKapitelLevel ? (urg.kapitel || []).length > 0 : (urg.themen || []).length > 0) ? (
-                      expandedUrg.has(urg.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />
-                    ) : (
-                      <div className="w-3.5" />
-                    )}
-                    <span className="text-sm text-neutral-700">{urg.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {/* T23: Delete Unterrechtsgebiet */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteUnterrechtsgebiet?.(urg.id, rg.id);
-                      }}
-                      className="p-1 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      title={`${hierarchyLabels?.level2 || 'Untergebiet'} löschen`}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Kapitel Level (Jura only) */}
-                {showKapitelLevel && expandedUrg.has(urg.id) && (
-                  <>
-                    {(urg.kapitel || []).map(kap => (
-                      <div key={kap.id} className="ml-10">
-                        {/* Kapitel Header */}
-                        <div
-                          className="flex items-center justify-between px-3 py-1.5 hover:bg-neutral-50 cursor-pointer rounded-lg group"
-                          onClick={() => toggleKap(kap.id)}
-                        >
-                          <div className="flex items-center gap-2">
-                            {(kap.themen || []).length > 0 ? (
-                              expandedKap.has(kap.id) ? <ChevronDown size={12} /> : <ChevronRight size={12} />
-                            ) : (
-                              <div className="w-3" />
-                            )}
-                            <span className="text-xs text-neutral-600">{kap.title}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {/* T23: Delete Kapitel */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteKapitel?.(kap.id, rg.id, urg.id);
-                              }}
-                              className="p-1 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                              title={`${hierarchyLabels?.level3 || 'Kapitel'} löschen`}
-                            >
-                              <Trash2 size={10} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Themen in Kapitel */}
-                        {expandedKap.has(kap.id) && (kap.themen || []).map(thema => (
-                          <div
-                            key={thema.id}
-                            className={`ml-16 flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer group ${
-                              selectedThemaId === thema.id
-                                ? 'bg-neutral-100'
-                                : 'hover:bg-neutral-50'
-                            }`}
-                            onClick={() => onSelectThema(thema.id)}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium text-neutral-800 truncate">{thema.name}</div>
-                              {thema.description && (
-                                <div className="text-xs text-neutral-400 truncate">{thema.description}</div>
-                              )}
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteThema(thema.id, { rgId: rg.id, urgId: urg.id, kapitelId: kap.id });
-                              }}
-                              className="p-1 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        ))}
-
-                        {/* Add Thema in Kapitel Input */}
-                        {addingThemaIn?.kapitelId === kap.id && (
-                          <div className="ml-16 px-3 py-2">
-                            <input
-                              type="text"
-                              value={newThemaName}
-                              onChange={(e) => setNewThemaName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleAddThema();
-                                if (e.key === 'Escape') setAddingThemaIn(null);
-                              }}
-                              placeholder={`Neues ${hierarchyLabels?.level4 || 'Thema'}...`}
-                              className="w-full text-xs px-2 py-1 border border-neutral-200 rounded focus:outline-none focus:border-neutral-400"
-                              autoFocus
-                            />
-                          </div>
-                        )}
-
-                        {/* T23: "+ Neues Thema" Button (Jura/Kapitel) */}
-                        {expandedKap.has(kap.id) && addingThemaIn?.kapitelId !== kap.id && (
-                          <button
-                            onClick={() => setAddingThemaIn({ rgId: rg.id, urgId: urg.id, kapitelId: kap.id })}
-                            className="ml-16 mt-1 flex items-center gap-1.5 px-3 py-1.5 text-xs text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 rounded-lg w-[calc(100%-1rem)]"
-                          >
-                            <Plus size={10} />
-                            <span>Neues {hierarchyLabels?.level4 || 'Thema'}</span>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Add Kapitel Input */}
-                    {addingKapitelIn?.urgId === urg.id && (
-                      <div className="ml-10 px-3 py-2">
-                        <input
-                          type="text"
-                          value={newKapitelName}
-                          onChange={(e) => setNewKapitelName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleAddKapitel();
-                            if (e.key === 'Escape') setAddingKapitelIn(null);
-                          }}
-                          placeholder={`Neues ${hierarchyLabels?.level3 || 'Kapitel'}...`}
-                          className="w-full text-xs px-2 py-1 border border-neutral-200 rounded focus:outline-none focus:border-neutral-400"
-                          autoFocus
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Themen (non-Jura) */}
-                {!showKapitelLevel && expandedUrg.has(urg.id) && (
-                  <>
-                    {(urg.themen || []).map(thema => (
-                      <div
-                        key={thema.id}
-                        className={`ml-16 flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer group ${
-                          selectedThemaId === thema.id
-                            ? 'bg-neutral-100'
-                            : 'hover:bg-neutral-50'
-                        }`}
-                        onClick={() => onSelectThema(thema.id)}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-medium text-neutral-800 truncate">{thema.name}</div>
-                          {thema.description && (
-                            <div className="text-xs text-neutral-400 truncate">{thema.description}</div>
-                          )}
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteThema(thema.id, { rgId: rg.id, urgId: urg.id });
-                          }}
-                          className="p-1 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
-
-                    {/* Add Thema Input (non-Jura) */}
-                    {addingThemaIn?.urgId === urg.id && !addingThemaIn?.kapitelId && (
-                      <div className="ml-16 px-3 py-2">
-                        <input
-                          type="text"
-                          value={newThemaName}
-                          onChange={(e) => setNewThemaName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleAddThema();
-                            if (e.key === 'Escape') setAddingThemaIn(null);
-                          }}
-                          placeholder={`Neues ${hierarchyLabels?.level4 || 'Thema'}...`}
-                          className="w-full text-xs px-2 py-1 border border-neutral-200 rounded focus:outline-none focus:border-neutral-400"
-                          autoFocus
-                        />
-                      </div>
-                    )}
-
-                    {/* T23: "+ Neues Thema" Button (non-Jura) */}
-                    {addingThemaIn?.urgId !== urg.id && (
-                      <button
-                        onClick={() => setAddingThemaIn({ rgId: rg.id, urgId: urg.id })}
-                        className="ml-16 mt-1 flex items-center gap-1.5 px-3 py-1.5 text-xs text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 rounded-lg w-[calc(100%-1rem)]"
-                      >
-                        <Plus size={12} />
-                        <span>Neues {hierarchyLabels?.level4 || 'Thema'}</span>
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-
-            {/* T23: "+ Neues Unterrechtsgebiet" Button */}
-            {expandedRg.has(rg.id) && showUrgDropdown !== rg.id && (
-              <button
-                onClick={() => setShowUrgDropdown(rg.id)}
-                className="ml-10 mt-1 flex items-center gap-1.5 px-3 py-1.5 text-xs text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 rounded-lg"
-              >
-                <Plus size={12} />
-                <span>Neues {hierarchyLabels?.level2 || 'Unterrechtsgebiet'}</span>
-              </button>
-            )}
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-neutral-900 truncate">
+            {thema.name || 'Unbenanntes Thema'}
           </div>
-        ))}
-
-        {/* Add Rechtsgebiet Button */}
-        <div className="mt-4">
-          {showRgDropdown ? (
-            <div className="p-2 bg-neutral-50 rounded-lg border border-neutral-200">
-              <div className="text-xs font-medium text-neutral-500 mb-2">
-                {hierarchyLabels?.level1 || 'Rechtsgebiet'} hinzufügen:
-              </div>
-              <div className="space-y-1">
-                {availableRechtsgebiete.map(rgId => (
-                  <button
-                    key={rgId}
-                    onClick={() => {
-                      // T23 Phase 3: Auto-expand and show Untergebiet dropdown
-                      const newRg = onAddRechtsgebiet(rgId);
-                      setShowRgDropdown(false);
-                      if (newRg?.id) {
-                        // Auto-expand the new Rechtsgebiet
-                        setExpandedRg(prev => new Set([...prev, newRg.id]));
-                        // Show the Untergebiet selection dropdown
-                        setShowUrgDropdown(newRg.id);
-                        // Highlight the new Rechtsgebiet
-                        setHighlightedRg(newRg.id);
-                      }
-                    }}
-                    className="w-full text-left px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 rounded"
-                  >
-                    {rechtsgebietLabels[rgId]}
-                  </button>
-                ))}
-                {availableRechtsgebiete.length === 0 && (
-                  <p className="text-xs text-neutral-400 px-2">Alle hinzugefügt</p>
-                )}
-              </div>
-              <button
-                onClick={() => setShowRgDropdown(false)}
-                className="mt-2 w-full text-xs text-neutral-500 hover:text-neutral-700"
-              >
-                Abbrechen
-              </button>
+          {/* T32: Show Fach name when multiple areas exist (not just description) */}
+          {selectedAreas.length > 1 && !useKapitel && themaArea && (
+            <div className="text-xs text-neutral-400 truncate flex items-center gap-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${themaArea.color || 'bg-neutral-400'}`} />
+              {themaArea.name}
             </div>
-          ) : (
-            <button
-              onClick={() => setShowRgDropdown(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 rounded-lg w-full"
-            >
-              <Plus size={16} />
-              <span>Neues {hierarchyLabels?.level1 || 'Rechtsgebiet'}</span>
-            </button>
+          )}
+          {thema.description && (
+            <div className="text-xs text-neutral-500 truncate">
+              {thema.description}
+            </div>
           )}
         </div>
 
-        {/* Empty State */}
-        {rechtsgebiete.length === 0 && !showRgDropdown && (
-          <div className="text-center py-8">
-            <p className="text-sm text-neutral-400 mb-2">
-              Noch keine {hierarchyLabels?.level1Plural || 'Rechtsgebiete'} hinzugefügt
-            </p>
-            <p className="text-xs text-neutral-400">
-              Klicke auf &quot;Neues {hierarchyLabels?.level1 || 'Rechtsgebiet'}&quot; um zu beginnen
-            </p>
+        {/* T32 Bug 4: Quick Area Switcher - always visible when multiple areas */}
+        {selectedAreas.length > 1 && !useKapitel && onUpdateThema && (
+          <AreaDropdown
+            currentAreaId={thema.areaId}
+            areas={selectedAreas}
+            onChange={(newAreaId) => onUpdateThema(thema.id, { areaId: newAreaId })}
+          />
+        )}
+
+        {/* Delete button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteThema(thema.id);
+          }}
+          className="p-1 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Löschen"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    );
+  };
+
+  // Render add thema input
+  // T32 Bug 4b: Don't show area selector when inside a Kapitel (theme inherits from Kapitel)
+  const renderAddThemaInput = (kapitelId = null) => {
+    // T32: When inside a Kapitel, show which Fach it will inherit
+    const parentKapitel = kapitelId ? kapitel.find(k => k.id === kapitelId) : null;
+    const inheritedArea = parentKapitel ? selectedAreas.find(a => a.id === parentKapitel.areaId) : null;
+    // T32: For flat list (no Kapitel), determine current area from selection/smart default
+    const currentAreaId = selectedAreaId || lastUsedAreaId || selectedAreas[0]?.id;
+    const currentArea = selectedAreas.find(a => a.id === currentAreaId);
+
+    return (
+      <div className="px-3 py-2 space-y-2">
+        {/* T32 Bug 4b: Show inherited Fach info when inside a Kapitel */}
+        {kapitelId && inheritedArea && selectedAreas.length > 1 && (
+          <div className="flex items-center gap-1.5 text-xs text-neutral-400">
+            <span>erbt von {kapitelLabel}:</span>
+            <span className={`w-2 h-2 rounded-full ${inheritedArea.color || 'bg-neutral-400'}`} />
+            <span className="text-neutral-600">{inheritedArea.name}</span>
           </div>
         )}
+
+        {/* T32 Bug 4: Area selector only when NOT inside a Kapitel AND multiple areas exist */}
+        {!kapitelId && selectedAreas.length > 1 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-neutral-400">wird zugeordnet zu:</span>
+            {selectedAreas.map(area => (
+              <button
+                key={area.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()} // T32 FIX: Prevent input blur when clicking
+                onClick={() => setSelectedAreaId(area.id)}
+                className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded-full border transition-colors ${
+                  currentAreaId === area.id
+                    ? 'border-neutral-400 bg-neutral-100'
+                    : 'border-neutral-200 hover:border-neutral-300'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${area.color || 'bg-neutral-400'}`} />
+                <span className="truncate max-w-[80px]">{area.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <input
+          type="text"
+          value={newThemaName}
+          onChange={(e) => setNewThemaName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleAddThema(kapitelId);
+            if (e.key === 'Escape') {
+              setAddingThemaIn(null);
+              setNewThemaName('');
+              setSelectedAreaId(null);
+            }
+          }}
+          onBlur={() => {
+            if (!newThemaName.trim()) {
+              setAddingThemaIn(null);
+              setSelectedAreaId(null);
+            }
+          }}
+          placeholder={`Neues ${themaLabel || 'Thema'}...`}
+          className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent"
+          autoFocus
+        />
       </div>
+    );
+  };
+
+  // Render add thema button
+  const renderAddThemaButton = (kapitelId = null) => (
+    <button
+      onClick={() => setAddingThemaIn(kapitelId || 'root')}
+      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 transition-colors"
+    >
+      <Plus size={16} />
+      <span>Neues {themaLabel || 'Thema'}</span>
+    </button>
+  );
+
+  // === WITH KAPITEL ===
+  if (useKapitel) {
+    // T27: Show prominent empty state when no Kapitels exist yet
+    const showKapitelEmptyState = kapitel.length === 0;
+
+    return (
+      <div className="w-full h-full bg-white overflow-y-auto">
+        <div className="border border-neutral-200 rounded-lg shadow-sm m-4 overflow-hidden">
+          {/* T27: Prominent empty state inside card when no Kapitels */}
+          {showKapitelEmptyState && !addingKapitel && (
+            <div className="px-4 py-6 text-center border-b border-neutral-100">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-neutral-100 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-neutral-400">
+                  <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+                  <path d="M8 7h8M8 11h8M8 15h4" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-neutral-700 mb-1">
+                Starte mit einem {kapitelLabel || 'Kapitel'}
+              </p>
+              <p className="text-xs text-neutral-400 mb-4">
+                {themaLabelPlural || 'Themen'} werden innerhalb von {kapitelLabel || 'Kapitel'}n gruppiert
+              </p>
+              <button
+                onClick={() => setAddingKapitel(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-primary rounded-full hover:opacity-90 transition-colors"
+              >
+                <Plus size={16} />
+                <span>Erstes {kapitelLabel || 'Kapitel'} erstellen</span>
+              </button>
+            </div>
+          )}
+
+          {kapitel.map(kap => {
+            const kapitelThemen = themen.filter(t => t.kapitelId === kap.id);
+            const isExpanded = expandedKapitel.has(kap.id);
+
+            return (
+              <div key={kap.id} className="border-b border-neutral-100 last:border-b-0">
+                {/* Kapitel Header */}
+                {/* T32 Bug 4b: Added color bar for Kapitel based on areaId */}
+                <div
+                  className="flex items-center justify-between px-3 py-2.5 bg-neutral-50 cursor-pointer group"
+                  onClick={() => toggleKapitel(kap.id)}
+                >
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    {/* T32: Farbbalken für Kapitel */}
+                    <span className={`w-1.5 h-6 rounded-full ${getBgColorForThema(kap.areaId)}`} />
+                    <span className="text-sm font-semibold text-neutral-700">
+                      {kap.name}
+                    </span>
+                    <span className="text-xs text-neutral-400">
+                      ({kapitelThemen.length})
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteKapitel?.(kap.id);
+                    }}
+                    className="p-1 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Kapitel löschen"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+
+                {/* Themen in Kapitel - T27: Indented under Kapitel */}
+                {isExpanded && (
+                  <div className="pl-4 border-l-2 border-neutral-100 ml-3">
+                    {kapitelThemen.map(thema => renderThemaItem(thema))}
+
+                    {/* Add Thema Input or Button */}
+                    {addingThemaIn === kap.id
+                      ? renderAddThemaInput(kap.id)
+                      : renderAddThemaButton(kap.id)
+                    }
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* T27: Removed "Ohne Kapitel" section - when useKapitel is true, themes must belong to a Kapitel */}
+
+          {/* Add Kapitel - T27: Show input when adding, or button when kapitels exist */}
+          {/* T32 Bug 4b: Show area selector when creating Kapitel with multiple areas */}
+          {addingKapitel ? (
+            <div className={`px-3 py-2 space-y-2 ${kapitel.length > 0 ? 'border-t border-neutral-100' : ''}`}>
+              {/* T32: Fach-Auswahl für Kapitel (bei >1 Fach) */}
+              {selectedAreas.length > 1 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-neutral-400">Fach:</span>
+                  {selectedAreas.map(area => (
+                    <button
+                      key={area.id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()} // T32 FIX: Prevent input blur when clicking
+                      onClick={() => setNewKapitelAreaId(area.id)}
+                      className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded-full border transition-colors ${
+                        (newKapitelAreaId || selectedAreas[0].id) === area.id
+                          ? 'border-neutral-400 bg-neutral-100'
+                          : 'border-neutral-200 hover:border-neutral-300'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${area.color || 'bg-neutral-400'}`} />
+                      <span className="truncate max-w-[80px]">{area.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <input
+                type="text"
+                value={newKapitelName}
+                onChange={(e) => setNewKapitelName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddKapitel();
+                  if (e.key === 'Escape') {
+                    setAddingKapitel(false);
+                    setNewKapitelName('');
+                    setNewKapitelAreaId(null);
+                  }
+                }}
+                onBlur={() => {
+                  if (!newKapitelName.trim()) {
+                    setAddingKapitel(false);
+                    setNewKapitelAreaId(null);
+                  }
+                }}
+                placeholder={`Neues ${kapitelLabel || 'Kapitel'}...`}
+                className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+          ) : kapitel.length > 0 ? (
+            // T27: Only show bottom button when kapitels already exist
+            <button
+              onClick={() => setAddingKapitel(true)}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 transition-colors border-t border-neutral-100"
+            >
+              <Plus size={16} />
+              <span>Neues {kapitelLabel || 'Kapitel'}</span>
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // === WITHOUT KAPITEL (Flat List) ===
+  return (
+    <div className="w-full h-full bg-white overflow-y-auto">
+      <div className="border border-neutral-200 rounded-lg shadow-sm m-4 overflow-hidden">
+        {/* Themen List */}
+        {themen.map(thema => renderThemaItem(thema))}
+
+        {/* Add Thema Input or Button */}
+        {addingThemaIn === 'root'
+          ? renderAddThemaInput(null)
+          : renderAddThemaButton(null)
+        }
+      </div>
+
+      {/* Empty State */}
+      {themen.length === 0 && addingThemaIn !== 'root' && (
+        <div className="text-center py-8 px-4">
+          <p className="text-sm text-neutral-400 mb-2">
+            Noch keine {themaLabelPlural || 'Themen'} hinzugefügt
+          </p>
+          <p className="text-xs text-neutral-400">
+            Klicke auf &quot;Neues {themaLabel || 'Thema'}&quot; um zu beginnen
+          </p>
+        </div>
+      )}
     </div>
   );
 };

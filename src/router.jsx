@@ -155,6 +155,11 @@ const router = createBrowserRouter([
     element: <ProtectedRoute><LazyRoute><ThemenlisteEditorPage /></LazyRoute></ProtectedRoute>,
   },
   {
+    // T33: Themenliste Editor - existierende Themenliste bearbeiten
+    path: '/lernplan/themenliste/:planId',
+    element: <ProtectedRoute><LazyRoute><ThemenlisteEditorPage /></LazyRoute></ProtectedRoute>,
+  },
+  {
     path: '/kalender/woche',
     element: <ProtectedRoute><LazyRoute><CalendarWeekPage /></LazyRoute></ProtectedRoute>,
   },

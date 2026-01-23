@@ -10,6 +10,7 @@ import { supabase } from '../services/supabase';
 
 const STORAGE_KEY = 'prepwell_studiengang'; // T7: Dedicated key for studiengang
 const KAPITEL_KEY = 'prepwell_kapitel_ebene'; // T22: Key for Kapitel-Ebene setting
+const THEMENLISTE_KAPITEL_KEY = 'prepwell_themenliste_kapitel_default'; // T27: Key for Themenliste Kapitel default
 
 const StudiengangContext = createContext(null);
 
@@ -49,6 +50,20 @@ export const StudiengangProvider = ({ children }) => {
       // Fallback to existing settings structure
       const settings = JSON.parse(localStorage.getItem('prepwell_settings') || '{}');
       return settings.jura?.chapterLevelEnabled || false;
+    } catch {
+      return false;
+    }
+  });
+
+  // T27: Themenliste Kapitel-Default Einstellung (default: false)
+  // Determines if new Themenlisten should have Kapitel-Ebene enabled by default
+  const [themenlisteKapitelDefault, setThemenlisteKapitelDefaultState] = useState(() => {
+    try {
+      const stored = localStorage.getItem(THEMENLISTE_KAPITEL_KEY);
+      if (stored !== null) {
+        return JSON.parse(stored);
+      }
+      return false;
     } catch {
       return false;
     }
@@ -125,13 +140,56 @@ export const StudiengangProvider = ({ children }) => {
     }
   }, [isSupabaseEnabled, isAuthenticated, user?.id]);
 
+  // T27: Themenliste Kapitel-Default setzen und speichern
+  const setThemenlisteKapitelDefault = useCallback(async (enabled) => {
+    setThemenlisteKapitelDefaultState(enabled);
+
+    // Save to localStorage (instant)
+    try {
+      localStorage.setItem(THEMENLISTE_KAPITEL_KEY, JSON.stringify(enabled));
+    } catch (e) {
+      console.error('[StudiengangContext] Error saving themenliste kapitel setting to localStorage:', e);
+    }
+
+    // Lazy sync to Supabase
+    if (isSupabaseEnabled && isAuthenticated && user?.id && supabase) {
+      try {
+        await supabase
+          .from('user_settings')
+          .upsert({
+            user_id: user.id,
+            themenliste_kapitel_default: enabled,
+          }, { onConflict: 'user_id' });
+      } catch (e) {
+        console.warn('[StudiengangContext] Supabase sync for themenliste kapitel failed:', e);
+      }
+    }
+  }, [isSupabaseEnabled, isAuthenticated, user?.id]);
+
   // Auf localStorage-Änderungen hören (für Sync zwischen Tabs)
   useEffect(() => {
-    const handleStorageChange = () => {
+    const handleStorageChange = (e) => {
       try {
-        const direct = localStorage.getItem(STORAGE_KEY);
-        if (direct) {
-          setStudiengangState(JSON.parse(direct));
+        // Studiengang
+        if (e.key === STORAGE_KEY || !e.key) {
+          const direct = localStorage.getItem(STORAGE_KEY);
+          if (direct) {
+            setStudiengangState(JSON.parse(direct));
+          }
+        }
+        // T27: Themenliste Kapitel Default
+        if (e.key === THEMENLISTE_KAPITEL_KEY || !e.key) {
+          const stored = localStorage.getItem(THEMENLISTE_KAPITEL_KEY);
+          if (stored !== null) {
+            setThemenlisteKapitelDefaultState(JSON.parse(stored));
+          }
+        }
+        // T22: Kapitel-Ebene Aktiviert
+        if (e.key === KAPITEL_KEY || !e.key) {
+          const stored = localStorage.getItem(KAPITEL_KEY);
+          if (stored !== null) {
+            setKapitelEbeneAktiviertState(JSON.parse(stored));
+          }
         }
       } catch {
         // Ignorieren
@@ -160,9 +218,13 @@ export const StudiengangProvider = ({ children }) => {
     kapitelEbeneAktiviert,
     setKapitelEbeneAktiviert,
 
+    // T27: Themenliste Kapitel-Default Einstellung
+    themenlisteKapitelDefault,
+    setThemenlisteKapitelDefault,
+
     // Alle verfügbaren Studiengänge
     studiengaenge: STUDIENGAENGE,
-  }), [studiengang, setStudiengang, studiengangName, hierarchyLabels, isJura, kapitelEbeneAktiviert, setKapitelEbeneAktiviert]);
+  }), [studiengang, setStudiengang, studiengangName, hierarchyLabels, isJura, kapitelEbeneAktiviert, setKapitelEbeneAktiviert, themenlisteKapitelDefault, setThemenlisteKapitelDefault]);
 
   return (
     <StudiengangContext.Provider value={value}>
