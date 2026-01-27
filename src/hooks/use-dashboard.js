@@ -67,9 +67,11 @@ export function useDashboard() {
 
   // Get data from CalendarContext (Single Source of Truth)
   // BUG-023 FIX: Also get timeSessionsByDate for user-created time blocks
+  // PW-002 FIX: Also get blocksByDate to aggregate block tasks
   const {
     privateSessionsByDate,
     timeSessionsByDate, // BUG-023 FIX: Time-based blocks for Dashboard
+    blocksByDate, // PW-002 FIX: Blocks contain tasks we need to aggregate
     tasksByDate,
     lernplanMetadata,
     hasActiveLernplan,
@@ -194,17 +196,48 @@ export function useDashboard() {
   }, [dateString, privateSessionsByDate]);
 
   // Get tasks for today from CalendarContext
+  // PW-002 FIX: Also aggregate tasks from blocks (blocksByDate)
   const aufgaben = useMemo(() => {
+    const tasks = [];
+    const seenIds = new Set();
+
+    // Regular tasks from tasksByDate
     const dayTasks = (tasksByDate || {})[dateString] || [];
-    return dayTasks.map(task => ({
-      id: task.id,
-      text: task.text || task.title,
-      completed: task.completed || false,
-      priority: task.priority || 'medium',
-      subject: task.subject || 'Allgemein',
-      scheduledInBlock: task.scheduledInBlock || null, // FR1: For filtering scheduled tasks
-    }));
-  }, [dateString, tasksByDate]);
+    dayTasks.forEach(task => {
+      if (!seenIds.has(task.id)) {
+        seenIds.add(task.id);
+        tasks.push({
+          id: task.id,
+          text: task.text || task.title,
+          completed: task.completed || false,
+          priority: task.priority || 'medium',
+          subject: task.subject || 'Allgemein',
+          scheduledInBlock: task.scheduledInBlock || null,
+        });
+      }
+    });
+
+    // PW-002: Add tasks from blocks
+    const dayBlocks = (blocksByDate || {})[dateString] || [];
+    dayBlocks.forEach(block => {
+      (block.tasks || []).forEach(task => {
+        if (!seenIds.has(task.id)) {
+          seenIds.add(task.id);
+          tasks.push({
+            id: task.id,
+            text: task.text || task.title || task.name,
+            completed: task.completed || false,
+            priority: task.priority || 'medium',
+            subject: block.kind || task.subject || 'Allgemein',
+            scheduledInBlock: block.id,
+            fromBlock: true,
+          });
+        }
+      });
+    });
+
+    return tasks;
+  }, [dateString, tasksByDate, blocksByDate]);
 
   // Check-in status - differentiate between one and both check-ins completed
   // TICKET-1 FIX: Correctly track check-in completion status

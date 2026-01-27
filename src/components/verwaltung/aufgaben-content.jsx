@@ -60,7 +60,8 @@ const DEFAULT_FILTERS = {
  * Now connected to CalendarContext for real data
  */
 const AufgabenContent = ({ className = '' }) => {
-  const { tasksByDate, addTask, updateTask, deleteTask, toggleTaskComplete } = useCalendar();
+  // PW-002 Fix: Also get blocksByDate to aggregate block tasks
+  const { tasksByDate, blocksByDate, addTask, updateTask, deleteTask, toggleTaskComplete } = useCalendar();
   const { level1, level4, level5, isJura } = useHierarchyLabels();
 
   // Determine the correct Aufgabe label based on hierarchy
@@ -74,7 +75,9 @@ const AufgabenContent = ({ className = '' }) => {
   // Edit/Create dialog state
   const [editingTask, setEditingTask] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
+  // PW-001 Fix: Use local date (not UTC) to prevent date shift
+  const formatLocalDate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const [newTaskDate, setNewTaskDate] = useState(formatLocalDate(new Date()));
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -85,19 +88,46 @@ const AufgabenContent = ({ className = '' }) => {
   });
 
   // Flatten tasksByDate into array with date info
+  // PW-002 Fix: Also include tasks from blocks (blocksByDate)
   const allTasks = useMemo(() => {
     const tasks = [];
+    const seenIds = new Set(); // Prevent duplicates
+
+    // Regular tasks from tasksByDate
     Object.entries(tasksByDate || {}).forEach(([dateKey, dayTasks]) => {
       dayTasks.forEach(task => {
-        tasks.push({
-          ...task,
-          date: dateKey,
-          status: task.completed ? 'erledigt' : 'unerledigt'
+        if (!seenIds.has(task.id)) {
+          seenIds.add(task.id);
+          tasks.push({
+            ...task,
+            date: dateKey,
+            status: task.completed ? 'erledigt' : 'unerledigt'
+          });
+        }
+      });
+    });
+
+    // PW-002: Aggregate tasks from blocks
+    Object.entries(blocksByDate || {}).forEach(([dateKey, blocks]) => {
+      blocks.forEach(block => {
+        (block.tasks || []).forEach(task => {
+          if (!seenIds.has(task.id)) {
+            seenIds.add(task.id);
+            tasks.push({
+              ...task,
+              date: dateKey,
+              status: task.completed ? 'erledigt' : 'unerledigt',
+              fromBlock: true,
+              blockId: block.id,
+              subject: block.kind || task.subject || 'zivilrecht'
+            });
+          }
         });
       });
     });
+
     return tasks;
-  }, [tasksByDate]);
+  }, [tasksByDate, blocksByDate]);
 
   // Filtered tasks
   const filteredTasks = useMemo(() => {

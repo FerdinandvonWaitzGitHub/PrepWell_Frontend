@@ -927,8 +927,12 @@ const WeekGrid = memo(function WeekGrid({
 
                   const rect = e.currentTarget.getBoundingClientRect();
                   const y = e.clientY - rect.top;
-                  const hour = Math.floor(y / hourHeight);
-                  handleTimeBlockClick(date, hour);
+                  // PW-014 Fix: Use yToTime for 15-min precision (same as drag)
+                  const hour = yToTime(y);
+                  const timeStr = formatTimeFromHour(hour);
+                  if (onTimeBlockClick) {
+                    onTimeBlockClick(date, timeStr);
+                  }
                 }}
               >
                 {/* Hour grid lines */}

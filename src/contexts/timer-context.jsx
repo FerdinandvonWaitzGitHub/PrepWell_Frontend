@@ -1073,7 +1073,8 @@ export const TimerProvider = ({ children }) => {
 
       case TIMER_TYPES.COUNTUP:
         primaryText = formatTimeElapsed(elapsedSeconds);
-        secondaryText = startTime ? `Tagesziel erreicht → ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '';
+        // PW-013 Fix: Don't show confusing current time (users think it's goal-reached-time)
+        secondaryText = startTime ? 'Tagesziel erreicht' : '';
         progress = Math.min(1, elapsedSeconds / (8 * 60 * 60)); // 8 hours max
         break;
     }

@@ -130,10 +130,11 @@ const TimerWidget = ({ onClick }) => {
     }
   };
 
-  // Determine secondary text (with current time for countup goal)
+  // Determine secondary text
   const getSecondaryLabel = () => {
+    // PW-013 Fix: Don't override secondaryText with confusing current time
     if (timerType === TIMER_TYPES.COUNTUP) {
-      return `Tagesziel erreicht → ${currentTime}`;
+      return secondaryText || 'Tagesziel erreicht';
     }
     return secondaryText || currentTime;
   };
