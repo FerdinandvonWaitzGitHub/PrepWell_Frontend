@@ -10,11 +10,17 @@ PROBLEM:
 - Soll: Neue Aufgaben müssen sofort in der Aufgabenübersicht erscheinen.
 - Kontext: Aufgabenverwaltung / Aufgabenübersicht.
 
-SCOPE-FENCE:
-- Erlaubt: Finde 1 bis 3 wahrscheinlichste Dateien (TaskStore/TaskService/TaskList) und ändere max 3 Dateien.
-- Verboten: Kein Refactor, keine Umbenennungen, keine neuen Dependencies, keine Formatierungsänderungen, keine UI Änderungen außerhalb Task Übersicht.
+STATUS: 🔴 OFFEN
 
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
+ROOT CAUSE: aufgaben-content.jsx:77 verwendet toISOString().split('T')[0] → UTC-Konvertierung verschiebt Datum.
+
+SCOPE-FENCE:
+- Erlaubt: aufgaben-content.jsx Zeile 77 ändern
+- Erlaubt: Lokale formatDate() Helper oder Import aus use-dashboard.js
+- Verboten: Globale Date-Utils refactoren
+- Verboten: Andere Komponenten ändern
+
+CHANGE-BUDGET: 1 Datei, max 10 Zeilen.
 
 VORGEHEN:
 1) Ursache nennen.
@@ -45,11 +51,18 @@ PROBLEM:
 - Soll: Lernblock Aufgaben werden wie normale Aufgaben synchron in allen Listen angezeigt.
 - Kontext: Lernblock Editor -> Task Aggregation.
 
-SCOPE-FENCE:
-- Erlaubt: Finde die Erzeugung von Lernblock Aufgaben und die Liste Aggregation. Ändere max 3 Dateien.
-- Verboten: Kein Refactor, keine neuen Datenmodelle, keine UI Umgestaltung.
+STATUS: 🔴 OFFEN
 
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
+ROOT CAUSE: Block-Tasks in block.tasks[] (calendar_blocks), Dashboard liest nur tasksByDate (calendar_tasks). Zwei isolierte Systeme.
+
+SCOPE-FENCE:
+- Erlaubt: Dashboard/Verwaltung Tasks aus blocksByDate aggregieren (read-side fix)
+- Erlaubt: use-dashboard.js und aufgaben-content.jsx erweitern
+- Verboten: Block-Task-Erstellung ändern
+- Verboten: Neues Sync-System einführen
+- Verboten: calendar_tasks Tabelle für Block-Tasks nutzen
+
+CHANGE-BUDGET: 2 Dateien, max 50 Zeilen.
 
 VORGEHEN: Ursache, minimaler Patch, Diff, Tests, optional Test.
 
@@ -129,21 +142,20 @@ TICKET-ID: PW-005
 TITEL: Timer läuft bei Background/Screen Sync nicht zuverlässig weiter
 TYP: Bug
 PRIORITÄT: P0
+STATUS: ✅ GEFIXT (T16-W3)
 
 PROBLEM:
 - Ist: Timer stoppt oder driftet, wenn Tab inaktiv ist oder Screen Sync.
 - Soll: Timer basiert auf Timestamps (Startzeit + elapsed) und bleibt korrekt.
 - Kontext: Timer/Stoppuhr.
 
-SCOPE-FENCE:
-- Erlaubt: Timer Logik Dateien. Max 3 Dateien.
-- Verboten: Keine komplette Timer Neustrukturierung. Keine neue Library.
+LÖSUNG (implementiert):
+- Timer verwendet timestamp-basierte Berechnung (nicht Interval-Counting)
+- Visibility Change Handler implementiert (recalculates bei Tab-Wechsel)
+- localStorage + Supabase Persistenz für Restart-Szenarios
+- Betroffene Datei: src/contexts/timer-context.jsx (Zeilen 392-396, 413-422, 652-673)
 
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
-
-AKZEPTANZ:
-- Timer zeigt nach Tab Wechsel korrekte Laufzeit.
-- Start/Pause/Resume konsistent.
+KEINE AKTION ERFORDERLICH.
 
 
 
@@ -155,21 +167,14 @@ TICKET-ID: PW-006
 TITEL: Neuer Termin übernimmt Uhrzeit des angeklickten Zeitfensters
 TYP: UX
 PRIORITÄT: P1
+STATUS: DUPLIKAT von PW-014
 
 PROBLEM:
 - Ist: Neuer Termin setzt Uhrzeit nicht passend zum angeklickten Slot.
 - Soll: Klick auf Slot setzt Startzeit = Slot Start, Endzeit default = +X Minuten.
 - Kontext: Kalender Slot Klick Create Event.
 
-SCOPE-FENCE:
-- Erlaubt: Slot Click Handler und Create Event Defaults. Max 3 Dateien.
-- Verboten: Kein Refactor des gesamten Kalenders.
-
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
-
-AKZEPTANZ:
-- Klick auf Slot setzt korrekte Uhrzeit.
-- Drag Verhalten bleibt wie bisher.
+EMPFEHLUNG: PW-006 schließen, PW-014 behalten. Identische Root Cause.
 
 
 
@@ -316,21 +321,20 @@ TICKET-ID: PW-012
 TITEL: Großer Start Button startet Timer nicht
 TYP: Bug
 PRIORITÄT: P0
+STATUS: ✅ GEFIXT
 
 PROBLEM:
 - Ist: Start Button oben startet Timer nicht, nur über Einstellungen Klick.
 - Soll: Start Button löst exakt dieselbe Start Aktion aus wie der funktionierende Weg.
 - Kontext: Timer Start CTA.
 
-SCOPE-FENCE:
-- Erlaubt: Start Button Handler + Timer Action. Max 3 Dateien.
-- Verboten: Kein Umbau der Timer Architektur.
+LÖSUNG (implementiert):
+- Start Button in ConfiguredIdleState (timer-main-dialog.jsx:910-940)
+- Ruft startFromConfig() korrekt auf
+- startFromConfig() liest frische Config aus localStorage (BUG-015 Fix)
+- Setzt timerState = TIMER_STATES.RUNNING korrekt
 
-CHANGE-BUDGET: Max 3 Dateien, max 80 Zeilen.
-
-AKZEPTANZ:
-- Start Button startet Timer sofort.
-- Pause/Resume unverändert.
+KEINE AKTION ERFORDERLICH.
 
 
 
@@ -343,22 +347,31 @@ TICKET-ID: PW-013
 TITEL: Tagesziel reset und Anzeige "Tagesziel erreicht" korrekt
 TYP: Bug
 PRIORITÄT: P0
+STATUS: 🟡 TEILWEISE (Reset OK, Display verwirrend)
 
 PROBLEM:
 - Ist: Tagesziel resettiert nicht, zeigt Zeit von gestern. Anzeige "Tagesziel erreicht -> 7:54" wirkt wie aktuelle Uhrzeit.
 - Soll: Reset täglich korrekt. Anzeige zeigt Zeitpunkt des Zielerreichens oder klar benannt.
 - Kontext: Tagesziel Tracking.
 
-SCOPE-FENCE:
-- Erlaubt: Tagesziel State + Anzeige. Max 3 Dateien.
-- Verboten: Kein neues Tracking System.
+ANALYSE:
+- ✅ Reset funktioniert korrekt (via dateString Änderung bei Mitternacht)
+- 🔴 Display "Tagesziel erreicht → 7:54" zeigt AKTUELLE ZEIT, nicht Zielerreichungszeit
 
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
+ROOT CAUSE: dashboard-sub-header.jsx:136 zeigt currentTime (updates jede Sekunde)
+
+SCOPE-FENCE:
+- Erlaubt: dashboard-sub-header.jsx Zeile 136 ändern
+- Erlaubt: timer-context.jsx secondaryText Berechnung anpassen
+- Verboten: Reset-Logik ändern (funktioniert bereits)
+- Verboten: Neue State-Variablen für "Zielerreichungszeit"
+
+CHANGE-BUDGET: 2 Dateien, max 20 Zeilen.
 
 AKZEPTANZ:
-- Reset erfolgt bei Tageswechsel.
-- Zeitpunkt Zielerreichung ist korrekt und klar.
-- Keine Datenverluste.
+- Anzeige nicht mehr verwirrend
+- Reset erfolgt bei Tageswechsel korrekt
+- Keine Datenverluste
 
 
 
@@ -370,20 +383,27 @@ TICKET-ID: PW-014
 TITEL: Slot Klick setzt Uhrzeit fälschlich auf 09:00, Drag korrekt
 TYP: Bug
 PRIORITÄT: P0
+STATUS: 🔴 OFFEN
 
 PROBLEM:
 - Ist: Klick auf Zeitfenster erzeugt Termin mit 09:00. Drag erzeugt korrekte Zeit.
 - Soll: Klick übernimmt Slot Startzeit, analog zu Drag Default.
 - Kontext: Semesterbetrieb Übungsklausur/Klausur auf Startseite.
 
-SCOPE-FENCE:
-- Erlaubt: Slot Click Handler und Event Creation Defaults. Max 3 Dateien.
-- Verboten: Kein Refactor Kalender.
+ROOT CAUSE:
+- Click-Handler: Math.floor(y / hourHeight) → rundet auf ganze Stunde
+- Drag-Handler: yToTime(y) → 15-Minuten-Snapping
 
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
+SCOPE-FENCE:
+- Erlaubt: week-grid.jsx Click-Handler (Zeile 924-932) anpassen
+- Erlaubt: yToTime() Funktion wiederverwenden
+- Verboten: Drag-Handler ändern
+- Verboten: Dialog-Komponenten ändern
+
+CHANGE-BUDGET: 1 Datei, max 15 Zeilen.
 
 AKZEPTANZ:
-- Klick erzeugt Termin mit korrekter Startzeit.
+- Klick erzeugt Termin mit korrekter Startzeit (15-Min-Präzision).
 - Drag bleibt unverändert.
 - Keine Änderung anderer Default Zeiten.
 
@@ -425,222 +445,13 @@ AKZEPTANZ:
 
 
 ================================================================================
-                        TICKET-ANALYSE (27.01.2026)
+                        P0 ZUSAMMENFASSUNG (27.01.2026)
 ================================================================================
-
-Die folgenden Tickets wurden analysiert und deren Status ermittelt:
 
 STATUS-LEGENDE:
   ✅ GEFIXT     - Bug wurde bereits behoben
   🔴 OFFEN      - Bug existiert noch
   🟡 TEILWEISE  - Teilweise behoben, Rest offen
-
-
---------------------------------------------------------------------------------
-PW-005: Timer läuft bei Background/Screen Sync nicht zuverlässig weiter
---------------------------------------------------------------------------------
-STATUS: ✅ GEFIXT (T16-W3)
-
-ANALYSE:
-- Timer verwendet timestamp-basierte Berechnung (nicht Interval-Counting)
-- Visibility Change Handler implementiert (recalculates bei Tab-Wechsel)
-- localStorage + Supabase Persistenz für Restart-Szenarios
-
-BETROFFENE DATEIEN:
-- src/contexts/timer-context.jsx (Zeilen 392-396, 413-422, 652-673)
-
-KEINE AKTION ERFORDERLICH.
-
-
---------------------------------------------------------------------------------
-PW-012: Großer Start Button startet Timer nicht
---------------------------------------------------------------------------------
-STATUS: ✅ GEFIXT
-
-ANALYSE:
-- Start Button in ConfiguredIdleState (timer-main-dialog.jsx:910-940)
-- Ruft startFromConfig() korrekt auf
-- startFromConfig() liest frische Config aus localStorage (BUG-015 Fix)
-- Setzt timerState = TIMER_STATES.RUNNING korrekt
-
-BETROFFENE DATEIEN:
-- src/components/dashboard/timer/timer-main-dialog.jsx
-- src/contexts/timer-context.jsx
-
-KEINE AKTION ERFORDERLICH.
-
-
---------------------------------------------------------------------------------
-PW-001: Aufgaben vom Tag fehlen in Aufgabenübersicht
---------------------------------------------------------------------------------
-STATUS: 🔴 OFFEN
-
-ROOT CAUSE:
-- aufgaben-content.jsx:77 verwendet toISOString().split('T')[0]
-- toISOString() konvertiert zu UTC → verschiebt Datum um 1 Tag
-- User in PST um 22:00 erstellt Task → gespeichert für morgen
-
-SCOPE-FENCE:
-- Erlaubt: aufgaben-content.jsx Zeile 77 ändern
-- Erlaubt: Lokale formatDate() Helper oder Import aus use-dashboard.js
-- Verboten: Globale Date-Utils refactoren
-- Verboten: Andere Komponenten ändern
-
-CHANGE-BUDGET: 1 Datei, max 10 Zeilen
-
-FIX:
-```javascript
-// Zeile 77 VORHER:
-const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
-
-// Zeile 77 NACHHER:
-const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-const [newTaskDate, setNewTaskDate] = useState(formatDate(new Date()));
-```
-
-AKZEPTANZ:
-- Neue Aufgabe erscheint direkt ohne Reload
-- Filter Datum Heute zeigt sie zuverlässig
-- Keine Änderung am Verhalten für andere Tage
-
-
---------------------------------------------------------------------------------
-PW-002: Lernblock Aufgaben werden nicht in To Do/Verwaltung gelistet
---------------------------------------------------------------------------------
-STATUS: 🔴 OFFEN
-
-ROOT CAUSE:
-- Block-Tasks werden in block.tasks[] gespeichert (calendar_blocks)
-- Dashboard/Verwaltung lesen nur aus tasksByDate (calendar_tasks)
-- Zwei isolierte Task-Systeme ohne Synchronisation
-
-DATENFLUSS:
-```
-Lernblock → block.tasks[]  →  calendar_blocks (Supabase)
-                              ↓ KEINE VERBINDUNG
-Dashboard ← tasksByDate    ←  calendar_tasks (Supabase)
-```
-
-SCOPE-FENCE:
-- Erlaubt: Dashboard/Verwaltung Tasks aus blocksByDate aggregieren (read-side fix)
-- Erlaubt: use-dashboard.js und aufgaben-content.jsx erweitern
-- Verboten: Block-Task-Erstellung ändern
-- Verboten: Neues Sync-System einführen
-- Verboten: calendar_tasks Tabelle für Block-Tasks nutzen
-
-CHANGE-BUDGET: 2 Dateien, max 50 Zeilen
-
-ANSATZ:
-Block-Tasks beim Abruf aggregieren:
-```javascript
-// use-dashboard.js oder aufgaben-content.jsx
-const allTasks = useMemo(() => {
-  const globalTasks = tasksByDate[dateString] || [];
-  const blockTasks = (blocksByDate[dateString] || [])
-    .flatMap(block => (block.tasks || []).map(t => ({
-      ...t,
-      fromBlock: true,
-      blockId: block.id,
-    })));
-  return [...globalTasks, ...blockTasks];
-}, [tasksByDate, blocksByDate, dateString]);
-```
-
-AKZEPTANZ:
-- Lernblock Aufgabe erscheint sofort in To Do
-- Lernblock Aufgabe erscheint unter Verwaltung
-- Keine Duplikate, keine falschen Fälligkeiten
-
-
---------------------------------------------------------------------------------
-PW-013: Tagesziel reset und Anzeige "Tagesziel erreicht" korrekt
---------------------------------------------------------------------------------
-STATUS: 🟡 TEILWEISE
-
-ANALYSE:
-- ✅ Reset funktioniert korrekt (via dateString Änderung bei Mitternacht)
-- 🔴 Display "Tagesziel erreicht → 7:54" zeigt AKTUELLE ZEIT, nicht Zielerreichungszeit
-
-ROOT CAUSE:
-- dashboard-sub-header.jsx:136 zeigt currentTime (updates jede Sekunde)
-- User denkt es zeigt "wann Ziel erreicht wurde"
-
-SCOPE-FENCE:
-- Erlaubt: dashboard-sub-header.jsx Zeile 136 ändern
-- Erlaubt: timer-context.jsx secondaryText Berechnung anpassen
-- Verboten: Reset-Logik ändern (funktioniert bereits)
-- Verboten: Neue State-Variablen für "Zielerreichungszeit"
-
-CHANGE-BUDGET: 2 Dateien, max 20 Zeilen
-
-FIX (Option A - Empfohlen):
-```javascript
-// dashboard-sub-header.jsx:136 VORHER:
-return `Tagesziel erreicht → ${currentTime}`;
-
-// NACHHER (ohne verwirrende Zeit):
-return `Tagesziel erreicht`;
-```
-
-AKZEPTANZ:
-- Anzeige nicht mehr verwirrend
-- Reset erfolgt bei Tageswechsel korrekt
-- Keine Datenverluste
-
-
---------------------------------------------------------------------------------
-PW-014: Slot Klick setzt Uhrzeit fälschlich auf 09:00, Drag korrekt
---------------------------------------------------------------------------------
-STATUS: 🔴 OFFEN
-
-ROOT CAUSE:
-- Click-Handler: Math.floor(y / hourHeight) → rundet auf ganze Stunde
-- Drag-Handler: yToTime(y) → 15-Minuten-Snapping
-
-UNTERSCHIED:
-| Aktion | Handler | Präzision |
-|--------|---------|-----------|
-| CLICK  | Math.floor(hour) | Ganze Stunde (09:00) |
-| DRAG   | yToTime() | 15-Minuten (09:15, 09:30) |
-
-SCOPE-FENCE:
-- Erlaubt: week-grid.jsx Click-Handler (Zeile 924-932) anpassen
-- Erlaubt: yToTime() Funktion wiederverwenden
-- Verboten: Drag-Handler ändern
-- Verboten: Dialog-Komponenten ändern
-
-CHANGE-BUDGET: 1 Datei, max 15 Zeilen
-
-FIX:
-```javascript
-// week-grid.jsx Click-Handler VORHER:
-const hour = Math.floor(y / hourHeight);
-handleTimeBlockClick(date, `${hour.toString().padStart(2, '0')}:00`);
-
-// NACHHER (mit 15-Min-Snapping wie Drag):
-const hour = yToTime(y);
-const hourInt = Math.floor(hour);
-const minutes = Math.round((hour % 1) * 60);
-handleTimeBlockClick(date, `${hourInt.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}`);
-```
-
-AKZEPTANZ:
-- Klick auf Slot setzt korrekte Uhrzeit (15-Min-Präzision)
-- Drag Verhalten bleibt wie bisher
-- Keine Änderung anderer Default Zeiten
-
-
---------------------------------------------------------------------------------
-PW-006: Neuer Termin übernimmt Uhrzeit des angeklickten Zeitfensters
---------------------------------------------------------------------------------
-STATUS: DUPLIKAT von PW-014
-
-EMPFEHLUNG: PW-006 schließen, PW-014 behalten.
-
-
-================================================================================
-                        ZUSAMMENFASSUNG
-================================================================================
 
 | Ticket | Status | Aufwand | Priorität |
 |--------|--------|---------|-----------|
