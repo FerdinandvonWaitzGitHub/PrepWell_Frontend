@@ -667,9 +667,10 @@ export function useContentPlansSync() {
         exam_date: plan.examDate || null,
         archived: plan.archived || false,
         is_published: plan.isPublished || false,
-        rechtsgebiete: plan.rechtsgebiete || [],
+        // PW-021: rechtsgebiete DEPRECATED - always empty, use T27 flat structure
+        rechtsgebiete: [],
         imported_from: plan.importedFrom || null,
-        // T27/T32: New flat structure for Themenlisten
+        // T27/T32: Flat structure is now the ONLY structure for Themenlisten
         status: plan.status || 'draft',
         selected_areas: plan.selectedAreas || [],
         themen: plan.themen || [],
@@ -688,11 +689,11 @@ export function useContentPlansSync() {
       archived: row.archived,
       isPublished: row.is_published,
       publishedAt: row.published_at,
-      rechtsgebiete: row.rechtsgebiete || [],
+      // PW-021: rechtsgebiete DEPRECATED - not read anymore, migration converts to T27
       importedFrom: row.imported_from,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      // T27/T32: New flat structure for Themenlisten
+      // T27/T32: Flat structure is now the ONLY structure for Themenlisten
       status: row.status || 'draft',
       selectedAreas: row.selected_areas || [],
       themen: row.themen || [],

@@ -12,7 +12,7 @@ import {
   X,
   AlertTriangle
 } from 'lucide-react';
-import { RECHTSGEBIET_LABELS } from '../../../data/unterrechtsgebiete-data';
+import { RECHTSGEBIET_LABELS, DEFAULT_SELECTION } from '../../../data/unterrechtsgebiete-data';
 
 /**
  * Step 12: Themen & Aufgaben Editor
@@ -328,9 +328,29 @@ const Step12ThemenEdit = () => {
   const currentRgId = selectedRechtsgebiete[localRgIndex] || selectedRechtsgebiete[0];
   const currentRgLabel = RECHTSGEBIET_LABELS[currentRgId] || currentRgId;
 
+  // PW-023 FIX: Ensure URGs exist for current RG (fallback initialization)
+  // This handles the case where Step 9 didn't properly initialize URGs for all RGs
+  useEffect(() => {
+    if (currentRgId && !unterrechtsgebieteDraft[currentRgId]) {
+      console.log('[PW-023 FIX] Step 12 - Initializing missing URGs for:', currentRgId);
+      const fallbackUrgs = DEFAULT_SELECTION[currentRgId] || [];
+      updateWizardData({
+        unterrechtsgebieteDraft: {
+          ...unterrechtsgebieteDraft,
+          [currentRgId]: fallbackUrgs
+        }
+      });
+    }
+  }, [currentRgId, unterrechtsgebieteDraft, updateWizardData]);
+
   // URGs for current RG
   const currentUrgs = useMemo(() => {
-    return unterrechtsgebieteDraft[currentRgId] || [];
+    const urgs = unterrechtsgebieteDraft[currentRgId] || [];
+    // PW-023 DEBUG: Log URGs when RG changes
+    console.log('[PW-023 DEBUG] Step 12 - currentRgId:', currentRgId);
+    console.log('[PW-023 DEBUG] Step 12 - URGs for this RG:', urgs.map(u => ({ id: u.id, name: u.name })));
+    console.log('[PW-023 DEBUG] Step 12 - All unterrechtsgebieteDraft keys:', Object.keys(unterrechtsgebieteDraft));
+    return urgs;
   }, [unterrechtsgebieteDraft, currentRgId]);
 
   const activeUrg = currentUrgs[activeUrgIndex];
@@ -439,6 +459,10 @@ const Step12ThemenEdit = () => {
       name: newThemaName.trim(),
       aufgaben: []
     };
+    // PW-023 DEBUG: Log theme creation
+    console.log('[PW-023 DEBUG] Step 12 - Adding theme to URG:', activeUrg.id, activeUrg.name);
+    console.log('[PW-023 DEBUG] Step 12 - currentRgId:', currentRgId);
+    console.log('[PW-023 DEBUG] Step 12 - themenDraft keys before:', Object.keys(themenDraft));
     updateWizardData({
       themenDraft: {
         ...themenDraft,

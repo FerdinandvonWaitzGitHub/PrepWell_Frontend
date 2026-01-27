@@ -50,11 +50,14 @@ export function migrateOldToNewStructure(oldPlan) {
 
     // Durchlaufe alle Unterrechtsgebiete
     for (const urg of rg.unterrechtsgebiete || []) {
+      // PW-021 FIX: Fallback für URG-ID (alte Struktur kann urg.id oder urg.unterrechtsgebietId haben)
+      const urgId = urg.unterrechtsgebietId || urg.id;
+
       // Füge URG zu selectedAreas hinzu (wenn noch nicht vorhanden)
-      const areaExists = selectedAreas.some(a => a.id === urg.unterrechtsgebietId);
+      const areaExists = selectedAreas.some(a => a.id === urgId);
       if (!areaExists) {
         selectedAreas.push({
-          id: urg.unterrechtsgebietId,
+          id: urgId,
           name: urg.name,
           rechtsgebietId: rechtsgebietId,
           color: color
@@ -70,7 +73,7 @@ export function migrateOldToNewStructure(oldPlan) {
               id: thema.id,
               name: thema.name,
               description: thema.description || '',
-              areaId: urg.unterrechtsgebietId,
+              areaId: urgId,
               kapitelId: null, // Migration verliert Kapitel-Zuordnung
               order: themaOrder++,
               aufgaben: (thema.aufgaben || []).map((a, idx) => ({
@@ -90,7 +93,7 @@ export function migrateOldToNewStructure(oldPlan) {
             id: thema.id,
             name: thema.name,
             description: thema.description || '',
-            areaId: urg.unterrechtsgebietId,
+            areaId: urgId,
             kapitelId: null,
             order: themaOrder++,
             aufgaben: (thema.aufgaben || []).map((a, idx) => ({

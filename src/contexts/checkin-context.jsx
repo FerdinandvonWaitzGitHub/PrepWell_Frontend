@@ -443,10 +443,14 @@ export const CheckInProvider = ({ children }) => {
    * Check if check-in is needed now
    * BUG-003 FIX: Only show check-in if mentor is activated
    * TICKET-3: Respect checkInCount setting (1 or 2 check-ins per day)
+   * PW-022: Extended to support 0 (disabled) and 'evening' (evening only)
    */
   const isCheckInNeeded = useMemo(() => {
     // BUG-003 FIX: Check-in requires mentor to be activated
     if (!isMentorActivated) return false;
+
+    // PW-022: If check-ins are disabled (0), never show check-in
+    if (checkInCount === 0) return false;
 
     const today = getTodayKey();
     const todayResponses = responses[today] || {};
@@ -455,8 +459,13 @@ export const CheckInProvider = ({ children }) => {
     // If not in a check-in period (midday), no check-in needed
     if (!currentPeriod) return false;
 
-    // TICKET-3: If only 1 check-in is configured, skip evening check-in
+    // TICKET-3: If only 1 check-in (morning) is configured, skip evening check-in
     if (checkInCount === 1 && currentPeriod === 'evening') {
+      return false;
+    }
+
+    // PW-022: If only evening check-in is configured, skip morning check-in
+    if (checkInCount === 'evening' && currentPeriod === 'morning') {
       return false;
     }
 

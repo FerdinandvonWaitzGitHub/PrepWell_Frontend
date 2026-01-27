@@ -189,6 +189,11 @@ const Step9UrgsEdit = () => {
       }
       // For 'manual' mode, start with empty list
 
+      // PW-023 DEBUG: Log URG initialization
+      console.log('[PW-023 DEBUG] Step 9 - Initializing URGs for:', currentRechtsgebiet);
+      console.log('[PW-023 DEBUG] Step 9 - Mode:', urgCreationMode);
+      console.log('[PW-023 DEBUG] Step 9 - Initial URGs:', initialUrgs.map(u => ({ id: u.id, name: u.name })));
+
       updateWizardData({
         unterrechtsgebieteDraft: {
           ...unterrechtsgebieteDraft,

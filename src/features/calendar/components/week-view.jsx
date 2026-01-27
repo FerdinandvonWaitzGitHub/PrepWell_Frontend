@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import WeekViewHeader from './week-view-header';
 import WeekGrid from './week-grid';
 import AddThemeDialog from './add-theme-dialog';
@@ -22,7 +23,30 @@ import { blocksToLearningSessions } from '../../../utils/blockUtils';
  * Data flow: CalendarContext (blocksByDate + privateSessionsByDate) → WeekView
  */
 const WeekView = ({ initialDate = new Date(), className = '' }) => {
-  const [currentDate, setCurrentDate] = useState(initialDate);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // PW-003: Read date from URL query param, fallback to initialDate
+  const getInitialDate = () => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      const parsed = new Date(dateParam);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return initialDate;
+  };
+
+  const [currentDate, setCurrentDate] = useState(getInitialDate);
+
+  // PW-003: Update URL when date changes
+  useEffect(() => {
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    setSearchParams({ date: dateStr }, { replace: true });
+  }, [currentDate, setSearchParams]);
 
   // BUG-023 FIX: Get app mode to control block visibility
   // In Normal mode: Hide Lernplan blocks (only show private blocks)
@@ -317,6 +341,13 @@ const WeekView = ({ initialDate = new Date(), className = '' }) => {
   const handleTimeBlockClick = (date, time) => {
     setSelectedDate(date);
     setSelectedTime(time);
+    // PW-016 Fix: Set default end time to 30 minutes after start
+    const [hours, mins] = time.split(':').map(Number);
+    const totalMins = hours * 60 + mins + 30;
+    const endHours = Math.floor(totalMins / 60);
+    const endMins = totalMins % 60;
+    const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+    setSelectedEndTime(endTime);
     setIsAddDialogOpen(true);
   };
 

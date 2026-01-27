@@ -8,7 +8,6 @@ import {
   lernplaeneApi,
   aufgabenApi,
   leistungenApi,
-  kalenderApi,
   unterrechtsgebieteApi,
 } from '../services/api';
 
@@ -147,16 +146,6 @@ export function useAufgaben() {
  */
 export function useLeistungen() {
   return useApi(() => leistungenApi.getAll());
-}
-
-/**
- * Hook for Kalender Blocks
- */
-export function useBlocks(lernplanId: string | null | undefined) {
-  return useApi(() => kalenderApi.getBlocks(lernplanId!), [lernplanId], {
-    immediate: !!lernplanId,
-    initialData: [],
-  });
 }
 
 /**

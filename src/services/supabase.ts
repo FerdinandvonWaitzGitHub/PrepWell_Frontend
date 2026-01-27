@@ -5,7 +5,8 @@ import { safeSessionStorage } from '../utils/safe-storage';
 // AUTH DEBUG MODE - Intercept all fetch requests to Supabase auth endpoints
 // This helps identify the source of 400 errors
 // =============================================================================
-const AUTH_DEBUG = true; // Set to false to disable debug logging
+// PW-020: Only enable debug logging in development
+const AUTH_DEBUG = import.meta.env.DEV;
 
 if (AUTH_DEBUG && typeof window !== 'undefined') {
   const originalFetch = window.fetch;

@@ -11,6 +11,7 @@ import {
   usePublishedThemenlistenSync,
 } from '../hooks/use-supabase-sync';
 import { useAuth } from './auth-context';
+import { isOldStructure, migrateOldToNewStructure } from '../utils/themenliste-migration';
 
 /**
  * Context for centrally managing Calendar data
@@ -206,6 +207,53 @@ export const CalendarProvider = ({ children }) => {
       }
     }
   }, [setContentPlans, saveContentPlanToSupabase]);
+
+  // PW-021: Auto-migrate old structure Themenlisten to new T27 structure
+  // This runs once when contentPlans are loaded and migrates any old rechtsgebiete-based plans
+  const migrationRunRef = useRef(false);
+  useEffect(() => {
+    if (!contentPlans || contentPlans.length === 0 || contentPlansLoading || migrationRunRef.current) {
+      return;
+    }
+
+    // Find plans that need migration (have old structure)
+    const plansToMigrate = contentPlans.filter(plan =>
+      plan.type === 'themenliste' && isOldStructure(plan)
+    );
+
+    if (plansToMigrate.length === 0) {
+      migrationRunRef.current = true;
+      return;
+    }
+
+    console.log(`[PW-021] Migrating ${plansToMigrate.length} Themenliste(n) from old to new structure`);
+
+    // Migrate each plan
+    const updatedPlans = contentPlans.map(plan => {
+      if (plan.type === 'themenliste' && isOldStructure(plan)) {
+        const migrated = migrateOldToNewStructure(plan);
+        // Keep the original name if it exists
+        migrated.name = plan.name || migrated.name;
+        console.log(`[PW-021] Migrated: "${migrated.name}" (${migrated.themen?.length || 0} Themen)`);
+        return migrated;
+      }
+      return plan;
+    });
+
+    // Save all migrated plans
+    setContentPlansLocal(updatedPlans);
+    saveToStorage(STORAGE_KEY_CONTENT_PLANS, updatedPlans);
+
+    // Sync each migrated plan to Supabase
+    plansToMigrate.forEach(oldPlan => {
+      const migratedPlan = updatedPlans.find(p => p.id === oldPlan.id);
+      if (migratedPlan) {
+        saveContentPlanToSupabase(migratedPlan);
+      }
+    });
+
+    migrationRunRef.current = true;
+  }, [contentPlans, contentPlansLoading, setContentPlansLocal, saveContentPlanToSupabase]);
 
   // Wrapper to set blocksByDate (for compatibility)
   const setBlocksByDate = useCallback((newData) => {
@@ -2731,6 +2779,11 @@ export const CalendarProvider = ({ children }) => {
    * Called on app mount to release items that were scheduled but not completed by midnight
    */
   const cleanupExpiredSchedules = useCallback(() => {
+    // PW-024 FIX: Guard für undefined/null contentPlans
+    if (!contentPlans || !Array.isArray(contentPlans)) {
+      return;
+    }
+
     // KA-002 FIX: Verwende lokale Zeit statt UTC
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -2740,7 +2793,8 @@ export const CalendarProvider = ({ children }) => {
       let planChanged = false;
       const updatedPlan = {
         ...plan,
-        rechtsgebiete: plan.rechtsgebiete.map(rg => ({
+        // PW-024 FIX: Guard für undefined rechtsgebiete
+        rechtsgebiete: (plan.rechtsgebiete || []).map(rg => ({
           ...rg,
           unterrechtsgebiete: (rg.unterrechtsgebiete || []).map(urg => ({
             ...urg,

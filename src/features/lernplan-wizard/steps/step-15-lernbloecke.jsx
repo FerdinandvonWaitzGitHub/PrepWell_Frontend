@@ -449,11 +449,20 @@ const Step15Lernbloecke = () => {
   }, [learningDays, blocksPerDay, rgGewichtung]);
 
   // Get all themes for current RG (across all URGs)
+  // PW-023 DEBUG: Log data to identify why themes are not showing
   const allThemesForRg = useMemo(() => {
     const themes = [];
     const urgs = unterrechtsgebieteDraft[currentRgId] || [];
+
+    // PW-023 DEBUG: Log the data structure
+    console.log('[PW-023 DEBUG] Step 15 - currentRgId:', currentRgId);
+    console.log('[PW-023 DEBUG] Step 15 - unterrechtsgebieteDraft keys:', Object.keys(unterrechtsgebieteDraft));
+    console.log('[PW-023 DEBUG] Step 15 - URGs for currentRg:', urgs);
+    console.log('[PW-023 DEBUG] Step 15 - themenDraft keys:', Object.keys(themenDraft));
+
     urgs.forEach(urg => {
       const urgThemes = themenDraft[urg.id] || [];
+      console.log(`[PW-023 DEBUG] Step 15 - URG "${urg.name}" (id: ${urg.id}): ${urgThemes.length} themes`);
       urgThemes.forEach(theme => {
         themes.push({
           ...theme,
@@ -462,6 +471,8 @@ const Step15Lernbloecke = () => {
         });
       });
     });
+
+    console.log('[PW-023 DEBUG] Step 15 - Total themes found:', themes.length);
     return themes;
   }, [currentRgId, unterrechtsgebieteDraft, themenDraft]);
 

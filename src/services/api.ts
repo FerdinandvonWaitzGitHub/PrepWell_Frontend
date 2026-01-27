@@ -159,33 +159,6 @@ export const lernplaeneApi = {
 };
 
 // =============================================================================
-// KALENDER / BLOCKS API
-// =============================================================================
-
-export const kalenderApi = {
-  getBlocks: <T>(lernplanId: string): Promise<T[]> =>
-    fetchApi(`/kalender/${lernplanId}/blocks`),
-
-  updateBlocks: <T>(lernplanId: string, blocks: T[]): Promise<T[]> =>
-    fetchApi(`/kalender/${lernplanId}/blocks`, {
-      method: 'PUT',
-      body: blocks,
-    }),
-
-  updateBlock: <T>(lernplanId: string, block: T): Promise<T> =>
-    fetchApi(`/kalender/${lernplanId}/blocks`, {
-      method: 'POST',
-      body: block,
-    }),
-
-  bulkUpdateBlocks: <T>(lernplanId: string, blocks: T[]): Promise<T[]> =>
-    fetchApi(`/kalender/${lernplanId}/blocks/bulk`, {
-      method: 'POST',
-      body: blocks,
-    }),
-};
-
-// =============================================================================
 // AUFGABEN API
 // =============================================================================
 
@@ -426,7 +399,6 @@ export const agentApi = {
 
 const api = {
   lernplaene: lernplaeneApi,
-  kalender: kalenderApi,
   aufgaben: aufgabenApi,
   leistungen: leistungenApi,
   wizard: wizardApi,

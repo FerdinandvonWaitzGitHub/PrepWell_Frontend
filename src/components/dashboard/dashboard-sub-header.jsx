@@ -77,7 +77,7 @@ const CircularProgress = ({ progress = 0, size = 24, strokeWidth = 2 }) => {
  * T16-W6: Added play/pause button for quick control
  */
 const TimerWidget = ({ onClick }) => {
-  const { timerType, isActive, getDisplayInfo, togglePause, state: _state } = useTimer();
+  const { timerType, isActive, getDisplayInfo, togglePause, elapsedSeconds, remainingSeconds, state: _state } = useTimer();
   void _state; // Reserved for future use
   const [currentTime, setCurrentTime] = React.useState(getCurrentTimeString());
   const [isHovered, setIsHovered] = useState(false); // T16-W6: Hover state for play/pause button
@@ -116,8 +116,33 @@ const TimerWidget = ({ onClick }) => {
 
   const { primaryText, secondaryText, progress, isPaused } = displayInfo;
 
+  // PW-009: Format seconds with MM:SS or H:MM:SS (for hover)
+  const formatWithSeconds = (totalSeconds) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // Determine label based on timer type
+  // PW-009: Show seconds on hover
   const getTimerLabel = () => {
+    if (isHovered) {
+      // Show seconds when hovering
+      switch (timerType) {
+        case TIMER_TYPES.POMODORO:
+        case TIMER_TYPES.COUNTDOWN:
+          return formatWithSeconds(remainingSeconds);
+        case TIMER_TYPES.COUNTUP:
+          return formatWithSeconds(elapsedSeconds);
+        default:
+          return primaryText;
+      }
+    }
+    // Normal display without seconds
     switch (timerType) {
       case TIMER_TYPES.POMODORO:
         return primaryText; // e.g., "6min verbleibend"
@@ -252,91 +277,65 @@ const DashboardSubHeader = ({
     }
   };
 
-  // TICKET-1 FIX: Helper to render correct check icon based on completion status
-  const renderCheckIcon = () => {
-    const count = checkInStatus?.count || 0;
-    const allDone = checkInStatus?.allDone || false;
-
-    // Double checkmark: only when BOTH check-ins are completed
-    if (allDone && count >= 2) {
-      return (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M20 12L9 23l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-    }
-
-    // Single checkmark: when exactly one check-in is completed
-    if (count === 1) {
-      return (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-    }
-
-    // No checkmark (shouldn't reach here if checkInDone is true)
-    return null;
-  };
-
-  // TICKET-1 FIX: Get status label based on completion count
-  const getCheckInStatusLabel = () => {
-    const count = checkInStatus?.count || 0;
-    const allDone = checkInStatus?.allDone || false;
-
-    if (allDone && count >= 2) {
-      return 'Check-Ins erledigt';
-    }
-    if (count === 1) {
-      return checkInStatus?.morningDone ? 'Morgen-Check-in erledigt' : 'Abend-Check-in erledigt';
-    }
-    return 'Check-Ins erledigt';
-  };
-
-  // TICKET-4: Get skipped status label
-  const getSkippedLabel = () => {
-    if (checkInStatus?.morningSkipped && checkInStatus?.eveningSkipped) {
-      return 'Check-Ins übersprungen';
-    }
-    if (checkInStatus?.morningSkipped) {
-      return 'Morgen-Check-in übersprungen';
-    }
-    if (checkInStatus?.eveningSkipped) {
-      return 'Abend-Check-in übersprungen';
-    }
-    return null;
-  };
-
   // Button label and state
+  // PW-011: Revised visibility logic
+  // PW-022: Extended for disabled and evening-only modes
   const getCheckInButton = () => {
-    // TICKET-4: Show skipped status as neutral hint (gray, not error)
-    const skippedLabel = getSkippedLabel();
-    if (skippedLabel && !checkInDone) {
+    // PW-011: All expected check-ins completed → hide button completely
+    if (checkInStatus?.allDone) {
+      return null;
+    }
+
+    // PW-022: If current period's check-in is not expected, hide button
+    // Morning period but morning not expected (e.g., evening-only mode)
+    if (!isEvening && checkInStatus?.morningExpected === false) {
+      return null;
+    }
+    // Evening period but evening not expected (e.g., morning-only mode)
+    if (isEvening && checkInStatus?.eveningExpected === false) {
+      return null;
+    }
+
+    // PW-011: Morning period check-in done → hide button until evening rules apply
+    // (Button will reappear when evening conditions are met)
+    if (!isEvening && checkInStatus?.morningDone && !checkInStatus?.morningSkipped) {
+      return null;
+    }
+
+    // PW-011: Evening period and evening check-in done → hide button
+    if (isEvening && checkInStatus?.eveningDone && !checkInStatus?.eveningSkipped) {
+      return null;
+    }
+
+    // PW-011: Skipped check-in → show clickable button so user can complete it
+    // Morning skipped but not done: show button to complete morning check-in (only if expected)
+    if (checkInStatus?.morningSkipped && !checkInStatus?.morningDone && checkInStatus?.morningExpected !== false) {
       return (
-        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-neutral-50 shadow-xs text-neutral-500 text-xs">
-          {/* Info icon - neutral gray */}
-          <svg className="w-4 h-4 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4M12 8h.01" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>{skippedLabel}</span>
-        </div>
+        <button
+          onClick={handleCheckInClick}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-white shadow-xs text-neutral-800 hover:bg-neutral-50 text-xs transition-colors"
+        >
+          <span>Morgen-Check-in nachholen</span>
+          <span className="text-neutral-500">→</span>
+        </button>
       );
     }
 
-    if (checkInDone) {
-      // TICKET-1 FIX: Show correct icon and label based on completion status
+    // Evening skipped but not done: show button to complete evening check-in (only if expected)
+    if (checkInStatus?.eveningSkipped && !checkInStatus?.eveningDone && checkInStatus?.eveningExpected !== false) {
       return (
-        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-white shadow-xs text-neutral-500 text-xs">
-          <span>{getCheckInStatusLabel()}</span>
-          {renderCheckIcon()}
-        </div>
+        <button
+          onClick={handleCheckInClick}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-white shadow-xs text-neutral-800 hover:bg-neutral-50 text-xs transition-colors"
+        >
+          <span>Abend-Check-in nachholen</span>
+          <span className="text-neutral-500">→</span>
+        </button>
       );
     }
 
-    if (!checkInEnabled) {
-      // Disabled state (grayed out)
+    // Evening period but rules not met → show disabled state
+    if (isEvening && !checkInEnabled) {
       return (
         <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-neutral-50 text-neutral-400 text-xs cursor-not-allowed">
           <span>Abend-Check-in</span>
@@ -345,7 +344,7 @@ const DashboardSubHeader = ({
       );
     }
 
-    // Active state
+    // Active state - current period's check-in is available
     const label = isEvening ? 'Abend-Check-in' : 'Morgen-Check-in';
     return (
       <button

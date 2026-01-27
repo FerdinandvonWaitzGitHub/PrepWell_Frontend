@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import CalendarHeader from './calendar-header';
 import CalendarGrid from './calendar-grid';
 import DayManagementDialog from './day-management-dialog';
@@ -26,7 +27,31 @@ import {
  * Displays monthly calendar with learning blocks
  */
 const CalendarView = ({ initialDate = new Date(), className = '' }) => {
-  const [currentDate, setCurrentDate] = useState(initialDate);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // PW-003: Read date from URL query param, fallback to initialDate
+  const getInitialDate = () => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      const parsed = new Date(dateParam);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return initialDate;
+  };
+
+  const [currentDate, setCurrentDate] = useState(getInitialDate);
+
+  // PW-003: Update URL when date changes
+  useEffect(() => {
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    setSearchParams({ date: dateStr }, { replace: true });
+  }, [currentDate, setSearchParams]);
+
   const [selectedDay, setSelectedDay] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

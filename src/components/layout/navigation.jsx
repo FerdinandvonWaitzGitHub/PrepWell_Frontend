@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom';
 import { useAppMode } from '../../contexts/appmode-context';
 
 /**
@@ -12,9 +12,13 @@ import { useAppMode } from '../../contexts/appmode-context';
  */
 const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [openDropdown, setOpenDropdown] = useState(null);
   // FEAT-002: Use both disabled and hidden for dynamic navigation
   const { isNavItemDisabled, isNavItemHidden, isExamMode } = useAppMode();
+
+  // PW-003: Get current date from URL to preserve when switching calendar views
+  const currentDateParam = searchParams.get('date');
 
   // FEAT-002: Build Verwaltung submenu dynamically based on mode
   const verwaltungSubmenu = [];
@@ -56,9 +60,10 @@ const Navigation = ({ currentPage = 'kalender-monat', className = '' }) => {
     {
       label: 'Kalender',
       key: 'kalender',
+      // PW-003: Include current date param when switching between calendar views
       submenu: [
-        { label: 'Wochenansicht', to: '/kalender/woche', key: 'kalender-woche' },
-        { label: 'Monatsansicht', to: '/kalender/monat', key: 'kalender-monat' },
+        { label: 'Wochenansicht', to: currentDateParam ? `/kalender/woche?date=${currentDateParam}` : '/kalender/woche', key: 'kalender-woche' },
+        { label: 'Monatsansicht', to: currentDateParam ? `/kalender/monat?date=${currentDateParam}` : '/kalender/monat', key: 'kalender-monat' },
       ]
     },
     {

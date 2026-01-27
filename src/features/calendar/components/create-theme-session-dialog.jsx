@@ -15,6 +15,9 @@ import { useStudiengang } from '../../../contexts/studiengang-context';
 import { getAllSubjects, getRechtsgebietColor } from '../../../utils/rechtsgebiet-colors';
 import { validateTimeRange } from '../../../utils/time-validation';
 
+// PW-007: LocalStorage key for default rechtsgebiet (last used)
+const STORAGE_KEY_DEFAULT_RECHTSGEBIET = 'prepwell_default_rechtsgebiet';
+
 /**
  * Create Theme Block Dialog Component
  * Form for creating a new learning block with tasks
@@ -105,12 +108,22 @@ const CreateThemeBlockDialog = ({
       setSelectedSource(null);
       setSelectedThemeListId(null);
       setIsRepeatTypeOpen(false);
-      // W5: Reset rechtsgebiet selection
-      setSelectedRechtsgebiet(null);
+      // PW-007: Load default rechtsgebiet from localStorage (last used)
+      try {
+        const savedDefault = localStorage.getItem(STORAGE_KEY_DEFAULT_RECHTSGEBIET);
+        // Only use if the subject still exists in available subjects
+        if (savedDefault && subjects.some(s => s.id === savedDefault)) {
+          setSelectedRechtsgebiet(savedDefault);
+        } else {
+          setSelectedRechtsgebiet(null);
+        }
+      } catch {
+        setSelectedRechtsgebiet(null);
+      }
       setIsRechtsgebietOpen(false);
       setTimeError(null);
     }
-  }, [open, initialStartTime, initialEndTime]);
+  }, [open, initialStartTime, initialEndTime, subjects]);
 
   // Validate time range when start/end time changes (Session mode only)
   useEffect(() => {
@@ -330,6 +343,15 @@ const CreateThemeBlockDialog = ({
         blockSize: blockSize,
         isFromLernplan: false, // Manually created in Month view
       });
+    }
+
+    // PW-007: Save selected rechtsgebiet as default for next time
+    if (selectedRechtsgebiet) {
+      try {
+        localStorage.setItem(STORAGE_KEY_DEFAULT_RECHTSGEBIET, selectedRechtsgebiet);
+      } catch {
+        // Ignore localStorage errors
+      }
     }
 
     onSave(date, baseData);

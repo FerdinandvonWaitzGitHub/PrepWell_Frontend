@@ -198,69 +198,61 @@ const DashboardPage = () => {
     }
   }, [cleanupExpiredSchedules]);
 
-  // Convert contentPlans (type='themenliste') to the format expected by LernblockWidget
-  // Preserves full hierarchy: Unterrechtsgebiet → Kapitel → Themen → Aufgaben
-  // Also includes scheduledInBlock info for graying out scheduled aufgaben
+  // PW-021: Convert contentPlans (type='themenliste') to the format expected by LernblockWidget
+  // Now uses NEW T27 structure: selectedAreas[] + themen[]
+  // Hierarchy for widget: Unterrechtsgebiet (=Area) → Kapitel → Themen → Aufgaben
   const themeLists = useMemo(() => {
     if (!contentPlans) return [];
 
     return contentPlans
-      .filter(plan => plan.type === 'themenliste' && !plan.archived)
+      // PW-021 FIX: Auch Drafts ausfiltern (konsistent mit lernplan-content.jsx)
+      .filter(plan => plan.type === 'themenliste' && !plan.archived && plan.status !== 'draft')
       .map(plan => {
-        // Build unterrechtsgebiete with full hierarchy
-        const unterrechtsgebiete = [];
         let totalAufgaben = 0;
         let completedAufgaben = 0;
 
-        plan.rechtsgebiete?.forEach(rg => {
-          rg.unterrechtsgebiete?.forEach(urg => {
-            const kapitel = [];
+        // PW-021: Read from NEW structure (selectedAreas + themen)
+        const unterrechtsgebiete = (plan.selectedAreas || []).map(area => {
+          // Filter themen that belong to this area
+          const areaThemen = (plan.themen || []).filter(t => t.areaId === area.id);
 
-            urg.kapitel?.forEach(k => {
-              // Filter out undefined elements and map
-              const themen = (k.themen || []).filter(t => t).map(t => {
-                // Guard: use optional chaining for aufgaben access
-                const aufgaben = (t?.aufgaben || []).map(a => {
-                  totalAufgaben++;
-                  if (a.completed) completedAufgaben++;
-                  return {
-                    id: a.id,
-                    title: a.title,
-                    completed: a.completed || false,
-                    priority: a.priority || 'none', // Priority: 'none', 'medium' (!), 'high' (!!)
-                    // Include scheduling info for UI display
-                    scheduledInBlock: a.scheduledInBlock || null,
-                  };
-                });
-                return {
-                  id: t.id,
-                  title: t.title,
-                  description: t.description || '',
-                  completed: t.completed || false,
-                  aufgaben,
-                };
-              });
-
-              if (themen.length > 0) {
-                kapitel.push({
-                  id: k.id,
-                  title: k.title,
-                  themen,
-                });
-              }
+          // Build themen with aufgaben
+          const themen = areaThemen.map(t => {
+            const aufgaben = (t.aufgaben || []).map(a => {
+              totalAufgaben++;
+              if (a.completed) completedAufgaben++;
+              return {
+                id: a.id,
+                title: a.name, // T27 uses 'name', widget expects 'title'
+                completed: a.completed || false,
+                priority: a.priority || 'none',
+                scheduledInBlock: a.scheduledInBlock || null,
+              };
             });
-
-            if (kapitel.length > 0) {
-              unterrechtsgebiete.push({
-                id: urg.id,
-                name: urg.name,
-                rechtsgebiet: rg.name || rg.rechtsgebietId,
-                rechtsgebietId: rg.id, // Needed for addAufgabeToPlan
-                kapitel,
-              });
-            }
+            return {
+              id: t.id,
+              title: t.name, // T27 uses 'name', widget expects 'title'
+              description: t.description || '',
+              completed: t.completed || false,
+              aufgaben,
+            };
           });
-        });
+
+          // Wrap in kapitel structure (widget expects this hierarchy)
+          const kapitel = themen.length > 0 ? [{
+            id: `kapitel-${area.id}`,
+            title: area.name,
+            themen,
+          }] : [];
+
+          return {
+            id: area.id,
+            name: area.name,
+            rechtsgebiet: area.rechtsgebietId,
+            rechtsgebietId: area.rechtsgebietId,
+            kapitel,
+          };
+        }).filter(urg => urg.kapitel.length > 0); // Only include areas with content
 
         return {
           id: plan.id,
@@ -271,27 +263,20 @@ const DashboardPage = () => {
       });
   }, [contentPlans]);
 
-  // Handle theme list Aufgabe (task) toggle
+  // PW-021: Handle theme list Aufgabe (task) toggle - uses NEW T27 structure
   const handleToggleThemeListAufgabe = useCallback((aufgabeId) => {
     if (!selectedThemeListId) return;
 
     const plan = contentPlans?.find(p => p.id === selectedThemeListId);
     if (!plan) return;
 
-    // Deep clone and update the aufgabe's completed status
+    // Deep clone and update the aufgabe's completed status in NEW structure
     const updatedPlan = JSON.parse(JSON.stringify(plan));
-    updatedPlan.rechtsgebiete?.forEach(rg => {
-      rg.unterrechtsgebiete?.forEach(urg => {
-        urg.kapitel?.forEach(k => {
-          k.themen?.forEach(t => {
-            // Guard: t could be undefined if array has holes
-            t?.aufgaben?.forEach(a => {
-              if (a.id === aufgabeId) {
-                a.completed = !a.completed;
-              }
-            });
-          });
-        });
+    updatedPlan.themen?.forEach(t => {
+      t.aufgaben?.forEach(a => {
+        if (a.id === aufgabeId) {
+          a.completed = !a.completed;
+        }
       });
     });
 
@@ -325,34 +310,25 @@ const DashboardPage = () => {
     updateAufgabeInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabeId, { priority: nextPriority });
   }, [selectedThemeListId, updateAufgabeInPlan]);
 
-  // T5.1: Handle toggling Thema completed status in the selected theme list
+  // PW-021: T5.1: Handle toggling Thema completed status - uses NEW T27 structure
   const handleToggleThemaCompleted = useCallback((unterrechtsgebietId, kapitelId, themaId, rechtsgebietId) => {
     if (!selectedThemeListId) return;
-    // Find current thema to toggle its completed status
     const plan = contentPlans?.find(p => p.id === selectedThemeListId);
     if (!plan) return;
 
-    let currentCompleted = false;
-    plan.rechtsgebiete?.forEach(rg => {
-      if (rg.id === rechtsgebietId) {
-        rg.unterrechtsgebiete?.forEach(urg => {
-          if (urg.id === unterrechtsgebietId) {
-            urg.kapitel?.forEach(k => {
-              if (k.id === kapitelId) {
-                k.themen?.forEach(t => {
-                  if (t?.id === themaId) {
-                    currentCompleted = t.completed || false;
-                  }
-                });
-              }
-            });
-          }
-        });
-      }
-    });
+    // Find thema in NEW structure (themen array at root)
+    const thema = plan.themen?.find(t => t.id === themaId);
+    const currentCompleted = thema?.completed || false;
 
-    updateThemaInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, { completed: !currentCompleted });
-  }, [selectedThemeListId, contentPlans, updateThemaInPlan]);
+    // Deep clone and update
+    const updatedPlan = JSON.parse(JSON.stringify(plan));
+    const themaToUpdate = updatedPlan.themen?.find(t => t.id === themaId);
+    if (themaToUpdate) {
+      themaToUpdate.completed = !currentCompleted;
+    }
+
+    updateContentPlan(selectedThemeListId, updatedPlan);
+  }, [selectedThemeListId, contentPlans, updateContentPlan]);
 
   // FR2: Today's blocks for BlocksListView (from calendar_blocks, NOT time_sessions!)
   // These are the block allocations from the month view (capacity planning)

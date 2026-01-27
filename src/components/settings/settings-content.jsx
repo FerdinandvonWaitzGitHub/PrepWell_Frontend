@@ -649,29 +649,49 @@ const SettingsContent = ({ className = '' }) => {
                 <div>
                   <p className="text-sm font-medium text-neutral-900">Check-ins pro Tag</p>
                   <p className="text-xs text-neutral-500">
-                    Wähle zwischen einem oder zwei täglichen Check-ins
+                    Wähle wie oft du Check-ins erhalten möchtest
                   </p>
                 </div>
               </div>
+              {/* PW-022: Extended options including evening-only and disabled */}
               <select
-                value={settings.checkin?.checkInCount || 2}
-                onChange={(e) => handleSettingChange('checkin', 'checkInCount', parseInt(e.target.value))}
+                value={settings.checkin?.checkInCount ?? 2}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // PW-022: Handle string 'evening' and numbers 0, 1, 2
+                  const parsed = val === 'evening' ? 'evening' : parseInt(val);
+                  handleSettingChange('checkin', 'checkInCount', parsed);
+                }}
                 className="px-3 py-2 text-sm border border-neutral-200 rounded-lg"
               >
-                <option value={1}>1 Check-in (nur Morgen)</option>
-                <option value={2}>2 Check-ins (Morgen & Abend)</option>
+                <option value={0}>Deaktiviert</option>
+                <option value={1}>Nur Morgen</option>
+                <option value="evening">Nur Abend</option>
+                <option value={2}>Morgen & Abend</option>
               </select>
             </div>
           )}
 
-          {isMentorActivated && (
+          {/* PW-022: Updated info texts for all check-in modes */}
+          {isMentorActivated && settings.checkin?.checkInCount !== 0 && (
             <div className="py-3 bg-blue-50 rounded-lg p-4">
               <p className="text-sm text-blue-700">
                 {settings.checkin?.checkInCount === 1
                   ? 'Der Mentor ist aktiv. Du erhältst täglich einen Morgen-Check-in.'
-                  : 'Der Mentor ist aktiv. Du erhältst morgens und abends Check-in Fragen.'
+                  : settings.checkin?.checkInCount === 'evening'
+                    ? 'Der Mentor ist aktiv. Du erhältst täglich einen Abend-Check-in.'
+                    : 'Der Mentor ist aktiv. Du erhältst morgens und abends Check-in Fragen.'
                 }
                 {' '}Du kannst deine Statistiken im Mentor-Bereich einsehen.
+              </p>
+            </div>
+          )}
+
+          {isMentorActivated && settings.checkin?.checkInCount === 0 && (
+            <div className="py-3 bg-amber-50 rounded-lg p-4">
+              <p className="text-sm text-amber-700">
+                Check-ins sind deaktiviert. Der Mentor kann weiterhin genutzt werden,
+                aber du erhältst keine täglichen Check-in Erinnerungen.
               </p>
             </div>
           )}
@@ -750,6 +770,9 @@ const SettingsContent = ({ className = '' }) => {
               value={settings.learning.preferredStartTime}
               onChange={(e) => handleSettingChange('learning', 'preferredStartTime', e.target.value)}
               className="px-3 py-2 text-sm border border-neutral-200 rounded-lg"
+              autoComplete="off"
+              data-lpignore="true"
+              data-1p-ignore="true"
             />
           </div>
 

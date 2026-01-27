@@ -242,7 +242,26 @@ export function useDashboard() {
   // Check-in status - differentiate between one and both check-ins completed
   // TICKET-1 FIX: Correctly track check-in completion status
   // TICKET-3: Respect checkInCount setting (1 or 2 check-ins per day)
+  // PW-022: Extended for checkInCount = 0 (disabled) and 'evening' (evening only)
   const checkInStatus = useMemo(() => {
+    // PW-022: If check-ins are disabled (0), treat as "all done" to hide button
+    if (checkInCount === 0) {
+      return {
+        morningDone: false,
+        eveningDone: false,
+        morningSkipped: false,
+        eveningSkipped: false,
+        morningExpected: false, // PW-022: No morning check-in expected
+        eveningExpected: false, // PW-022: No evening check-in expected
+        anyDone: false,
+        anySkipped: false,
+        allDone: true, // PW-022: Hide button when disabled
+        count: 0,
+        expectedCount: 0,
+        disabled: true, // PW-022: Flag for disabled state
+      };
+    }
+
     if (!isMentorActivated) {
       // If mentor is not activated, use legacy check-in tracking
       const lastCheckIn = localStorage.getItem('prepwell_last_checkin');
@@ -250,6 +269,8 @@ export function useDashboard() {
       return {
         morningDone: isDone,
         eveningDone: isDone,
+        morningExpected: true, // Legacy mode expects morning
+        eveningExpected: false, // Legacy mode: single check-in
         anyDone: isDone,
         allDone: isDone, // Legacy mode: single check-in counts as all
         count: isDone ? 1 : 0,
@@ -261,13 +282,34 @@ export function useDashboard() {
     const morningDone = !!(todayCheckIn.morning?.answers && !todayCheckIn.morning?.skipped);
     const eveningDone = !!(todayCheckIn.evening?.answers && !todayCheckIn.evening?.skipped);
 
-    // TICKET-3: Calculate allDone based on checkInCount setting
-    // If checkInCount is 1, only morning needs to be done for "all done"
-    const expectedCount = checkInCount || 2;
+    // TICKET-3 + PW-022: Calculate allDone based on checkInCount setting
+    // PW-022: checkInCount can be 0, 1, 2, or 'evening'
+    let expectedCount;
+    let allDone;
+    let morningExpected;
+    let eveningExpected;
+
+    if (checkInCount === 'evening') {
+      // PW-022: Only evening check-in expected
+      expectedCount = 1;
+      allDone = eveningDone;
+      morningExpected = false;
+      eveningExpected = true;
+    } else if (checkInCount === 1) {
+      // Only morning check-in expected
+      expectedCount = 1;
+      allDone = morningDone;
+      morningExpected = true;
+      eveningExpected = false;
+    } else {
+      // Both check-ins expected (default: 2)
+      expectedCount = 2;
+      allDone = morningDone && eveningDone;
+      morningExpected = true;
+      eveningExpected = true;
+    }
+
     const actualCount = (morningDone ? 1 : 0) + (eveningDone ? 1 : 0);
-    const allDone = expectedCount === 1
-      ? morningDone
-      : morningDone && eveningDone;
 
     // TICKET-4: Track skipped status for neutral display
     const morningSkipped = todayCheckIn.morning?.skipped === true;
@@ -278,6 +320,8 @@ export function useDashboard() {
       eveningDone,
       morningSkipped,
       eveningSkipped,
+      morningExpected, // PW-022: Whether morning check-in is expected
+      eveningExpected, // PW-022: Whether evening check-in is expected
       anyDone: morningDone || eveningDone,
       anySkipped: morningSkipped || eveningSkipped, // TICKET-4: For soft hint display
       allDone,

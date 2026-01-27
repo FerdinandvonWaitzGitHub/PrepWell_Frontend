@@ -81,6 +81,18 @@ console.log(`📂 Wizard Draft: ${wizardDraftData ? 'vorhanden' : 'leer'}`);
 console.log(`📂 Unterrechtsgebiete: ${unterrechtsgebieteData.length}`);
 
 // ============================================
+// HEALTH CHECK ENDPOINT (PW-019)
+// ============================================
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    server: 'local-dev',
+  });
+});
+
+// ============================================
 // GENERATE PLAN ENDPOINT (OpenAI Integration)
 // ============================================
 
@@ -368,7 +380,11 @@ function generateLocalFallback(data) {
 // ============================================
 
 app.post('/api/wizard/complete', async (req, res) => {
-  const wizardData = req.body;
+  // PW-018 FIX: Handle both wrapped and flat payload formats
+  // Frontend sends: { wizardData, lernplanTitle, lernplanDescription }
+  // Fallback to req.body directly for backwards compatibility
+  const wizardData = req.body.wizardData || req.body;
+  const lernplanTitle = req.body.lernplanTitle || wizardData.title || 'Mein Lernplan';
 
   try {
     // Generiere eindeutige ID
@@ -434,7 +450,7 @@ app.post('/api/wizard/complete', async (req, res) => {
     // Erstelle Lernplan-Objekt (kompatibel mit Frontend-Struktur)
     const lernplan = {
       id: lernplanId,
-      title: wizardData.title || 'Mein Lernplan',
+      title: lernplanTitle,
       description: `Lernplan vom ${new Date(wizardData.startDate).toLocaleDateString('de-DE')} bis ${new Date(wizardData.endDate).toLocaleDateString('de-DE')}`,
       tags: rechtsgebiete.map(r => r.charAt(0).toUpperCase() + r.slice(1).replace(/-/g, ' ')),
       rechtsgebiet: primaryRechtsgebiet,
@@ -526,12 +542,22 @@ app.post('/api/wizard/complete', async (req, res) => {
     console.log(`   📦 ${totalBlocks} Lernblöcke (${calendarSlots.length} Tage × ${blocksPerDay} Blöcke)`);
     console.log(`   🔄 Lerninhalte: ${learningDays.length} Themen, ${Math.ceil(netLearningDays / learningDays.length)} Durchläufe`);
 
+    // PW-018 FIX: Wrap response in data object for frontend compatibility
+    // Manual flow expects: result.data?.lernplan?.id
+    // Template flow expects: result.lernplanId (backwards compatibility)
     res.json({
       success: true,
+      // Backwards compatibility (template flow reads these directly)
       lernplanId,
       lernplan,
-      slotsCount: calendarSlots.length,
-      totalBlocks,
+      // New wrapped format (manual flow reads result.data)
+      data: {
+        storage: 'local',
+        lernplanId,
+        lernplan,
+        slotsCount: calendarSlots.length,
+        totalBlocks,
+      },
       message: `Lernplan mit ${calendarSlots.length} Lerntagen und ${totalBlocks} Lernblöcken erstellt!`,
     });
   } catch (error) {
@@ -635,134 +661,10 @@ app.put('/api/lernplaene/:id', (req, res) => {
   });
 });
 
-// GET Slots for Lernplan
-app.get('/api/kalender/:lernplanId/slots', (req, res) => {
-  const { lernplanId } = req.params;
-  const lernplanSlots = slotsData[lernplanId] || [];
-
-  res.json({
-    success: true,
-    data: lernplanSlots,
-  });
-});
-
-// PUT - Replace all Slots for Lernplan
-app.put('/api/kalender/:lernplanId/slots', (req, res) => {
-  const { lernplanId } = req.params;
-  const body = req.body;
-
-  if (!Array.isArray(body)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Body muss ein Array von Slots sein',
-    });
-  }
-
-  const now = new Date().toISOString();
-  const slots = body.map(slot => ({
-    ...slot,
-    updatedAt: now,
-    createdAt: slot.createdAt || now,
-  }));
-
-  slotsData[lernplanId] = slots;
-  saveData(SLOTS_FILE, slotsData);
-
-  res.json({
-    success: true,
-    data: slots,
-  });
-});
-
-// POST - Add/Update single Slot
-app.post('/api/kalender/:lernplanId/slots', (req, res) => {
-  const { lernplanId } = req.params;
-  const slot = req.body;
-
-  if (!slot.date || !slot.position) {
-    return res.status(400).json({
-      success: false,
-      error: 'date und position sind erforderlich',
-    });
-  }
-
-  const now = new Date().toISOString();
-  const slots = slotsData[lernplanId] || [];
-
-  const newSlot = {
-    id: slot.id || `${slot.date}-${slot.position}`,
-    date: slot.date,
-    position: slot.position,
-    status: slot.status || 'empty',
-    topicId: slot.topicId,
-    topicTitle: slot.topicTitle,
-    blockType: slot.blockType,
-    groupId: slot.groupId,
-    groupSize: slot.groupSize,
-    groupIndex: slot.groupIndex,
-    progress: slot.progress,
-    description: slot.description,
-    isLocked: slot.isLocked || false,
-    createdAt: slot.createdAt || now,
-    updatedAt: now,
-  };
-
-  // Update existing or add new
-  const existingIndex = slots.findIndex(s => s.id === newSlot.id);
-  if (existingIndex >= 0) {
-    slots[existingIndex] = newSlot;
-  } else {
-    slots.push(newSlot);
-  }
-
-  slotsData[lernplanId] = slots;
-  saveData(SLOTS_FILE, slotsData);
-
-  res.status(201).json({
-    success: true,
-    data: slots,
-  });
-});
-
-// POST - Bulk update Slots
-app.post('/api/kalender/:lernplanId/slots/bulk', (req, res) => {
-  const { lernplanId } = req.params;
-  const body = req.body;
-
-  if (!Array.isArray(body)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Body muss ein Array von Slots sein',
-    });
-  }
-
-  const now = new Date().toISOString();
-  const existingSlots = slotsData[lernplanId] || [];
-
-  body.forEach(slot => {
-    const newSlot = {
-      ...slot,
-      id: slot.id || `${slot.date}-${slot.position}`,
-      updatedAt: now,
-      createdAt: slot.createdAt || now,
-    };
-
-    const existingIndex = existingSlots.findIndex(s => s.id === newSlot.id);
-    if (existingIndex >= 0) {
-      existingSlots[existingIndex] = newSlot;
-    } else {
-      existingSlots.push(newSlot);
-    }
-  });
-
-  slotsData[lernplanId] = existingSlots;
-  saveData(SLOTS_FILE, slotsData);
-
-  res.json({
-    success: true,
-    data: existingSlots,
-  });
-});
+// PW-017: /slots endpoints removed - CalendarContext uses Supabase directly via:
+// - useCalendarBlocksSync() → calendar_blocks table (Month view, position-based)
+// - useTimeSessionsSync() → time_sessions table (Week/Dashboard, time-based)
+// - usePrivateSessionsSync() → private_sessions table (Private appointments)
 
 // DELETE Lernplan
 app.delete('/api/lernplaene/:id', (req, res) => {

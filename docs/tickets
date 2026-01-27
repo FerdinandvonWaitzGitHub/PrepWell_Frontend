@@ -84,56 +84,48 @@ TICKET-ID: PW-003
 TITEL: Navigation/Verknüpfung Monat Woche Tagesansicht inkonsistent
 TYP: Bug
 PRIORITÄT: P1
+STATUS: ✅ GEFIXT (27.01.2026)
 
 PROBLEM:
 - Ist: Verknüpfung zwischen Monat, Wochen, Tagesansicht ist fehlerhaft oder springt falsch.
 - Soll: Wechsel zwischen Ansichten behält das ausgewählte Datum konsistent bei.
 - Kontext: Kalender.
 
-SCOPE-FENCE:
-- Erlaubt: Kalender Navigation Code. Max 3 Dateien.
-- Verboten: Kein UI Redesign, kein Refactor, keine neuen Dependencies.
+ROOT CAUSE ANALYSE:
+- navigation.jsx:59-62: Submenu Links verwenden statische Routen ohne Datum-Parameter
+  - `/kalender/woche` und `/kalender/monat` ohne Query-String
+- calendar-view.jsx:29: currentDate State ist lokal, wird nicht zwischen Views geteilt
+- week-view.jsx: Gleiches Problem - kein geteilter Datums-State
 
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
+LÖSUNG (27.01.2026 - Option A: Query-Parameter):
 
-VORGEHEN:
-1) Repro Schritte nennen.
-2) Ursache und minimal Fix.
-3) Diff.
-4) Manuelle Tests.
+1. **navigation.jsx**: Liest `?date=` aus URL und fügt es an Kalender-Submenu-Links an
+   - useSearchParams Hook für URL-Parameter
+   - Dynamische Links: `/kalender/woche?date=YYYY-MM-DD`
 
-AKZEPTANZ:
-- Datum bleibt beim Wechsel konsistent.
-- Zurück Navigation führt zum erwarteten Datum.
+2. **calendar-view.jsx**: Liest und schreibt Datum in URL
+   - useSearchParams + useEffect für URL-Sync
+   - getInitialDate() liest `?date=` Parameter
+   - useEffect aktualisiert URL bei Navigation
 
+3. **week-view.jsx**: Identische Implementierung wie calendar-view.jsx
+   - useSearchParams + useEffect für URL-Sync
 
-
-
-
-
-
-
-ROLE: Senior Engineer. Minimal Change.
-
-TICKET-ID: PW-004
-TITEL: Sekundenanzeige im Tagesplaner entfernen
-TYP: UX
-PRIORITÄT: P2
-
-PROBLEM:
-- Ist: Uhrzeit im Tagesplaner zeigt Sekunden.
-- Soll: Tagesplaner zeigt nur HH:MM.
-- Kontext: Tagesplaner Zeitdarstellung.
-
-SCOPE-FENCE:
-- Erlaubt: Nur TimeFormat Utility oder betroffene Komponente. Max 2 Dateien.
-- Verboten: Keine Änderungen an anderen Views.
-
-CHANGE-BUDGET: Max 2 Dateien, max 60 Zeilen.
+BETROFFENE DATEIEN:
+- src/components/layout/navigation.jsx (Zeilen 2, 17, 64-66)
+- src/features/calendar/components/calendar-view.jsx (Zeilen 1-2, 28-43)
+- src/features/calendar/components/week-view.jsx (Zeilen 1-2, 24-43)
 
 AKZEPTANZ:
-- Tagesplaner zeigt keine Sekunden mehr.
-- Andere Komponenten bleiben unverändert.
+- ✅ Datum bleibt beim Wechsel konsistent (via URL Query-Parameter).
+- ✅ Zurück Navigation führt zum erwarteten Datum (Browser-History).
+- ✅ Direktlinks mit Datum möglich (z.B. /kalender/woche?date=2026-03-15).
+
+
+
+
+
+
 
 
 
@@ -185,25 +177,36 @@ EMPFEHLUNG: PW-006 schließen, PW-014 behalten. Identische Root Cause.
 ROLE: Senior Engineer. Minimal Change.
 
 TICKET-ID: PW-007
-TITEL: Lernblock am konkreten Tag kann kein Rechtsgebiet setzen
+TITEL: Lernblock Rechtsgebiet nicht mit User Settings verbunden
 TYP: Bug/UX
 PRIORITÄT: P1
+STATUS: ✅ GEFIXT (27.01.2026)
 
 PROBLEM:
-- Ist: Beim Erstellen eines Lernblocks am konkreten Tag fehlt Auswahl Rechtsgebiet, daher gleiche Farben.
-- Soll: Rechtsgebiet ist wählbar und Farbe basiert darauf.
-- Kontext: Lernblock Create Modal / Day View.
+- Ist: Rechtsgebiet-Dropdown existiert, aber ist NICHT mit User Settings verbunden.
+  - Widget übernimmt nicht die Farbe aus den User Settings
+  - Manuelle Auswahl wird nicht persistiert/synchronisiert
+- Soll: Lernblock-Widget übernimmt automatisch die Rechtsgebiet-Farbe aus den User Settings.
+- Kontext: Lernblock Create Modal / Day View / User Settings Integration.
 
-SCOPE-FENCE:
-- Erlaubt: Nur Lernblock Create UI + Model Binding. Max 3 Dateien.
-- Verboten: Kein Umbau des Farbsystems.
+LÖSUNG (27.01.2026):
+1. Farben waren BEREITS mit User Settings verbunden via getRechtsgebietColor() → getColorForSubject() → getSubjectSettings()
+2. Das eigentliche Problem: Kein Default-Rechtsgebiet beim Öffnen des Dialogs
+3. Fix: LocalStorage Key 'prepwell_default_rechtsgebiet' speichert zuletzt verwendetes Rechtsgebiet
+   - Beim Öffnen: Letztes Rechtsgebiet als Default laden (falls es noch existiert)
+   - Beim Speichern: Ausgewähltes Rechtsgebiet für nächstes Mal merken
 
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
+BETROFFENE DATEIEN:
+- src/features/calendar/components/create-theme-session-dialog.jsx
+  - Zeile 19: STORAGE_KEY_DEFAULT_RECHTSGEBIET Konstante
+  - Zeilen 99-109: Default aus localStorage laden
+  - Zeilen 352-357: Auswahl in localStorage speichern
 
 AKZEPTANZ:
-- Rechtsgebiet kann gesetzt werden.
-- Farbcode unterscheidet korrekt.
-- Bestehende Lernblöcke bleiben korrekt.
+- ✅ Rechtsgebiet-Default kommt aus zuletzt verwendeter Auswahl.
+- ✅ Farbe wird aus Settings übernommen (via getRechtsgebietColor).
+- ✅ Bei Änderung wird korrekte Farbe sofort angezeigt.
+- ✅ Bestehende Lernblöcke bleiben korrekt.
 
 
 
@@ -215,21 +218,24 @@ TICKET-ID: PW-008
 TITEL: Globale Play/Pause Controls für Stoppuhr
 TYP: UX
 PRIORITÄT: P2
+STATUS: ✅ GEFIXT (T16-W6)
 
 PROBLEM:
 - Ist: Play/Pause nur in Timer Ansicht erreichbar.
 - Soll: Oben im Header globale Controls (nur für Stoppuhr) sichtbar wenn aktiv.
 - Kontext: Header/Navigation.
 
-SCOPE-FENCE:
-- Erlaubt: Header Komponente + Timer State Hook. Max 3 Dateien.
-- Verboten: Kein Navigation Refactor.
+LÖSUNG (bereits implementiert als T16-W6):
+- dashboard-sub-header.jsx:143-146: handlePlayPause Funktion
+- dashboard-sub-header.jsx:170-190: Play/Pause Button erscheint bei Hover über TimerWidget
+- timer-display.jsx:62-66, 124-144: Gleiche Implementierung
 
-CHANGE-BUDGET: Max 3 Dateien, max 120 Zeilen.
+IMPLEMENTATION DETAILS:
+- isHovered State (dashboard-sub-header.jsx:83)
+- togglePause() aus useTimer Hook (dashboard-sub-header.jsx:80)
+- Button mit Play/Pause Icons (dashboard-sub-header.jsx:177-188)
 
-AKZEPTANZ:
-- Play/Pause im Header steuert Stoppuhr korrekt.
-- Keine Layout Regression in anderen Screens.
+KEINE AKTION ERFORDERLICH.
 
 
 
@@ -239,51 +245,115 @@ AKZEPTANZ:
 ROLE: Senior Engineer. Minimal Change.
 
 TICKET-ID: PW-009
-TITEL: Sekundenanzeige bei Stoppuhr anzeigen
+TITEL: Sekundenanzeige bei Hover + Timer Dialog
 TYP: UX
 PRIORITÄT: P2
+STATUS: ✅ GEFIXT (27.01.2026)
 
 PROBLEM:
-- Ist: Stoppuhr zeigt keine Sekunden, Bewegung ist schwer erkennbar.
-- Soll: Anzeige inkl Sekunden (MM:SS oder HH:MM:SS) nur in Stoppuhr.
-- Kontext: Stoppuhr Display.
+- Ist: Keine Sekunden sichtbar, Bewegung schwer erkennbar.
+- Soll: Sekunden bei Hover über Timer im Sub-Header UND im geöffneten Timer Dialog.
+- Kontext: Dashboard Sub-Header + Timer Dialog.
+
+ANFORDERUNG (korrigiert 27.01.2026):
+1. **Sub-Header Hover:** Sekunden erscheinen wenn man über die Timer-Anzeige hovert
+2. **Timer Dialog:** Sekunden werden immer angezeigt wenn Dialog offen ist
+
+CODE ANALYSE:
+
+**A) Dashboard Sub-Header (Hover für Sekunden)**
+- dashboard-sub-header.jsx:80 - useTimer gibt `elapsedSeconds`/`remainingSeconds` zurück
+- dashboard-sub-header.jsx:83 - `isHovered` State existiert bereits!
+- dashboard-sub-header.jsx:120-131 - `getTimerLabel()` zeigt aktuell `primaryText` (ohne Sekunden)
+
+**B) Timer Main Dialog (Sekunden immer)**
+- timer-main-dialog.jsx:269-277 - `formatTime()` (Pomodoro/Countdown)
+- timer-main-dialog.jsx:477-484 - `CountupTimerView.timeDisplay` (Stoppuhr)
 
 SCOPE-FENCE:
-- Erlaubt: Nur Stoppuhr Anzeige oder TimeFormat lokal. Max 2 Dateien.
-- Verboten: Keine globale Time Format Änderung.
+- Erlaubt: src/components/dashboard/dashboard-sub-header.jsx
+  - Zeile 80: `elapsedSeconds`, `remainingSeconds` aus useTimer() holen
+  - Zeilen 120-131: `getTimerLabel()` um Hover-Logik erweitern
+  - Neue Helper: `formatSecondsWithSecs()` für Sekunden-Format
+- Erlaubt: src/components/dashboard/timer/timer-main-dialog.jsx
+  - formatTime() Zeilen 269-277 anpassen
+  - CountupTimerView timeDisplay Zeilen 477-484 anpassen
+- Verboten: src/contexts/timer-context.jsx (bleibt unverändert)
 
-CHANGE-BUDGET: Max 2 Dateien, max 60 Zeilen.
+VORGESCHLAGENE LÖSUNG:
+
+```js
+// === dashboard-sub-header.jsx ===
+
+// Zeile 80: Erweiterte Destructuring
+const { timerType, isActive, getDisplayInfo, togglePause,
+        elapsedSeconds, remainingSeconds, state: _state } = useTimer();
+
+// Neue Helper-Funktion
+const formatWithSeconds = (totalSeconds) => {
+  const hrs = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2,'0')}`;
+};
+
+// getTimerLabel() mit Hover-Logik
+const getTimerLabel = () => {
+  // Bei Hover: Sekunden anzeigen
+  if (isHovered) {
+    switch (timerType) {
+      case TIMER_TYPES.POMODORO:
+      case TIMER_TYPES.COUNTDOWN:
+        return formatWithSeconds(remainingSeconds);
+      case TIMER_TYPES.COUNTUP:
+        return formatWithSeconds(elapsedSeconds);
+    }
+  }
+  // Normal: primaryText ohne Sekunden
+  return primaryText;
+};
+```
+
+```js
+// === timer-main-dialog.jsx ===
+
+// formatTime() mit Sekunden (Zeilen 269-277)
+const formatTime = (seconds) => {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+// CountupTimerView timeDisplay (Zeilen 477-484)
+const timeDisplay = useMemo(() => {
+  const hrs = Math.floor(elapsedSeconds / 3600);
+  const mins = Math.floor((elapsedSeconds % 3600) / 60);
+  const secs = elapsedSeconds % 60;
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}, [elapsedSeconds]);
+```
+
+CHANGE-BUDGET: 2 Dateien, max 40 Zeilen.
 
 AKZEPTANZ:
-- Stoppuhr zeigt Sekunden.
-- Kalender und Tagesplaner Formate bleiben unverändert.
+- Sub-Header: Bei Hover über Timer-Anzeige erscheinen Sekunden (z.B. "12:34").
+- Sub-Header: Ohne Hover bleibt normale Anzeige ("6h 22min gelernt").
+- Timer Dialog: Zeigt immer Sekunden wenn offen.
+- Circular Progress Ring aktualisiert sich jede Sekunde.
 
 
 
 
-
-
-ROLE: Senior Engineer. Minimal Change.
-
-TICKET-ID: PW-010
-TITEL: Wochenansicht Termine ohne Sekunden
-TYP: UX
-PRIORITÄT: P2
-
-PROBLEM:
-- Ist: Termine in Wochenansicht zeigen Sekunden.
-- Soll: Nur HH:MM.
-- Kontext: Wochenansicht Event Render.
-
-SCOPE-FENCE:
-- Erlaubt: Nur Wochenansicht Render und lokales Format. Max 2 Dateien.
-- Verboten: Keine globale Format Änderung.
-
-CHANGE-BUDGET: Max 2 Dateien, max 60 Zeilen.
-
-AKZEPTANZ:
-- Wochenansicht ohne Sekunden.
-- Andere Views unverändert.
 
 
 
@@ -293,24 +363,43 @@ AKZEPTANZ:
 ROLE: Senior Engineer. Minimal Change.
 
 TICKET-ID: PW-011
-TITEL: Morgen Check in erledigt Feld nimmt zu viel Platz ein
-TYP: UX
-PRIORITÄT: P2
+TITEL: Check-In Button Visibility Logik unvollständig
+TYP: Bug/UX
+PRIORITÄT: P1
+STATUS: ✅ GEFIXT (27.01.2026)
 
 PROBLEM:
-- Ist: Feld ist zu groß und verdrängt Inhalte.
-- Soll: Kompakter, weniger Höhe, ggf einklappbar.
-- Kontext: Startseite.
+- Ist: Check-In Button zeigte "erledigt" Status statt zu verschwinden.
+- Soll: Button verschwindet nach Erledigung, bleibt sichtbar wenn übersprungen.
+- Kontext: Dashboard Sub-Header / Check-In System.
 
-SCOPE-FENCE:
-- Erlaubt: Nur Startseiten Komponente und CSS. Max 2 Dateien.
-- Verboten: Kein Redesign Startseite.
+LÖSUNG (27.01.2026):
+Komplette Überarbeitung von getCheckInButton() in dashboard-sub-header.jsx:
 
-CHANGE-BUDGET: Max 2 Dateien, max 80 Zeilen.
+1. **All done → null**: Wenn alle erwarteten Check-Ins erledigt sind, verschwindet Button
+2. **Morning done in morning period → null**: Nach Morgen-Check-In verschwindet Button
+3. **Evening done in evening period → null**: Nach Abend-Check-In verschwindet Button
+4. **Morning skipped → "Morgen-Check-in nachholen"**: Klickbarer Button zum Nachholen
+5. **Evening skipped → "Abend-Check-in nachholen"**: Klickbarer Button zum Nachholen
+6. **Evening period, rules not met → disabled**: Grau, nicht klickbar
+7. **Active period → button**: Normaler aktiver Button
+
+BEREITS KORREKT IMPLEMENTIERT:
+- ✅ Mentor AUS → Button unsichtbar (isMentorActivated && getCheckInButton())
+- ✅ Auto-Redirect bei Login (dashboard.jsx:93-100 via isCheckInNeeded)
+- ✅ checkInCount (1 oder 2) aus Settings (checkin-context.jsx)
+- ✅ morningSkipped/eveningSkipped Status (use-dashboard.js)
+
+BETROFFENE DATEIEN:
+- src/components/dashboard/dashboard-sub-header.jsx
+  - getCheckInButton() komplett überarbeitet (Zeilen 281-336)
+  - Alte Hilfsfunktionen entfernt (renderCheckIcon, getCheckInStatusLabel, getSkippedLabel)
 
 AKZEPTANZ:
-- Feld ist sichtbar aber kompakter.
-- Keine Überlappung oder Layout Brüche.
+- ✅ Mentor AUS → Button unsichtbar.
+- ✅ Mentor AN + 2 Check-Ins → Morgen-Dialog öffnet bei Login automatisch (via redirect).
+- ✅ Nach Erledigung → Button verschwindet bis nächste Regel greift.
+- ✅ Übersprungen → Button bleibt sichtbar mit "nachholen" Text.
 
 
 
@@ -429,9 +518,27 @@ PROBLEM:
 - Soll: MVP: Upload Screenshot -> extrahiere Text -> erstelle Themenliste -> Nutzer kann bearbeiten -> speichern.
 - Kontext: Themenplan.
 
+TECHNISCHE ANALYSE (27.01.2026):
+- Betroffene Dateien:
+  - src/pages/lernplan.jsx - Lernplan Übersicht (Einstiegspunkt)
+  - src/features/themenliste/ - Themenliste Feature Module
+  - src/features/themenliste/components/themenliste-header.jsx - Kann Button für Upload enthalten
+
+MVP VORSCHLAG:
+1) Neuer Button "Aus Screenshot importieren" in Lernplan-Seite
+2) Neue Komponente: src/features/themenliste/components/screenshot-import-dialog.jsx
+3) Browser File API für Bildupload (kein Backend nötig für Phase 1)
+4) OCR Option A: Tesseract.js (client-side, ~2MB Bundle)
+5) OCR Option B: Cloud Vision API (erfordert API Key)
+6) Parsed Text → Themenliste Struktur konvertieren
+
 SCOPE-FENCE:
-- Erlaubt: Nur neuer kleiner Flow als MVP in bestehenden Feature Struktur. Max 5 Dateien.
-- Verboten: Kein komplettes Redesign Themenplan, keine neue Architektur.
+- Erlaubt: src/pages/lernplan.jsx (Button hinzufügen)
+- Erlaubt: Neues src/features/themenliste/components/screenshot-import-dialog.jsx
+- Erlaubt: src/contexts/calendar-context.jsx saveContent verwenden
+- Erlaubt: Package hinzufügen: tesseract.js (für client-side OCR)
+- Verboten: Kein komplettes Redesign Themenplan
+- Verboten: Keine neue Architektur
 
 CHANGE-BUDGET: Max 5 Dateien, max 250 Zeilen.
 
@@ -448,18 +555,940 @@ AKZEPTANZ:
 
 
 
+ROLE: Senior Engineer. Minimal Change.
+
+TICKET-ID: PW-016
+TITEL: Klick auf Zeitfenster setzt Endzeit VOR Startzeit
+TYP: Bug
+PRIORITÄT: P0
+STATUS: ✅ GEFIXT (27.01.2026)
+
+PROBLEM:
+- Ist: Bei Klick auf Zeitfenster wird Endzeit auf einen vorherigen Wert gesetzt (vor der Startzeit).
+- Soll: Endzeit soll 30 Minuten NACH der Startzeit sein bei einfachem Klick.
+- Kontext: Wochenansicht Kalender, Klick auf leeres Zeitfenster.
+
+ROOT CAUSE ANALYSE:
+
+**Ablauf bei Drag (funktioniert korrekt):**
+```
+handleTimeRangeSelect() → setzt BEIDE:
+  - setSelectedTime(startTime)
+  - setSelectedEndTime(endTime)
+```
+
+**Ablauf bei Klick (BUG):**
+```
+handleTimeBlockClick() → setzt NUR:
+  - setSelectedTime(time)
+  - selectedEndTime bleibt UNVERÄNDERT (alter Wert von vorherigem Drag!)
+```
+
+**Dialog-Verhalten:**
+```javascript
+// create-theme-session-dialog.jsx:92-93
+setStartTime(initialStartTime || '09:00');
+setEndTime(initialEndTime || '11:00');  // ← Wenn initialEndTime != null, wird alter Wert verwendet!
+```
+
+**Beispiel des Bugs:**
+1. User macht Drag von 14:00 → 16:00 → selectedEndTime = "16:00"
+2. User schließt Dialog ohne zu speichern
+3. User klickt auf 10:00 → selectedTime = "10:00", selectedEndTime bleibt "16:00"
+4. Dialog öffnet mit Start: 10:00, Ende: 16:00 → falsch!
+
+**Schlimmster Fall:**
+1. User macht Drag von 08:00 → 09:00 → selectedEndTime = "09:00"
+2. User klickt auf 14:00 → Dialog zeigt Start: 14:00, Ende: 09:00 → Ende VOR Start!
+
+SCOPE-FENCE:
+
+**Änderungsort:**
+- Datei: `src/features/calendar/components/week-view.jsx`
+- Funktion: `handleTimeBlockClick` (Zeilen 317-321)
+- Aktueller Code:
+```javascript
+// Zeile 317-321
+const handleTimeBlockClick = (date, time) => {
+  setSelectedDate(date);
+  setSelectedTime(time);
+  setIsAddDialogOpen(true);
+};
+```
+
+**Erlaubt:**
+- Zeilen 317-321: `setSelectedEndTime()` Aufruf hinzufügen
+- Inline-Berechnung für Endzeit (startTime + 30min)
+
+**Verboten:**
+- `handleTimeRangeSelect` (Zeilen 562-572) - Drag-Handler funktioniert korrekt
+- Dialog-Komponenten (create-theme-session-dialog.jsx, etc.)
+- State-Deklarationen (Zeilen 54-55)
+
+VORGESCHLAGENE LÖSUNG:
+
+```javascript
+// week-view.jsx - handleTimeBlockClick (Zeile 317-321)
+const handleTimeBlockClick = (date, time) => {
+  setSelectedDate(date);
+  setSelectedTime(time);
+  // PW-016 Fix: Set default end time to 30 minutes after start
+  const [hours, mins] = time.split(':').map(Number);
+  const totalMins = hours * 60 + mins + 30; // +30 Minuten
+  const endHours = Math.floor(totalMins / 60);
+  const endMins = totalMins % 60;
+  const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+  setSelectedEndTime(endTime);
+  setIsAddDialogOpen(true);
+};
+```
+
+CHANGE-BUDGET: 1 Datei, max 15 Zeilen.
+
+AKZEPTANZ:
+- Klick auf Zeitfenster: Endzeit = Startzeit + 30 Minuten.
+- Drag bleibt unverändert (eigene Berechnung).
+- Dialog zeigt korrekte Zeiten bei Klick UND Drag.
+
+
+
+
 ================================================================================
                         P0 ZUSAMMENFASSUNG (27.01.2026)
 ================================================================================
 
-ALLE P0 BUGS GEFIXT! ✅
+P0 STATUS:
 
-| Ticket | Status | Commit |
-|--------|--------|--------|
+| Ticket | Status | Beschreibung |
+|--------|--------|--------------|
 | PW-001 | ✅ GEFIXT | UTC date fix in aufgaben-content.jsx |
 | PW-002 | ✅ GEFIXT | Block-Tasks Aggregation |
 | PW-005 | ✅ GEFIXT | T16-W3 (bereits vorher) |
 | PW-006 | DUPLIKAT | → PW-014 |
 | PW-012 | ✅ GEFIXT | (bereits vorher) |
 | PW-013 | ✅ GEFIXT | Display fix ohne verwirrende Zeit |
-| PW-014 | ✅ GEFIXT | yToTime() für 15-Min-Präzision |
+| PW-014 | ✅ GEFIXT | yToTime() für 15-Min-Präzision (Startzeit) |
+| PW-016 | ✅ GEFIXT | Endzeit bei Klick = Startzeit + 30min |
+
+
+================================================================================
+                        P1/P2 STATUS (27.01.2026)
+================================================================================
+
+P1 TICKETS:
+| Ticket | Status | Beschreibung |
+|--------|--------|--------------|
+| PW-003 | ✅ GEFIXT | Navigation Monat/Woche/Tag - URL Query-Parameter Sync |
+| PW-007 | ✅ GEFIXT | Rechtsgebiet Default aus localStorage |
+| PW-011 | ✅ GEFIXT | Check-In Button verschwindet nach Erledigung |
+| PW-017 | ✅ GEFIXT | Dead Code entfernt - kalenderApi, useBlocks, /slots Endpoints |
+| PW-018 | ✅ GEFIXT | Wizard-Complete Payload/Response Drift DEV/PROD |
+| PW-021 | OFFEN | Themenlisten Toggle zeigt keine Aufgaben |
+
+P2 TICKETS:
+| Ticket | Status | Beschreibung |
+|--------|--------|--------------|
+| PW-004 | ✅ GELÖSCHT | Sekunden im Tagesplaner - bereits gefixt |
+| PW-008 | ✅ GEFIXT (T16-W6) | Global Play/Pause - bereits implementiert |
+| PW-009 | ✅ GEFIXT | Sekunden bei Hover + im Timer Dialog |
+| PW-010 | ✅ GELÖSCHT | Sekunden in Wochenansicht - bereits gefixt |
+| PW-015 | OFFEN | Screenshot → Themenplan Feature |
+| PW-019 | ✅ GEFIXT | /api/health Endpoint hinzugefügt (DEV + PROD) |
+| PW-020 | ✅ GEFIXT | Auth-Debug Logging nur in DEV aktiv |
+| PW-022 | OFFEN | Check-ins Settings: nur abends / deaktivieren |
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix oder eine kleine UX Anpassung.
+TICKET-ID: PW-017
+TITEL: Dead Code bereinigen: Ungenutzte kalenderApi und server.js /slots Endpoints
+TYP: Housekeeping
+PRIORITÄT: P3
+STATUS: ✅ GEFIXT (27.01.2026)
+
+PROBLEM (AKTUALISIERT 27.01.2026):
+- Ursprüngliche Annahme: /blocks Endpoint liefert 404 in DEV → Monatsansicht kaputt
+- **Realität**: Die Monatsansicht nutzt NICHT den lokalen Server!
+
+ARCHITEKTUR-ANALYSE:
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    TATSÄCHLICHER DATENFLUSS                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  CalendarContext (calendar-context.jsx)                                  │
+│       │                                                                  │
+│       ├── useCalendarBlocksSync()  ──→  Supabase: calendar_blocks       │
+│       │   (Monatsansicht Blöcke)        Position-basiert, KEINE Zeiten  │
+│       │                                                                  │
+│       ├── useTimeSessionsSync()    ──→  Supabase: time_sessions         │
+│       │   (Woche/Startseite)            Zeit-basiert (start_at, end_at) │
+│       │                                                                  │
+│       └── usePrivateSessionsSync() ──→  Supabase: private_sessions      │
+│           (Private Termine)             Zeit-basiert (start_at, end_at) │
+│                                                                          │
+│  KEIN Aufruf von kalenderApi oder server.js /slots Endpoints!           │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+LÖSUNG (27.01.2026 - Dead Code Cleanup):
+Dead Code wurde entfernt:
+1. ✅ **api.ts** - `kalenderApi` Export und Section entfernt (Zeilen 161-186)
+2. ✅ **api.ts** - `kalender: kalenderApi` aus Combined Export entfernt
+3. ✅ **useApi.ts** - `kalenderApi` Import entfernt
+4. ✅ **useApi.ts** - `useBlocks` Hook entfernt (war nie verwendet)
+5. ✅ **server.js** - 4 `/slots` Endpoints entfernt (GET/PUT/POST/POST bulk)
+   - Kommentar hinzugefügt zur Erklärung des Datenflusses
+
+HINWEIS: `slotsData` in server.js bleibt erhalten, da:
+- Wizard-Complete Endpoint (Zeile 518) speichert generierte Slots
+- DELETE Lernplaene (Zeile 656) räumt Slots auf
+
+CHANGE-BUDGET: 3 Dateien, ~150 Zeilen entfernt
+
+AKZEPTANZKRITERIEN:
+- ✅ Dead Code entfernt
+- ✅ Architektur-Dokumentation im Ticket aktualisiert
+- ✅ Keine Funktionalitäts-Regression (CalendarContext unverändert)
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix oder eine kleine UX Anpassung.
+TICKET-ID: PW-018
+TITEL: Wizard-Complete Payload/Response Drift zwischen DEV und PROD
+TYP: Bug
+PRIORITÄT: P1
+STATUS: ✅ GEFIXT (27.01.2026)
+
+PROBLEM:
+- Ist-Zustand: `wizard-context.jsx` sendet unterschiedliche Payloads (teilweise flach, teilweise { wizardData, lernplanTitle }). In PROD erwartet `/api/wizard/complete` `{wizardData, lernplanTitle}`, im DEV erwartet `server.js` flache Felder. Zusätzlich fehlt im DEV die `data`-Wrapper-Struktur, wodurch `result.data` undefined ist.
+- Soll-Zustand: Alle Wizard-Flows senden dieselbe Payload (kanonisch `{ wizardData, lernplanTitle, lernplanDescription }`) und DEV/PROD liefern konsistent `{ success, data }`.
+- Kontext: Lernplan Wizard – Complete/Template/Automatic Flow.
+
+ROOT CAUSE ANALYSE:
+1. **wizard-context.jsx:1153-1157** - Frontend sendet:
+   ```javascript
+   body: JSON.stringify({
+     wizardData,          // Wrapped object
+     lernplanTitle: `Lernplan ${date}`,
+     lernplanDescription: '',
+   })
+   ```
+
+2. **server.js:370-371** - Server erwartet flache Struktur:
+   ```javascript
+   app.post('/api/wizard/complete', async (req, res) => {
+     const wizardData = req.body;  // ❌ Erwartet req.body = wizardData direkt
+   ```
+   Problem: Server liest `req.body.bufferDays` statt `req.body.wizardData.bufferDays`
+
+3. **Response-Mismatch**:
+   - server.js:529-536 liefert: `{ success: true, lernplanId, lernplan, ... }`
+   - wizard-context.jsx:1167 erwartet: `result.data?.lernplan?.id`
+   - **Problem**: Server wrapped NICHT in `data: { ... }`
+
+4. **Fix-Optionen**:
+   - Option A (Server): `const wizardData = req.body.wizardData || req.body;` (rückwärtskompatibel)
+   - Option B (Server): Response mit `data` wrappen: `{ success: true, data: { lernplanId, lernplan, ... } }`
+
+SCOPE-FENCE:
+- Erlaubte Dateien/Komponenten:
+  - server.js (Zeilen 370-371, 529-536)
+- Verboten: Kein Refactor, keine Umbenennungen, keine neuen Dependencies, keine Formatierungsänderungen, keine UI Änderungen außerhalb des betroffenen Bereichs, keine Logikänderungen außerhalb des Bugs.
+
+CHANGE-BUDGET:
+- Max Dateien: 1 (server.js reicht)
+- Max geänderte Zeilen: 20
+- API-Contract-Änderung: Response bekommt `data`-Wrapper (rückwärtskompatibel da `success` bleibt)
+
+VORGEHEN:
+1) server.js:371: `const wizardData = req.body.wizardData || req.body;`
+2) server.js:529-536: Response in `data` wrappen
+3) Testen: Wizard-Flow durchspielen, `result.data.lernplan.id` prüfen
+
+LÖSUNG (27.01.2026):
+1. **server.js:370-374** - Payload-Handling rückwärtskompatibel:
+   ```javascript
+   // PW-018 FIX: Handle both wrapped and flat payload formats
+   const wizardData = req.body.wizardData || req.body;
+   const lernplanTitle = req.body.lernplanTitle || wizardData.title || 'Mein Lernplan';
+   ```
+
+2. **server.js:533-547** - Response mit data-Wrapper + Rückwärtskompatibilität:
+   ```javascript
+   res.json({
+     success: true,
+     // Backwards compatibility (template/automatic flows read these)
+     lernplanId,
+     lernplan,
+     // New wrapped format (manual flow reads result.data)
+     data: { storage: 'local', lernplanId, lernplan, slotsCount, totalBlocks },
+     message: `...`,
+   });
+   ```
+
+AKZEPTANZKRITERIEN:
+- ✅ Manual Flow: `result.data?.lernplan?.id` funktioniert
+- ✅ Template/Automatic Flows: `result.lernplanId` bleibt kompatibel
+- ✅ API-Contract rückwärtskompatibel (beide Formate funktionieren)
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix oder eine kleine UX Anpassung.
+TICKET-ID: PW-019
+TITEL: /api/health fehlt (Health-Check immer false)
+TYP: Bug
+PRIORITÄT: P2
+STATUS: ✅ GEFIXT (27.01.2026)
+
+PROBLEM:
+- Ist-Zustand: `agentApi.checkHealth` ruft `/api/health` auf, der Endpoint existiert weder in Vercel Functions noch im lokalen Server. Health-Check ist immer false.
+- Soll-Zustand: `/api/health` liefert überall `{ success: true }` (200), sodass UI korrekt erkennt, ob der API-Server erreichbar ist.
+- Kontext: Wizard (KI-Plan-Generierung), allgemeiner API-Health-Check.
+
+ROOT CAUSE ANALYSE:
+1. **api.ts:402-418** - Frontend ruft Health-Check auf:
+   ```typescript
+   checkHealth: async (): Promise<boolean> => {
+     const apiUrl = USE_LOCAL_API
+       ? `${LOCAL_API_BASE}/health`   // http://localhost:3010/api/health
+       : '/api/health';               // /api/health (Vercel)
+     const response = await fetch(apiUrl, { ... });
+     return response.ok;  // true wenn 2xx
+   }
+   ```
+
+2. **server.js** - KEIN `/api/health` Endpoint vorhanden!
+   - Suche nach "health" ergibt keine Treffer
+   - Ergebnis: 404 → `checkHealth` returns false
+
+3. **api/health.ts** - Datei existiert NICHT im api/ Ordner für Vercel Functions
+
+LÖSUNG:
+- server.js: Einfachen Health-Endpoint hinzufügen:
+  ```javascript
+  app.get('/api/health', (req, res) => {
+    res.json({ success: true, timestamp: new Date().toISOString() });
+  });
+  ```
+- api/health.ts: Neue Vercel Function erstellen (analog zu bestehenden api/*.ts)
+
+SCOPE-FENCE:
+- Erlaubte Dateien/Komponenten:
+  - server.js (neuer Endpoint nach Zeile ~85)
+  - api/health.ts (neue Datei)
+- Verboten: Kein Refactor, keine Umbenennungen, keine neuen Dependencies, keine Formatierungsänderungen, keine UI Änderungen außerhalb des betroffenen Bereichs, keine Logikänderungen außerhalb des Bugs.
+
+CHANGE-BUDGET:
+- Max Dateien: 2
+- Max geänderte Zeilen: 25
+- Keine Änderung an API Contracts ohne explizite Erwähnung
+
+VORGEHEN:
+1) server.js: `app.get('/api/health', ...)` hinzufügen
+2) api/health.ts: Neue Vercel Serverless Function
+3) Testen: `curl http://localhost:3010/api/health` → `{ success: true }`
+
+LÖSUNG (27.01.2026):
+1. **server.js:83-93** - Neuer Health-Endpoint für lokalen Dev-Server:
+   ```javascript
+   app.get('/api/health', (req, res) => {
+     res.json({
+       success: true,
+       timestamp: new Date().toISOString(),
+       server: 'local-dev',
+     });
+   });
+   ```
+
+2. **api/health.ts** - Neue Vercel Serverless Function:
+   ```typescript
+   export default function handler(req: VercelRequest, res: VercelResponse) {
+     res.status(200).json({
+       success: true,
+       timestamp: new Date().toISOString(),
+       server: 'vercel',
+     });
+   }
+   ```
+
+AKZEPTANZKRITERIEN:
+- ✅ `/api/health` gibt 200 zurück (DEV und PROD)
+- ✅ `agentApi.checkHealth` liefert true, wenn Server erreichbar
+- ✅ Keine Auswirkungen auf andere Endpoints
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix oder eine kleine UX Anpassung.
+TICKET-ID: PW-020
+TITEL: Auth-Debug Logging in Produktion deaktivieren
+TYP: Bug
+PRIORITÄT: P2
+STATUS: ✅ GEFIXT (27.01.2026)
+
+PROBLEM:
+- Ist-Zustand: `AUTH_DEBUG` ist dauerhaft `true` und loggt Auth-Requests inkl. Stacktrace. Risiko: Performance/Privacy in PROD.
+- Soll-Zustand: Debug-Logging nur in DEV oder via explizitem Flag aktiv.
+- Kontext: Auth (Supabase), globaler fetch-Interceptor.
+
+ROOT CAUSE ANALYSE:
+1. **supabase.ts:8** - Hardcoded Debug-Flag:
+   ```typescript
+   const AUTH_DEBUG = true; // Set to false to disable debug logging
+   ```
+
+2. **supabase.ts:10-...** - Interceptor wird immer aktiviert:
+   ```typescript
+   if (AUTH_DEBUG && typeof window !== 'undefined') {
+     const originalFetch = window.fetch;
+     window.fetch = async function (...args) {
+       // ... logs Auth requests with stacktrace
+     };
+   }
+   ```
+
+3. **Problem**: `AUTH_DEBUG = true` bedeutet:
+   - Alle Supabase Auth-Requests werden geloggt (inkl. Tokens!)
+   - Stacktraces werden in Console geschrieben
+   - Performance-Impact durch Interceptor
+   - **Sicherheitsrisiko**: Auth-Headers könnten in PROD-Logs landen
+
+LÖSUNG:
+```typescript
+// Vorher (Zeile 8):
+const AUTH_DEBUG = true;
+
+// Nachher:
+const AUTH_DEBUG = import.meta.env.DEV || import.meta.env.VITE_AUTH_DEBUG === 'true';
+```
+
+SCOPE-FENCE:
+- Erlaubte Dateien/Komponenten: src/services/supabase.ts (Zeile 8)
+- Verboten: Kein Refactor, keine Umbenennungen, keine neuen Dependencies, keine Formatierungsänderungen, keine UI Änderungen außerhalb des betroffenen Bereichs, keine Logikänderungen außerhalb des Bugs.
+
+CHANGE-BUDGET:
+- Max Dateien: 1
+- Max geänderte Zeilen: 1
+- Keine Änderung an API Contracts ohne explizite Erwähnung
+
+VORGEHEN:
+1) supabase.ts:8 ändern zu: `const AUTH_DEBUG = import.meta.env.DEV;`
+2) Optional: `|| import.meta.env.VITE_AUTH_DEBUG === 'true'` für explizites Override
+3) Testen: PROD-Build, Console prüfen ob Auth-Logs verschwunden sind
+
+LÖSUNG (27.01.2026):
+**supabase.ts:8** - Geändert von:
+```typescript
+const AUTH_DEBUG = true;
+```
+zu:
+```typescript
+const AUTH_DEBUG = import.meta.env.DEV;
+```
+
+AKZEPTANZKRITERIEN:
+- ✅ In PROD keine Auth-Debug-Logs
+- ✅ In DEV bleiben Logs verfügbar
+- ✅ Keine Auswirkungen auf Auth-Funktionalität
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix oder eine kleine UX Anpassung.
+TICKET-ID: PW-021
+TITEL: Themenlisten Auswahl zeigt keine Aufgaben und es werden nicht alle Themenlisten gerendert
+TYP: Bug
+PRIORITÄT: P1
+STATUS: ✅ GEFIXT (27.01.2026)
+
+PROBLEM:
+- Ist-Zustand: Auf der Startseite, links im Themenlisten Toggle, führt die Auswahl einer Themenliste dazu, dass überall "keine Aufgaben" angezeigt wird oder ein Platzhalter erscheint, als ob eine Themenliste existieren müsste, aber sie wird nicht gerendert. Es geht sogar soweit das themenlisten angezeigt werden die gar nicht existieren. Insgesamt existieren vier Themenlisten, jedoch wird nur eine korrekt angezeigt. 
+- Soll-Zustand: Alle vier Themenlisten von der seite lernpläne werden im Toggle korrekt angezeigt. Beim Auswählen einer Themenliste werden die zugehörigen Aufgaben zuverlässig geladen und angezeigt. Keine falschen "keine Aufgaben" Meldungen, solange Aufgaben existieren.
+- Kontext: Startseite, linker Sidebar Bereich, Flow: Themenlisten Toggle öffnen, Themenliste auswählen, Aufgabenbereich aktualisiert sich.
+
+ROOT CAUSE ANALYSE (KORRIGIERT 27.01.2026):
+
+**HAUPTURSACHE: Datenstruktur-Mismatch zwischen Alt und Neu**
+
+Es existieren **zwei verschiedene Datenstrukturen** für Themenlisten:
+
+1. **ALTE Struktur** (rechtsgebiete-basiert, pre-T27):
+   ```
+   plan.rechtsgebiete → rg.unterrechtsgebiete → urg.kapitel → k.themen → t.aufgaben
+   ```
+
+2. **NEUE T27-Struktur** (flach, aktuell):
+   ```
+   plan.selectedAreas[]    - Ausgewählte Unterrechtsgebiete
+   plan.themen[]           - Themen mit aufgaben[]
+   plan.kapitel[]          - Optional, wenn useKapitel=true
+   plan.useKapitel         - Boolean für Kapitel-Ebene
+   ```
+
+**Der Fehler:**
+- **dashboard.jsx:204-272** (`themeLists` useMemo) liest NUR aus der ALTEN Struktur:
+  ```javascript
+  plan.rechtsgebiete?.forEach(rg => {
+    rg.unterrechtsgebiete?.forEach(urg => {
+      urg.kapitel?.forEach(k => { ... })
+    });
+  });
+  ```
+- **Neue Themenlisten** (erstellt via themenliste-editor.jsx) verwenden die NEUE flache Struktur
+- **Ergebnis**: Neue TLs erscheinen im Dropdown, aber `unterrechtsgebiete` Array ist leer → "keine Aufgaben"
+
+**Beweise:**
+- `src/utils/themenliste-migration.js` enthält `migrateOldToNewStructure()` Funktion
+- `src/pages/themenliste-editor.jsx:107-132` prüft und migriert alte Struktur
+- `src/hooks/use-supabase-sync.js:673-701` definiert BEIDE Strukturfelder im Transform
+
+**Warum nur 1 von 4 funktioniert:**
+- Die eine funktionierende TL wurde mit ALTER Struktur erstellt (hat `rechtsgebiete[]`)
+- Die 3 nicht-funktionierenden wurden mit NEUER Struktur erstellt (haben `selectedAreas[]` + `themen[]`)
+
+SCOPE-FENCE:
+- Erlaubte Dateien/Komponenten:
+  - src/pages/dashboard.jsx (themeLists useMemo, Zeilen 204-272)
+  - src/utils/themenliste-migration.js (Import für Migration)
+  - src/contexts/calendar-context.jsx (Migration beim Laden ausführen)
+  - src/hooks/use-supabase-sync.js (rechtsgebiete Feld entfernen nach Migration)
+- Verboten: Kein Refactor des themenliste-editor.jsx
+
+CHANGE-BUDGET:
+- Max Dateien: 4
+- Max geänderte Zeilen: 120
+- Alte Datenstruktur (rechtsgebiete) wird nach Migration ENTFERNT
+
+VORGEHEN:
+
+**Phase 1: Migration beim Laden**
+1) In `calendar-context.jsx` oder beim Laden von `contentPlans`:
+   - Prüfe jeden Plan mit `isOldStructure(plan)`
+   - Wenn alt: Automatisch `migrateOldToNewStructure(plan)` ausführen
+   - Migrierte Version in Supabase speichern (überschreibt alte Daten)
+
+**Phase 2: Dashboard auf neue Struktur umstellen**
+2) **dashboard.jsx:themeLists** komplett auf NEUE Struktur umstellen:
+   ```javascript
+   // KEINE Fallback-Logik für alte Struktur mehr nötig!
+   const unterrechtsgebiete = (plan.selectedAreas || []).map(area => {
+     const areaThemen = (plan.themen || []).filter(t => t.areaId === area.id);
+     return {
+       id: area.id,
+       name: area.name,
+       rechtsgebiet: area.rechtsgebietId,
+       rechtsgebietId: area.rechtsgebietId,
+       kapitel: [{
+         id: `kapitel-${area.id}`,
+         title: area.name,
+         themen: areaThemen.map(t => ({
+           id: t.id,
+           title: t.name,
+           description: t.description || '',
+           completed: t.completed || false,
+           aufgaben: (t.aufgaben || []).map(a => ({
+             id: a.id,
+             title: a.name,
+             completed: a.completed || false,
+             priority: a.priority || 'none',
+             scheduledInBlock: a.scheduledInBlock || null,
+           })),
+         })),
+       }],
+     };
+   });
+   ```
+
+**Phase 3: Alte Struktur entfernen**
+3) Nach erfolgreicher Migration:
+   - `use-supabase-sync.js`: `rechtsgebiete` Feld aus Transform entfernen
+   - Alte `plan.rechtsgebiete` Logik in dashboard.jsx löschen
+   - Optional: Supabase-Spalte `rechtsgebiete` deprecaten (späteres Cleanup)
+
+4) Testen mit allen 4 Themenlisten
+
+LÖSUNG (27.01.2026):
+
+**Phase 1: calendar-context.jsx**
+- Import von `isOldStructure`, `migrateOldToNewStructure` hinzugefügt
+- useEffect für Auto-Migration beim Laden (Zeilen 212-254):
+  - Prüft alle contentPlans auf alte Struktur
+  - Migriert automatisch mit `migrateOldToNewStructure()`
+  - Speichert migrierte Daten in Supabase
+  - Läuft nur einmal (migrationRunRef)
+
+**Phase 2: dashboard.jsx**
+- `themeLists` useMemo (Zeilen 204-263) komplett umgeschrieben:
+  - Liest aus `plan.selectedAreas[]` + `plan.themen[]`
+  - Keine Fallback-Logik für alte Struktur
+- `handleToggleThemeListAufgabe` (Zeilen 266-282):
+  - Aktualisiert `updatedPlan.themen[]` statt `rechtsgebiete`
+- `handleToggleThemaCompleted` (Zeilen 319-336):
+  - Findet Thema in `plan.themen[]` statt `rechtsgebiete`
+
+**Phase 3: use-supabase-sync.js**
+- `transformToSupabase`: `rechtsgebiete: []` (immer leer)
+- `transformFromSupabase`: `rechtsgebiete` Mapping entfernt
+- Kommentare: "DEPRECATED - use T27 flat structure"
+
+AKZEPTANZKRITERIEN:
+- Alle 4 Themenlisten erscheinen im Dropdown.
+- Alle Themenlisten nutzen die NEUE T27-Struktur (keine rechtsgebiete mehr).
+- Alte Themenlisten werden automatisch migriert beim ersten Laden.
+- Keine "keine Aufgaben" Meldung wenn Aufgaben existieren.
+- Keine JavaScript-Fehler in der Console.
+- ALTE Datenstruktur (rechtsgebiete) ist aus dem Code entfernt.
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix oder eine kleine UX Anpassung.
+TICKET-ID: PW-022
+TITEL: Check-ins in User Settings auf "nur abends" begrenzen und optional komplett deaktivieren
+TYP: UX
+PRIORITÄT: P2
+
+PROBLEM:
+- Ist-Zustand: Check-ins lassen sich in den User Settings nicht so konfigurieren, dass sie nur abends stattfinden. Außerdem gibt es keine Option, Check-ins vollständig auszuschalten. Unklar ist zudem, wie sich das auf Mentor Funktionen auswirkt.
+- Soll-Zustand: In den User Settings kann der User Check-ins auf "nur abends" stellen und optional komplett deaktivieren. Mentor abhängige Views dürfen dabei nicht kaputtgehen. Falls Mentor auf Check-in Daten angewiesen ist, soll ein klarer Fallback greifen.
+- Kontext: User Settings Screen, Bereich Check-ins, Flow: Settings öffnen, Check-in Preferences setzen, App Verhalten im Tagesablauf und im Mentor Bereich beobachten.
+
+ROOT CAUSE ANALYSE:
+1. **settings-content.jsx:70-73** - Aktuelle Settings-Struktur:
+   ```javascript
+   checkin: {
+     checkInCount: 2, // 1 = nur Morgen, 2 = Morgen & Abend
+   }
+   ```
+   - Fehlend: Option für "nur Abend" (z.B. checkInCount: 'evening')
+   - Fehlend: Option für "deaktiviert" (z.B. checkInCount: 0 oder checkInsEnabled: false)
+
+2. **checkin-context.jsx:458-461** - Respektiert checkInCount === 1 für "Morgen only":
+   ```javascript
+   if (checkInCount === 1 && currentPeriod === 'evening') {
+     return false;
+   }
+   ```
+   - Muss erweitert werden für "evening only" und "disabled"
+
+3. **Mentor-Abhängigkeiten**:
+   - dashboard-sub-header.jsx: Check-in Button sichtbar wenn `isMentorActivated`
+   - checkin-context.jsx:447-449: `isCheckInNeeded` setzt `isMentorActivated` voraus
+   - Fallback nötig: Mentor-Features ohne Check-in Daten
+
+SCOPE-FENCE:
+- Erlaubte Dateien/Komponenten:
+  - src/components/settings/settings-content.jsx (UI für neue Options)
+  - src/contexts/checkin-context.jsx (Logik für neue Modes)
+- Verboten: Kein Refactor, keine Umbenennungen, keine neuen Dependencies, keine Formatierungsänderungen, keine UI Änderungen außerhalb des betroffenen Bereichs, keine Logikänderungen außerhalb des Bugs.
+
+CHANGE-BUDGET:
+- Max Dateien: 2
+- Max geänderte Zeilen: 100
+- Settings-Schema-Änderung: checkInCount von number zu string|number ('morning', 'evening', 'both', 0)
+
+VORGEHEN:
+1) Settings-Schema erweitern: checkInCount Werte: 0 (disabled), 'morning', 'evening', 'both'
+2) UI: Dropdown mit 4 Optionen: "Deaktiviert", "Nur Morgen", "Nur Abend", "Morgen & Abend"
+3) checkin-context.jsx: isCheckInNeeded Logik für neue Werte
+4) Fallback: Mentor-Views mit leerem Check-in Daten testen
+
+AKZEPTANZKRITERIEN:
+- User kann Check-ins auf "nur abends" stellen.
+- User kann Check-ins komplett deaktivieren.
+- Mentor-abhängige Views funktionieren ohne Absturz bei deaktivierten Check-ins.
+- Dashboard Check-in Button verschwindet wenn Check-ins deaktiviert.
+- Bestehende "1 Check-in" und "2 Check-ins" Einstellungen bleiben kompatibel.
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix oder eine kleine UX Anpassung.
+TICKET-ID: PW-023
+TITEL: Step 15 zeigt "keine Themen" für Öffentliches Recht und Strafrecht, obwohl in Step 12 erstellt
+TYP: Bug
+PRIORITÄT: P1
+STATUS: 🔧 IN ARBEIT - Debug-Logs + Fallback-Fix implementiert (27.01.2026)
+
+PROBLEM:
+- Ist-Zustand: In Wizard Step 15 (Lernblöcke erstellen) erscheint für Öffentliches Recht und Strafrecht die Meldung "Keine Themen vorhanden. Gehe zurück zu Schritt 12", obwohl der User in Step 12 Themen erstellt hat. Zivilrecht wird korrekt angezeigt.
+- Soll-Zustand: Alle in Step 12 erstellten Themen werden in Step 15 für ALLE Rechtsgebiete korrekt angezeigt.
+- Kontext: Lernplan Wizard, manueller Pfad, Steps 12 → 14 → 15.
+
+HINWEIS ZUM TICKET-TITEL:
+Originaltext erwähnte "Aufgaben aus Schritt 14" - dies ist INKORREKT:
+- Step 14 (step-14-gewichtung.jsx) zeigt NUR Prozent-Gewichtungen, KEINE Themen/Aufgaben
+- Themen werden in Step 12 (step-12-themen-edit.jsx) erstellt
+- Step 15 (step-15-lernbloecke.jsx) liest Themen aus themenDraft
+
+ROOT CAUSE ANALYSE:
+
+**Datenfluss:**
+```
+Step 12: Speichert Themen → themenDraft[urg.id] = [{ id, name, aufgaben }]
+         Liest URGs      → unterrechtsgebieteDraft[currentRgId] = [{ id, name }]
+
+Step 15: Liest URGs      → unterrechtsgebieteDraft[currentRgId]
+         Liest Themen    → themenDraft[urg.id]
+```
+
+**Step 15 Datenabfrage (step-15-lernbloecke.jsx:451-466):**
+```javascript
+const allThemesForRg = useMemo(() => {
+  const themes = [];
+  const urgs = unterrechtsgebieteDraft[currentRgId] || [];  // ← Potenzielle Lücke 1
+  urgs.forEach(urg => {
+    const urgThemes = themenDraft[urg.id] || [];  // ← Potenzielle Lücke 2
+    urgThemes.forEach(theme => {
+      themes.push({ ...theme, urgId: urg.id, urgName: urg.name });
+    });
+  });
+  return themes;
+}, [currentRgId, unterrechtsgebieteDraft, themenDraft]);
+```
+
+**Mögliche Root Causes:**
+
+1. **URG-ID-Mismatch (WAHRSCHEINLICHSTE URSACHE)**
+   - URGs werden in Step 9 mit dynamischen IDs erstellt: `urg-${Date.now()}`
+   - Wenn User zurück zu Step 8/9 navigiert und URGs neu erstellt werden, bekommen sie NEUE IDs
+   - Themen sind noch unter ALTEN URG-IDs in `themenDraft` gespeichert
+   - Ergebnis: `themenDraft[neue-urg-id]` ist leer, obwohl `themenDraft[alte-urg-id]` Daten hat
+
+2. **unterrechtsgebieteDraft leer für bestimmte RGs**
+   - `unterrechtsgebieteDraft['oeffentliches-recht']` oder `['strafrecht']` könnten leer sein
+   - Ursache: URGs wurden in Step 9 nicht korrekt für alle RGs gespeichert
+   - Debug: `unterrechtsgebieteDraft` Struktur in Step 15 loggen
+
+3. **State-Reset bei Navigation**
+   - wizard-context.jsx:599-619: Beim Zurück-Navigieren zu Step 8 werden URG-Daten resettet
+   - Wenn User von Step 15 → Step 8 zurück geht und wieder vor, werden URGs neu erstellt
+
+**Warning-Messages in Step 15:**
+- Zeile 770-776: "Keine Themen vorhanden" wenn `totalAufgaben === 0`
+- Zeile 809-813: "Keine Themen vorhanden" wenn `urgsWithThemes.length === 0`
+
+SCOPE-FENCE:
+- Erlaubte Dateien:
+  - src/features/lernplan-wizard/steps/step-15-lernbloecke.jsx (Debug/Fix)
+  - src/features/lernplan-wizard/steps/step-12-themen-edit.jsx (Debug)
+  - src/features/lernplan-wizard/steps/step-09-urgs-edit.jsx (URG-ID Stabilität)
+  - src/features/lernplan-wizard/context/wizard-context.jsx (State-Reset-Logik)
+- Verboten: Kein Refactor, keine Umbenennungen, keine neuen Dependencies
+
+CHANGE-BUDGET:
+- Max Dateien: 4
+- Max geänderte Zeilen: 60
+- Keine Schema-Änderungen an themenDraft/unterrechtsgebieteDraft
+
+VORGEHEN:
+1) **Debug-Phase**:
+   - Console.log in Step 15: `unterrechtsgebieteDraft`, `themenDraft`, `currentRgId`
+   - Prüfen welche RGs leere URG-Arrays haben
+   - Prüfen ob themenDraft-Keys mit URG-IDs übereinstimmen
+
+2) **Fix-Strategie A: Stabile URG-IDs**
+   - URGs mit deterministischen IDs erstellen: `${rgId}-${urgName.slug}`
+   - Verhindert ID-Mismatch bei Wizard-Navigation
+
+3) **Fix-Strategie B: URG-ID-Lookup**
+   - Step 15: Themes über URG-Namen suchen statt über IDs
+   - Fallback wenn ID-Lookup fehlschlägt
+
+4) **Fix-Strategie C: State-Reset verhindern**
+   - wizard-context.jsx: Nur URGs resetten wenn explizit gewünscht
+   - Bestehende themenDraft-Keys erhalten
+
+AKZEPTANZKRITERIEN:
+- Alle in Step 12 erstellten Themen erscheinen in Step 15 für ALLE Rechtsgebiete
+- Keine "Keine Themen vorhanden" Meldung wenn Themen existieren
+- Zurück-Navigation (Step 15 → Step 12 → Step 15) verliert keine Daten
+- Wizard-Flow funktioniert für alle 4 Rechtsgebiete konsistent
+
+IMPLEMENTIERTE LÖSUNG (27.01.2026):
+
+**Phase 1: Debug-Logging hinzugefügt**
+Um die Root Cause genau zu identifizieren, wurden Debug-Logs in 3 Dateien hinzugefügt:
+
+1. **step-9-urgs-edit.jsx**
+   - Log bei URG-Initialisierung: currentRechtsgebiet, urgCreationMode, Initial URGs
+
+2. **step-12-themen-edit.jsx**
+   - Log bei Theme-Erstellung: activeUrg.id, currentRgId, themenDraft keys
+   - Log beim RG-Wechsel: currentRgId, URGs für dieses RG, alle unterrechtsgebieteDraft keys
+
+3. **step-15-lernbloecke.jsx**
+   - Log beim Laden: currentRgId, unterrechtsgebieteDraft keys, URGs, themenDraft keys
+   - Log für jede URG: Name, ID, Anzahl Themes
+
+**Phase 2: Fallback-Fix implementiert (Fix-Strategie D)**
+In step-12-themen-edit.jsx wurde ein useEffect hinzugefügt (Zeilen 333-344):
+```javascript
+useEffect(() => {
+  if (currentRgId && !unterrechtsgebieteDraft[currentRgId]) {
+    console.log('[PW-023 FIX] Step 12 - Initializing missing URGs for:', currentRgId);
+    const fallbackUrgs = DEFAULT_SELECTION[currentRgId] || [];
+    updateWizardData({
+      unterrechtsgebieteDraft: {
+        ...unterrechtsgebieteDraft,
+        [currentRgId]: fallbackUrgs
+      }
+    });
+  }
+}, [currentRgId, unterrechtsgebieteDraft, updateWizardData]);
+```
+
+**Warum dieser Fix:**
+- Wenn URGs für ein RG in Step 9 nicht korrekt initialisiert wurden, werden sie jetzt in Step 12 nachinitialisiert
+- Verwendet DEFAULT_SELECTION als Fallback (selbe Datenquelle wie Step 9)
+- Loggt wenn die Fallback-Initialisierung ausgelöst wird
+
+**Nächste Schritte:**
+1. User soll Wizard durchlaufen und Browser-Konsole prüfen
+2. Debug-Logs analysieren um exakte Root Cause zu identifizieren
+3. Falls Fallback-Fix nicht ausreicht, weitere Anpassungen basierend auf Logs
+
+**Geänderte Dateien:**
+- src/features/lernplan-wizard/steps/step-9-urgs-edit.jsx (Debug-Logs)
+- src/features/lernplan-wizard/steps/step-12-themen-edit.jsx (Debug-Logs + Fallback-Fix)
+- src/features/lernplan-wizard/steps/step-15-lernbloecke.jsx (Debug-Logs)
+
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix.
+
+TICKET-ID: PW-024
+TITEL: Dashboard crasht mit undefined.map in cleanupExpiredSchedules
+TYP: Bug
+PRIORITÄT: P0
+STATUS: ✅ GEFIXT (27.01.2026)
+
+PROBLEM:
+- Ist-Zustand: Dashboard crasht mit "Cannot read properties of undefined (reading 'map')" Fehler
+- Soll-Zustand: Dashboard rendert fehlerfrei, auch wenn Supabase-Daten nicht geladen werden konnten
+- Kontext: Crash tritt auf nach Supabase 500 Error bei timer_sessions Abfrage
+
+FEHLER-NACHRICHT:
+```
+Uncaught TypeError: Cannot read properties of undefined (reading 'map')
+    at cleanupExpiredSchedules (calendar-context.jsx:2787)
+```
+
+ROOT CAUSE ANALYSE:
+
+**Crash-Location: calendar-context.jsx Zeilen 2787-2791**
+```javascript
+const cleanupExpiredSchedules = useCallback(() => {
+  const now = new Date();
+  const today = `${now.getFullYear()}-...`;
+  let hasChanges = false;
+
+  const updated = contentPlans.map(plan => {  // ← CRASH 1: contentPlans undefined
+    let planChanged = false;
+    const updatedPlan = {
+      ...plan,
+      rechtsgebiete: plan.rechtsgebiete.map(rg => ({  // ← CRASH 2: rechtsgebiete undefined
+```
+
+**Root Cause 1: Fehlende Guard für contentPlans**
+- `contentPlans.map()` wird aufgerufen ohne Prüfung ob contentPlans undefined ist
+- Wenn Supabase-Sync fehlschlägt, kann contentPlans undefined bleiben
+
+**Root Cause 2: Fehlende Guard für rechtsgebiete**
+- `plan.rechtsgebiete.map()` hat keine Guard
+- Interessanterweise sind tiefere Ebenen abgesichert:
+  - Zeile 2793: `rg.unterrechtsgebiete || []` ✓
+  - Zeile 2795: `urg.kapitel || []` ✓
+  - Zeile 2797: `k.themen || []` ✓
+  - Zeile 2809: `t.aufgaben || []` ✓
+
+**Auslöser: Supabase 500 Error**
+- use-supabase-sync.js Zeile 281-283:
+```javascript
+} catch (err) {
+  console.error(`Error fetching from ${tableName}:`, err);
+  return null;  // ← Gibt null zurück statt leeres Array
+}
+```
+- Wenn Supabase 500 Error zurückgibt, gibt fetchFromSupabase `null` zurück
+- Der Aufrufer muss mit null umgehen können
+
+**Mögliche Trigger-Szenarien:**
+1. Supabase Server-Error (500) bei content_plans oder timer_sessions
+2. Netzwerk-Timeout während der Datenladung
+3. Race Condition beim ersten Laden des Dashboards
+4. contentPlans-State noch nicht initialisiert wenn cleanupExpiredSchedules aufgerufen wird
+
+SCOPE-FENCE:
+- Erlaubte Dateien:
+  - src/contexts/calendar-context.jsx (Guards hinzufügen)
+  - src/hooks/use-supabase-sync.js (Optional: Error-Handling verbessern)
+- Verboten: Keine strukturellen Änderungen an contentPlans-Schema
+- Verboten: Keine neuen Dependencies
+
+CHANGE-BUDGET:
+- Max Dateien: 2
+- Max geänderte Zeilen: 15
+
+LÖSUNG (VORGESCHLAGEN):
+
+**Fix 1: Guards in cleanupExpiredSchedules (Zeile 2781)**
+```javascript
+const cleanupExpiredSchedules = useCallback(() => {
+  // PW-024 FIX: Guard für undefined/null contentPlans
+  if (!contentPlans || !Array.isArray(contentPlans)) {
+    return;
+  }
+
+  const now = new Date();
+  const today = `${now.getFullYear()}-...`;
+  let hasChanges = false;
+
+  const updated = contentPlans.map(plan => {
+    let planChanged = false;
+    const updatedPlan = {
+      ...plan,
+      // PW-024 FIX: Guard für undefined rechtsgebiete
+      rechtsgebiete: (plan.rechtsgebiete || []).map(rg => ({
+```
+
+**Fix 2 (Optional): Defensive Error-Handling in use-supabase-sync.js**
+```javascript
+} catch (err) {
+  console.error(`Error fetching from ${tableName}:`, err);
+  return [];  // ← Leeres Array statt null für sichereren Fallback
+}
+```
+
+VORGEHEN:
+1) Guards in cleanupExpiredSchedules hinzufügen
+2) Konsistente Guards für plan.rechtsgebiete
+3) Manueller Test: Dashboard laden bei simuliertem Netzwerk-Fehler
+4) Optional: Error-Handling in use-supabase-sync verbessern
+
+AKZEPTANZKRITERIEN:
+- Dashboard crasht nicht mehr bei undefined contentPlans
+- Dashboard crasht nicht mehr bei undefined rechtsgebiete
+- Normale Funktionalität bleibt erhalten
+- Console zeigt ggf. Warning statt Crash
+
+IMPLEMENTIERTE LÖSUNG (27.01.2026):
+
+**calendar-context.jsx - cleanupExpiredSchedules (Zeilen 2781-2796)**
+
+1. **Guard für contentPlans** (Zeile 2782-2785):
+```javascript
+const cleanupExpiredSchedules = useCallback(() => {
+  // PW-024 FIX: Guard für undefined/null contentPlans
+  if (!contentPlans || !Array.isArray(contentPlans)) {
+    return;
+  }
+  // ... rest of function
+```
+
+2. **Guard für rechtsgebiete** (Zeile 2796):
+```javascript
+// PW-024 FIX: Guard für undefined rechtsgebiete
+rechtsgebiete: (plan.rechtsgebiete || []).map(rg => ({
+```
+
+**Geänderte Dateien:**
+- src/contexts/calendar-context.jsx (+5 Zeilen)
