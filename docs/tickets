@@ -4,15 +4,16 @@ TICKET-ID: PW-001
 TITEL: Aufgaben vom Tag fehlen in Aufgabenübersicht
 TYP: Bug
 PRIORITÄT: P0
+STATUS: ✅ GEFIXT (27.01.2026)
 
 PROBLEM:
 - Ist: Aufgaben, die heute erstellt werden, tauchen nicht in der Aufgabenübersicht auf.
 - Soll: Neue Aufgaben müssen sofort in der Aufgabenübersicht erscheinen.
 - Kontext: Aufgabenverwaltung / Aufgabenübersicht.
 
-STATUS: 🔴 OFFEN
-
 ROOT CAUSE: aufgaben-content.jsx:77 verwendet toISOString().split('T')[0] → UTC-Konvertierung verschiebt Datum.
+
+LÖSUNG: Lokale formatLocalDate() Helper verwendet statt toISOString().
 
 SCOPE-FENCE:
 - Erlaubt: aufgaben-content.jsx Zeile 77 ändern
@@ -45,15 +46,16 @@ TICKET-ID: PW-002
 TITEL: Lernblock Aufgaben werden nicht in To Do/Verwaltung gelistet
 TYP: Bug
 PRIORITÄT: P0
+STATUS: ✅ GEFIXT (27.01.2026)
 
 PROBLEM:
 - Ist: Aufgabe im Lernblock erstellt erscheint weder links in To Do noch unter Verwaltung Aufgabenübersicht.
 - Soll: Lernblock Aufgaben werden wie normale Aufgaben synchron in allen Listen angezeigt.
 - Kontext: Lernblock Editor -> Task Aggregation.
 
-STATUS: 🔴 OFFEN
-
 ROOT CAUSE: Block-Tasks in block.tasks[] (calendar_blocks), Dashboard liest nur tasksByDate (calendar_tasks). Zwei isolierte Systeme.
+
+LÖSUNG: Read-side aggregation in aufgaben-content.jsx und use-dashboard.js - Block-Tasks werden aus blocksByDate extrahiert und mit tasksByDate zusammengeführt.
 
 SCOPE-FENCE:
 - Erlaubt: Dashboard/Verwaltung Tasks aus blocksByDate aggregieren (read-side fix)
@@ -347,18 +349,18 @@ TICKET-ID: PW-013
 TITEL: Tagesziel reset und Anzeige "Tagesziel erreicht" korrekt
 TYP: Bug
 PRIORITÄT: P0
-STATUS: 🟡 TEILWEISE (Reset OK, Display verwirrend)
+STATUS: ✅ GEFIXT (27.01.2026)
 
 PROBLEM:
 - Ist: Tagesziel resettiert nicht, zeigt Zeit von gestern. Anzeige "Tagesziel erreicht -> 7:54" wirkt wie aktuelle Uhrzeit.
 - Soll: Reset täglich korrekt. Anzeige zeigt Zeitpunkt des Zielerreichens oder klar benannt.
 - Kontext: Tagesziel Tracking.
 
-ANALYSE:
-- ✅ Reset funktioniert korrekt (via dateString Änderung bei Mitternacht)
-- 🔴 Display "Tagesziel erreicht → 7:54" zeigt AKTUELLE ZEIT, nicht Zielerreichungszeit
-
 ROOT CAUSE: dashboard-sub-header.jsx:136 zeigt currentTime (updates jede Sekunde)
+
+LÖSUNG: Verwirrende Zeit entfernt - zeigt jetzt nur "Tagesziel erreicht" ohne aktuelle Uhrzeit.
+- dashboard-sub-header.jsx: secondaryText statt currentTime verwendet
+- timer-context.jsx: COUNTUP secondaryText ohne Zeit
 
 SCOPE-FENCE:
 - Erlaubt: dashboard-sub-header.jsx Zeile 136 ändern
@@ -383,7 +385,7 @@ TICKET-ID: PW-014
 TITEL: Slot Klick setzt Uhrzeit fälschlich auf 09:00, Drag korrekt
 TYP: Bug
 PRIORITÄT: P0
-STATUS: 🔴 OFFEN
+STATUS: ✅ GEFIXT (27.01.2026)
 
 PROBLEM:
 - Ist: Klick auf Zeitfenster erzeugt Termin mit 09:00. Drag erzeugt korrekte Zeit.
@@ -393,6 +395,8 @@ PROBLEM:
 ROOT CAUSE:
 - Click-Handler: Math.floor(y / hourHeight) → rundet auf ganze Stunde
 - Drag-Handler: yToTime(y) → 15-Minuten-Snapping
+
+LÖSUNG: Click-Handler verwendet jetzt yToTime() + formatTimeFromHour() wie Drag-Handler.
 
 SCOPE-FENCE:
 - Erlaubt: week-grid.jsx Click-Handler (Zeile 924-932) anpassen
@@ -448,23 +452,14 @@ AKZEPTANZ:
                         P0 ZUSAMMENFASSUNG (27.01.2026)
 ================================================================================
 
-STATUS-LEGENDE:
-  ✅ GEFIXT     - Bug wurde bereits behoben
-  🔴 OFFEN      - Bug existiert noch
-  🟡 TEILWEISE  - Teilweise behoben, Rest offen
+ALLE P0 BUGS GEFIXT! ✅
 
-| Ticket | Status | Aufwand | Priorität |
-|--------|--------|---------|-----------|
-| PW-001 | 🔴 OFFEN | 1 Datei, 10 Zeilen | P0 |
-| PW-002 | 🔴 OFFEN | 2 Dateien, 50 Zeilen | P0 |
-| PW-005 | ✅ GEFIXT | - | - |
-| PW-006 | DUPLIKAT | → PW-014 | - |
-| PW-012 | ✅ GEFIXT | - | - |
-| PW-013 | 🟡 TEILWEISE | 2 Dateien, 20 Zeilen | P0 |
-| PW-014 | 🔴 OFFEN | 1 Datei, 15 Zeilen | P0 |
-
-EMPFOHLENE REIHENFOLGE:
-1. PW-001 (Quick Fix, 10 Zeilen)
-2. PW-014 (Quick Fix, 15 Zeilen)
-3. PW-013 (Quick Fix, 20 Zeilen)
-4. PW-002 (Architektur, 50 Zeilen)
+| Ticket | Status | Commit |
+|--------|--------|--------|
+| PW-001 | ✅ GEFIXT | UTC date fix in aufgaben-content.jsx |
+| PW-002 | ✅ GEFIXT | Block-Tasks Aggregation |
+| PW-005 | ✅ GEFIXT | T16-W3 (bereits vorher) |
+| PW-006 | DUPLIKAT | → PW-014 |
+| PW-012 | ✅ GEFIXT | (bereits vorher) |
+| PW-013 | ✅ GEFIXT | Display fix ohne verwirrende Zeit |
+| PW-014 | ✅ GEFIXT | yToTime() für 15-Min-Präzision |
