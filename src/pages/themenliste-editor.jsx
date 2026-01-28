@@ -862,7 +862,15 @@ const ThemenlisteEditorPage = () => {
       return `${semester} - ${areaNames}`;
     }
 
-    return '';
+    // Priority 3: Just semester as fallback
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
+    const isWS = month >= 9 || month <= 2;
+    const semester = isWS
+      ? `WS ${year}/${(year + 1).toString().slice(-2)}`
+      : `SS ${year}`;
+    return `Lernplan ${semester}`;
   }, []);
 
   // PW-212: Open save dialog instead of saving directly
@@ -915,9 +923,8 @@ const ThemenlisteEditorPage = () => {
     navigate('/lernplan');
   }, [isSavedToDb, createContentPlan, updateContentPlan, navigate]);
 
-  // PW-212: Check if finish is possible (has title OR at least one area selected)
-  const canFinish = (contentPlan.name && contentPlan.name.trim()) ||
-    (contentPlan.selectedAreas && contentPlan.selectedAreas.length > 0);
+  // PW-212: Always allow finishing - SaveTitleDialog ensures a title is set
+  const canFinish = true;
 
   // T27: Display name for canFinish tooltip
   const displayName = getDisplayName(contentPlan.selectedAreas);
