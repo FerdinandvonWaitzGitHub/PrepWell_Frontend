@@ -1415,14 +1415,14 @@ Q4 2026: Community & Premium Features
 │                    ZIEL-ARCHITEKTUR                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  WIZARD PATH:                                                  │
-│  wizardState → completeWizard() →                              │
-│    ├── ContentPlan (type: 'lernplan', archived: false)        │
-│    └── blocksByDate (mit contentPlanId)                       │
+│  WIZARD PATH:                                                   │
+│  wizardState → completeWizard() →                               │
+│    ├── ContentPlan (type: 'lernplan', archived: false)          │
+│    └── blocksByDate (mit contentPlanId)                         │
 │                                                                 │
-│  ARCHIVIERUNG:                                                 │
-│  contentPlan.archived = true                                   │
-│  blocksByDate gefiltert nach contentPlanId                     │
+│  ARCHIVIERUNG:                                                  │
+│  contentPlan.archived = true                                    │
+│  blocksByDate gefiltert nach contentPlanId                      │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```

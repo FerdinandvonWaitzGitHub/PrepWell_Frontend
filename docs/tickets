@@ -1492,3 +1492,800 @@ rechtsgebiete: (plan.rechtsgebiete || []).map(rg => ({
 
 **Geänderte Dateien:**
 - src/contexts/calendar-context.jsx (+5 Zeilen)
+
+
+================================================================================
+PW-025: Wizard Schritt 12: Aufgaben gehen verloren + UX/Design-Probleme
+================================================================================
+STATUS: ✅ BUGS 1+2 GEFIXT (27.01.2026) - UX 1 GEFIXT via PW-028, UX 2 noch offen
+TYP: Bug + UX
+PRIORITÄT: P0 (Datenverlust)
+
+BESCHREIBUNG:
+Der Lernplan-Erstellungsprozess (Wizard) hat mehrere Probleme in den späteren Schritten:
+
+**Bug 1 - Datenverlust bei URG-Wechsel (P0):**
+In Schritt 12 (Themen bearbeiten) gehen hinzugefügte Aufgaben verloren, wenn der Nutzer
+zwischen verschiedenen Unterrechtsgebieten (URGs) wechselt. Betroffen sind insbesondere
+"Öffentliches Recht" und "Strafrecht".
+
+**Bug 2 - UI abgeschnitten:**
+Das Eingabefenster für neue Themen ist unten abgeschnitten und nicht vollständig sichtbar.
+
+**UX 1 - Zu viele Klicks:**
+Um die URG-Listen zu bestätigen, sind 6 Klicks erforderlich. Das ist zu umständlich.
+
+**UX 2 - Design nicht Tailwind-konform:**
+Ab Schritt 7 haben Nicht-Rechtsgebiet-Buttons zu viel Farbe. Nur Rechtsgebiet-Buttons
+sollten farbig sein, alle anderen Buttons sollten neutral (grau) sein.
+
+BETROFFENE DATEIEN:
+- src/features/lernplan-wizard/steps/step-12-themen-edit.jsx
+- src/features/lernplan-wizard/steps/step-9-urgs-edit.jsx
+- src/features/lernplan-wizard/context/wizard-context.jsx
+
+ANALYSE (TIEFGEHEND 27.01.2026):
+
+**Bug 1 - Root Cause: STALE CLOSURE PROBLEM**
+
+Die Handlers in step-12-themen-edit.jsx lesen `themenDraft` aus dem Closure,
+NICHT aus dem vorherigen State:
+
+```javascript
+// step-12-themen-edit.jsx:487-499 - PROBLEM
+const handleAddAufgabe = (themaId, aufgabe) => {
+  if (!activeUrg) return;
+  const currentThemen = themenDraft[activeUrg.id] || [];  // ← AUS CLOSURE
+  updateWizardData({
+    themenDraft: {
+      ...themenDraft,  // ← AUS CLOSURE, NICHT PREV STATE!
+      [activeUrg.id]: currentThemen.map(t => ...)
+    }
+  });
+};
+```
+
+**Reproduktions-Szenario:**
+1. User ist auf URG-A, fügt Aufgabe hinzu
+2. `handleAddAufgabe` wird aufgerufen mit `themenDraft = { 'urg-a': [theme1 mit aufgabe1] }`
+3. State-Update wird SCHEDULED (nicht sofort angewendet)
+4. **Bevor React das Update verarbeitet**: User wechselt schnell zu URG-B
+5. User fügt Aufgabe zu URG-B hinzu
+6. `handleAddAufgabe` wird ERNEUT aufgerufen mit dem ALTEN `themenDraft` (aus Step 2)
+7. React batched die Updates, aber der zweite Call überschreibt den ersten
+8. Ergebnis: `themenDraft = { 'urg-b': [...] }` - **URG-A Daten verloren!**
+
+**Betroffene Handlers (alle haben das gleiche Problem):**
+| Handler                      | Zeile   | Problem                    |
+|------------------------------|---------|----------------------------|
+| handleAddThema               | 454-472 | `...themenDraft` aus Closure |
+| handleDeleteThema            | 475-483 | `...themenDraft` aus Closure |
+| handleAddAufgabe             | 487-499 | `...themenDraft` aus Closure |
+| handleToggleAufgabe          | 502-519 | `...themenDraft` aus Closure |
+| handleToggleAufgabePriority  | 522-541 | `...themenDraft` aus Closure |
+| handleDeleteAufgabe          | 544-556 | `...themenDraft` aus Closure |
+
+**Warum Öffentliches Recht & Strafrecht besonders betroffen:**
+Diese RGs werden typischerweise NACH Zivilrecht bearbeitet. Wenn der User:
+1. Zivilrecht-Themen erstellt
+2. Zu Öffentlichem Recht wechselt (RG-Tab-Wechsel)
+3. Schnell URGs durchklickt und Aufgaben hinzufügt
+Dann tritt die Race Condition ein.
+
+**Bug 2 - Root Cause:**
+CSS-Problem mit overflow/height-Constraints im Modal oder Container.
+
+**UX 1 - Verbesserung:**
+Buttons zusammenfassen oder Auto-Bestätigung bei Weiter-Klick.
+
+**UX 2 - Verbesserung:**
+Button-Styles überprüfen und auf neutrale Farben umstellen für Nicht-RG-Buttons.
+
+LÖSUNG FÜR BUG 1:
+
+**Schritt 1: wizard-context.jsx - updateWizardData für funktionale Updates erweitern**
+```javascript
+// VORHER (Zeile 419-421):
+const updateWizardData = useCallback((updates) => {
+  setWizardState(prev => ({ ...prev, ...updates }));
+}, []);
+
+// NACHHER:
+const updateWizardData = useCallback((updatesOrFn) => {
+  if (typeof updatesOrFn === 'function') {
+    setWizardState(prev => ({ ...prev, ...updatesOrFn(prev) }));
+  } else {
+    setWizardState(prev => ({ ...prev, ...updatesOrFn }));
+  }
+}, []);
+```
+
+**Schritt 2: step-12-themen-edit.jsx - Alle Handlers auf funktionale Updates umstellen**
+```javascript
+// Beispiel: handleAddAufgabe FIX
+const handleAddAufgabe = (themaId, aufgabe) => {
+  if (!activeUrg) return;
+  const urgId = activeUrg.id;  // Capture ID before async
+  updateWizardData(prev => {
+    const currentThemen = prev.themenDraft[urgId] || [];
+    return {
+      themenDraft: {
+        ...prev.themenDraft,  // ← AUS PREV, NICHT CLOSURE!
+        [urgId]: currentThemen.map(t =>
+          t.id === themaId
+            ? { ...t, aufgaben: [...(t.aufgaben || []), aufgabe] }
+            : t
+        )
+      }
+    };
+  });
+};
+```
+
+VORGEHEN:
+1) wizard-context.jsx: updateWizardData für funktionale Updates erweitern
+2) step-12-themen-edit.jsx: Alle 6 Handlers auf funktionale Updates umstellen
+3) Testen: Schnelles Wechseln zwischen URGs mit Aufgaben-Hinzufügen
+4) Bug 2: CSS/Layout des Thema-Eingabefensters korrigieren (separates Ticket)
+5) UX 1+2: Separate Tickets erstellen
+
+SCOPE-FENCE:
+- Erlaubt: wizard-context.jsx (updateWizardData erweitern)
+- Erlaubt: step-12-themen-edit.jsx (Handlers umstellen)
+- Verboten: Andere Wizard-Steps ändern
+- Verboten: Neue State-Variablen einführen
+
+CHANGE-BUDGET: 2 Dateien, max 80 Zeilen
+
+AKZEPTANZKRITERIEN:
+- Aufgaben bleiben beim URG-Wechsel in Schritt 12 erhalten
+- Schnelles Wechseln zwischen URGs verliert keine Daten
+- Bestehende Funktionalität bleibt erhalten
+- Keine Regression in anderen Wizard-Steps
+
+IMPLEMENTIERTE LÖSUNG FÜR BUG 1 (27.01.2026):
+
+**wizard-context.jsx (Zeile 419-427)**
+updateWizardData wurde erweitert um funktionale Updates zu unterstützen:
+```javascript
+const updateWizardData = useCallback((updatesOrFn) => {
+  if (typeof updatesOrFn === 'function') {
+    // Functional update: fn receives prev state, returns partial update
+    setWizardState(prev => ({ ...prev, ...updatesOrFn(prev) }));
+  } else {
+    // Object update (backwards compatible)
+    setWizardState(prev => ({ ...prev, ...updatesOrFn }));
+  }
+}, []);
+```
+
+**step-12-themen-edit.jsx - Alle 6 Handlers umgestellt:**
+1. handleAddThema (Zeile 456-479)
+2. handleDeleteThema (Zeile 482-494)
+3. handleAddAufgabe (Zeile 498-513)
+4. handleToggleAufgabe (Zeile 516-535)
+5. handleToggleAufgabePriority (Zeile 538-559)
+6. handleDeleteAufgabe (Zeile 562-576)
+
+Alle Handlers:
+- Capturen `urgId` vor dem async Update
+- Nutzen funktionale Updates: `updateWizardData(prev => { ... })`
+- Lesen `themenDraft` aus `prev`, nicht aus Closure
+
+**Geänderte Dateien:**
+- src/features/lernplan-wizard/context/wizard-context.jsx (+8 Zeilen)
+- src/features/lernplan-wizard/steps/step-12-themen-edit.jsx (~40 Zeilen geändert)
+
+IMPLEMENTIERTE LÖSUNG FÜR BUG 2 (27.01.2026):
+
+**Root Cause: Flexbox Overflow-Bug**
+
+Das Problem war ein klassischer Flexbox-Overflow-Bug:
+1. `wizard-layout.jsx`: `<main className="flex-1 flex flex-col">` hatte keine `min-h-0`
+2. `step-12-themen-edit.jsx`: Container mit `h-full` funktioniert nicht ohne definierte Parent-Höhe
+3. In Flexbox muss `min-height: 0` (Tailwind: `min-h-0`) gesetzt werden, damit `overflow-y-auto` auf Kindern funktioniert
+
+**Fix 1: wizard-layout.jsx (Zeilen 138-143)**
+```javascript
+// PW-025 Bug 2 FIX: Added min-h-0 to allow flex children to shrink and respect overflow
+<main className="flex-1 flex flex-col min-h-0">
+  <div className="flex-1 flex flex-col min-h-0 max-w-6xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-12">
+    {children}
+  </div>
+</main>
+```
+
+**Fix 2: step-12-themen-edit.jsx**
+- Zeile 591: `<div className="flex flex-col h-full min-h-0">` (Haupt-Container)
+- Zeile 674: `<div className="flex-1 overflow-y-auto min-h-0">` (Content-Bereich)
+
+**Geänderte Dateien:**
+- src/features/lernplan-wizard/components/wizard-layout.jsx (+2 Zeilen geändert)
+- src/features/lernplan-wizard/steps/step-12-themen-edit.jsx (+2 Zeilen geändert)
+
+
+
+ROLE: Du bist Senior Engineer. Ziel ist ein minimaler, risikoarmer Bugfix.
+
+TICKET-ID: PW-026
+TITEL: Wizard zeigt Step 1 Content bei Navigation zurück zu Step 12 (Step-Mismatch)
+TYP: Bug
+PRIORITÄT: P0 (Blocker - Wizard nicht nutzbar)
+STATUS: ✅ GEFIXT (27.01.2026)
+
+PROBLEM:
+- Ist-Zustand: Nach Durcharbeiten des Wizards bis Schritt 21, wenn User zurück zu Schritt 12
+  navigiert um Korrekturen vorzunehmen, wird der CONTENT von Schritt 1 angezeigt, aber der
+  Header zeigt "Schritt 13/22". Step-Indicator und tatsächlich gerenderter Step stimmen nicht überein.
+- Soll-Zustand: Navigation zu Schritt 12 zeigt auch den Content von Schritt 12 (Themen-Editor).
+- Kontext: Lernplan Wizard, manueller Pfad, Navigation von späteren Schritten zurück zu früheren.
+
+ROOT CAUSE ANALYSE:
+
+**Das Problem in wizard-context.jsx (Zeile 546 + 629-633):**
+
+```javascript
+// Zeile 546: prevStep dekrementiert IMMER um 1
+const newStep = Math.max(prev.currentStep - 1, 1);
+
+// Zeile 629-633: BUGGY Bedingung - NEVER TRUE!
+if (prev.currentStep === 14 && newStep === 12) {
+  // newStep ist 13, NICHT 12! Diese Bedingung ist IMMER FALSE
+  updates.currentRechtsgebietIndex = prev.selectedRechtsgebiete.length - 1;
+}
+```
+
+**Ablauf des Bugs:**
+1. User ist auf Step 14, klickt "Zurück"
+2. prevStep berechnet: `newStep = 14 - 1 = 13`
+3. Bedingung `newStep === 12` ist FALSE → kein spezielles Handling
+4. `currentStep` wird auf 13 gesetzt
+5. In wizard-page.jsx gibt es kein `case 13` im Switch (Step 13 wurde entfernt)
+6. Switch fällt zu `default` → zeigt `Step1Lernzeitraum`!
+
+**Vergleich mit funktionierendem Code:**
+Step 20 → 15 funktioniert, weil es explizit `currentStep` setzt:
+```javascript
+if (prev.currentStep === 20) {
+  updates.currentStep = 15; // Skip 16-19
+  return { ...prev, ...updates };
+}
+```
+
+LÖSUNG (27.01.2026):
+
+**wizard-context.jsx (Zeile 629-636)**
+Die buggy Bedingung wurde korrigiert:
+
+```javascript
+// VORHER (BUGGY):
+if (prev.currentStep === 14 && newStep === 12) {
+  updates.currentRechtsgebietIndex = prev.selectedRechtsgebiete.length - 1;
+}
+
+// NACHHER (GEFIXT):
+if (prev.currentStep === 14) {
+  updates.currentStep = 12; // Skip step 13 which was removed
+  updates.currentRechtsgebietIndex = prev.selectedRechtsgebiete.length - 1;
+  return { ...prev, ...updates };
+}
+```
+
+**Geänderte Dateien:**
+- src/features/lernplan-wizard/context/wizard-context.jsx (+3 Zeilen geändert)
+
+AKZEPTANZKRITERIEN:
+- ✅ Zurück-Navigation von Step 14 → Step 12 (überspringt Step 13)
+- ✅ Header und Content zeigen denselben Schritt
+- ✅ Keine Regression bei Vorwärts-Navigation
+- ✅ Wizard-Flow funktioniert für alle Pfade
+
+
+
+================================================================================
+PW-027: Wizard Step 12 UI-Redesign - 3-Ebenen-Layout (Themen & Aufgaben)
+================================================================================
+STATUS: IN BEARBEITUNG
+TYP: UX/Design
+PRIORITÄT: P1
+
+PROBLEM:
+Die aktuelle UI zeigt 4 Ebenen gleichzeitig, was zu Übersichtlichkeitsproblemen führt:
+- Rechtsgebiet → Unterrechtsgebiet → Thema → Aufgabe (4 Ebenen)
+
+LÖSUNG:
+Reduzierung auf 3 Ebenen durch Entfernen der RG-Tabs:
+- Unterrechtsgebiet → Thema → Aufgabe (3 Ebenen)
+- URG-Tabs werden in den Farben ihrer Rechtsgebiete angezeigt
+- Farben kommen aus User Settings (getRechtsgebietColor)
+
+AKTUELLER ZUSTAND (4 Ebenen):
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [Zivilrecht] [Öffentliches Recht] [Strafrecht]              │ ← EBENE 1: RG-Tabs
+├─────────────────────────────────────────────────────────────┤
+│ [URG1] [URG2] [URG3] [URG4] [URG5] [URG6]                   │ ← EBENE 2: URG-Tabs
+├─────────────────────────────────────────────────────────────┤
+│ ▼ Thema 1                                     [3 Aufgaben]  │ ← EBENE 3: Themen (Cards)
+│   ☐ Aufgabe 1                                               │ ← EBENE 4: Aufgaben
+│   ☐ Aufgabe 2                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+NEUES LAYOUT (3 Ebenen - Sidebar/Main):
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Themen und Aufgaben                                 │
+│           Wähle ein Unterrechtsgebiet und füge Themen hinzu                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ [URG1🔵] [URG2🔵] [URG3🟢] [URG4🟢] [URG5🔴]                                 │ ← EBENE 1
+│ [URG6🔴] [URG7🔵] [URG8🟢] [URG9✓]  [URG10]                                  │   ZWEI REIHEN
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ┌──────────────────────┐  ┌──────────────────────────────────────────────┐  │
+│ │ THEMEN-SIDEBAR       │  │ AUFGABEN-HAUPTBEREICH                        │  │
+│ │                      │  │                                              │  │
+│ │ ⋮⋮ BGB AT       🗑️   │  │ BGB Allgemeiner Teil                         │  │
+│ │ ⋮⋮ Schuldrecht  🗑️   │  │                                              │  │
+│ │ ⋮⋮ Sachenrecht  🗑️   │  │ ┌──────────────────────────────────────────┐ │  │
+│ │                      │  │ │ ☐ Aufgabe 1              [!][!]  🗑️      │ │  │
+│ │                      │  │ │ ☐ Aufgabe 2              [!][!]  🗑️      │ │  │
+│ │                      │  │ │ ☐ Aufgabe 3              [!][!]  🗑️      │ │  │
+│ │                      │  │ └──────────────────────────────────────────┘ │  │
+│ │                      │  │                                              │  │
+│ │ [Neues Thema    +]   │  │ [Neue Aufgabe                           +]   │  │
+│ └──────────────────────┘  └──────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ [Zurück]                                                          [Weiter]  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+DESIGN-DETAILS:
+
+**1. URG-Tabs (Ebene 1) - ZWEI REIHEN:**
+- ALLE URGs aus ALLEN RGs werden angezeigt (flache Liste)
+- Anzeige in ZWEI REIHEN (flex-wrap), KEIN horizontales Scrollen
+- Jeder URG-Tab hat die Farbe seines Rechtsgebiets (aus User Settings)
+- Farben via `getColorForSubject(rgId)` aus src/utils/rechtsgebiet-colors.js
+- URGs mit Themen haben einen grünen Haken ✓
+- URGs ohne Themen haben keinen Haken
+- Aktiver URG-Tab ist hervorgehoben (dunkel in RG-Farbe)
+- KEIN "URGs anpassen" Link
+
+**2. Themen-Sidebar (Ebene 2) - LINKS:**
+- Vertikale Liste der Themen des aktiven URGs
+- Jedes Thema hat:
+  - Drag-Handle (⋮⋮) links für Sortierung (visuell, optional funktional)
+  - Themen-Name in der Mitte
+  - Papierkorb-Icon (🗑️) rechts zum Löschen
+- Aktives Thema ist hervorgehoben (dunkler Hintergrund)
+- Am UNTEREN Ende der Sidebar: "Neues Thema hinzufügen +" Button
+- Vertikal scrollbar bei vielen Themen (overflow-y-auto)
+
+**3. Aufgaben-Hauptbereich (Ebene 3) - RECHTS:**
+- Überschrift: Name des aktiven URGs
+- Zeigt Aufgaben des aktiven Themas
+- Jede Aufgabe hat: Checkbox + Name + Prioritäts-Buttons [!][!] + Löschen 🗑️
+- Am unteren Ende: "Neue Aufgabe" Button/Input
+- Vertikal scrollbar bei vielen Aufgaben (overflow-y-auto)
+
+**4. Leere Zustände:**
+- URG ohne Themen: Kein Haken, Sidebar zeigt "Noch keine Themen"
+- Thema ohne Aufgaben: Ist OK, Hauptbereich zeigt "Noch keine Aufgaben"
+- Kein aktives Thema: "Wähle ein Thema aus der Sidebar"
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ step-12-themen-edit-v2.jsx komplett neu schreiben                        │
+│ ✅ getColorForSubject() aus src/utils/rechtsgebiet-colors.js importieren    │
+│ ✅ Neue Sub-Komponenten in derselben Datei erstellen                        │
+│ ✅ CSS mit Tailwind (flex-wrap für 2 Reihen, overflow-y-auto)               │
+│ ✅ Sidebar/Main zwei-Spalten Layout mit flexbox                             │
+│ ✅ GripVertical Icon für Drag-Handle (visuell)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ wizard-context.jsx Datenstruktur ändern (themenDraft bleibt URG-basiert) │
+│ ❌ unterrechtsgebieteDraft Struktur ändern                                  │
+│ ❌ Andere Wizard-Steps ändern                                                │
+│ ❌ rechtsgebiet-colors.js ändern                                            │
+│ ❌ Neue Dateien/Komponenten außerhalb step-12-themen-edit-v2.jsx            │
+│ ❌ "URGs anpassen" Link hinzufügen                                          │
+│ ❌ Horizontales Scrollen für URG-Tabs (stattdessen: zwei Reihen)            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+- src/features/lernplan-wizard/steps/step-12-themen-edit-v2.jsx (komplettes Redesign)
+
+TECHNISCHE UMSETZUNG:
+
+**Daten-Mapping (URG → RG für Farben):**
+```javascript
+// Alle URGs aus allen RGs mit ihren RG-IDs sammeln
+const allUrgsWithRgId = useMemo(() => {
+  const urgs = [];
+  for (const rgId of selectedRechtsgebiete) {
+    const rgUrgs = unterrechtsgebieteDraft[rgId] || [];
+    for (const urg of rgUrgs) {
+      urgs.push({ ...urg, rgId }); // rgId für Farbzuordnung
+    }
+  }
+  return urgs;
+}, [selectedRechtsgebiete, unterrechtsgebieteDraft]);
+
+// Farbe für URG holen
+const getUrgColor = (rgId) => {
+  const colors = getRechtsgebietColor(rgId);
+  return colors; // { bg, border, text, badge, solid }
+};
+```
+
+**State-Management:**
+```javascript
+const [activeUrgId, setActiveUrgId] = useState(null);      // Aktives URG
+const [activeThemaId, setActiveThemaId] = useState(null);  // Aktives Thema
+const [newThemaName, setNewThemaName] = useState('');      // Input für neues Thema
+const [newAufgabeName, setNewAufgabeName] = useState('');  // Input für neue Aufgabe
+```
+
+AKZEPTANZKRITERIEN:
+
+**URG-Tabs (Ebene 1):**
+- [ ] RG-Tabs sind entfernt (keine separate Ebene mehr)
+- [ ] ALLE URGs werden als Tabs angezeigt (aus allen RGs, flache Liste)
+- [ ] URG-Tabs in ZWEI REIHEN angezeigt (flex-wrap), KEIN horizontales Scrollen
+- [ ] URG-Tabs haben die Farben ihrer Rechtsgebiete (aus User Settings)
+- [ ] URGs mit Themen haben einen grünen Haken ✓
+- [ ] Aktiver URG-Tab ist hervorgehoben (dunkle RG-Farbe)
+- [ ] KEIN "URGs anpassen" Link vorhanden
+
+**Themen-Sidebar (Ebene 2):**
+- [ ] Themen in VERTIKALER Sidebar links angezeigt
+- [ ] Jedes Thema hat: Drag-Handle (⋮⋮) | Name | Papierkorb (🗑️)
+- [ ] Aktives Thema ist hervorgehoben (dunkler Hintergrund)
+- [ ] "Neues Thema hinzufügen +" Button am UNTEREN Ende der Sidebar
+- [ ] Sidebar ist vertikal scrollbar bei vielen Themen
+
+**Aufgaben-Hauptbereich (Ebene 3):**
+- [ ] Hauptbereich zeigt Aufgaben des aktiven Themas
+- [ ] Überschrift zeigt den Namen des aktiven URGs
+- [ ] "Neue Aufgabe" Button/Input im Hauptbereich
+- [ ] Aufgaben haben: Checkbox + Name + Priorität [!][!] + Löschen 🗑️
+- [ ] Hauptbereich ist vertikal scrollbar bei vielen Aufgaben
+
+**CRUD-Operationen:**
+- [ ] URG wechseln funktioniert
+- [ ] Thema hinzufügen funktioniert (über Sidebar-Button)
+- [ ] Thema löschen funktioniert (über Papierkorb)
+- [ ] Thema auswählen funktioniert (Klick in Sidebar)
+- [ ] Aufgabe hinzufügen funktioniert
+- [ ] Aufgabe löschen funktioniert
+- [ ] Aufgabe toggle (Checkbox) funktioniert
+- [ ] Aufgabe Priorität ändern funktioniert
+- [ ] Themen ohne Aufgaben können erstellt werden (kein Fehler)
+- [ ] Navigation (Zurück/Weiter) funktioniert wie bisher
+- [ ] Keine Regression: Daten werden korrekt in themenDraft gespeichert
+
+TESTPLAN:
+1. Step 12 öffnen mit 3 RGs (je 2-3 URGs)
+2. Prüfen: Alle URGs sind sichtbar, in RG-Farben
+3. URG ohne Themen anklicken → Kein Haken, "Noch keine Themen"
+4. Thema erstellen → Tab erscheint mit "×"
+5. Thema löschen → Tab verschwindet
+6. Aufgaben hinzufügen/bearbeiten
+7. Weiter klicken → Validierung funktioniert
+8. Zurück + Weiter → Daten bleiben erhalten
+
+
+
+================================================================================
+PW-028: Wizard Steps 8-10 - Vereinfachte URG-Konfiguration (UX 1 aus PW-025)
+================================================================================
+STATUS: ✅ IMPLEMENTIERT (27.01.2026)
+TYP: UX
+PRIORITÄT: P2
+ABHÄNGIGKEIT: Teil von PW-025 UX 1
+
+PROBLEM:
+Die URG-Konfiguration (Steps 8-10) erfordert zu viele Klicks. Für jedes
+Rechtsgebiet durchläuft der User einen 3-Step-Loop:
+
+```
+Step 8 (RG auswählen) → Step 9 (URGs bearbeiten) → Step 10 (Success) → zurück
+```
+
+AKTUELLER FLOW (bei 3 RGs = 9 Klicks):
+```
+RG1: Step 8 → Weiter → Step 9 → Weiter → Step 10 → Weiter    (3 Klicks)
+RG2: Step 8 → Weiter → Step 9 → Weiter → Step 10 → Weiter    (3 Klicks)
+RG3: Step 8 → Weiter → Step 9 → Weiter → Step 10 → Weiter    (3 Klicks)
+                                                    → Step 11
+```
+
+GEWÜNSCHTER FLOW (1-2 Klicks):
+```
+Step 9 (NEU): Alle RGs als Tabs, alle URGs auf einer Seite
+            → User wechselt frei zwischen RGs via Tabs
+            → Ein "Weiter" Button → Step 11
+```
+
+ROOT CAUSE (wizard-context.jsx:451-473):
+```javascript
+// Step 10: URG Success - mark current RG as complete and check for more
+if (currentStep === 10) {
+  const currentRg = selectedRechtsgebiete[currentRechtsgebietIndex];
+  const newProgress = { ...rechtsgebieteProgress, [currentRg]: true };
+
+  if (!allRgsConfigured) {
+    // PROBLEM: Geht zurück zu Step 8 für nächstes RG!
+    updates.currentStep = 8;
+    return { ...prev, ...updates };
+  }
+  // Erst wenn ALLE RGs durch: weiter zu Step 11
+  updates.currentStep = 11;
+}
+```
+
+LÖSUNG:
+Step 9 wird zum "All-in-One" URG-Editor umgebaut (ähnlich wie Step 12 für Themen):
+- Alle RGs als Tabs oben
+- URGs des aktiven RGs werden angezeigt
+- User wechselt frei zwischen RGs
+- Ein "Weiter" Button validiert alle RGs und geht zu Step 11
+- Steps 8 und 10 werden übersprungen
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ step-9-urgs-edit.jsx: RG-Tabs hinzufügen (wie in step-12)               │
+│ ✅ step-9-urgs-edit.jsx: Lokalen RG-Index State hinzufügen                  │
+│ ✅ step-9-urgs-edit.jsx: Custom handleWeiter/handleZurueck implementieren   │
+│ ✅ step-9-urgs-edit.jsx: Validierungsdialog für leere URGs (optional)       │
+│ ✅ wizard-context.jsx: Step 7 → Step 9 Navigation (skip Step 8)             │
+│ ✅ wizard-context.jsx: Step 9 → Step 11 Navigation (skip Step 10)           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ step-8-rg-select.jsx löschen (könnte noch gebraucht werden)              │
+│ ❌ step-10-urgs-success.jsx löschen (könnte noch gebraucht werden)          │
+│ ❌ Datenstruktur (unterrechtsgebieteDraft) ändern                           │
+│ ❌ Andere Steps außer 8,9,10 ändern                                          │
+│ ❌ Step 12 Themen-Editor ändern                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+1. src/features/lernplan-wizard/steps/step-9-urgs-edit.jsx (Hauptänderung)
+2. src/features/lernplan-wizard/context/wizard-context.jsx (Navigation anpassen)
+
+ÄNDERUNGEN IM DETAIL:
+
+**1. step-9-urgs-edit.jsx - Neues Layout:**
+```jsx
+// NEU: Lokaler RG-Index (wie in step-12)
+const [localRgIndex, setLocalRgIndex] = useState(0);
+const currentRgId = selectedRechtsgebiete[localRgIndex];
+
+// NEU: RG-Tabs oben
+<div className="flex gap-2 mb-6">
+  {selectedRechtsgebiete.map((rgId, index) => (
+    <button
+      key={rgId}
+      onClick={() => setLocalRgIndex(index)}
+      className={index === localRgIndex ? 'bg-primary-600 text-white' : '...'}
+    >
+      {RECHTSGEBIET_LABELS[rgId]}
+      {urgCounts[rgId] > 0 && <CheckCircle2 />}
+    </button>
+  ))}
+</div>
+
+// NEU: Custom Navigation
+const handleWeiter = () => {
+  // Validiere alle RGs
+  const emptyRgs = selectedRechtsgebiete.filter(
+    rgId => (unterrechtsgebieteDraft[rgId] || []).length === 0
+  );
+  if (emptyRgs.length > 0) {
+    // Optional: Warnung anzeigen
+  }
+  goToStep(11); // Direkt zu Themen-Intro
+};
+
+const handleZurueck = () => {
+  if (localRgIndex > 0) {
+    setLocalRgIndex(prev => prev - 1);
+  } else {
+    goToStep(7); // Zurück zu URG-Mode
+  }
+};
+```
+
+**2. wizard-context.jsx - Navigation anpassen:**
+```javascript
+// In nextStep(), nach Step 7 (Manual Path):
+if (currentStep === 7 && creationMethod === 'manual') {
+  updates.currentStep = 9; // Skip Step 8
+  return { ...prev, ...updates };
+}
+
+// Step 9 soll NICHT mehr loopen - Step 9 handled eigene Navigation
+// Step 10 wird nicht mehr erreicht (Step 9 geht direkt zu Step 11)
+```
+
+AKZEPTANZKRITERIEN:
+- [ ] Step 9 zeigt alle RGs als Tabs
+- [ ] User kann frei zwischen RGs wechseln (ohne "Weiter" zu klicken)
+- [ ] URGs des aktiven RGs werden angezeigt und sind editierbar
+- [ ] Ein einziger "Weiter"-Button geht zu Step 11
+- [ ] "Zurück"-Button geht zu Step 7 (URG-Mode Auswahl)
+- [ ] Keine Regression: URG-Daten werden korrekt gespeichert
+- [ ] Keine Regression: Alle URG-Operationen (hinzufügen, entfernen) funktionieren
+- [ ] Step 8 und Step 10 werden übersprungen
+- [ ] URG-Bearbeitung bleibt jederzeit möglich:
+      - Neue URGs hinzufügen (aus vordefinierter Liste oder eigene erstellen)
+      - Bestehende URGs entfernen
+      - Zwischen RGs wechseln ohne Datenverlust
+      - Von späteren Steps (z.B. Step 12) zurück zu Step 9 navigieren und URGs anpassen
+
+TESTPLAN:
+1. Wizard starten, "Als Liste erstellen" wählen
+2. Step 7: URG-Mode wählen (prefilled/manual) → "Weiter"
+3. Step 9 (NEU): Alle 3+ RGs als Tabs sichtbar
+4. Auf "Strafrecht" Tab klicken → URGs für Strafrecht werden angezeigt
+5. URG hinzufügen/entfernen
+6. Auf "Zivilrecht" Tab klicken → URGs für Zivilrecht werden angezeigt
+7. "Weiter" klicken → Step 11 (Themen-Intro)
+8. "Zurück" in Step 11 → Step 9 (mit letztem RG-Tab aktiv)
+
+VERGLEICH VORHER/NACHHER:
+| Szenario (3 RGs) | Vorher | Nachher |
+|------------------|--------|---------|
+| Klicks           | 9      | 1-2     |
+| Steps            | 8→9→10 (×3) | 9      |
+| Screen-Wechsel   | 9      | 0       |
+
+GESCHÄTZTER AUFWAND: ~100-150 Zeilen Code-Änderung
+
+--------------------------------------------------------------------------------
+IMPLEMENTIERUNG (27.01.2026)
+--------------------------------------------------------------------------------
+
+**1. step-9-urgs-edit.jsx - Komplettes Redesign:**
+
+- Lokaler RG-Index State hinzugefügt (wie Step 12)
+- RG-Tabs Komponente mit URG-Count Badges und Checkmarks
+- URGs werden für ALLE RGs beim Mount initialisiert
+- Custom Navigation: handleWeiter() → goToStep(11), handleZurueck() → goToStep(7)
+- Alle URG-Operationen (hinzufügen, entfernen) bleiben funktional
+
+**2. wizard-context.jsx - Navigation angepasst:**
+
+Vorwärts-Navigation (nextStep):
+```javascript
+// PW-028: Skip Step 8
+if (currentStep === 7 && creationMethod === 'manual') {
+  updates.currentStep = 9;
+  return { ...prev, ...updates };
+}
+
+// PW-028: Step 9 handles own navigation, but fallback
+if (currentStep === 9) {
+  updates.currentStep = 11;
+  return { ...prev, ...updates };
+}
+```
+
+Rückwärts-Navigation (prevStep):
+```javascript
+// PW-028: Step 9 → Step 7 (skip Step 8)
+if (prev.currentStep === 9) {
+  updates.currentStep = 7;
+  // Reset dependent data...
+  return { ...prev, ...updates };
+}
+
+// PW-028: Step 11 → Step 9 (skip Step 10)
+if (prev.currentStep === 11) {
+  updates.currentStep = 9;
+  return { ...prev, ...updates };
+}
+```
+
+**Geänderte Dateien:**
+- src/features/lernplan-wizard/steps/step-9-urgs-edit.jsx (~250 Zeilen neu)
+- src/features/lernplan-wizard/context/wizard-context.jsx (~30 Zeilen geändert)
+
+**Ergebnis:**
+- Klicks reduziert von 9 auf 1-2 (bei 3 RGs)
+- Alle URG-Bearbeitungsfunktionen erhalten
+- Step 8 und Step 10 werden übersprungen aber nicht gelöscht (Backwards-Compatibility)
+
+
+================================================================================
+PW-029: Step 22 "Failed to fetch" - Backend API nicht vorhanden
+================================================================================
+STATUS: GEFIXT
+TYP: Bug
+PRIORITÄT: P1 (Blocker - Wizard kann nicht abgeschlossen werden)
+
+PROBLEM:
+Beim Abschluss des Wizards in Step 22 (Bestätigung) erscheint der Fehler:
+"Failed to fetch" / "Etwas ist schiefgelaufen"
+
+FEHLERMELDUNG (Browser Console):
+```
+:3010/api/wizard/complete:1  Failed to load resource: net::ERR_CONNECTION_REFUSED
+wizard-context.jsx:1243  Fehler beim Erstellen: TypeError: Failed to fetch
+    at window.fetch (supabase.ts:61:26)
+    at wizard-context.jsx:1184:30
+    at doCreate (step-22-bestaetigung.jsx:301:13)
+```
+
+ROOT CAUSE:
+Die Funktion `completeAutomaticLernplan` (wizard-context.jsx:1410) versucht, einen
+Backend-API-Endpunkt aufzurufen, der nicht existiert:
+
+```javascript
+// wizard-context.jsx:1134-1137
+const apiUrl = import.meta.env.DEV
+  ? 'http://localhost:3010/api/wizard/complete'  // ← Existiert nicht!
+  : '/api/wizard/complete';
+```
+
+Das Projekt ist eine reine Frontend-App mit Supabase als Backend.
+Es gibt keinen Express/Node.js Server auf Port 3010.
+
+BETROFFENE PFADE:
+- "Automatisch" Erstellungsmethode → Step 22 → "Lernplan erstellen" Button
+- Funktion: `completeAutomaticLernplan` (wizard-context.jsx:1410)
+- Auch: `completeWizard` (wizard-context.jsx:1129) hat das gleiche Problem
+- Auch: `createLernplanFromTemplate` (wizard-context.jsx:1328) hat das gleiche Problem
+
+FUNKTIONIERENDE REFERENZ:
+Die Funktion `completeManualCalendar` (wizard-context.jsx:1269) funktioniert korrekt,
+weil sie KEINEN API-Call macht, sondern:
+1. `generateBlocksFromWizardState()` aufruft (lokal)
+2. `setCalendarData(blocks, metadata)` aufruft (schreibt zu Supabase via CalendarContext)
+3. `clearDraftFromSupabase()` aufruft
+4. Navigiert zu `/kalender/monat`
+
+LÖSUNG:
+Die API-abhängigen Funktionen müssen umgebaut werden, um lokal zu arbeiten
+(wie `completeManualCalendar`), ohne Backend-API-Calls.
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ wizard-context.jsx: completeAutomaticLernplan umschreiben (lokal)        │
+│ ✅ wizard-context.jsx: completeWizard umschreiben (lokal)                   │
+│ ✅ wizard-context.jsx: createLernplanFromTemplate umschreiben (lokal)       │
+│ ✅ Alle drei sollen generateBlocksFromWizardState + setCalendarData nutzen  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Backend-Server erstellen (nicht im Scope dieses Projekts)                │
+│ ❌ Datenstruktur ändern                                                     │
+│ ❌ Andere Wizard-Steps ändern                                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+- src/features/lernplan-wizard/context/wizard-context.jsx (3 Funktionen)
+
+AKZEPTANZKRITERIEN:
+- [x] Step 22 "Lernplan erstellen" funktioniert ohne Fehler
+- [x] Blöcke werden korrekt generiert und in Supabase gespeichert
+- [x] Draft wird nach Erstellung gelöscht
+- [x] Navigation zu /kalender/monat erfolgt
+- [x] Alle drei Completion-Funktionen arbeiten ohne API-Calls
+
+TESTPLAN:
+1. Wizard starten → "Automatisch" Pfad wählen
+2. Alle Steps durchlaufen bis Step 22
+3. "Lernplan erstellen" klicken
+4. Erwartung: Erfolg, Navigation zu Kalender, Blöcke sichtbar
+
+
+

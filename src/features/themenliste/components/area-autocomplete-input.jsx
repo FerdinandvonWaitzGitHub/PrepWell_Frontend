@@ -211,7 +211,7 @@ const AreaAutocompleteInput = ({
         className="flex items-center justify-center gap-3 group cursor-pointer"
         onClick={handleStartEdit}
       >
-        <h1 className="text-5xl font-extralight text-neutral-900 text-center">
+        <h1 className="text-3xl md:text-4xl font-extralight text-neutral-900 text-center">
           {displayName}
         </h1>
         <button
@@ -232,12 +232,12 @@ const AreaAutocompleteInput = ({
   return (
     <div ref={containerRef} className="relative w-full max-w-3xl mx-auto">
       {/* Input container - T27: Centered layout */}
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center w-full">
         {/* Combined display: selected areas + input inline */}
-        <div className="flex items-baseline justify-center flex-wrap">
+        <div className="flex items-baseline justify-center flex-wrap w-full">
           {/* Selected areas as text */}
           {selectedAreas.length > 0 && (
-            <span className="text-5xl font-extralight text-neutral-900 whitespace-nowrap">
+            <span className="text-3xl md:text-4xl font-extralight text-neutral-900 whitespace-nowrap">
               {selectedAreas.map(a => a.name).join(', ')}
               {searchQuery.length > 0 && ', '}
             </span>
@@ -252,14 +252,14 @@ const AreaAutocompleteInput = ({
             onKeyDown={handleKeyDown}
             onFocus={() => searchQuery.trim() && setShowDropdown(true)}
             placeholder={selectedAreas.length === 0 ? placeholder : ''}
-            className={`text-5xl font-extralight text-neutral-900 bg-transparent border-none outline-none placeholder:text-neutral-300 ${
+            className={`text-3xl md:text-4xl font-extralight text-neutral-900 bg-transparent border-none outline-none placeholder:text-neutral-300 ${
               selectedAreas.length === 0 ? 'min-w-[300px] text-center' : 'text-left'
             }`}
             style={{
               width: selectedAreas.length === 0
-                ? Math.max(300, searchQuery.length * 35 + 50) + 'px'
+                ? (searchQuery.length > 0 ? Math.max(200, searchQuery.length * 22 + 40) + 'px' : '100%')
                 : searchQuery.length > 0
-                  ? Math.max(20, searchQuery.length * 35 + 20) + 'px'
+                  ? Math.max(20, searchQuery.length * 22 + 20) + 'px'
                   : '4px' // Minimal width for cursor when empty
             }}
             autoFocus

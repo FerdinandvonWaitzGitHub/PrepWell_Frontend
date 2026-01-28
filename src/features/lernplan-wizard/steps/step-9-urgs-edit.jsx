@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWizard } from '../context/wizard-context';
-import StepHeader from '../components/step-header';
-import { Plus, Minus, GripVertical } from 'lucide-react';
+import { Plus, Minus, GripVertical, CheckCircle2 } from 'lucide-react';
 import {
   RECHTSGEBIET_LABELS,
   ALL_UNTERRECHTSGEBIETE,
@@ -9,11 +8,13 @@ import {
 } from '../../../data/unterrechtsgebiete-data';
 
 /**
- * Step 9: URGs Edit
- * User edits the Unterrechtsgebiete for the currently selected Rechtsgebiet.
- * - Can add/remove URGs
- * - When done, marks this RG as complete
- * - Returns to Step 8 for next RG, or proceeds to Step 10 when all done
+ * Step 9: URGs Edit (PW-028 Redesign)
+ *
+ * All-in-One URG Editor with RG tabs:
+ * - Shows all Rechtsgebiete as tabs at the top
+ * - User can freely switch between RGs without clicking "Weiter"
+ * - Single "Weiter" button goes directly to Step 11
+ * - Reduces clicks from 9 (3 RGs × 3 steps) to 1-2
  */
 
 /**
@@ -157,56 +158,109 @@ const AddUrgModal = ({ rechtsgebietId, currentUrgs, onAdd, onClose }) => {
 };
 
 /**
+ * RG Tab Component
+ */
+const RgTab = ({ rgId, isActive, onClick, urgCount }) => {
+  const label = RECHTSGEBIET_LABELS[rgId] || rgId;
+  const hasUrgs = urgCount > 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`
+        px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+        ${isActive
+          ? 'bg-primary-600 text-white'
+          : hasUrgs
+            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+        }
+      `}
+    >
+      {label}
+      {hasUrgs && !isActive && (
+        <CheckCircle2 className="w-4 h-4" />
+      )}
+      {urgCount > 0 && (
+        <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+          isActive ? 'bg-white/20' : 'bg-neutral-200'
+        }`}>
+          {urgCount}
+        </span>
+      )}
+    </button>
+  );
+};
+
+/**
  * Step 9 Component
  */
 const Step9UrgsEdit = () => {
   const {
     selectedRechtsgebiete,
-    currentRechtsgebietIndex,
     urgCreationMode,
     unterrechtsgebieteDraft,
     themenDraft,
-    updateWizardData
+    updateWizardData,
+    goToStep
   } = useWizard();
 
+  // PW-028: Local RG index for tab navigation (like Step 12)
+  const [localRgIndex, setLocalRgIndex] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Get current Rechtsgebiet
-  const currentRechtsgebiet = selectedRechtsgebiete[currentRechtsgebietIndex];
+  // Current Rechtsgebiet based on LOCAL index (not wizard context)
+  const currentRechtsgebiet = selectedRechtsgebiete[localRgIndex] || selectedRechtsgebiete[0];
   const rechtsgebietLabel = RECHTSGEBIET_LABELS[currentRechtsgebiet] || currentRechtsgebiet;
 
   // Get current URGs for this Rechtsgebiet
   const currentUrgs = unterrechtsgebieteDraft[currentRechtsgebiet] || [];
 
-  // Initialize URGs on first load based on mode
+  // Calculate URG counts per RG for tab badges
+  const urgCountsPerRg = useMemo(() => {
+    const counts = {};
+    for (const rgId of selectedRechtsgebiete) {
+      counts[rgId] = (unterrechtsgebieteDraft[rgId] || []).length;
+    }
+    return counts;
+  }, [selectedRechtsgebiete, unterrechtsgebieteDraft]);
+
+  // PW-028: Initialize URGs for ALL RGs on mount (not just current)
   useEffect(() => {
-    if (!unterrechtsgebieteDraft[currentRechtsgebiet]) {
-      let initialUrgs = [];
+    const updates = {};
+    let needsUpdate = false;
 
-      if (urgCreationMode === 'prefilled') {
-        // Use default selection for prefilled mode
-        initialUrgs = DEFAULT_SELECTION[currentRechtsgebiet] || [];
+    for (const rgId of selectedRechtsgebiete) {
+      if (!unterrechtsgebieteDraft[rgId]) {
+        let initialUrgs = [];
+
+        if (urgCreationMode === 'prefilled') {
+          // Use default selection for prefilled mode
+          initialUrgs = DEFAULT_SELECTION[rgId] || [];
+        }
+        // For 'manual' mode, start with empty list
+
+        console.log('[PW-028] Step 9 - Initializing URGs for:', rgId, 'Mode:', urgCreationMode);
+        updates[rgId] = initialUrgs;
+        needsUpdate = true;
       }
-      // For 'manual' mode, start with empty list
+    }
 
-      // PW-023 DEBUG: Log URG initialization
-      console.log('[PW-023 DEBUG] Step 9 - Initializing URGs for:', currentRechtsgebiet);
-      console.log('[PW-023 DEBUG] Step 9 - Mode:', urgCreationMode);
-      console.log('[PW-023 DEBUG] Step 9 - Initial URGs:', initialUrgs.map(u => ({ id: u.id, name: u.name })));
-
+    if (needsUpdate) {
       updateWizardData({
         unterrechtsgebieteDraft: {
           ...unterrechtsgebieteDraft,
-          [currentRechtsgebiet]: initialUrgs
+          ...updates
         }
       });
     }
-  }, [currentRechtsgebiet, urgCreationMode, unterrechtsgebieteDraft, updateWizardData]);
+  }, [selectedRechtsgebiete, urgCreationMode, unterrechtsgebieteDraft, updateWizardData]);
 
   const handleRemoveUrg = (urgId) => {
     const updatedUrgs = currentUrgs.filter(u => u.id !== urgId);
 
-    // Also remove orphaned themes for this URG (P2 fix - see WIZARD_DATA_ISSUES.md)
+    // Also remove orphaned themes for this URG
     const updatedThemenDraft = { ...themenDraft };
     delete updatedThemenDraft[urgId];
 
@@ -229,49 +283,113 @@ const Step9UrgsEdit = () => {
     });
   };
 
+  // PW-028: Custom navigation - "Weiter" goes directly to Step 11
+  const handleWeiter = () => {
+    // Optional: Check if any RGs have no URGs
+    const emptyRgs = selectedRechtsgebiete.filter(
+      rgId => (unterrechtsgebieteDraft[rgId] || []).length === 0
+    );
+
+    if (emptyRgs.length > 0) {
+      // For now, just warn in console - could add a dialog later
+      console.log('[PW-028] Warning: Some RGs have no URGs:', emptyRgs);
+    }
+
+    // Go directly to Step 11 (Themen-Intro), skipping Step 10
+    goToStep(11);
+  };
+
+  // PW-028: Custom navigation - "Zurück" goes to Step 7
+  const handleZurueck = () => {
+    goToStep(7);
+  };
+
   return (
-    <div>
-      <StepHeader
-        step={9}
-        title={`Unterrechtsgebiete für ${rechtsgebietLabel}`}
-        description="Bearbeite die Unterrechtsgebiete für dieses Rechtsgebiet."
-      />
+    <div className="flex flex-col h-full">
+      {/* PW-028: RG Tabs - All RGs visible, freely switchable */}
+      <div className="mb-6">
+        <div className="flex flex-wrap gap-2 p-2 bg-neutral-50 rounded-lg justify-center">
+          {selectedRechtsgebiete.map((rgId, index) => (
+            <RgTab
+              key={rgId}
+              rgId={rgId}
+              isActive={index === localRgIndex}
+              onClick={() => setLocalRgIndex(index)}
+              urgCount={urgCountsPerRg[rgId] || 0}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="text-center mb-6">
+        <p className="text-sm text-neutral-500 mb-2">
+          Rechtsgebiet {localRgIndex + 1} von {selectedRechtsgebiete.length}
+        </p>
+        <h1 className="text-2xl font-light text-neutral-900 mb-2">
+          Unterrechtsgebiete für {rechtsgebietLabel}
+        </h1>
+        <p className="text-neutral-500">
+          Wähle die Unterrechtsgebiete aus, die du lernen möchtest.
+        </p>
+      </div>
 
       {/* URG Count Badge */}
-      <div className="mb-6">
+      <div className="mb-4 text-center">
         <span className="inline-flex items-center px-3 py-1 bg-neutral-100 text-neutral-700 text-sm font-medium rounded-full">
           {currentUrgs.length} Unterrechtsgebiet{currentUrgs.length !== 1 ? 'e' : ''}
         </span>
       </div>
 
       {/* URG List */}
-      <div className="space-y-2 mb-6">
-        {currentUrgs.length > 0 ? (
-          currentUrgs.map((urg) => (
-            <UrgListItem
-              key={urg.id}
-              urg={urg}
-              onRemove={() => handleRemoveUrg(urg.id)}
-            />
-          ))
-        ) : (
-          <div className="p-8 bg-neutral-50 rounded-lg text-center">
-            <p className="text-neutral-500">
-              Noch keine Unterrechtsgebiete hinzugefügt.
-            </p>
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-2 mb-6">
+          {currentUrgs.length > 0 ? (
+            currentUrgs.map((urg) => (
+              <UrgListItem
+                key={urg.id}
+                urg={urg}
+                onRemove={() => handleRemoveUrg(urg.id)}
+              />
+            ))
+          ) : (
+            <div className="p-8 bg-neutral-50 rounded-lg text-center">
+              <p className="text-neutral-500">
+                Noch keine Unterrechtsgebiete hinzugefügt.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Add Button */}
+        <button
+          type="button"
+          onClick={() => setShowAddModal(true)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-neutral-300 rounded-lg text-neutral-600 hover:border-primary-400 hover:text-primary-600 transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          <span className="font-medium">Neues Unterrechtsgebiet</span>
+        </button>
       </div>
 
-      {/* Add Button */}
-      <button
-        type="button"
-        onClick={() => setShowAddModal(true)}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-neutral-300 rounded-lg text-neutral-600 hover:border-primary-400 hover:text-primary-600 transition-colors"
-      >
-        <Plus className="w-5 h-5" />
-        <span className="font-medium">Neues Unterrechtsgebiet</span>
-      </button>
+      {/* PW-028: Custom Navigation Buttons */}
+      <div className="mt-6 flex justify-between items-center pt-4 border-t border-neutral-200 flex-shrink-0">
+        <button
+          type="button"
+          onClick={handleZurueck}
+          className="px-6 py-2.5 border border-neutral-300 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-50 transition-colors"
+        >
+          Zurück
+        </button>
+
+        <button
+          type="button"
+          onClick={handleWeiter}
+          className="px-6 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
+        >
+          Weiter
+        </button>
+      </div>
 
       {/* Add Modal */}
       {showAddModal && (

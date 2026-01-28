@@ -416,8 +416,15 @@ export const WizardProvider = ({ children }) => {
   }, [wizardState, saveDraftToSupabase]);
 
   // Update wizard data
-  const updateWizardData = useCallback((updates) => {
-    setWizardState(prev => ({ ...prev, ...updates }));
+  // PW-025 FIX: Support functional updates to prevent stale closure issues
+  const updateWizardData = useCallback((updatesOrFn) => {
+    if (typeof updatesOrFn === 'function') {
+      // Functional update: fn receives prev state, returns partial update
+      setWizardState(prev => ({ ...prev, ...updatesOrFn(prev) }));
+    } else {
+      // Object update (backwards compatible)
+      setWizardState(prev => ({ ...prev, ...updatesOrFn }));
+    }
   }, []);
 
   // Go to next step (with loop logic for manual path)
@@ -440,7 +447,20 @@ export const WizardProvider = ({ children }) => {
 
       // Manual path loop logic
       if (creationMethod === 'manual') {
-        // === URG Loop (Steps 8-10) ===
+        // PW-028: Skip Step 8 - Step 9 now handles all RGs with tabs
+        if (currentStep === 7) {
+          updates.currentStep = 9; // Skip Step 8 (RG Select)
+          return { ...prev, ...updates };
+        }
+
+        // PW-028: Step 9 handles its own navigation with goToStep(11)
+        // This block is kept for backwards compatibility but should not be reached
+        if (currentStep === 9) {
+          updates.currentStep = 11; // Skip Step 10 (URG Success)
+          return { ...prev, ...updates };
+        }
+
+        // === URG Loop (Steps 8-10) - LEGACY, kept for backwards compatibility ===
         if (currentStep === 10) {
           // Step 10: URG Success - mark current RG as complete and check for more
           const currentRg = selectedRechtsgebiete[currentRechtsgebietIndex];
@@ -590,8 +610,33 @@ export const WizardProvider = ({ children }) => {
 
       // === Manual Path Cleanup ===
       if (isManualPath) {
-        // Going back from Step 8 (RG Select) to Step 7 (URG Mode)
+        // PW-028: Going back from Step 9 (URGs Edit) to Step 7 (URG Mode)
+        // Skip Step 8 which is no longer used
         // Reset RG selection and all dependent data
+        if (prev.currentStep === 9) {
+          updates.currentStep = 7; // Skip Step 8
+          updates.selectedRechtsgebiete = [];
+          updates.currentRechtsgebietIndex = 0;
+          updates.rechtsgebieteProgress = {};
+          updates.unterrechtsgebieteDraft = {};
+          updates.themenDraft = {};
+          updates.themenProgress = {};
+          updates.rechtsgebieteGewichtung = {};
+          updates.lernbloeckeDraft = {};
+          updates.verteilungsmodus = null;
+          updates.generatedCalendar = [];
+          return { ...prev, ...updates };
+        }
+
+        // PW-028: Going back from Step 11 (Themen Intro) to Step 9 (URGs Edit)
+        // Skip Step 10 which is no longer used
+        if (prev.currentStep === 11) {
+          updates.currentStep = 9; // Skip Step 10
+          return { ...prev, ...updates };
+        }
+
+        // LEGACY: Going back from Step 8 (RG Select) to Step 7 (URG Mode)
+        // Kept for backwards compatibility
         if (prev.currentStep === 8 && newStep === 7) {
           updates.selectedRechtsgebiete = [];
           updates.currentRechtsgebietIndex = 0;
@@ -605,24 +650,13 @@ export const WizardProvider = ({ children }) => {
           updates.generatedCalendar = [];
         }
 
-        // Going back from Step 9 (URGs Edit) to Step 8 (RG Select)
-        // Keep RG selection but reset URG-dependent data
-        if (prev.currentStep === 9 && newStep === 8) {
-          updates.currentRechtsgebietIndex = 0;
-          updates.rechtsgebieteProgress = {};
-          updates.unterrechtsgebieteDraft = {};
-          updates.themenDraft = {};
-          updates.themenProgress = {};
-          updates.rechtsgebieteGewichtung = {};
-          updates.lernbloeckeDraft = {};
-          updates.verteilungsmodus = null;
-          updates.generatedCalendar = [];
-        }
-
         // Going back from Step 14 (Gewichtung) to Step 12 (Themen)
+        // PW-026 FIX: Skip step 13 (removed) - must explicitly set currentStep like step 20 case
         // Reset RG index to allow re-editing
-        if (prev.currentStep === 14 && newStep === 12) {
+        if (prev.currentStep === 14) {
+          updates.currentStep = 12; // Skip step 13 which was removed
           updates.currentRechtsgebietIndex = prev.selectedRechtsgebiete.length - 1;
+          return { ...prev, ...updates };
         }
 
         // Going back from Step 15 (Lernblöcke) to Step 14 (Gewichtung)
@@ -779,48 +813,10 @@ export const WizardProvider = ({ children }) => {
         return allHaveWeight && totalWeight === 100;
       }
 
-      case 15: {
-        // BUG-P6 FIX: Option A - Strikte Validierung
-        // ALLE Themen müssen verteilt sein (als ganzes Thema ODER alle Aufgaben einzeln)
-
-        for (const rgId of selectedRechtsgebiete) {
-          const urgsForRg = unterrechtsgebieteDraft[rgId] || [];
-          const rgBlocks = lernbloeckeDraft[rgId] || [];
-
-          // Get all theme IDs assigned as whole themes
-          const assignedThemeIds = new Set(
-            rgBlocks.filter(b => b.thema).map(b => b.thema.id)
-          );
-
-          // Get all aufgabe IDs assigned individually
-          const assignedAufgabeIds = new Set(
-            rgBlocks.flatMap(b => (b.aufgaben || []).map(a => a.id))
-          );
-
-          for (const urg of urgsForRg) {
-            const themes = themenDraft[urg.id] || [];
-
-            for (const thema of themes) {
-              // Guard: thema could be undefined if array has holes
-              if (!thema) continue;
-
-              // If theme is assigned as whole, it's covered
-              if (assignedThemeIds.has(thema.id)) continue;
-
-              // Otherwise, all aufgaben must be assigned individually
-              const aufgaben = thema.aufgaben || [];
-              if (aufgaben.length === 0) continue; // No aufgaben = nothing to assign
-
-              const allAufgabenAssigned = aufgaben.every(a => assignedAufgabeIds.has(a.id));
-              if (!allAufgabenAssigned) {
-                return false; // Found unassigned content
-              }
-            }
-          }
-        }
-
-        return true; // All themes are distributed
-      }
+      case 15:
+        // Step 15: Lernblöcke - no strict validation required
+        // User can proceed even if not all themes are distributed
+        return true;
 
       // Steps 16-19 removed - block editing is now consolidated in Step 15
 
@@ -1090,88 +1086,27 @@ export const WizardProvider = ({ children }) => {
     return generatedBlocks;
   }, [wizardState]);
 
-  // Complete wizard - sends data to API
-  // UNIFIED DATA MODEL: API writes directly to Supabase when authenticated
+  // PW-029 FIX: Complete wizard - works locally without API call
+  // Generates blocks and saves directly to CalendarContext (which syncs to Supabase)
   const completeWizard = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+    setCalendarCreationStatus('loading');
+    setCalendarCreationErrors([]);
 
     try {
-      // API Base URL - lokaler Server in Entwicklung
-      const apiUrl = import.meta.env.DEV
-        ? 'http://localhost:3010/api/wizard/complete'
-        : '/api/wizard/complete';
+      const { generatedCalendar, weekStructure } = wizardState;
 
-      // Prepare request headers
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-
-      // Add Authorization header if authenticated (for Supabase mode)
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
+      // Use generatedCalendar from Step 21 if available (preserves user edits)
+      let blocks;
+      if (generatedCalendar && generatedCalendar.length > 0) {
+        blocks = convertGeneratedCalendarToBlocks(generatedCalendar, weekStructure);
+        console.log('Wizard: Using generatedCalendar from Step 21 -', Object.keys(blocks).length, 'days');
+      } else {
+        blocks = generateBlocksFromWizardState();
+        console.log('Wizard: Fallback to generateBlocksFromWizardState -', Object.keys(blocks).length, 'days');
       }
 
-      // Build wizardData object matching API WizardDraft type
-      const wizardData = {
-        currentStep: wizardState.currentStep,
-        totalSteps: wizardState.totalSteps,
-        // Core settings (Steps 1-5)
-        startDate: wizardState.startDate,
-        endDate: wizardState.endDate,
-        bufferDays: wizardState.bufferDays ?? 0,
-        vacationDays: wizardState.vacationDays ?? 0,
-        blocksPerDay: wizardState.blocksPerDay,
-        weekStructure: wizardState.weekStructure,
-        // Step 6: Creation method
-        creationMethod: wizardState.creationMethod,
-        // Template/AI paths
-        selectedTemplate: wizardState.selectedTemplate,
-        unterrechtsgebieteOrder: wizardState.unterrechtsgebieteOrder,
-        learningDaysOrder: wizardState.learningDaysOrder,
-        adjustments: wizardState.adjustments,
-        returnPath: wizardState.returnPath,
-        // === Manual Path Data (Steps 7-22) ===
-        // Step 7: Selected Rechtsgebiete
-        selectedRechtsgebiete: wizardState.selectedRechtsgebiete,
-        // Step 9: URGs per Rechtsgebiet
-        unterrechtsgebieteDraft: wizardState.unterrechtsgebieteDraft,
-        // Step 12: Themen & Aufgaben per URG
-        themenDraft: wizardState.themenDraft,
-        // Step 14: Gewichtung (optional)
-        rechtsgebieteGewichtung: wizardState.rechtsgebieteGewichtung,
-        // Steps 15-19: Lernblöcke (consolidated into lernbloeckeDraft)
-        lernbloeckeDraft: wizardState.lernbloeckeDraft,
-        // Step 20: Distribution mode
-        verteilungsmodus: wizardState.verteilungsmodus,
-      };
-
-      // Send data to API in expected format
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          wizardData,
-          lernplanTitle: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
-          lernplanDescription: '',
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Lernplan konnte nicht erstellt werden');
-      }
-
-      // Handle response based on storage mode
-      const storageMode = result.data?.storage || 'unknown';
-      const lernplanId = result.data?.contentPlan?.id || result.data?.lernplan?.id;
-
-      console.log(`✅ Lernplan erstellt (${storageMode}):`, lernplanId);
-
-      // === FIX: Transfer data to CalendarContext ===
-      // Generate blocks locally and save to CalendarContext (which syncs to Supabase)
-      const blocks = generateBlocksFromWizardState();
+      // Create metadata for this Lernplan
+      const lernplanId = `lp-${Date.now()}`;
       const metadata = {
         id: lernplanId,
         name: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
@@ -1184,33 +1119,41 @@ export const WizardProvider = ({ children }) => {
         creationMethod: wizardState.creationMethod,
         selectedRechtsgebiete: wizardState.selectedRechtsgebiete,
         rechtsgebieteGewichtung: wizardState.rechtsgebieteGewichtung,
+        verteilungsmodus: wizardState.verteilungsmodus,
       };
 
-      // This will archive any existing plan automatically
+      // Save to CalendarContext (which syncs to Supabase)
       await setCalendarData(blocks, metadata);
       console.log('Wizard: Calendar data saved to CalendarContext', { blocksCount: Object.keys(blocks).length });
 
-      // Clear draft after successful creation (from both localStorage and Supabase)
+      // Brief delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Clear draft after successful creation
       await clearDraftFromSupabase();
 
       // Reset state
       setWizardState(initialWizardState);
 
-      // Navigate to the calendar month view (blocks are now in Supabase)
-      navigate('/kalender/monat', {
-        state: {
-          lernplanCreated: true,
-          lernplanId,
-          storageMode,
-          message: `Lernplan wurde erstellt mit ${Object.keys(blocks).length} Tagen.`,
-        }
-      });
+      // Set success status
+      setCalendarCreationStatus('success');
+
+      // After a delay, navigate to calendar
+      setTimeout(() => {
+        navigate('/kalender/monat', {
+          state: {
+            lernplanCreated: true,
+            lernplanId,
+            message: `Lernplan wurde erstellt mit ${Object.keys(blocks).length} Tagen.`,
+          }
+        });
+      }, 2000);
     } catch (err) {
       console.error('Fehler beim Erstellen:', err);
-      setError(err.message || 'Ein Fehler ist aufgetreten');
-      setIsLoading(false);
+      setCalendarCreationStatus('error');
+      setCalendarCreationErrors([err.message || 'Ein Fehler ist aufgetreten']);
     }
-  }, [wizardState, navigate, clearDraftFromSupabase, session, generateBlocksFromWizardState, setCalendarData]);
+  }, [wizardState, navigate, clearDraftFromSupabase, generateBlocksFromWizardState, setCalendarData]);
 
   // Check if there's a saved draft (uses synced state)
   const hasDraft = useCallback(() => {
@@ -1290,49 +1233,20 @@ export const WizardProvider = ({ children }) => {
     }
   }, [navigate, clearDraftFromSupabase, generateBlocksFromWizardState, wizardState, setCalendarData]);
 
-  // Create Lernplan from template selection (for automatic/template paths)
+  // PW-029 FIX: Create Lernplan from template selection (for automatic/template paths)
+  // Works locally without API call
   const createLernplanFromTemplate = useCallback(async () => {
     setCalendarCreationStatus('loading');
     setCalendarCreationErrors([]);
 
     try {
-      // API Base URL
-      const apiUrl = import.meta.env.DEV
-        ? 'http://localhost:3010/api/wizard/complete'
-        : '/api/wizard/complete';
-
-      // Send wizard data to API
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
-          startDate: wizardState.startDate,
-          endDate: wizardState.endDate,
-          bufferDays: wizardState.bufferDays ?? 0,
-          vacationDays: wizardState.vacationDays ?? 0,
-          blocksPerDay: wizardState.blocksPerDay,
-          weekStructure: wizardState.weekStructure,
-          creationMethod: wizardState.creationMethod,
-          selectedTemplate: wizardState.selectedTemplate,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Lernplan konnte nicht erstellt werden');
-      }
-
-      console.log('✅ Lernplan erstellt:', result.lernplanId);
-
-      // === FIX: Transfer data to CalendarContext ===
-      // Generate blocks locally and save to CalendarContext (which syncs to Supabase)
+      // Generate blocks locally
       const blocks = generateBlocksFromWizardState();
+      const lernplanId = `lp-template-${Date.now()}`;
+
+      // Create metadata for this Lernplan
       const metadata = {
-        id: result.lernplanId,
+        id: lernplanId,
         name: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
         startDate: wizardState.startDate,
         endDate: wizardState.endDate,
@@ -1344,11 +1258,14 @@ export const WizardProvider = ({ children }) => {
         selectedTemplate: wizardState.selectedTemplate,
       };
 
-      // This will archive any existing plan automatically
+      // Save to CalendarContext (which syncs to Supabase)
       await setCalendarData(blocks, metadata);
       console.log('Wizard: Calendar data saved to CalendarContext', { blocksCount: Object.keys(blocks).length });
 
-      // Clear the wizard draft (from both localStorage and Supabase)
+      // Brief delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Clear the wizard draft
       await clearDraftFromSupabase();
 
       // Set success status
@@ -1356,7 +1273,13 @@ export const WizardProvider = ({ children }) => {
 
       // After a delay, navigate to calendar month view
       setTimeout(() => {
-        navigate('/kalender/monat');
+        navigate('/kalender/monat', {
+          state: {
+            lernplanCreated: true,
+            lernplanId,
+            message: `Lernplan wurde erstellt mit ${Object.keys(blocks).length} Tagen.`,
+          }
+        });
       }, 2000);
 
     } catch (err) {
@@ -1372,51 +1295,30 @@ export const WizardProvider = ({ children }) => {
     setCalendarCreationErrors([]);
   }, []);
 
-  // Complete automatic Lernplan (with Loading → Success → Calendar flow)
+  // PW-029 FIX: Complete automatic Lernplan (with Loading → Success → Calendar flow)
+  // Works locally without API call
   const completeAutomaticLernplan = useCallback(async () => {
     setCalendarCreationStatus('loading');
     setCalendarCreationErrors([]);
 
     try {
-      // API Base URL
-      const apiUrl = import.meta.env.DEV
-        ? 'http://localhost:3010/api/wizard/complete'
-        : '/api/wizard/complete';
+      const { generatedCalendar, weekStructure } = wizardState;
 
-      // Send wizard data to API (including manualLernplan for automatic path)
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
-          startDate: wizardState.startDate,
-          endDate: wizardState.endDate,
-          bufferDays: wizardState.bufferDays ?? 0,
-          vacationDays: wizardState.vacationDays ?? 0,
-          blocksPerDay: wizardState.blocksPerDay,
-          weekStructure: wizardState.weekStructure,
-          creationMethod: wizardState.creationMethod,
-          manualLernplan: wizardState.manualLernplan,
-          unterrechtsgebieteOrder: wizardState.unterrechtsgebieteOrder,
-          learningDaysOrder: wizardState.learningDaysOrder,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Lernplan konnte nicht erstellt werden');
+      // Use generatedCalendar from Step 21 if available (preserves user edits)
+      let blocks;
+      if (generatedCalendar && generatedCalendar.length > 0) {
+        blocks = convertGeneratedCalendarToBlocks(generatedCalendar, weekStructure);
+        console.log('Wizard: Using generatedCalendar from Step 21 -', Object.keys(blocks).length, 'days');
+      } else {
+        blocks = generateBlocksFromWizardState();
+        console.log('Wizard: Fallback to generateBlocksFromWizardState -', Object.keys(blocks).length, 'days');
       }
 
-      console.log('✅ Lernplan erstellt:', result.lernplanId);
+      const lernplanId = `lp-auto-${Date.now()}`;
 
-      // === FIX: Transfer data to CalendarContext ===
-      // Generate blocks locally and save to CalendarContext (which syncs to Supabase)
-      const blocks = generateBlocksFromWizardState();
+      // Create metadata for this Lernplan
       const metadata = {
-        id: result.lernplanId,
+        id: lernplanId,
         name: `Lernplan ${new Date().toLocaleDateString('de-DE')}`,
         startDate: wizardState.startDate,
         endDate: wizardState.endDate,
@@ -1425,13 +1327,19 @@ export const WizardProvider = ({ children }) => {
         blocksPerDay: wizardState.blocksPerDay,
         weekStructure: wizardState.weekStructure,
         creationMethod: wizardState.creationMethod,
+        manualLernplan: wizardState.manualLernplan,
+        unterrechtsgebieteOrder: wizardState.unterrechtsgebieteOrder,
+        learningDaysOrder: wizardState.learningDaysOrder,
       };
 
-      // This will archive any existing plan automatically
+      // Save to CalendarContext (which syncs to Supabase)
       await setCalendarData(blocks, metadata);
       console.log('Wizard: Calendar data saved to CalendarContext', { blocksCount: Object.keys(blocks).length });
 
-      // Clear the wizard draft (from both localStorage and Supabase)
+      // Brief delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Clear the wizard draft
       await clearDraftFromSupabase();
 
       // Set success status
@@ -1439,7 +1347,13 @@ export const WizardProvider = ({ children }) => {
 
       // After a delay, navigate to calendar month view
       setTimeout(() => {
-        navigate('/kalender/monat');
+        navigate('/kalender/monat', {
+          state: {
+            lernplanCreated: true,
+            lernplanId,
+            message: `Lernplan wurde erstellt mit ${Object.keys(blocks).length} Tagen.`,
+          }
+        });
       }, 2000);
 
     } catch (err) {

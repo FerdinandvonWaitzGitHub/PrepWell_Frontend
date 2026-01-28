@@ -1,0 +1,1435 @@
+# Screenshot-Upload Feature - Tickets
+
+## Übersicht
+
+**Ziel:** User können Themenlisten aus Screenshots (Terminpläne, Gliederungen) automatisch extrahieren.
+
+**Architektur:**
+```
+┌─────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
+│  Frontend       │────▶│ Supabase Edge Func.  │────▶│ OCR.space API   │
+│  (React)        │     │ ocr-screenshot       │     │ (kostenlos)     │
+└─────────────────┘     └──────────────────────┘     └─────────────────┘
+```
+
+**Betroffene Dateien:**
+- `src/features/themenliste/components/themenliste-footer.jsx` - Button hinzufügen
+- `src/features/themenliste/components/screenshot-upload-dialog.jsx` - Neuer Dialog
+- `src/pages/themenliste-editor.jsx` - Dialog einbinden
+- `supabase/functions/ocr-screenshot/index.ts` - Neue Edge Function
+
+**User Flow:**
+1. Lernpläne → "+ Neue Themenliste"
+2. Footer: Klick auf "Screenshot hochladen"
+3. Dialog öffnet sich mit Drag & Drop
+4. Upload → "Extrahieren" klicken
+5. Vorschau (bearbeitbar) → "Übernehmen" oder "Verwerfen"
+
+---
+
+## PW-201: Supabase Edge Function für OCR.space erstellen
+
+**TYP:** Feature
+**PRIORITÄT:** P0
+
+**PROBLEM:**
+- Ist-Zustand: Keine OCR-Funktionalität vorhanden.
+- Soll-Zustand: Edge Function nimmt Base64-Bild entgegen, ruft OCR.space API auf, gibt erkannten Text zurück.
+
+**SCOPE-FENCE:**
+- Erlaubt: `supabase/functions/ocr-screenshot/index.ts`
+- Verboten: Keine Frontend-Änderungen in diesem Ticket.
+
+**CHANGE-BUDGET:**
+- Max Dateien: 1
+- Max Zeilen: 80
+
+**AKZEPTANZKRITERIEN:**
+- Edge Function deployed und erreichbar
+- Akzeptiert POST mit `{ image: "base64..." }`
+- Ruft `https://api.ocr.space/parse/image` auf
+- Gibt `{ text: "...", lines: [...] }` zurück
+- Fehler werden als 400 mit `{ error: "..." }` zurückgegeben
+
+**IMPLEMENTIERUNG:**
+
+```typescript
+// supabase/functions/ocr-screenshot/index.ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
+const OCR_API_URL = 'https://api.ocr.space/parse/image'
+const OCR_API_KEY = Deno.env.get('OCR_SPACE_API_KEY') || 'helloworld' // Free tier key
+
+serve(async (req) => {
+  // CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      },
+    })
+  }
+
+  try {
+    const { image } = await req.json()
+
+    if (!image) {
+      return new Response(JSON.stringify({ error: 'image_missing' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Call OCR.space API
+    const formData = new FormData()
+    formData.append('base64Image', `data:image/png;base64,${image}`)
+    formData.append('language', 'ger')
+    formData.append('isTable', 'true')
+    formData.append('OCREngine', '2')
+
+    const ocrResponse = await fetch(OCR_API_URL, {
+      method: 'POST',
+      headers: { 'apikey': OCR_API_KEY },
+      body: formData,
+    })
+
+    const ocrData = await ocrResponse.json()
+
+    if (ocrData.IsErroredOnProcessing) {
+      return new Response(JSON.stringify({ error: 'ocr_failed', details: ocrData.ErrorMessage }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const text = ocrData.ParsedResults?.[0]?.ParsedText || ''
+    const lines = text.split('\n').filter((line: string) => line.trim())
+
+    return new Response(JSON.stringify({ text, lines }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'internal_error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+})
+```
+
+**TEST-CHECKLISTE:**
+1. Deploy: `supabase functions deploy ocr-screenshot`
+2. Test mit curl und Base64-Bild
+3. Prüfen: Deutsche Texte werden erkannt
+4. Prüfen: Fehler bei fehlendem Bild
+
+---
+
+## PW-202: Button "Screenshot hochladen" im Footer
+
+**TYP:** Feature
+**PRIORITÄT:** P0
+
+**PROBLEM:**
+- Ist-Zustand: Footer hat nur "Archivieren", "Abbrechen", "Speichern"
+- Soll-Zustand: Neuer Button "Screenshot hochladen" zentral im Footer
+
+**SCOPE-FENCE:**
+- Erlaubt: `src/features/themenliste/components/themenliste-footer.jsx`
+- Verboten: Keine Logik, nur Button der `onScreenshotUpload` Callback aufruft
+
+**CHANGE-BUDGET:**
+- Max Dateien: 1
+- Max Zeilen: 20
+
+**AKZEPTANZKRITERIEN:**
+- Button erscheint zentral zwischen "Archivieren" und Status-Bereich
+- Button ruft `onScreenshotUpload` Prop auf
+- Styling passt zum Rest (neutral, nicht primary)
+
+**IMPLEMENTIERUNG:**
+
+```diff
+// src/features/themenliste/components/themenliste-footer.jsx
+
+export default function ThemenlisteFooter({
+  onArchive,
+  onCancel,
+  onFinish,
+  onRetry,
++ onScreenshotUpload,
+  autoSaveStatus,
+  saveError,
+  canFinish,
+  isOnline,
+}) {
+  return (
+    <footer className="...">
+      {/* Links: Archivieren */}
+      <button onClick={onArchive}>...</button>
+
++     {/* Mitte: Screenshot Upload */}
++     <button
++       type="button"
++       onClick={onScreenshotUpload}
++       className="px-4 py-2 bg-neutral-800 text-white rounded-lg text-sm font-medium hover:bg-neutral-700 transition-colors"
++     >
++       Screenshot hochladen
++     </button>
+
+      {/* Rechts: Status + Abbrechen + Speichern */}
+      ...
+    </footer>
+  )
+}
+```
+
+**TEST-CHECKLISTE:**
+1. Themenlisten-Editor öffnen
+2. Button "Screenshot hochladen" ist sichtbar im Footer
+3. Klick ruft Callback auf (console.log zum Testen)
+
+---
+
+## PW-203: Screenshot-Upload-Dialog Komponente erstellen
+
+**TYP:** Feature
+**PRIORITÄT:** P0
+
+**PROBLEM:**
+- Ist-Zustand: Kein Upload-Dialog vorhanden
+- Soll-Zustand: Modal-Dialog mit Drag & Drop, Status-Anzeige, Vorschau
+
+**SCOPE-FENCE:**
+- Erlaubt: `src/features/themenliste/components/screenshot-upload-dialog.jsx` (neu)
+- Verboten: Keine OCR-Logik in diesem Ticket (nur UI)
+
+**CHANGE-BUDGET:**
+- Max Dateien: 1
+- Max Zeilen: 200
+
+**DIALOG-ZUSTÄNDE:**
+1. `idle` - Drag & Drop Bereich sichtbar
+2. `uploading` - "Upload läuft..."
+3. `uploaded` - "Upload erfolgreich, 5kb erkannt." + Button "Extrahieren"
+4. `extracting` - "Text wird extrahiert..."
+5. `preview` - Vorschau der erkannten Struktur (bearbeitbar)
+6. `error` - Fehlermeldung
+
+**AKZEPTANZKRITERIEN:**
+- Dialog ist Modal (blockiert Hintergrund)
+- Drag & Drop funktioniert für PNG/JPEG
+- Dateiname und Größe werden angezeigt
+- "Extrahieren" Button erst nach Upload aktiv
+- Vorschau zeigt hierarchische Struktur
+- "Verwerfen" und "Übernehmen" Buttons
+
+**IMPLEMENTIERUNG:**
+
+```jsx
+// src/features/themenliste/components/screenshot-upload-dialog.jsx
+import { useState, useCallback } from 'react';
+import { X, Upload, FileImage, Loader2, AlertCircle } from 'lucide-react';
+
+const STEPS = {
+  IDLE: 'idle',
+  UPLOADING: 'uploading',
+  UPLOADED: 'uploaded',
+  EXTRACTING: 'extracting',
+  PREVIEW: 'preview',
+  ERROR: 'error',
+};
+
+export default function ScreenshotUploadDialog({
+  open,
+  onClose,
+  onExtract,
+  onAccept,
+}) {
+  const [step, setStep] = useState(STEPS.IDLE);
+  const [file, setFile] = useState(null);
+  const [fileSize, setFileSize] = useState(null);
+  const [error, setError] = useState(null);
+  const [extractedData, setExtractedData] = useState(null);
+
+  // Reset when dialog closes
+  const handleClose = () => {
+    setStep(STEPS.IDLE);
+    setFile(null);
+    setFileSize(null);
+    setError(null);
+    setExtractedData(null);
+    onClose();
+  };
+
+  // Handle file drop/select
+  const handleFile = useCallback((selectedFile) => {
+    if (!selectedFile) return;
+
+    // Validate type
+    if (!['image/png', 'image/jpeg'].includes(selectedFile.type)) {
+      setError('Nur PNG und JPEG erlaubt');
+      setStep(STEPS.ERROR);
+      return;
+    }
+
+    // Validate size (max 5MB)
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      setError('Datei zu groß (max 5MB)');
+      setStep(STEPS.ERROR);
+      return;
+    }
+
+    setFile(selectedFile);
+    setFileSize(Math.round(selectedFile.size / 1024));
+    setStep(STEPS.UPLOADED);
+  }, []);
+
+  // Handle drag & drop
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    const droppedFile = e.dataTransfer.files[0];
+    handleFile(droppedFile);
+  }, [handleFile]);
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  // Handle extract button
+  const handleExtract = async () => {
+    if (!file) return;
+
+    setStep(STEPS.EXTRACTING);
+
+    try {
+      // Convert to base64
+      const base64 = await fileToBase64(file);
+
+      // Call parent extract function
+      const result = await onExtract(base64);
+
+      setExtractedData(result);
+      setStep(STEPS.PREVIEW);
+    } catch (err) {
+      setError(err.message || 'Extraktion fehlgeschlagen');
+      setStep(STEPS.ERROR);
+    }
+  };
+
+  // Handle accept
+  const handleAccept = () => {
+    onAccept(extractedData);
+    handleClose();
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+
+      {/* Dialog */}
+      <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+          <h3 className="text-lg font-semibold text-neutral-900">
+            Screenshot hochladen
+          </h3>
+          <button
+            onClick={handleClose}
+            className="p-1 text-neutral-400 hover:text-neutral-600 rounded transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <p className="text-center text-neutral-600 mb-6">
+            Lade den Fachplan als Screenshot hoch.
+          </p>
+
+          {/* Step: Idle - Drag & Drop */}
+          {step === STEPS.IDLE && (
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              className="border-2 border-dashed border-neutral-300 rounded-lg p-12 text-center hover:border-neutral-400 transition-colors cursor-pointer"
+            >
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={(e) => handleFile(e.target.files?.[0])}
+                className="hidden"
+                id="screenshot-input"
+              />
+              <label htmlFor="screenshot-input" className="cursor-pointer">
+                <Upload className="w-12 h-12 mx-auto text-neutral-400 mb-4" />
+                <p className="text-neutral-600">
+                  Datei hierher ziehen oder <span className="text-primary-600 underline">auswählen</span>
+                </p>
+                <p className="text-sm text-neutral-400 mt-2">PNG oder JPEG, max 5MB</p>
+              </label>
+            </div>
+          )}
+
+          {/* Step: Uploaded */}
+          {step === STEPS.UPLOADED && (
+            <div className="text-center">
+              <div className="inline-flex items-center gap-3 bg-green-50 text-green-700 px-4 py-3 rounded-lg mb-4">
+                <FileImage className="w-5 h-5" />
+                <span>Upload erfolgreich</span>
+                <span className="text-green-600">{fileSize}kb erkannt.</span>
+              </div>
+            </div>
+          )}
+
+          {/* Step: Extracting */}
+          {step === STEPS.EXTRACTING && (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 mx-auto text-primary-600 animate-spin mb-4" />
+              <p className="text-neutral-600">Text wird extrahiert...</p>
+            </div>
+          )}
+
+          {/* Step: Preview */}
+          {step === STEPS.PREVIEW && extractedData && (
+            <div className="bg-neutral-100 rounded-lg p-6">
+              <p className="text-sm text-neutral-500 mb-4">
+                Vorschau der erkannten Struktur (bearbeitbar):
+              </p>
+              <PreviewEditor
+                data={extractedData}
+                onChange={setExtractedData}
+              />
+            </div>
+          )}
+
+          {/* Step: Error */}
+          {step === STEPS.ERROR && (
+            <div className="text-center py-8">
+              <AlertCircle className="w-8 h-8 mx-auto text-red-500 mb-4" />
+              <p className="text-red-600">{error}</p>
+              <button
+                onClick={() => setStep(STEPS.IDLE)}
+                className="mt-4 text-primary-600 underline"
+              >
+                Erneut versuchen
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-between items-center p-4 border-t border-neutral-200 bg-neutral-50">
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 text-neutral-600 hover:text-neutral-800 transition-colors"
+          >
+            {step === STEPS.PREVIEW ? 'Verwerfen' : 'Abbrechen'}
+          </button>
+
+          {step === STEPS.UPLOADED && (
+            <button
+              onClick={handleExtract}
+              className="px-6 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+            >
+              Extrahieren
+            </button>
+          )}
+
+          {step === STEPS.PREVIEW && (
+            <button
+              onClick={handleAccept}
+              className="px-6 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+            >
+              Übernehmen
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helper: File to Base64
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Preview Editor Component (inline für jetzt)
+function PreviewEditor({ data, onChange }) {
+  // Einfache Textarea für v1 - später hierarchischer Editor
+  const text = data?.lines?.join('\n') || '';
+
+  return (
+    <textarea
+      value={text}
+      onChange={(e) => onChange({ ...data, lines: e.target.value.split('\n') })}
+      className="w-full h-64 p-3 border border-neutral-300 rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+      placeholder="Erkannte Zeilen..."
+    />
+  );
+}
+```
+
+**TEST-CHECKLISTE:**
+1. Dialog öffnen → Drag & Drop Bereich sichtbar
+2. PNG hochladen → "Upload erfolgreich" + Dateigröße
+3. "Extrahieren" Button klicken → Loading-State
+4. Vorschau erscheint → Text bearbeitbar
+5. "Verwerfen" → Dialog schließt, nichts passiert
+6. "Übernehmen" → Callback wird aufgerufen
+
+---
+
+## PW-204: Dialog in Themenlisten-Editor einbinden
+
+**TYP:** Feature
+**PRIORITÄT:** P0
+
+**PROBLEM:**
+- Ist-Zustand: Dialog existiert, aber nicht eingebunden
+- Soll-Zustand: Dialog wird bei Button-Klick geöffnet, OCR aufgerufen, Daten übernommen
+
+**SCOPE-FENCE:**
+- Erlaubt: `src/pages/themenliste-editor.jsx`
+- Verboten: Keine Änderungen an anderen Dateien
+
+**CHANGE-BUDGET:**
+- Max Dateien: 1
+- Max Zeilen: 60
+
+**AKZEPTANZKRITERIEN:**
+- Button im Footer öffnet Dialog
+- OCR wird über Supabase Edge Function aufgerufen
+- Bei "Übernehmen" werden Themen zur Liste hinzugefügt
+- Bei "Verwerfen" bleibt Liste unverändert
+
+**IMPLEMENTIERUNG:**
+
+```diff
+// src/pages/themenliste-editor.jsx
+
++ import ScreenshotUploadDialog from '../features/themenliste/components/screenshot-upload-dialog';
++ import { supabase } from '../lib/supabase';
+
+const ThemenlisteEditorPage = () => {
+  // ... existing state ...
+
++ const [showScreenshotDialog, setShowScreenshotDialog] = useState(false);
+
++ // OCR Extract Handler
++ const handleExtract = async (base64Image) => {
++   const { data, error } = await supabase.functions.invoke('ocr-screenshot', {
++     body: { image: base64Image },
++   });
++
++   if (error) throw new Error(error.message);
++   return data;
++ };
+
++ // Accept extracted data
++ const handleAcceptScreenshot = (extractedData) => {
++   if (!extractedData?.lines) return;
++
++   // Parse lines to themen
++   const newThemen = extractedData.lines
++     .filter(line => line.trim())
++     .map((line, index) => ({
++       id: `${Date.now()}-${index}`,
++       name: line.trim(),
++       description: '',
++       areaId: contentPlan.selectedAreas?.[0]?.id || null,
++       kapitelId: null,
++       order: contentPlan.themen.length + index,
++       aufgaben: [],
++     }));
++
++   updatePlan({
++     themen: [...contentPlan.themen, ...newThemen],
++   });
++
++   // Select first new thema
++   if (newThemen.length > 0) {
++     setSelectedThemaId(newThemen[0].id);
++   }
++ };
+
+  return (
+    <div>
+      {/* ... existing content ... */}
+
+      <ThemenlisteFooter
+        // ... existing props ...
++       onScreenshotUpload={() => setShowScreenshotDialog(true)}
+      />
+
++     <ScreenshotUploadDialog
++       open={showScreenshotDialog}
++       onClose={() => setShowScreenshotDialog(false)}
++       onExtract={handleExtract}
++       onAccept={handleAcceptScreenshot}
++     />
+    </div>
+  );
+};
+```
+
+**TEST-CHECKLISTE:**
+1. Button klicken → Dialog öffnet
+2. Screenshot hochladen → Extrahieren → Vorschau
+3. "Übernehmen" → Themen erscheinen in linker Navigation
+4. "Verwerfen" → Keine Änderungen
+
+---
+
+## PW-205: Parser für Terminplan-Screenshots
+
+**TYP:** Feature
+**PRIORITÄT:** P1
+
+**PROBLEM:**
+- Ist-Zustand: OCR gibt Rohtext zurück, keine Struktur
+- Soll-Zustand: Parser erkennt Datum + Thema und gruppiert sinnvoll
+
+**SCOPE-FENCE:**
+- Erlaubt: `src/utils/screenshot-parser.js` (neu)
+- Verboten: Keine UI-Änderungen
+
+**CHANGE-BUDGET:**
+- Max Dateien: 1
+- Max Zeilen: 100
+
+**AKZEPTANZKRITERIEN:**
+- Erkennt Datumsformat DD.MM.YYYY
+- Extrahiert Thema-Text nach Datum
+- Filtert Header-Zeilen (Termin, Datum, Programm)
+- Markiert Ferien/Feiertage als Hinweis
+
+**IMPLEMENTIERUNG:**
+
+```javascript
+// src/utils/screenshot-parser.js
+
+/**
+ * Parse OCR lines from schedule screenshots
+ * Supports formats:
+ * - "20.02.2025 Grundzüge des Strafverfahrens"
+ * - "1. 20.02.2025 Thema"
+ * - "20.02.2025 - 01.05.2025 Osterferien"
+ */
+
+const DATE_REGEX = /\b(\d{2}\.\d{2}\.\d{4})\b/;
+const HEADER_KEYWORDS = /^(Termin|Datum|Programm|Einheit|Schwerpunkt|Nr\.?)/i;
+const HINT_KEYWORDS = /\b(Ferien|Feiertag|Himmelfahrt|Ostern|Weihnachten|Keine Vorlesung|Ausweichstunde|Wiederholung)\b/i;
+
+export function parseScheduleLines(lines) {
+  const results = {
+    themen: [],
+    hinweise: [],
+    unparsed: [],
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Skip headers
+    if (HEADER_KEYWORDS.test(trimmed)) continue;
+
+    // Check for date
+    const dateMatch = trimmed.match(DATE_REGEX);
+
+    if (!dateMatch) {
+      results.unparsed.push(trimmed);
+      continue;
+    }
+
+    const date = dateMatch[1];
+
+    // Check if it's a hint (Ferien, Feiertag, etc.)
+    if (HINT_KEYWORDS.test(trimmed)) {
+      results.hinweise.push({
+        date,
+        text: trimmed,
+        type: 'hinweis',
+      });
+      continue;
+    }
+
+    // Extract topic text (everything after the date pattern)
+    let topic = trimmed
+      .replace(/^\d+\.?\s*/, '') // Remove leading number "1. "
+      .replace(DATE_REGEX, '')   // Remove date
+      .replace(/^\s*[-–]\s*/, '') // Remove dash after date
+      .trim();
+
+    // If topic is empty, use the whole line
+    if (!topic) topic = trimmed;
+
+    results.themen.push({
+      date,
+      name: topic,
+      type: 'thema',
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Convert parsed results to contentPlan themen format
+ */
+export function parsedToThemen(parsed, areaId = null) {
+  return parsed.themen.map((item, index) => ({
+    id: `imported-${Date.now()}-${index}`,
+    name: item.name,
+    description: `Datum: ${item.date}`,
+    areaId,
+    kapitelId: null,
+    order: index,
+    aufgaben: [],
+  }));
+}
+```
+
+**TEST-CHECKLISTE:**
+1. Test mit Screenshot 1 (Gesellschaftsrecht): Einheit + Datum + Schwerpunkt
+2. Test mit Screenshot 2 (AG Strafprozessordnung): Ferien werden als Hinweis erkannt
+3. Test mit Screenshot 3 (Strafrecht BT I): Datum + Thema Format
+
+---
+
+## PW-206: Hierarchische Vorschau im Dialog
+
+**TYP:** UX
+**PRIORITÄT:** P1
+
+**PROBLEM:**
+- Ist-Zustand: Vorschau ist nur Textarea
+- Soll-Zustand: Hierarchische Darstellung wie im Mockup (Fach → Kapitel → Thema → Aufgabe)
+
+**SCOPE-FENCE:**
+- Erlaubt: `src/features/themenliste/components/screenshot-upload-dialog.jsx`
+- Verboten: Keine Änderungen an anderen Dateien
+
+**CHANGE-BUDGET:**
+- Max Dateien: 1
+- Max Zeilen: 80
+
+**AKZEPTANZKRITERIEN:**
+- Eingerückte Darstellung: Fach, Kapitel, Thema, Aufgabe
+- Jedes Element ist inline editierbar (contentEditable oder Input)
+- Löschen-Button pro Zeile
+- Hinweise werden ausgegraut dargestellt
+
+**IMPLEMENTIERUNG:**
+
+```jsx
+// Erweiterung in screenshot-upload-dialog.jsx
+
+function PreviewEditor({ data, onChange }) {
+  const { themen = [], hinweise = [] } = data || {};
+
+  const handleThemaChange = (index, newName) => {
+    const updated = [...themen];
+    updated[index] = { ...updated[index], name: newName };
+    onChange({ ...data, themen: updated });
+  };
+
+  const handleThemaDelete = (index) => {
+    const updated = themen.filter((_, i) => i !== index);
+    onChange({ ...data, themen: updated });
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-neutral-700 mb-3">
+        Erkannte Themen ({themen.length}):
+      </p>
+
+      {themen.map((thema, index) => (
+        <div
+          key={index}
+          className="flex items-center gap-2 bg-white p-2 rounded border border-neutral-200"
+        >
+          <div className="w-1 h-6 bg-primary-400 rounded-full" />
+          <input
+            type="text"
+            value={thema.name}
+            onChange={(e) => handleThemaChange(index, e.target.value)}
+            className="flex-1 text-sm border-none focus:outline-none focus:ring-0"
+          />
+          <span className="text-xs text-neutral-400">{thema.date}</span>
+          <button
+            onClick={() => handleThemaDelete(index)}
+            className="p-1 text-neutral-400 hover:text-red-500"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      ))}
+
+      {hinweise.length > 0 && (
+        <>
+          <p className="text-sm font-medium text-neutral-500 mt-4 mb-2">
+            Hinweise (nicht importiert):
+          </p>
+          {hinweise.map((h, i) => (
+            <div key={i} className="text-sm text-neutral-400 italic pl-4">
+              {h.text}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+**TEST-CHECKLISTE:**
+1. Vorschau zeigt Themen mit Farbbalken
+2. Text ist inline editierbar
+3. Löschen-Button entfernt Thema
+4. Hinweise werden ausgegraut angezeigt
+
+---
+
+## PW-207: Fehlerbehandlung und Validierung
+
+**TYP:** Bug
+**PRIORITÄT:** P1
+
+**PROBLEM:**
+- Ist-Zustand: Keine Validierung, Fehler crashen die App
+- Soll-Zustand: Robuste Fehlerbehandlung mit User-Feedback
+
+**SCOPE-FENCE:**
+- Erlaubt: Dialog + Edge Function
+- Verboten: Keine neuen Features
+
+**CHANGE-BUDGET:**
+- Max Dateien: 2
+- Max Zeilen: 40
+
+**AKZEPTANZKRITERIEN:**
+- Falsches Dateiformat → Klare Fehlermeldung
+- Datei zu groß → Klare Fehlermeldung
+- OCR fehlgeschlagen → Retry-Option
+- Leeres OCR-Ergebnis → Hinweis "Kein Text erkannt"
+- Netzwerkfehler → Offline-Hinweis
+
+**TEST-CHECKLISTE:**
+1. PDF hochladen → "Nur PNG und JPEG erlaubt"
+2. 10MB Bild → "Datei zu groß (max 5MB)"
+3. Leeres Bild → "Kein Text erkannt"
+4. Internet aus → "Keine Verbindung"
+
+---
+
+## PW-208: Datenschutz - Buffer sofort verwerfen
+
+**TYP:** Bug
+**PRIORITÄT:** P0
+
+**PROBLEM:**
+- Ist-Zustand: Unklar ob Bilddaten irgendwo gespeichert werden
+- Soll-Zustand: Bilder werden nur temporär verarbeitet, nie persistent gespeichert
+
+**SCOPE-FENCE:**
+- Erlaubt: Edge Function, Dialog
+- Verboten: Keine Logs mit Bildinhalten
+
+**CHANGE-BUDGET:**
+- Max Dateien: 2
+- Max Zeilen: 20
+
+**AKZEPTANZKRITERIEN:**
+- Edge Function speichert keine Bilder
+- Frontend löscht Base64 nach Upload
+- Keine OCR-Texte in Logs
+- Bei Fehler werden keine Bilddaten zurückgegeben
+
+**IMPLEMENTIERUNG:**
+
+```typescript
+// In Edge Function: Keine Logs mit Bilddaten
+// NICHT: console.log('Image:', image)
+// STATTDESSEN: console.log('Processing image, size:', image.length)
+```
+
+```jsx
+// In Dialog: Base64 nach Upload löschen
+const handleExtract = async () => {
+  const base64 = await fileToBase64(file);
+  try {
+    const result = await onExtract(base64);
+    // ... handle result
+  } finally {
+    // Clear from memory
+    setFile(null);
+  }
+};
+```
+
+**TEST-CHECKLISTE:**
+1. Server-Logs prüfen: Keine Bilddaten
+2. Browser DevTools: Base64 wird nicht gespeichert
+3. Supabase Dashboard: Keine Bilder in Storage
+
+---
+
+## Zusammenfassung
+
+| Ticket | Titel | Priorität | Aufwand |
+|--------|-------|-----------|---------|
+| PW-201 | Edge Function OCR.space | P0 | 1h |
+| PW-202 | Button im Footer | P0 | 15min |
+| PW-203 | Upload-Dialog Komponente | P0 | 2h |
+| PW-204 | Dialog einbinden | P0 | 30min |
+| PW-205 | Parser für Terminpläne | P1 | 1h |
+| PW-206 | Hierarchische Vorschau | P1 | 1h |
+| PW-207 | Fehlerbehandlung | P1 | 30min |
+| PW-208 | Datenschutz | P0 | 15min |
+| PW-209 | Clipboard Paste Support | P1 | 30min |
+| PW-210 | Edge Function Deployment | P0 | 15min |
+| PW-211 | Mistral OCR + KI-Parser | P0 | 3h |
+
+**Gesamtaufwand:** ~7h
+
+**Reihenfolge:**
+1. PW-201 (Edge Function) - Backend zuerst
+2. PW-202 + PW-203 (Button + Dialog)
+3. PW-204 (Integration)
+4. PW-208 (Datenschutz)
+5. PW-205 + PW-206 (Parser + bessere Vorschau)
+6. PW-207 (Fehlerbehandlung)
+
+---
+
+## PW-209: Clipboard Paste Support für Screenshots
+
+**TYP:** Feature
+**PRIORITÄT:** P1
+**STATUS:** OFFEN
+
+**PROBLEM:**
+- Ist-Zustand: Screenshots können nur per Drag & Drop oder Dateiauswahl hochgeladen werden
+- Soll-Zustand: Screenshots können auch per Strg+V (Ctrl+V) direkt aus der Zwischenablage eingefügt werden
+- Kontext: Screenshot-Upload-Dialog in Themenlisten-Editor
+
+**ROOT CAUSE:**
+- Dialog implementiert `onDrop` und `onChange` für Dateiauswahl
+- Kein `onPaste` Event-Handler für Clipboard-Zugriff
+- Clipboard API (`navigator.clipboard.read()`) nicht implementiert
+
+**SCOPE-FENCE:**
+- Erlaubt: `src/features/themenliste/components/screenshot-upload-dialog.jsx`
+- Verboten: Keine Änderungen an anderen Dateien
+
+**CHANGE-BUDGET:**
+- Max Dateien: 1
+- Max Zeilen: 40
+
+**AKZEPTANZKRITERIEN:**
+- Strg+V im Dialog fügt Screenshot aus Zwischenablage ein
+- Funktioniert sowohl bei Windows-Screenshots (Win+Shift+S) als auch bei kopierten Bildern
+- Nach Einfügen wird automatisch zu Step "UPLOADED" gewechselt
+- Fehlerfall: Keine Bilddaten in Clipboard → Hinweis anzeigen
+
+**IMPLEMENTIERUNG:**
+
+```diff
+// src/features/themenliste/components/screenshot-upload-dialog.jsx
+
++ import { useEffect } from 'react';
+
+export default function ScreenshotUploadDialog({
+  open,
+  onClose,
+  onExtract,
+  onAccept,
+}) {
+  // ... existing state ...
+
++ // PW-209: Handle clipboard paste
++ useEffect(() => {
++   if (!open) return;
++
++   const handlePaste = async (e) => {
++     const items = e.clipboardData?.items;
++     if (!items) return;
++
++     for (const item of items) {
++       if (item.type.startsWith('image/')) {
++         e.preventDefault();
++         const blob = item.getAsFile();
++         if (blob) {
++           handleFile(blob);
++         }
++         return;
++       }
++     }
++   };
++
++   document.addEventListener('paste', handlePaste);
++   return () => document.removeEventListener('paste', handlePaste);
++ }, [open, handleFile]);
+
+  // ... rest of component ...
+}
+```
+
+**TEST-CHECKLISTE:**
+1. Dialog öffnen → Screenshot mit Win+Shift+S erstellen → Strg+V im Dialog → Upload erfolgreich
+2. Dialog öffnen → Bild in anderem Programm kopieren → Strg+V im Dialog → Upload erfolgreich
+3. Dialog öffnen → Text kopieren → Strg+V → Keine Aktion (kein Fehler)
+4. Dialog geschlossen → Strg+V → Keine Aktion (Event wird nicht verarbeitet)
+
+---
+
+## PW-210: Edge Function Deployment + CORS
+
+**TYP:** Bug
+**PRIORITÄT:** P0
+**STATUS:** OFFEN
+
+**PROBLEM:**
+- Ist-Zustand: `supabase.functions.invoke('ocr-screenshot')` schlägt mit CORS-Fehler fehl
+- Soll-Zustand: Edge Function ist deployed und erreichbar von localhost und Production
+- Kontext: OCR-Extraktion funktioniert nicht, weil Edge Function nicht deployed ist
+
+**FEHLER-MELDUNG:**
+```
+Access to fetch at 'https://vitvxwfcutysuifuqnqi.supabase.co/functions/v1/ocr-screenshot'
+from origin 'http://localhost:3001' has been blocked by CORS policy:
+Response to preflight request doesn't pass access control check:
+No 'Access-Control-Allow-Origin' header is present on the requested resource.
+```
+
+**ROOT CAUSE:**
+- Edge Function `supabase/functions/ocr-screenshot/index.ts` existiert lokal aber ist nicht deployed
+- Supabase gibt 404/CORS-Fehler zurück wenn Function nicht existiert
+- CORS-Headers im Code sind korrekt, aber Function muss erst deployed werden
+
+**SCOPE-FENCE:**
+- Erlaubt: Deployment-Commands, Supabase Dashboard
+- Erlaubt: `supabase/functions/ocr-screenshot/index.ts` (falls CORS-Anpassung nötig)
+- Verboten: Keine Änderungen am Frontend
+
+**CHANGE-BUDGET:**
+- Max Dateien: 1 (ggf. CORS-Header anpassen)
+- Deployment: 1 Command
+
+**AKZEPTANZKRITERIEN:**
+- Edge Function ist deployed auf Supabase
+- Function erreichbar von localhost:3000/3001
+- Function erreichbar von Production (Vercel)
+- OCR.space API Key ist als Secret gesetzt
+- Preflight (OPTIONS) Request gibt 200 zurück
+
+**IMPLEMENTIERUNG:**
+
+```bash
+# 1. Supabase CLI Login (falls noch nicht)
+npx supabase login
+
+# 2. Link zum Projekt
+npx supabase link --project-ref vitvxwfcutysuifuqnqi
+
+# 3. Secret für OCR API Key setzen
+npx supabase secrets set OCR_SPACE_API_KEY=helloworld
+
+# 4. Function deployen
+npx supabase functions deploy ocr-screenshot
+
+# 5. Testen
+curl -X OPTIONS https://vitvxwfcutysuifuqnqi.supabase.co/functions/v1/ocr-screenshot \
+  -H "Origin: http://localhost:3001" \
+  -H "Access-Control-Request-Method: POST" \
+  -v
+```
+
+**ALTERNATIVE (falls Supabase CLI nicht verfügbar):**
+- Supabase Dashboard → Functions → New Function
+- Code aus `supabase/functions/ocr-screenshot/index.ts` kopieren
+- Secrets im Dashboard unter Settings → Edge Functions setzen
+
+**TEST-CHECKLISTE:**
+1. OPTIONS Request gibt 200 mit CORS-Headers zurück
+2. POST Request mit Test-Bild funktioniert
+3. Frontend: Screenshot hochladen → Extrahieren → OCR-Ergebnis angezeigt
+4. Production: Gleicher Test auf deployed Vercel-App
+
+---
+
+## PW-211: Mistral OCR + KI-Parser für intelligente Themenlisten-Extraktion
+
+**TYP:** Feature (Ersetzt OCR.space)
+**PRIORITÄT:** P0
+**STATUS:** OFFEN
+
+**PROBLEM:**
+- Ist-Zustand: OCR.space liefert Rohtext ohne Struktur, Parser erkennt Hierarchie nicht
+- Soll-Zustand: Mistral OCR + Chat API extrahiert strukturierte Themenliste (Fach, Kapitel, Themen, Aufgaben)
+- Kontext: Screenshot-Upload in Themenlisten-Editor
+
+**LÖSUNG:**
+Zwei-Schritt-Verarbeitung in einer Supabase Edge Function:
+1. **Mistral OCR API** (`mistral-ocr-latest`): Bild → Markdown/Text
+2. **Mistral Chat API** (`mistral-small-latest`): Text → Strukturiertes JSON
+
+**ARCHITEKTUR:**
+
+```
+┌──────────────┐       ┌─────────────────────┐       ┌─────────────┐
+│   Frontend   │       │    Edge Function    │       │  Mistral AI │
+│   (Dialog)   │──────▶│   super-processor   │──────▶│     API     │
+└──────────────┘       └─────────────────────┘       └─────────────┘
+   Base64 Bild            1. OCR (Bild→Text)          mistral-ocr-latest
+                          2. Chat (Text→JSON)         mistral-small-latest
+   JSON Result  ◀─────────────────────────────────────────────────────────
+```
+
+**Ablauf:**
+1. Frontend sendet Base64-Bild an Edge Function
+2. Edge Function ruft Mistral OCR API auf → erhält Markdown-Text
+3. Edge Function ruft Mistral Chat API auf → erhält strukturiertes JSON
+4. Frontend erhält `{ fach, kapitel, themen }` für Preview
+
+**SCOPE-FENCE:**
+- Erlaubt: `supabase/functions/super-processor/index.ts` (komplett neu schreiben)
+- Erlaubt: `src/pages/themenliste-editor.jsx` (handleScreenshotAccept anpassen)
+- Erlaubt: `src/features/themenliste/components/screenshot-upload-dialog.jsx` (Preview anpassen)
+- Erlaubt: Supabase Secrets (MISTRAL_API_KEY)
+- Verboten: Andere Dateien ändern
+- Verboten: Lokale KI-Modelle oder andere APIs
+
+**CHANGE-BUDGET:**
+- Max Dateien: 3
+- Max Zeilen: 200
+
+**DATENSTRUKTUR:**
+
+Input (vom Frontend):
+```json
+{
+  "image": "base64-encoded-png-or-jpeg"
+}
+```
+
+Output (von Edge Function):
+```json
+{
+  "fach": "BGB Allgemeiner Teil",
+  "kapitel": [
+    {
+      "name": "I. Rechtsgeschäftslehre",
+      "themen": [
+        {
+          "name": "Willenserklärung",
+          "aufgaben": ["Begriff", "Abgabe", "Zugang"]
+        },
+        {
+          "name": "Vertragsschluss",
+          "aufgaben": ["Angebot", "Annahme"]
+        }
+      ]
+    }
+  ],
+  "themen": [],
+  "raw_text": "Original OCR Text für Debug"
+}
+```
+
+Hinweis: Wenn keine Kapitel erkannt werden, bleibt `kapitel` leer und `themen` enthält die flache Liste.
+
+**AKZEPTANZKRITERIEN:**
+
+1. **OCR-Qualität:**
+   - Terminplan-Screenshots werden korrekt als Text extrahiert
+   - Gliederungen mit römischen Ziffern (I, II, III) werden erkannt
+   - Tabellen werden strukturiert erfasst
+
+2. **KI-Parsing:**
+   - Fach/Kursname wird aus Überschrift extrahiert
+   - Hierarchie wird korrekt erkannt (Kapitel vs Thema vs Aufgabe)
+   - Datumsangaben werden ignoriert (nicht in Themennamen)
+   - Ferien/Feiertage werden als Hinweise markiert, nicht als Themen
+
+3. **Frontend-Integration:**
+   - Preview zeigt strukturierte Vorschau (nicht Rohzeilen)
+   - Nutzer kann vor Import bearbeiten/löschen
+   - "Übernehmen" fügt Themen korrekt in contentPlan ein
+
+4. **Fehlerbehandlung:**
+   - Timeout nach 30 Sekunden mit Fehlermeldung
+   - Leeres Bild → "Kein Text erkannt"
+   - API-Fehler → "Verarbeitung fehlgeschlagen, bitte erneut versuchen"
+
+5. **Performance:**
+   - Gesamtzeit < 10 Sekunden pro Screenshot
+   - Keine Bilddaten werden gespeichert (Datenschutz)
+
+**IMPLEMENTIERUNG:**
+
+**Teil 1: Edge Function (supabase/functions/super-processor/index.ts)**
+
+```typescript
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
+const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY')
+const MISTRAL_OCR_URL = 'https://api.mistral.ai/v1/ocr'
+const MISTRAL_CHAT_URL = 'https://api.mistral.ai/v1/chat/completions'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const SYSTEM_PROMPT = `Du bist ein Parser für universitäre Terminpläne und Gliederungen.
+Analysiere den Text und extrahiere die Struktur als JSON.
+
+Regeln:
+- "fach": Name des Kurses/Fachs (aus Überschrift oder Kontext)
+- "kapitel": Nur wenn eindeutige Kapitel-Ebene erkennbar (z.B. "I. Allgemeiner Teil")
+- "themen": Hauptlernthemen (z.B. "Willenserklärung", "Tatbestand")
+- "aufgaben": Untergeordnete Punkte eines Themas (z.B. "a) objektiv", "b) subjektiv")
+- Ignoriere: Datumsangaben, Uhrzeiten, Raumnummern, Dozentennamen
+- Markiere Ferien/Feiertage NICHT als Themen
+
+Antworte NUR mit validem JSON:
+{
+  "fach": "string oder null",
+  "kapitel": [{ "name": "string", "themen": [{ "name": "string", "aufgaben": ["string"] }] }],
+  "themen": [{ "name": "string", "aufgaben": ["string"] }]
+}`
+
+serve(async (req) => {
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const { image } = await req.json()
+
+    if (!image) {
+      return new Response(
+        JSON.stringify({ error: 'image_missing' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Step 1: Mistral OCR
+    const ocrResponse = await fetch(MISTRAL_OCR_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mistral-ocr-latest',
+        document: {
+          type: 'image_url',
+          image_url: `data:image/png;base64,${image}`
+        }
+      })
+    })
+
+    if (!ocrResponse.ok) {
+      const errorText = await ocrResponse.text()
+      console.error('OCR Error:', errorText)
+      return new Response(
+        JSON.stringify({ error: 'ocr_failed', details: errorText }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const ocrData = await ocrResponse.json()
+    const rawText = ocrData.pages?.map((p: any) => p.markdown).join('\n') || ''
+
+    if (!rawText.trim()) {
+      return new Response(
+        JSON.stringify({ error: 'no_text_found', raw_text: '' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Step 2: Mistral Chat for structured parsing
+    const chatResponse = await fetch(MISTRAL_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mistral-small-latest',
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: rawText }
+        ]
+      })
+    })
+
+    if (!chatResponse.ok) {
+      const errorText = await chatResponse.text()
+      console.error('Chat Error:', errorText)
+      // Fallback: Return raw text as lines
+      return new Response(
+        JSON.stringify({
+          fach: null,
+          kapitel: [],
+          themen: rawText.split('\n').filter(l => l.trim()).map(name => ({ name, aufgaben: [] })),
+          raw_text: rawText
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const chatData = await chatResponse.json()
+    const parsed = JSON.parse(chatData.choices[0].message.content)
+
+    return new Response(
+      JSON.stringify({ ...parsed, raw_text: rawText }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error) {
+    console.error('Edge function error:', error.message)
+    return new Response(
+      JSON.stringify({ error: 'internal_error', message: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})
+```
+
+**Teil 2: Frontend - handleScreenshotAccept anpassen**
+
+```javascript
+// src/pages/themenliste-editor.jsx
+
+const handleScreenshotAccept = useCallback((extractedData) => {
+  if (!extractedData) return;
+
+  const newThemen = [];
+  let order = contentPlan.themen.length;
+
+  // Fall 1: Kapitel mit Themen
+  if (extractedData.kapitel?.length > 0) {
+    for (const kapitel of extractedData.kapitel) {
+      for (const thema of kapitel.themen || []) {
+        newThemen.push({
+          id: `imported-${Date.now()}-${order}`,
+          name: thema.name,
+          description: kapitel.name, // Kapitel als Beschreibung
+          areaId: contentPlan.selectedAreas?.[0]?.id || null,
+          kapitelId: null,
+          order: order++,
+          aufgaben: (thema.aufgaben || []).map((aufgabe, idx) => ({
+            id: `aufgabe-${Date.now()}-${order}-${idx}`,
+            title: aufgabe,
+            completed: false,
+          })),
+        });
+      }
+    }
+  }
+
+  // Fall 2: Flache Themenliste
+  if (extractedData.themen?.length > 0) {
+    for (const thema of extractedData.themen) {
+      newThemen.push({
+        id: `imported-${Date.now()}-${order}`,
+        name: thema.name,
+        description: '',
+        areaId: contentPlan.selectedAreas?.[0]?.id || null,
+        kapitelId: null,
+        order: order++,
+        aufgaben: (thema.aufgaben || []).map((aufgabe, idx) => ({
+          id: `aufgabe-${Date.now()}-${order}-${idx}`,
+          title: aufgabe,
+          completed: false,
+        })),
+      });
+    }
+  }
+
+  if (newThemen.length === 0) return;
+
+  // Fach als Name setzen falls vorhanden und noch kein Name
+  const updates = { themen: [...contentPlan.themen, ...newThemen] };
+  if (extractedData.fach && !contentPlan.name) {
+    updates.name = extractedData.fach;
+  }
+
+  updatePlan(updates);
+  setSelectedThemaId(newThemen[0].id);
+}, [contentPlan, updatePlan]);
+```
+
+**Teil 3: Preview-Dialog anpassen (optional, kann in separatem Ticket)**
+
+Die PreviewEditor-Komponente sollte die neue JSON-Struktur hierarchisch anzeigen statt nur Zeilen.
+
+**DEPLOYMENT:**
+
+```bash
+# 1. Mistral API Key als Secret setzen
+npx supabase secrets set MISTRAL_API_KEY=your-mistral-api-key
+
+# 2. Function deployen
+npx supabase functions deploy super-processor --no-verify-jwt
+
+# 3. Testen
+curl -X POST https://vitvxwfcutysuifuqnqi.supabase.co/functions/v1/super-processor \
+  -H "Content-Type: application/json" \
+  -d '{"image": "BASE64_TEST_IMAGE"}'
+```
+
+**TEST-CHECKLISTE:**
+
+1. **OCR-Test:**
+   - [ ] Terminplan-Screenshot hochladen → Text wird extrahiert
+   - [ ] Gliederung mit I., II., III. → Kapitel werden erkannt
+   - [ ] Tabelle mit Datum | Thema → Themen werden extrahiert
+
+2. **Parsing-Test:**
+   - [ ] "BGB AT Terminplan" → fach: "BGB AT"
+   - [ ] "I. Allgemeiner Teil" → kapitel[0].name
+   - [ ] "1. Willenserklärung" → themen[0].name
+   - [ ] "a) Abgabe" → themen[0].aufgaben[0]
+   - [ ] "Osterferien" → Wird NICHT als Thema importiert
+
+3. **Frontend-Test:**
+   - [ ] Preview zeigt strukturierte Ansicht
+   - [ ] "Übernehmen" fügt Themen korrekt ein
+   - [ ] Fach wird als contentPlan.name gesetzt
+
+4. **Error-Test:**
+   - [ ] Leeres Bild → Fehlermeldung "Kein Text erkannt"
+   - [ ] Ungültiges Bild → Fehlermeldung
+   - [ ] API-Timeout → Fehlermeldung mit Retry-Option
+
+**KOSTEN-SCHÄTZUNG:**
+- Mistral OCR: ~$0.002 pro Bild
+- Mistral Chat: ~$0.001 pro Aufruf
+- Gesamt: ~$0.003 pro Screenshot (~3€ pro 1000 Uploads)

@@ -32,7 +32,8 @@ import Step8RgSelect from './steps/step-8-rg-select';
 import Step9UrgsEdit from './steps/step-9-urgs-edit';
 import Step10UrgsSuccess from './steps/step-10-urgs-success';
 import Step11ThemenIntro from './steps/step-11-themen-intro';
-import Step12ThemenEdit from './steps/step-12-themen-edit';
+// PW-027: Using V2 with new sidebar layout
+import Step12ThemenEdit from './steps/step-12-themen-edit-v2';
 // Step 13 removed - skipped in wizard flow (see wizard-context.jsx)
 import Step14Gewichtung from './steps/step-14-gewichtung';
 import Step15Lernbloecke from './steps/step-15-lernbloecke';

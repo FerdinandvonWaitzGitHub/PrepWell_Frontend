@@ -1,16 +1,18 @@
-import { Archive, X, Check, Loader2, RefreshCw, WifiOff, AlertCircle, Clock } from 'lucide-react';
+import { Archive, X, Check, Loader2, RefreshCw, WifiOff, AlertCircle, Clock, ImagePlus } from 'lucide-react';
 
 /**
  * ThemenlisteFooter - Footer with Archive, Cancel, Save, and auto-save status
  * T27: Updated to match Figma design (texts, colors)
  * T33: Added retry, offline, error, and pending states with manual retry button
  * T33 Phase 5: Optimistic UI with "pending" status for instant feedback
+ * PW-202: Added Screenshot Upload button
  */
 const ThemenlisteFooter = ({
   onArchive,
   onCancel,
   onFinish,
   onRetry,
+  onScreenshotUpload, // PW-202: Callback for screenshot upload
   autoSaveStatus, // 'saved' | 'saving' | 'retrying' | 'offline' | 'error' | 'pending'
   saveError, // { message, canRetry }
   canFinish = true, // T23: Disable finish if validation fails
@@ -101,6 +103,17 @@ const ThemenlisteFooter = ({
           <span>Lernplan archivieren</span>
           <Archive size={16} />
         </button>
+
+        {/* Center: Screenshot Upload Button - PW-202 */}
+        {onScreenshotUpload && (
+          <button
+            onClick={onScreenshotUpload}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-neutral-800 hover:bg-neutral-700 rounded-full transition-colors"
+          >
+            <ImagePlus size={16} />
+            <span>Screenshot hochladen</span>
+          </button>
+        )}
 
         {/* Right: Cancel + Save Status + Save */}
         <div className="flex items-center gap-2">

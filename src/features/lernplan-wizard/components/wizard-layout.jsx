@@ -98,7 +98,8 @@ const WizardLayout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    // PW-025 Bug 2 FIX: Changed min-h-screen to h-screen to force content to scroll within viewport
+    <div className="h-screen bg-white flex flex-col overflow-hidden">
       {/* Header - Simplified without main navigation */}
       <header className="h-[72px] px-8 flex items-center justify-between border-b border-neutral-200">
         {/* Logo */}
@@ -136,8 +137,9 @@ const WizardLayout = ({ children }) => {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col">
-        <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-12">
+      {/* PW-025 Bug 2 FIX: Added min-h-0 to allow flex children to shrink and respect overflow */}
+      <main className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 max-w-6xl mx-auto w-full px-4 sm:px-8 py-8 sm:py-12">
           {children}
         </div>
       </main>

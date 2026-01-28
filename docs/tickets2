@@ -1,0 +1,349 @@
+================================================================================
+PW-030: Wizard zu Kalender - falsche Fächer und Blocks (trotz VWL Setting)
+================================================================================
+STATUS: OFFEN
+TYP: Bug
+PRIORITÄT: P0
+
+PROBLEM:
+Im Lernplan Wizard tauchen Blocks wie Rechtsgebiet und URG auf, obwohl in den
+User Settings als Studienfach VWL eingestellt ist. Im Kalender werden Themen
+zwar weitergeleitet und erhalten die richtige Rechtsgebiet Farbe, aber die
+Auswahl im Wizard scheint nicht aus den User Settings Fächerlisten zu kommen,
+sondern aus einem Default oder einem alten Zustand.
+
+SOLL-ZUSTAND:
+Wizard und Kalender nutzen konsistent dieselbe Quelle für Fächer und Block-Typen.
+Wenn Studienfach VWL eingestellt ist, dürfen im Wizard keine juristischen
+Default-Fächer wie Rechtsgebiet oder URG erscheinen, sondern nur die Fächer
+aus den User Settings.
+
+ROOT CAUSE (VERIFIZIERT):
+Lage: src/features/lernplan-wizard/steps/step-7-urg-mode.jsx, Zeilen 92-115
+
+```javascript
+// Zeile 95-96: HARDCODED DEFAULT
+const DEFAULT_RECHTSGEBIETE = ['zivilrecht', 'oeffentliches-recht', 'strafrecht'];
+
+// Zeile 98-106: Versucht, User Settings zu lesen
+try {
+  const savedSettings = localStorage.getItem(SETTINGS_KEY);
+  if (savedSettings) {
+    const settings = JSON.parse(savedSettings);
+    const userRechtsgebiete = settings?.jura?.selectedRechtsgebiete;  // ← PROBLEM
+    // ...
+  }
+} catch (e) { ... }
+
+// Zeile 113: FALLBACK ZU HARDCODED DEFAULTS
+updateWizardData({ selectedRechtsgebiete: DEFAULT_RECHTSGEBIETE });
+```
+
+PROBLEME:
+1. Falscher Settings-Pfad: Code sucht nach `settings.jura.selectedRechtsgebiete`
+2. Keine Alternative: Kein user-settings-context.jsx oder Supabase-Integration
+3. Hardcoded Fallback: Wenn User Settings nicht gelesen werden → IMMER juristische Fächer
+4. Keine VWL-Unterstützung: Für VWL-Nutzer gibt es keine wirtschaftlichen Fächer
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ step-7-urg-mode.jsx: DEFAULT_RECHTSGEBIETE durch User Settings ersetzen  │
+│ ✅ step-7-urg-mode.jsx: Settings-Pfad korrigieren (falls falsch)            │
+│ ✅ Verbindung zu korrekter Settings-Quelle herstellen                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Refactoring von bestehenden Komponenten                                  │
+│ ❌ Neue Dependencies hinzufügen                                             │
+│ ❌ UI-Änderungen außerhalb des betroffenen Bereichs                         │
+│ ❌ API Contracts ändern                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+- src/features/lernplan-wizard/steps/step-7-urg-mode.jsx (Zeile 92-115)
+
+CHANGE-BUDGET:
+- Max 1 Datei
+- Max 30 geänderte Zeilen
+
+AKZEPTANZKRITERIEN:
+- [ ] Wizard lädt Fächer aus korrekter Settings-Quelle
+- [ ] Bei Studienfach VWL erscheinen keine juristischen Defaults (RG, URG)
+- [ ] Fallback nur wenn KEINE User Settings existieren
+- [ ] Settings-Pfad ist korrekt und funktioniert
+
+TESTPLAN:
+1. User Settings → Studienfach auf "VWL" setzen
+2. Wizard starten → Step 7 prüfen
+3. Erwartung: Nur VWL-relevante Fächer sichtbar, keine RG/URG
+4. Wizard starten OHNE User Settings → Fallback prüfen
+5. Erwartung: Sinnvoller Default (nicht hardcoded Jura)
+
+
+================================================================================
+PW-031: Wizard zu Kalender - Aufgaben werden nicht übernommen
+================================================================================
+STATUS: GEFIXT
+TYP: Bug
+PRIORITÄT: P0
+
+PROBLEM:
+Themen werden vom Lernplan Wizard in den Kalender übernommen (inklusive
+korrekter Rechtsgebiet Farbe), aber Aufgaben erscheinen im Kalender nicht
+oder gehen beim Speichern verloren.
+
+SOLL-ZUSTAND:
+Aufgaben, die im Wizard zu einem Thema oder Block erfasst werden, werden
+beim Erstellen des Plans korrekt persistiert und im Kalender angezeigt.
+
+ROOT CAUSE (VERIFIZIERT):
+**3 separate Probleme identifiziert:**
+
+**Problem 1: Queue-Länge-Mismatch**
+Lage: wizard-context.jsx, Zeilen 873-890
+- contentQueue hat N Items, aber täglich gibt es M Blöcke
+- Wenn täglich 3 Blöcke aber nur 2 Content-Items → 3. Block erhält NULL
+- contentIndex++ inkrementiert für JEDEN Block, nicht alle haben Content
+
+**Problem 2: Tasks werden NICHT separat persistiert (KRITISCH)**
+Lage: calendar-context.jsx, Zeilen 361-378
+
+```javascript
+const setCalendarData = useCallback(async (newBlocks, metadata = {}) => {
+  await setBlocksByDateSync(newBlocks);  // ← NUR BLOCKS, KEINE TASKS!
+  await updateLernplanMetadataSync(newMetadata);
+});
+```
+
+Supabase hat SEPARATE Tabellen:
+- `calendar_blocks` → Blöcke (Tag, Position, Rechtsgebiet)
+- `calendar_tasks` → Tasks (separate Zeilen mit dateKey FK)
+
+Tasks sind im Wizard EMBEDDED in blocks.tasks[], aber müssen SEPARAT
+in `calendar_tasks` gespeichert werden via `saveDayTasks()`.
+
+**Problem 3: saveDayTasks() wird NIEMALS aufgerufen**
+Lage: wizard-context.jsx, nach setCalendarData()
+
+```javascript
+// FEHLENDER CODE nach setCalendarData():
+for (const [dateKey, dayBlocks] of Object.entries(blocks)) {
+  const dayTasks = dayBlocks.flatMap(b => b.tasks || []);
+  if (dayTasks.length > 0) {
+    await saveDayTasks(dateKey, dayTasks);  // ← FEHLT KOMPLETT!
+  }
+}
+```
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ wizard-context.jsx: Nach setCalendarData() → saveDayTasks() aufrufen     │
+│ ✅ wizard-context.jsx: Tasks aus blocks extrahieren und separat speichern   │
+│ ✅ calendar-context.jsx: saveDayTasks im value-Objekt exponieren            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Datenstruktur ändern (Block-Format, Tasks-Format)                        │
+│ ❌ Supabase Schema ändern                                                   │
+│ ❌ UI-Änderungen                                                            │
+│ ❌ Themen oder Farben regressieren                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+- src/features/lernplan-wizard/context/wizard-context.jsx (completeWizard, completeManualCalendar, completeAutomaticLernplan)
+- src/contexts/calendar-context.jsx (saveDayTasks exponieren falls nötig)
+
+CHANGE-BUDGET:
+- Max 2 Dateien
+- Max 50 geänderte Zeilen
+
+AKZEPTANZKRITERIEN:
+- [x] Tasks werden nach Wizard-Completion in `calendar_tasks` Tabelle gespeichert
+- [x] saveDayTasks() wird für jedes Datum mit Tasks aufgerufen
+- [ ] Aufgaben sind nach Planerstellung im Kalender sichtbar (manuell testen)
+- [ ] Aufgaben bleiben nach Reload erhalten (manuell testen)
+- [x] Themen und Farben regressieren nicht
+
+FIX IMPLEMENTIERT:
+- calendar-context.jsx: `setCalendarData()` extrahiert jetzt Tasks aus blocks.tasks[]
+- Für jedes Datum wird `saveDayTasks(dateKey, dayTasks)` aufgerufen
+- Tasks erhalten dateKey und blockId für korrekte Persistierung
+
+TESTPLAN:
+1. Wizard starten → Thema mit 3 Aufgaben anlegen
+2. Lernplan erstellen → Browser DevTools → Supabase Logs prüfen
+3. Erwartung: INSERT in `calendar_tasks` sichtbar
+4. Kalender öffnen → Block anklicken → Aufgaben prüfen
+5. Erwartung: Alle 3 Aufgaben sichtbar
+6. Seite neu laden → Aufgaben erneut prüfen
+7. Erwartung: Aufgaben sind noch da (aus Supabase geladen)
+
+
+================================================================================
+PW-212: Themenliste Titel-Workflow & URG-Auto-Matching
+================================================================================
+STATUS: OFFEN
+TYP: Feature / UX
+PRIORITÄT: P2
+
+PROBLEM:
+- Ist: Themenlisten haben kein Titel-Feld. Der Header zeigt nur selectedAreas
+  (vordefinierte URGs/Fächer) als große Überschrift. OCR-extrahierte Fachnamen
+  wie "Grundlagen des Wirtschaftsverwaltungsrechts" können nirgends dargestellt
+  werden, weil sie keine vordefinierten URGs sind. Beim Speichern bekommt die
+  Themenliste einen Auto-Namen aus selectedAreas, aber der User hat keine
+  Kontrolle über den Titel.
+- Soll: Jede Themenliste bekommt ein editierbares Titel-Feld (über dem URG-
+  Autocomplete). Beim Speichern öffnet sich ein Dialog mit einem auto-
+  generierten Titel (Semester + Jahr + Fach), den der User bearbeiten kann.
+  Bei Screenshot-Uploads wird der OCR-erkannte Fachname als Titel vorgeschlagen.
+  Wenn der OCR-Fachname mit einem existierenden URG/Fach matcht, wird es
+  automatisch in selectedAreas eingetragen.
+- Kontext: Themenlisten-Editor, Screenshot-Upload (PW-211)
+
+HINTERGRUND:
+Die aktuelle Architektur kennt zwei Datenquellen für "Fächer":
+1. Jura-Mode: URGs aus `unterrechtsgebiete-data.js` (~50 Einträge wie
+   "Staatsorganisationsrecht", "Grundrechte", "Sachenrecht")
+2. Nicht-Jura-Mode: Benutzerdefinierte Fächer aus User-Settings (z.B.
+   "Anatomie", "Biochemie", "Rechnungswesen")
+
+Der OCR-extrahierte Fachname (z.B. "Wirtschaftsverwaltungsrecht") ist ein
+Kurs-/Vorlesungstitel und existiert typischerweise NICHT als URG. Diese
+Namen sind wertvolle Kontextinformation und müssen im Titel angezeigt werden.
+
+In seltenen Fällen kann ein OCR-Fachname mit einem URG übereinstimmen
+(z.B. "Grundrechte" → URG "grundrechte"). In diesen Fällen soll das
+URG automatisch zu selectedAreas hinzugefügt werden.
+
+ARCHITEKTUR-ÄNDERUNG:
+```
+Aktuell:
+┌─────────────────────────────────────┐
+│  [URG Autocomplete - selectedAreas] │  ← Nur vordefinierte URGs
+│  "Beschreibung des Lernplans"       │
+└─────────────────────────────────────┘
+
+Neu:
+┌─────────────────────────────────────┐
+│  "WS 24/25 - Wirtschaftsrecht"     │  ← Editierbarer Titel (contentPlan.name)
+│  [URG zuordnen...]                  │  ← selectedAreas (optional)
+│  "Beschreibung"                     │
+└─────────────────────────────────────┘
+```
+
+Datenmodell contentPlan:
+- name (string) → Titel, editierbar, im Header über URG-Autocomplete
+- selectedAreas (array) → URG-Zuordnung, für Farben/Filter
+- description (string) → Beschreibung, wie bisher
+
+FEATURE 1: EDITIERBARER TITEL IM HEADER
+- Neues Titel-Feld über dem AreaAutocompleteInput
+- Inline-editierbar (Click-to-edit wie description)
+- Groß dargestellt (text-4xl oder text-5xl)
+- Nutzt contentPlan.name
+- Wenn leer: Placeholder "Titel eingeben..."
+- Wenn selectedAreas vorhanden UND kein Titel: wie bisher (selectedAreas als Überschrift)
+
+FEATURE 2: SPEICHERN-DIALOG MIT TITELVORSCHLAG
+- Wenn User auf "Fertig" (✓) klickt → neuer Dialog öffnet sich
+- Auto-generierter Titel-Vorschlag:
+  a) Screenshot-Upload: OCR-Fachname (z.B. "Grundlagen des Wirtschaftsverwaltungsrechts")
+  b) Manuell erstellt: "[Semester] [Jahr] - [selectedAreas]"
+     Beispiel: "WS 2024/25 - Sachenrecht, Schuldrecht"
+  c) Fallback: selectedAreas als kommaseparierter String
+- User kann Titel bearbeiten vor dem Speichern
+- Buttons: "Abbrechen" | "Speichern"
+
+FEATURE 3: OCR-FACH → URG/FACH MATCHING
+- Beim Screenshot-Import: OCR-fach gegen bestehende URGs/Fächer matchen
+- Matching-Logik unterscheidet sich je nach Modus:
+
+  JURA-MODUS (isJura = true):
+  - Datenquelle: getAllUnterrechtsgebieteFlat() (~50 URGs)
+  - Matching: NUR exakter Name-Match (case-insensitive)
+  - Grund: URGs sind spezifische Teilrechtsgebiete (z.B. "Grundrechte"),
+    OCR-Fachnamen sind Kurs-Titel (z.B. "Wirtschaftsverwaltungsrecht").
+    Ein Kurs kann mehrere URGs abdecken → contains wäre zu ungenau.
+  - Beispiele:
+    "Grundrechte" === "Grundrechte"              → ✓ exakt → zu selectedAreas
+    "Wirtschaftsverwaltungsrecht" === ???         → ✗ kein URG → nur Titel
+    "Allgemeines Schuldrecht" === "Allg. Schuldr" → ✗ kein exakter Match
+
+  NICHT-JURA-MODUS (isJura = false):
+  - Datenquelle: getAllSubjects(false) (benutzerdefinierte Fächer aus Settings)
+  - Matching: Contains-Match (case-insensitive)
+  - Grund: Benutzerdefinierte Fächer sind breiter (z.B. "BWL", "Anatomie"),
+    OCR-Fachnamen sind Varianten davon (z.B. "Grundlagen der BWL").
+    Contains ist hier sinnvoll weil die Fach-Namen kürzer und generischer sind.
+  - Beispiele:
+    "Anatomie I".includes("Anatomie")            → ✓ Match → zu selectedAreas
+    "Grundlagen der BWL".includes("BWL")         → ✓ Match → zu selectedAreas
+    "Mikroökonomie II".includes("Mikroökonomie") → ✓ Match → zu selectedAreas
+    "Quantum Computing".includes(???)            → ✗ kein Fach → nur Titel
+  - Sicherheit: Nur matchen wenn Fach-Name mindestens 3 Zeichen lang ist
+    (verhindert versehentliche Matches bei sehr kurzen Fachnamen)
+
+- In BEIDEN Modi:
+  - Wenn Match gefunden → automatisch zu selectedAreas hinzufügen
+  - OCR-Fachname wird IMMER als Titel (contentPlan.name) gesetzt
+  - Beides kann vorkommen: Titel + gematchtes URG/Fach
+  - Ergebnis ist immer editierbar (User hat letzte Kontrolle)
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ themenliste-header.jsx: Titel-Feld über AreaAutocompleteInput einfügen  │
+│ ✅ themenliste-editor.jsx: planName Prop an Header, Save-Dialog-Logik       │
+│ ✅ themenliste-editor.jsx: handleScreenshotAccept URG-Matching einbauen     │
+│ ✅ Neuer Dialog-Komponent: save-title-dialog.jsx (in features/themenliste)  │
+│ ✅ themenliste-header.jsx: planName als Fallback-Titel rendern             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Supabase Schema ändern (name-Feld existiert bereits in content_plans)    │
+│ ❌ URG-Datenstruktur ändern (unterrechtsgebiete-data.js)                    │
+│ ❌ AreaAutocompleteInput grundlegend refactoren                             │
+│ ❌ Andere Seiten (Dashboard, Kalender) anfassen                             │
+│ ❌ Edge Function (super-processor) ändern                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+- src/features/themenliste/components/themenliste-header.jsx (Titel-Feld)
+- src/pages/themenliste-editor.jsx (Save-Dialog, URG-Matching, planName Prop)
+- src/features/themenliste/components/save-title-dialog.jsx (NEU)
+- src/features/themenliste/components/screenshot-upload-dialog.jsx (ggf. Minor)
+
+CHANGE-BUDGET:
+- Max 4 Dateien (1 neu, 3 bestehend)
+- Max 200 Zeilen neu, max 50 Zeilen geändert
+
+AKZEPTANZKRITERIEN:
+- [ ] Titel-Feld ist im Header sichtbar, über dem URG-Autocomplete
+- [ ] Titel ist inline-editierbar (Click-to-edit)
+- [ ] Beim Klick auf "Fertig" öffnet sich ein Speichern-Dialog mit Titelvorschlag
+- [ ] Screenshot-Upload: OCR-Fachname erscheint als Titel im Speichern-Dialog
+- [ ] Screenshot-Upload: Wenn Fachname exakt einem URG/Fach entspricht,
+      wird es automatisch zu selectedAreas hinzugefügt
+- [ ] Manuell: Auto-Titel aus Semester + selectedAreas wird vorgeschlagen
+- [ ] User kann Titel im Dialog bearbeiten bevor gespeichert wird
+- [ ] Titel wird in contentPlan.name persistiert (Supabase content_plans.name)
+- [ ] Bestehende Themenlisten ohne Titel funktionieren weiterhin (Fallback)
+- [ ] Nicht-Jura: Fachname kann der gesamte Kursname sein → wird als Titel übernommen
+
+TESTPLAN:
+1. Neue Themenliste erstellen → Titel-Feld sollte leer sein, Placeholder sichtbar
+2. Titel eintippen → Inline-Editing funktioniert
+3. URG hinzufügen → URG unter dem Titel sichtbar
+4. "Fertig" klicken → Speichern-Dialog öffnet sich
+5. Erwartung: Auto-Titel aus Semester + URG(s)
+6. Screenshot-Upload → Fachname "Grundlagen des Wirtschaftsverwaltungsrechts"
+7. "Übernehmen" → Titel wird auf Fachname gesetzt
+8. Screenshot-Upload → Fachname "Grundrechte" (existiert als URG)
+9. "Übernehmen" → URG "Grundrechte" wird zu selectedAreas hinzugefügt UND Titel gesetzt
+10. Bestehende Themenliste öffnen (ohne Titel) → Kein Crash, Fallback funktioniert

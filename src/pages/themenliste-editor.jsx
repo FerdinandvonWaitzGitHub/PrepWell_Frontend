@@ -14,6 +14,11 @@ import DeleteConfirmDialog from '../features/themenliste/components/delete-confi
 import CancelConfirmDialog from '../features/themenliste/components/cancel-confirm-dialog';
 import DraftDialog from '../features/themenliste/components/draft-dialog';
 import ConflictDialog from '../features/themenliste/components/conflict-dialog';
+import ScreenshotUploadDialog from '../features/themenliste/components/screenshot-upload-dialog';
+import SaveTitleDialog from '../features/themenliste/components/save-title-dialog';
+
+// Supabase client for Edge Functions
+import { supabase } from '../services/supabase';
 
 // Migration utility
 import {
@@ -22,6 +27,10 @@ import {
   createEmptyContentPlan,
   getDisplayName
 } from '../utils/themenliste-migration';
+
+// PW-212: URG/Fach data for OCR matching
+import { getAllUnterrechtsgebieteFlat, RECHTSGEBIET_COLORS } from '../data/unterrechtsgebiete-data';
+import { getAllSubjects, getColorClasses } from '../utils/rechtsgebiet-colors';
 
 // Draft localStorage key
 const DRAFT_KEY = 'prepwell_themenliste_draft';
@@ -92,6 +101,12 @@ const ThemenlisteEditorPage = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+  // PW-212: Save title dialog state
+  const [showSaveTitleDialog, setShowSaveTitleDialog] = useState(false);
+
+  // PW-204: Screenshot upload dialog state
+  const [showScreenshotDialog, setShowScreenshotDialog] = useState(false);
 
   // T33 Phase 4: Conflict detection state
   const [conflictInfo, setConflictInfo] = useState(null);
@@ -477,6 +492,11 @@ const ThemenlisteEditorPage = () => {
     updatePlan({ description });
   }, [updatePlan]);
 
+  // PW-212: Handle name (title) change
+  const handleNameChange = useCallback((name) => {
+    updatePlan({ name });
+  }, [updatePlan]);
+
   // Add Thema (simplified - flat array)
   const handleAddThema = useCallback((name, areaId, kapitelId = null) => {
     const newThema = {
@@ -681,26 +701,195 @@ const ThemenlisteEditorPage = () => {
     }, 600);
   }, [updatePlan, navigate]);
 
-  // Finish handler
-  // T32 FIX: Set name from selectedAreas before saving
-  // T34 FIX: Use currentPlanRef instead of contentPlan closure to ensure latest data
-  const handleFinish = useCallback(async () => {
-    // T34 FIX: Get current plan from ref, not from closure (which might be stale)
+  // PW-204: Screenshot OCR extraction handler
+  const handleScreenshotExtract = useCallback(async (base64Image) => {
+    const { data, error } = await supabase.functions.invoke('super-processor', {
+      body: { image: base64Image },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'OCR fehlgeschlagen');
+    }
+
+    return data;
+  }, []);
+
+  // PW-212: Match OCR fach name against existing URGs/Fächer
+  const matchFachToArea = useCallback((fachName) => {
+    if (!fachName || !fachName.trim()) return null;
+
+    const fachLower = fachName.trim().toLowerCase();
+
+    if (isJura) {
+      // Jura: Exact match only against URGs
+      const allURGs = getAllUnterrechtsgebieteFlat();
+      const match = allURGs.find(urg => urg.name.toLowerCase() === fachLower);
+      if (match) {
+        return {
+          id: match.id,
+          name: match.name,
+          rechtsgebietId: match.rechtsgebiet,
+          color: match.color || RECHTSGEBIET_COLORS[match.rechtsgebiet] || 'bg-neutral-400',
+        };
+      }
+    } else {
+      // Non-Jura: Contains match against user-defined subjects
+      const subjects = getAllSubjects(false);
+      const match = subjects.find(sub =>
+        sub.name.length >= 3 && fachLower.includes(sub.name.toLowerCase())
+      );
+      if (match) {
+        return {
+          id: match.id,
+          name: match.name,
+          rechtsgebietId: match.id,
+          color: getColorClasses(match.color).solid,
+        };
+      }
+    }
+
+    return null;
+  }, [isJura]);
+
+  // PW-211: Accept extracted screenshot data (Mistral OCR + KI-Parser)
+  const handleScreenshotAccept = useCallback((extractedData) => {
+    if (!extractedData) return;
+
+    const newThemen = [];
+    let order = contentPlan.themen.length;
+    const defaultAreaId = contentPlan.selectedAreas?.[0]?.id || null;
+
+    // Priority 1: Use structured themen from Mistral Chat parsing
+    if (extractedData.themen?.length > 0) {
+      for (const thema of extractedData.themen) {
+        newThemen.push({
+          id: `imported-${Date.now()}-${order}`,
+          name: thema.name,
+          description: '',
+          areaId: defaultAreaId,
+          kapitelId: null,
+          order: order++,
+          aufgaben: (thema.aufgaben || []).map((aufgabe, idx) => ({
+            id: `aufgabe-${Date.now()}-${order}-${idx}`,
+            title: typeof aufgabe === 'string' ? aufgabe : aufgabe.name || '',
+            completed: false,
+          })),
+        });
+      }
+    }
+
+    // Priority 2: Extract themen from kapitel structure
+    if (extractedData.kapitel?.length > 0) {
+      for (const kapitel of extractedData.kapitel) {
+        for (const thema of kapitel.themen || []) {
+          newThemen.push({
+            id: `imported-${Date.now()}-${order}`,
+            name: thema.name,
+            description: kapitel.name || '',
+            areaId: defaultAreaId,
+            kapitelId: null,
+            order: order++,
+            aufgaben: (thema.aufgaben || []).map((aufgabe, idx) => ({
+              id: `aufgabe-${Date.now()}-${order}-${idx}`,
+              title: typeof aufgabe === 'string' ? aufgabe : aufgabe.name || '',
+              completed: false,
+            })),
+          });
+        }
+      }
+    }
+
+    // Fallback: Use raw lines if no structured data
+    if (newThemen.length === 0 && extractedData.lines?.length > 0) {
+      for (const line of extractedData.lines) {
+        if (line && line.trim()) {
+          newThemen.push({
+            id: `imported-${Date.now()}-${order}`,
+            name: line.trim(),
+            description: '',
+            areaId: defaultAreaId,
+            kapitelId: null,
+            order: order++,
+            aufgaben: [],
+          });
+        }
+      }
+    }
+
+    if (newThemen.length === 0) return;
+
+    // Build update object
+    const updates = { themen: [...contentPlan.themen, ...newThemen] };
+
+    // PW-212: Always set fach as plan name (title) if plan has no name yet
+    const hasNoName = !contentPlan.name || contentPlan.name.trim() === '';
+    if (extractedData.fach && hasNoName) {
+      updates.name = extractedData.fach;
+    }
+
+    // PW-212: Try to match fach against URGs/Fächer for selectedAreas
+    if (extractedData.fach && (!contentPlan.selectedAreas || contentPlan.selectedAreas.length === 0)) {
+      const matchedArea = matchFachToArea(extractedData.fach);
+      if (matchedArea) {
+        updates.selectedAreas = [matchedArea];
+      }
+    }
+
+    updatePlan(updates);
+    setSelectedThemaId(newThemen[0].id);
+  }, [contentPlan.selectedAreas, contentPlan.themen, contentPlan.name, updatePlan, matchFachToArea]);
+
+  // PW-212: Generate suggested title for save dialog
+  const generateSuggestedTitle = useCallback(() => {
     const currentPlan = currentPlanRef.current;
 
-    // T32: Generate name from selected areas (e.g., "Mikroökonomie, Makroökonomie")
-    const planName = getDisplayName(currentPlan.selectedAreas);
+    // Priority 1: Use existing name (from OCR or manual edit)
+    if (currentPlan.name && currentPlan.name.trim()) {
+      return currentPlan.name.trim();
+    }
+
+    // Priority 2: Generate from Semester + selectedAreas
+    const areaNames = getDisplayName(currentPlan.selectedAreas);
+    if (areaNames) {
+      // Determine current semester: Oct-Mar = WS, Apr-Sep = SS
+      const now = new Date();
+      const month = now.getMonth(); // 0-indexed
+      const year = now.getFullYear();
+      const isWS = month >= 9 || month <= 2; // Oct-Mar
+      const semester = isWS
+        ? `WS ${year}/${(year + 1).toString().slice(-2)}`
+        : `SS ${year}`;
+      return `${semester} - ${areaNames}`;
+    }
+
+    return '';
+  }, []);
+
+  // PW-212: Open save dialog instead of saving directly
+  const handleFinish = useCallback(() => {
+    setShowSaveTitleDialog(true);
+  }, []);
+
+  // PW-212: Actual save after title confirmation
+  const handleSaveWithTitle = useCallback(async (finalTitle) => {
+    setShowSaveTitleDialog(false);
+
+    // T34 FIX: Get current plan from ref
+    const currentPlan = currentPlanRef.current;
+
+    // Use final title, fallback to selectedAreas name
+    const planName = finalTitle || getDisplayName(currentPlan.selectedAreas);
 
     if (!isSavedToDb) {
       setAutoSaveStatus('saving');
       try {
         const savedPlan = await createContentPlan({
           ...currentPlan,
-          name: planName, // T32 FIX: Set name from selectedAreas
+          name: planName,
           id: undefined,
           status: 'active',
         });
-        setContentPlan(prev => ({ ...prev, id: savedPlan.id }));
+        setContentPlan(prev => ({ ...prev, id: savedPlan.id, name: planName }));
         setIsSavedToDb(true);
       } catch (error) {
         console.error('Save failed:', error);
@@ -711,7 +900,7 @@ const ThemenlisteEditorPage = () => {
       try {
         await updateContentPlan(currentPlan.id, {
           ...currentPlan,
-          name: planName, // T32 FIX: Update name from selectedAreas
+          name: planName,
           status: 'active',
         });
       } catch (error) {
@@ -724,11 +913,11 @@ const ThemenlisteEditorPage = () => {
     localStorage.removeItem(DRAFT_KEY);
     setAutoSaveStatus('saved');
     navigate('/lernplan');
-  // T34 FIX: Removed contentPlan from deps - we now use currentPlanRef
   }, [isSavedToDb, createContentPlan, updateContentPlan, navigate]);
 
-  // T27: Check if finish is possible (has at least one area selected)
-  const canFinish = contentPlan.selectedAreas && contentPlan.selectedAreas.length > 0;
+  // PW-212: Check if finish is possible (has title OR at least one area selected)
+  const canFinish = (contentPlan.name && contentPlan.name.trim()) ||
+    (contentPlan.selectedAreas && contentPlan.selectedAreas.length > 0);
 
   // T27: Display name for canFinish tooltip
   const displayName = getDisplayName(contentPlan.selectedAreas);
@@ -741,10 +930,13 @@ const ThemenlisteEditorPage = () => {
       {/* Content Area */}
       <div className="flex-1 flex flex-col">
         {/* T27: Content Header with URG Autocomplete */}
+        {/* PW-211: planName for OCR-imported fach names */}
         <ThemenlisteHeader
           selectedAreas={contentPlan.selectedAreas}
+          planName={contentPlan.name}
           description={contentPlan.description}
           onAreasChange={handleAreasChange}
+          onNameChange={handleNameChange}
           onDescriptionChange={handleDescriptionChange}
           hierarchyLabels={hierarchyLabels}
           isJura={isJura}
@@ -796,6 +988,7 @@ const ThemenlisteEditorPage = () => {
           onCancel={handleCancel}
           onFinish={handleFinish}
           onRetry={handleRetry}
+          onScreenshotUpload={() => setShowScreenshotDialog(true)}
           autoSaveStatus={autoSaveStatus}
           saveError={saveError}
           canFinish={canFinish}
@@ -834,6 +1027,22 @@ const ThemenlisteEditorPage = () => {
         dbVersion={conflictInfo?.dbVersion}
         onUseLocal={handleUseLocalVersion}
         onUseCloud={handleUseCloudVersion}
+      />
+
+      {/* PW-204: Screenshot Upload Dialog */}
+      <ScreenshotUploadDialog
+        open={showScreenshotDialog}
+        onClose={() => setShowScreenshotDialog(false)}
+        onExtract={handleScreenshotExtract}
+        onAccept={handleScreenshotAccept}
+      />
+
+      {/* PW-212: Save Title Dialog */}
+      <SaveTitleDialog
+        open={showSaveTitleDialog}
+        onClose={() => setShowSaveTitleDialog(false)}
+        onSave={handleSaveWithTitle}
+        suggestedTitle={generateSuggestedTitle()}
       />
     </div>
   );

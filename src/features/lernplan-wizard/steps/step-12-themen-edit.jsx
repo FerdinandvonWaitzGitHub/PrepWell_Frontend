@@ -451,108 +451,134 @@ const Step12ThemenEdit = () => {
   };
 
   // === Theme Operations ===
+  // PW-025 FIX: Use functional update to prevent stale closure issues
   const handleAddThema = () => {
     if (!activeUrg || !newThemaName.trim()) return;
-    const currentThemen = themenDraft[activeUrg.id] || [];
+    const urgId = activeUrg.id; // Capture before async
+    const urgName = activeUrg.name;
+    const themaName = newThemaName.trim();
     const newThema = {
       id: `thema-${Date.now()}`,
-      name: newThemaName.trim(),
+      name: themaName,
       aufgaben: []
     };
     // PW-023 DEBUG: Log theme creation
-    console.log('[PW-023 DEBUG] Step 12 - Adding theme to URG:', activeUrg.id, activeUrg.name);
+    console.log('[PW-023 DEBUG] Step 12 - Adding theme to URG:', urgId, urgName);
     console.log('[PW-023 DEBUG] Step 12 - currentRgId:', currentRgId);
-    console.log('[PW-023 DEBUG] Step 12 - themenDraft keys before:', Object.keys(themenDraft));
-    updateWizardData({
-      themenDraft: {
-        ...themenDraft,
-        [activeUrg.id]: [...currentThemen, newThema]
-      }
+    updateWizardData(prev => {
+      console.log('[PW-023 DEBUG] Step 12 - themenDraft keys before:', Object.keys(prev.themenDraft));
+      const currentThemen = prev.themenDraft[urgId] || [];
+      return {
+        themenDraft: {
+          ...prev.themenDraft,
+          [urgId]: [...currentThemen, newThema]
+        }
+      };
     });
     setNewThemaName('');
   };
 
+  // PW-025 FIX: Use functional update to prevent stale closure issues
   const handleDeleteThema = (themaId) => {
     if (!activeUrg) return;
-    const currentThemen = themenDraft[activeUrg.id] || [];
-    updateWizardData({
-      themenDraft: {
-        ...themenDraft,
-        [activeUrg.id]: currentThemen.filter(t => t.id !== themaId)
-      }
+    const urgId = activeUrg.id; // Capture before async
+    updateWizardData(prev => {
+      const currentThemen = prev.themenDraft[urgId] || [];
+      return {
+        themenDraft: {
+          ...prev.themenDraft,
+          [urgId]: currentThemen.filter(t => t.id !== themaId)
+        }
+      };
     });
   };
 
   // === Aufgabe Operations ===
+  // PW-025 FIX: Use functional update to prevent stale closure issues
   const handleAddAufgabe = (themaId, aufgabe) => {
     if (!activeUrg) return;
-    const currentThemen = themenDraft[activeUrg.id] || [];
-    updateWizardData({
-      themenDraft: {
-        ...themenDraft,
-        [activeUrg.id]: currentThemen.map(t =>
-          t.id === themaId
-            ? { ...t, aufgaben: [...(t.aufgaben || []), aufgabe] }
-            : t
-        )
-      }
+    const urgId = activeUrg.id; // Capture before async
+    updateWizardData(prev => {
+      const currentThemen = prev.themenDraft[urgId] || [];
+      return {
+        themenDraft: {
+          ...prev.themenDraft,
+          [urgId]: currentThemen.map(t =>
+            t.id === themaId
+              ? { ...t, aufgaben: [...(t.aufgaben || []), aufgabe] }
+              : t
+          )
+        }
+      };
     });
   };
 
+  // PW-025 FIX: Use functional update to prevent stale closure issues
   const handleToggleAufgabe = (themaId, aufgabeId) => {
     if (!activeUrg) return;
-    const currentThemen = themenDraft[activeUrg.id] || [];
-    updateWizardData({
-      themenDraft: {
-        ...themenDraft,
-        [activeUrg.id]: currentThemen.map(t =>
-          t.id === themaId
-            ? {
-                ...t,
-                aufgaben: (t.aufgaben || []).map(a =>
-                  a.id === aufgabeId ? { ...a, completed: !a.completed } : a
-                )
-              }
-            : t
-        )
-      }
+    const urgId = activeUrg.id; // Capture before async
+    updateWizardData(prev => {
+      const currentThemen = prev.themenDraft[urgId] || [];
+      return {
+        themenDraft: {
+          ...prev.themenDraft,
+          [urgId]: currentThemen.map(t =>
+            t.id === themaId
+              ? {
+                  ...t,
+                  aufgaben: (t.aufgaben || []).map(a =>
+                    a.id === aufgabeId ? { ...a, completed: !a.completed } : a
+                  )
+                }
+              : t
+          )
+        }
+      };
     });
   };
 
+  // PW-025 FIX: Use functional update to prevent stale closure issues
   const handleToggleAufgabePriority = (themaId, aufgabeId, level) => {
     if (!activeUrg) return;
-    const currentThemen = themenDraft[activeUrg.id] || [];
-    updateWizardData({
-      themenDraft: {
-        ...themenDraft,
-        [activeUrg.id]: currentThemen.map(t =>
-          t.id === themaId
-            ? {
-                ...t,
-                aufgaben: (t.aufgaben || []).map(a =>
-                  a.id === aufgabeId
-                    ? { ...a, priority: a.priority === level ? level - 1 : level }
-                    : a
-                )
-              }
-            : t
-        )
-      }
+    const urgId = activeUrg.id; // Capture before async
+    updateWizardData(prev => {
+      const currentThemen = prev.themenDraft[urgId] || [];
+      return {
+        themenDraft: {
+          ...prev.themenDraft,
+          [urgId]: currentThemen.map(t =>
+            t.id === themaId
+              ? {
+                  ...t,
+                  aufgaben: (t.aufgaben || []).map(a =>
+                    a.id === aufgabeId
+                      ? { ...a, priority: a.priority === level ? level - 1 : level }
+                      : a
+                  )
+                }
+              : t
+          )
+        }
+      };
     });
   };
 
+  // PW-025 FIX: Use functional update to prevent stale closure issues
   const handleDeleteAufgabe = (themaId, aufgabeId) => {
     if (!activeUrg) return;
-    const currentThemen = themenDraft[activeUrg.id] || [];
-    updateWizardData({
-      themenDraft: {
-        ...themenDraft,
-        [activeUrg.id]: currentThemen.map(t =>
-          t.id === themaId
-            ? { ...t, aufgaben: (t.aufgaben || []).filter(a => a.id !== aufgabeId) }
-            : t
-        )
-      }
+    const urgId = activeUrg.id; // Capture before async
+    updateWizardData(prev => {
+      const currentThemen = prev.themenDraft[urgId] || [];
+      return {
+        themenDraft: {
+          ...prev.themenDraft,
+          [urgId]: currentThemen.map(t =>
+            t.id === themaId
+              ? { ...t, aufgaben: (t.aufgaben || []).filter(a => a.id !== aufgabeId) }
+              : t
+          )
+        }
+      };
     });
   };
 
@@ -562,7 +588,8 @@ const Step12ThemenEdit = () => {
   const isLastRg = localRgIndex === selectedRechtsgebiete.length - 1;
 
   return (
-    <div className="flex flex-col h-full">
+    // PW-025 Bug 2 FIX: Added min-h-0 to allow flex children to shrink and respect overflow
+    <div className="flex flex-col h-full min-h-0">
       {/* Validation Dialog */}
       <ValidationDialog
         isOpen={showValidationDialog}
@@ -645,35 +672,38 @@ const Step12ThemenEdit = () => {
 
       {/* Main Content */}
       {currentUrgs.length > 0 && activeUrg ? (
-        <div className="flex-1 overflow-y-auto">
-          <h2 className="text-lg font-medium text-neutral-900 mb-4 text-center">
-            Meine Themen
-          </h2>
+        <>
+          {/* Scrollable Theme List */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <h2 className="text-lg font-medium text-neutral-900 mb-4 text-center">
+              Meine Themen
+            </h2>
 
-          <div className="space-y-4 mb-6">
-            {activeUrgThemen.length > 0 ? (
-              activeUrgThemen.map((thema) => (
-                <ThemaCard
-                  key={thema.id}
-                  thema={thema}
-                  onAddAufgabe={(aufgabe) => handleAddAufgabe(thema.id, aufgabe)}
-                  onToggleAufgabe={(aufgabeId) => handleToggleAufgabe(thema.id, aufgabeId)}
-                  onToggleAufgabePriority={(aufgabeId, level) => handleToggleAufgabePriority(thema.id, aufgabeId, level)}
-                  onDeleteAufgabe={(aufgabeId) => handleDeleteAufgabe(thema.id, aufgabeId)}
-                  onDeleteThema={() => handleDeleteThema(thema.id)}
-                />
-              ))
-            ) : (
-              <div className="text-center py-12 bg-neutral-50 rounded-lg">
-                <p className="text-neutral-500 mb-4">
-                  Noch keine Themen für dieses Unterrechtsgebiet.
-                </p>
-              </div>
-            )}
+            <div className="space-y-4">
+              {activeUrgThemen.length > 0 ? (
+                activeUrgThemen.map((thema) => (
+                  <ThemaCard
+                    key={thema.id}
+                    thema={thema}
+                    onAddAufgabe={(aufgabe) => handleAddAufgabe(thema.id, aufgabe)}
+                    onToggleAufgabe={(aufgabeId) => handleToggleAufgabe(thema.id, aufgabeId)}
+                    onToggleAufgabePriority={(aufgabeId, level) => handleToggleAufgabePriority(thema.id, aufgabeId, level)}
+                    onDeleteAufgabe={(aufgabeId) => handleDeleteAufgabe(thema.id, aufgabeId)}
+                    onDeleteThema={() => handleDeleteThema(thema.id)}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-12 bg-neutral-50 rounded-lg">
+                  <p className="text-neutral-500 mb-4">
+                    Noch keine Themen für dieses Unterrechtsgebiet.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Add Theme Input */}
-          <div className="flex items-center gap-2 max-w-md mx-auto">
+          {/* Add Theme Input - PW-025 Bug 2 FIX: Moved OUTSIDE scrollable area, always visible */}
+          <div className="flex items-center gap-2 max-w-md mx-auto py-4 flex-shrink-0">
             <input
               type="text"
               value={newThemaName}
@@ -692,7 +722,7 @@ const Step12ThemenEdit = () => {
               Hinzufügen
             </button>
           </div>
-        </div>
+        </>
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center py-12">
@@ -713,7 +743,8 @@ const Step12ThemenEdit = () => {
       {/* BUG-P4 FIX: Status-Banner entfernt - war verwirrend, sah wie Button aus */}
 
       {/* Custom Navigation Buttons */}
-      <div className="mt-6 flex justify-between items-center pt-4 border-t border-neutral-200">
+      {/* PW-025 Bug 2 FIX: Added flex-shrink-0 to prevent navigation from being squeezed */}
+      <div className="mt-6 flex justify-between items-center pt-4 border-t border-neutral-200 flex-shrink-0">
         <button
           type="button"
           onClick={handleZurueck}

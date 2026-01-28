@@ -367,6 +367,31 @@ export const CalendarProvider = ({ children }) => {
     // Set new data using sync hook
     await setBlocksByDateSync(newBlocks);
 
+    // PW-031 FIX: Extract and save tasks from blocks
+    // Wizard embeds tasks in blocks.tasks[], but they need to be saved separately to calendar_tasks table
+    let totalTasksSaved = 0;
+    for (const [dateKey, dayBlocks] of Object.entries(newBlocks)) {
+      const dayTasks = [];
+      for (const block of dayBlocks) {
+        if (block.tasks && Array.isArray(block.tasks) && block.tasks.length > 0) {
+          // Add dateKey to each task for proper persistence
+          const tasksWithDate = block.tasks.map(task => ({
+            ...task,
+            dateKey,
+            blockId: block.id,
+            // Ensure required fields exist
+            id: task.id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            completed: task.completed ?? false,
+          }));
+          dayTasks.push(...tasksWithDate);
+        }
+      }
+      if (dayTasks.length > 0) {
+        await saveDayTasks(dateKey, dayTasks);
+        totalTasksSaved += dayTasks.length;
+      }
+    }
+
     // Set metadata with creation timestamp using sync hook
     const newMetadata = {
       ...metadata,
@@ -375,8 +400,8 @@ export const CalendarProvider = ({ children }) => {
     };
     await updateLernplanMetadataSync(newMetadata);
 
-    console.log('CalendarContext: Saved new calendar data', { blocks: Object.keys(newBlocks).length, metadata: newMetadata });
-  }, [blocksByDate, lernplanMetadata, archiveCurrentPlan, setBlocksByDateSync, updateLernplanMetadataSync]);
+    console.log('CalendarContext: Saved new calendar data', { blocks: Object.keys(newBlocks).length, tasks: totalTasksSaved, metadata: newMetadata });
+  }, [blocksByDate, lernplanMetadata, archiveCurrentPlan, setBlocksByDateSync, updateLernplanMetadataSync, saveDayTasks]);
 
   /**
    * Get all archived Lernpläne
