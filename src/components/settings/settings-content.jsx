@@ -83,9 +83,6 @@ const SettingsContent = ({ className = '' }) => {
     currentSemester,
     setSemester,
     modeDisplayText,
-    toggleMode,
-    canToggleMode,
-    activeLernplaene,
   } = useAppMode();
 
   const {
@@ -96,7 +93,7 @@ const SettingsContent = ({ className = '' }) => {
     isAuthenticated
   } = useAuth();
 
-  const { flattenAllKapitel, archiveLernplanForReactivation } = useCalendar();
+  const { flattenAllKapitel } = useCalendar();
   const { studiengang, setStudiengang, studiengaenge, isJura, hasStudiengang, setKapitelEbeneAktiviert, themenlisteKapitelDefault, setThemenlisteKapitelDefault } = useStudiengang();
   // FEAT-001: Get mentor activation status and functions
   const { isActivated: isMentorActivated, activateMentor, deactivateMentor } = useMentor();
@@ -124,8 +121,6 @@ const SettingsContent = ({ className = '' }) => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Mode switch confirmation modal state
-  const [showModeSwitchModal, setShowModeSwitchModal] = useState(false);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -229,28 +224,6 @@ const SettingsContent = ({ className = '' }) => {
 
   const semesters = Array.from({ length: 10 }, (_, i) => i + 1);
 
-  // Handler for mode toggle - shows confirmation if switching to normal mode with active Lernplan
-  const handleModeToggle = () => {
-    // If switching from Exam to Normal and there's an active Lernplan, show warning
-    if (isExamMode && activeLernplaene.length > 0) {
-      setShowModeSwitchModal(true);
-    } else {
-      // No warning needed - just toggle
-      toggleMode();
-    }
-  };
-
-  // Confirm mode switch: archive Lernplan and switch to normal mode
-  // T13: Uses archiveLernplanForReactivation to preserve wizardSettings
-  const confirmModeSwitch = async () => {
-    // Archive Lernplan with all wizardSettings for later reactivation
-    // This preserves: creationMethod, pufferTage, urlaubsTage, blocksPerDay, etc.
-    await archiveLernplanForReactivation();
-    // Now switch mode
-    toggleMode();
-    setShowModeSwitchModal(false);
-  };
-
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Success Message */}
@@ -292,24 +265,13 @@ const SettingsContent = ({ className = '' }) => {
                 <p className="text-xs text-neutral-500 mt-1">{modeDisplayText}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                isExamMode
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-blue-100 text-blue-700'
-              }`}>
-                {isExamMode ? 'Examen' : 'Normal'}
-              </span>
-              {/* Mode toggle button - always available */}
-              {canToggleMode && (
-                <button
-                  onClick={handleModeToggle}
-                  className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                >
-                  Wechseln
-                </button>
-              )}
-            </div>
+            <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+              isExamMode
+                ? 'bg-red-100 text-red-700'
+                : 'bg-blue-100 text-blue-700'
+            }`}>
+              {isExamMode ? 'Examen' : 'Normal'}
+            </span>
           </div>
 
           {isNormalMode && (
@@ -333,14 +295,6 @@ const SettingsContent = ({ className = '' }) => {
             </div>
           )}
 
-          {isExamMode && (
-            <div className="py-3 bg-neutral-50 rounded-lg p-4">
-              <p className="text-sm text-neutral-600">
-                Du befindest dich im Examensmodus. Der Modus wird automatisch aktiviert,
-                wenn ein aktiver Lernplan existiert.
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1159,65 +1113,6 @@ const SettingsContent = ({ className = '' }) => {
         </div>
       )}
 
-      {/* Mode Switch Confirmation Modal */}
-      {showModeSwitchModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-amber-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-neutral-900">Modus wechseln</h3>
-              </div>
-              <button
-                onClick={() => setShowModeSwitchModal(false)}
-                className="text-neutral-400 hover:text-neutral-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-neutral-700 mb-3">
-                Du hast {activeLernplaene.length === 1 ? 'einen aktiven Lernplan' : `${activeLernplaene.length} aktive Lernpläne`}.
-              </p>
-              <p className="text-neutral-600 text-sm mb-3">
-                Wenn du in den <strong>Normal-Modus</strong> wechselst:
-              </p>
-              <ul className="text-sm text-neutral-600 space-y-2 ml-4">
-                <li className="flex items-start gap-2">
-                  <span className="text-amber-500 mt-0.5">•</span>
-                  <span>Der Lernplan wird aus dem Kalender entfernt</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-amber-500 mt-0.5">•</span>
-                  <span>Der Lernplan wird archiviert</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-amber-500 mt-0.5">•</span>
-                  <span>Du kannst den Lernplan im Examensmodus über den Wizard wiederherstellen</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowModeSwitchModal(false)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-neutral-600 border border-neutral-200 rounded-lg hover:bg-neutral-50"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={confirmModeSwitch}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700"
-              >
-                Wechseln & Archivieren
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

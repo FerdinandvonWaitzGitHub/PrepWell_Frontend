@@ -90,19 +90,18 @@ const WelcomeStep = ({ onNext, onSkip }) => {
   );
 };
 
-// Step 2: Mode Selection
-const ModeSelectionStep = ({ onNext, onBack, selectedMode, setSelectedMode }) => {
+// Step 2: Semester Selection (Normal mode only - exam mode disabled)
+const ModeSelectionStep = ({ onNext, onBack, setSelectedMode }) => {
   const { setSemester } = useAppMode();
   const [semester, setSemesterLocal] = React.useState(3);
 
-  const handleModeSelect = (mode) => {
-    setSelectedMode(mode);
-  };
+  // Auto-select normal mode
+  React.useEffect(() => {
+    setSelectedMode('normal');
+  }, [setSelectedMode]);
 
   const handleContinue = () => {
-    if (selectedMode === 'normal') {
-      setSemester(semester);
-    }
+    setSemester(semester);
     onNext();
   };
 
@@ -120,100 +119,38 @@ const ModeSelectionStep = ({ onNext, onBack, selectedMode, setSelectedMode }) =>
 
         {/* Title */}
         <h1 className="text-3xl font-extralight text-neutral-900 mb-2">
-          Wähle deinen Modus
+          In welchem Semester bist du?
         </h1>
         <p className="text-neutral-500 mb-8">
-          Du kannst den Modus jederzeit in den Einstellungen ändern.
+          Wähle dein aktuelles Semester aus.
         </p>
 
-        {/* Mode Cards */}
-        <div className="space-y-4 mb-8">
-          {/* Exam Mode */}
-          <button
-            onClick={() => handleModeSelect('exam')}
-            className={`w-full p-5 rounded-xl border-2 text-left transition-all ${
-              selectedMode === 'exam'
-                ? 'border-neutral-900 bg-neutral-50'
-                : 'border-neutral-200 hover:border-neutral-300'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-medium text-neutral-900 mb-1">Examensmodus</h3>
-                <p className="text-sm text-neutral-500">
-                  Für die intensive Vorbereitung auf das Staatsexamen. Vollständige Lernpläne,
-                  Monatsansicht und alle Features.
-                </p>
-              </div>
-              {selectedMode === 'exam' && (
-                <div className="w-6 h-6 bg-neutral-900 rounded-full flex items-center justify-center shrink-0">
-                  <Check className="w-4 h-4 text-white" />
-                </div>
-              )}
-            </div>
-          </button>
-
-          {/* Normal Mode */}
-          <button
-            onClick={() => handleModeSelect('normal')}
-            className={`w-full p-5 rounded-xl border-2 text-left transition-all ${
-              selectedMode === 'normal'
-                ? 'border-neutral-900 bg-neutral-50'
-                : 'border-neutral-200 hover:border-neutral-300'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-medium text-neutral-900 mb-1">Semestermodus</h3>
-                <p className="text-sm text-neutral-500">
-                  Für das reguläre Studium. Themenlisten, Wochenansicht und flexible Planung.
-                </p>
-              </div>
-              {selectedMode === 'normal' && (
-                <div className="w-6 h-6 bg-neutral-900 rounded-full flex items-center justify-center shrink-0">
-                  <Check className="w-4 h-4 text-white" />
-                </div>
-              )}
-            </div>
-
-            {/* Semester Selection (only when normal mode is selected) */}
-            {selectedMode === 'normal' && (
-              <div className="mt-4 pt-4 border-t border-neutral-200">
-                <label className="text-sm text-neutral-600 mb-2 block">
-                  In welchem Semester bist du?
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((sem) => (
-                    <button
-                      key={sem}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSemesterLocal(sem);
-                      }}
-                      className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
-                        semester === sem
-                          ? 'bg-neutral-900 text-white'
-                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                      }`}
-                    >
-                      {sem}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </button>
+        {/* Semester Selection */}
+        <div className="bg-neutral-50 rounded-xl p-6 mb-8">
+          <div className="flex gap-2 flex-wrap justify-center">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((sem) => (
+              <button
+                key={sem}
+                onClick={() => setSemesterLocal(sem)}
+                className={`w-12 h-12 rounded-lg text-sm font-medium transition-colors ${
+                  semester === sem
+                    ? 'bg-neutral-900 text-white'
+                    : 'bg-white text-neutral-700 hover:bg-neutral-200 border border-neutral-200'
+                }`}
+              >
+                {sem}
+              </button>
+            ))}
+          </div>
+          <p className="text-center text-sm text-neutral-500 mt-4">
+            {semester}. Semester ausgewählt
+          </p>
         </div>
 
         {/* Continue Button */}
         <button
           onClick={handleContinue}
-          disabled={!selectedMode}
-          className={`w-full py-3.5 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
-            selectedMode
-              ? 'bg-neutral-900 text-white hover:bg-neutral-800'
-              : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
-          }`}
+          className="w-full py-3.5 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 bg-neutral-900 text-white hover:bg-neutral-800"
         >
           Weiter
           <ArrowRight className="w-5 h-5" />
@@ -364,7 +301,6 @@ const OnboardingPage = () => {
         <ModeSelectionStep
           onNext={nextStep}
           onBack={prevStep}
-          selectedMode={selectedMode}
           setSelectedMode={setSelectedMode}
         />
       );
