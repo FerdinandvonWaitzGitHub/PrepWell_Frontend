@@ -33,13 +33,13 @@ const SUBJECT_NAMES = {
 
 // Priority display
 const PRIORITY_DISPLAY = {
-  low: '',
+  none: '',
   medium: '!',
   high: '!!'
 };
 
 const PRIORITY_COLORS = {
-  low: 'text-neutral-400',
+  none: 'text-neutral-400',
   medium: 'text-yellow-600',
   high: 'text-red-600'
 };
@@ -82,7 +82,7 @@ const AufgabenContent = ({ className = '' }) => {
     title: '',
     description: '',
     subject: 'zivilrecht',
-    priority: 'medium',
+    priority: 'none',
     lernplanthema: '',
     lernblock: ''
   });
@@ -226,7 +226,7 @@ const AufgabenContent = ({ className = '' }) => {
       title: '',
       description: '',
       subject: 'zivilrecht',
-      priority: 'medium',
+      priority: 'none',
       lernplanthema: '',
       lernblock: ''
     });
@@ -321,7 +321,7 @@ const AufgabenContent = ({ className = '' }) => {
               onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value }))}
               className="px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
             >
-              <option value="low">Niedrig</option>
+              <option value="none">Keine</option>
               <option value="medium">Mittel</option>
               <option value="high">Hoch</option>
             </select>
@@ -525,11 +525,11 @@ const AufgabenContent = ({ className = '' }) => {
                   <option value="querschnitt">Querschnittsrecht</option>
                 </select>
                 <select
-                  value={editingTask.priority || 'medium'}
+                  value={editingTask.priority || 'none'}
                   onChange={(e) => setEditingTask(prev => ({ ...prev, priority: e.target.value }))}
                   className="px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
                 >
-                  <option value="low">Niedrige Priorität</option>
+                  <option value="none">Keine Priorität</option>
                   <option value="medium">Mittlere Priorität</option>
                   <option value="high">Hohe Priorität</option>
                 </select>

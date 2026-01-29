@@ -181,30 +181,16 @@ const AufgabeItem = ({ aufgabe, onToggle, onTogglePriority, onDelete }) => {
           {aufgabe.name || 'Aufgabe'}
         </span>
       </label>
+      {/* PW-215: Two exclamation marks design */}
       <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
         <button
           type="button"
-          onClick={() => onTogglePriority(aufgabe.id, 1)}
-          className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold transition-colors ${
-            aufgabe.priority >= 1
-              ? 'bg-amber-100 text-amber-600'
-              : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
-          }`}
-          title="Priorität 1"
+          onClick={() => onTogglePriority(aufgabe.id)}
+          className="flex items-center justify-center px-1.5 py-1 rounded text-sm font-bold transition-colors bg-neutral-100 hover:bg-neutral-200"
+          title={aufgabe.priority === 'high' ? 'Hohe Priorität' : aufgabe.priority === 'medium' ? 'Mittlere Priorität' : 'Keine Priorität'}
         >
-          !
-        </button>
-        <button
-          type="button"
-          onClick={() => onTogglePriority(aufgabe.id, 2)}
-          className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold transition-colors ${
-            aufgabe.priority >= 2
-              ? 'bg-red-100 text-red-600'
-              : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
-          }`}
-          title="Priorität 2"
-        >
-          !
+          <span className={aufgabe.priority === 'medium' || aufgabe.priority === 'high' ? 'text-amber-500' : 'text-neutral-400'}>!</span>
+          <span className={aufgabe.priority === 'high' ? 'text-red-500' : 'text-neutral-400'}>!</span>
         </button>
       </div>
       <button
@@ -400,7 +386,7 @@ const Step12ThemenEditV2 = () => {
       id: `aufgabe-${Date.now()}`,
       name: newAufgabeName.trim(),
       completed: false,
-      priority: 0
+      priority: 'none'
     };
 
     updateWizardData(prev => {
@@ -443,9 +429,11 @@ const Step12ThemenEditV2 = () => {
     });
   };
 
-  const handleToggleAufgabePriority = (aufgabeId, level) => {
+  // PW-214 FIX: Use string-based priority cycle: none → medium → high → none
+  const handleToggleAufgabePriority = (aufgabeId) => {
     if (!activeUrgId || !activeThemeId) return;
 
+    const priorityMap = { none: 'medium', medium: 'high', high: 'none' };
     updateWizardData(prev => {
       const currentThemes = prev.themenDraft[activeUrgId] || [];
       return {
@@ -457,7 +445,7 @@ const Step12ThemenEditV2 = () => {
                   ...t,
                   aufgaben: (t.aufgaben || []).map(a =>
                     a.id === aufgabeId
-                      ? { ...a, priority: a.priority === level ? level - 1 : level }
+                      ? { ...a, priority: priorityMap[a.priority || 'none'] || 'medium' }
                       : a
                   )
                 }

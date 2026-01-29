@@ -79,7 +79,7 @@ export function migrateOldToNewStructure(oldPlan) {
               aufgaben: (thema.aufgaben || []).map((a, idx) => ({
                 id: a.id,
                 name: a.name,
-                priority: a.priority || 'low',
+                priority: a.priority || 'none',
                 completed: a.completed || false,
                 order: idx
               }))
@@ -99,7 +99,7 @@ export function migrateOldToNewStructure(oldPlan) {
             aufgaben: (thema.aufgaben || []).map((a, idx) => ({
               id: a.id,
               name: a.name,
-              priority: a.priority || 'low',
+              priority: a.priority || 'none',
               completed: a.completed || false,
               order: idx
             }))

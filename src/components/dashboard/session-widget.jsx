@@ -198,7 +198,7 @@ const TaskItem = ({
           </p>
         )}
       </div>
-      {/* Priority indicator - single button that cycles through: none → medium → high → none */}
+      {/* PW-215: Two exclamation marks design */}
       <button
         type="button"
         onClick={(e) => {
@@ -208,14 +208,11 @@ const TaskItem = ({
           const nextPriority = nextLevel === 0 ? 'none' : nextLevel === 1 ? 'medium' : 'high';
           onTogglePriority(task.id, nextPriority);
         }}
-        className={`px-1.5 py-0.5 rounded text-xl font-semibold transition-colors ${
-          priorityLevel === 0
-            ? 'text-neutral-200 hover:text-neutral-400'
-            : 'text-neutral-900 hover:text-neutral-950'
-        }`}
+        className="flex items-center px-1.5 py-0.5 rounded text-xl font-semibold transition-colors"
         title={priorityLevel === 0 ? 'Keine Priorität' : priorityLevel === 1 ? 'Mittlere Priorität' : 'Hohe Priorität'}
       >
-        {priorityLevel === 0 ? '!' : priorityLevel === 1 ? '!' : '!!'}
+        <span className={priorityLevel >= 1 ? 'text-amber-500' : 'text-neutral-300'}>!</span>
+        <span className={priorityLevel >= 2 ? 'text-red-500' : 'text-neutral-300'}>!</span>
       </button>
       {/* Trash icon - only on hover */}
       <button
@@ -827,6 +824,7 @@ const ThemeListThemaRow = memo(function ThemeListThemaRow({
                       </span>
                     )}
                     {/* Priority indicator - cycles: none → medium (!) → high (!!) → none */}
+                    {/* PW-215: Two exclamation marks design - left ! for medium, both !! for high */}
                     {!isScheduled && hasTitle && !isEditing && (
                       <button
                         type="button"
@@ -834,17 +832,18 @@ const ThemeListThemaRow = memo(function ThemeListThemaRow({
                           e.stopPropagation();
                           onToggleAufgabePriority?.(unterrechtsgebietId, kapitelId, thema.id, aufgabe.id, aufgabe.priority || 'none', rechtsgebietId);
                         }}
-                        className={`px-1 py-0.5 rounded text-xl font-semibold transition-colors ${
+                        className={`flex items-center px-1 py-0.5 rounded text-xl font-semibold transition-colors ${
                           (aufgabe.priority || 'none') === 'none'
-                            ? 'text-neutral-200 hover:text-neutral-400 opacity-0 group-hover:opacity-100'
-                            : 'text-neutral-900 hover:text-neutral-950'
+                            ? 'opacity-0 group-hover:opacity-100'
+                            : ''
                         }`}
                         title={
                           (aufgabe.priority || 'none') === 'none' ? 'Keine Priorität' :
                           aufgabe.priority === 'medium' ? 'Mittlere Priorität' : 'Hohe Priorität'
                         }
                       >
-                        {(aufgabe.priority || 'none') === 'none' ? '!' : aufgabe.priority === 'medium' ? '!' : '!!'}
+                        <span className={aufgabe.priority === 'medium' || aufgabe.priority === 'high' ? 'text-amber-500' : 'text-neutral-300'}>!</span>
+                        <span className={aufgabe.priority === 'high' ? 'text-red-500' : 'text-neutral-300'}>!</span>
                       </button>
                     )}
                     {/* Delete button - only visible on hover for non-scheduled tasks */}
@@ -1282,16 +1281,17 @@ const BlocksListView = memo(function BlocksListView({
                           {task.title || task.text}
                         </span>
 
-                        {/* Priority indicator */}
-                        {task.priority && (
-                          <button
-                            type="button"
-                            onClick={() => onToggleBlockTaskPriority?.(block.id, task.id)}
-                            className="text-amber-500 text-xs font-bold"
-                          >
-                            {task.priority === 'high' ? '!!' : '!'}
-                          </button>
-                        )}
+                        {/* PW-215: Two exclamation marks design */}
+                        <button
+                          type="button"
+                          onClick={() => onToggleBlockTaskPriority?.(block.id, task.id)}
+                          className={`flex items-center text-sm font-bold ${
+                            (task.priority || 'none') === 'none' ? 'opacity-0 group-hover:opacity-100' : ''
+                          }`}
+                        >
+                          <span className={task.priority === 'medium' || task.priority === 'high' ? 'text-amber-500' : 'text-neutral-300'}>!</span>
+                          <span className={task.priority === 'high' ? 'text-red-500' : 'text-neutral-300'}>!</span>
+                        </button>
 
                         {/* Delete button */}
                         <button

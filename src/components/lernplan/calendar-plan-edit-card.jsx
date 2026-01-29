@@ -435,6 +435,7 @@ const CalendarPlanEditCard = ({
       id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: taskData.title || '',
       completed: false,
+      priority: 'none',
     };
 
     handleUpdateBlock(block, {

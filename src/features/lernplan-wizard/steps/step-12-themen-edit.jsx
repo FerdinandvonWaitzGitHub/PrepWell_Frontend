@@ -153,30 +153,16 @@ const AufgabeItem = ({ aufgabe, onToggle, onTogglePriority, onDelete }) => {
 
       <div className="flex-1" />
 
+      {/* PW-215: Two exclamation marks design */}
       <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
         <button
           type="button"
-          onClick={() => onTogglePriority(aufgabe.id, 1)}
-          className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold transition-colors ${
-            aufgabe.priority >= 1
-              ? 'bg-amber-100 text-amber-600'
-              : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
-          }`}
-          title="Priorität 1"
+          onClick={() => onTogglePriority(aufgabe.id)}
+          className="flex items-center justify-center px-1.5 py-1 rounded text-sm font-bold transition-colors bg-neutral-100 hover:bg-neutral-200"
+          title={aufgabe.priority === 'high' ? 'Hohe Priorität' : aufgabe.priority === 'medium' ? 'Mittlere Priorität' : 'Keine Priorität'}
         >
-          !
-        </button>
-        <button
-          type="button"
-          onClick={() => onTogglePriority(aufgabe.id, 2)}
-          className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold transition-colors ${
-            aufgabe.priority >= 2
-              ? 'bg-red-100 text-red-600'
-              : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
-          }`}
-          title="Priorität 2"
-        >
-          !
+          <span className={aufgabe.priority === 'medium' || aufgabe.priority === 'high' ? 'text-amber-500' : 'text-neutral-400'}>!</span>
+          <span className={aufgabe.priority === 'high' ? 'text-red-500' : 'text-neutral-400'}>!</span>
         </button>
       </div>
 
@@ -215,7 +201,7 @@ const ThemaCard = ({
         id: `aufgabe-${Date.now()}`,
         name: newAufgabeName.trim(),
         completed: false,
-        priority: 0
+        priority: 'none'
       });
       setNewAufgabeName('');
     }
@@ -538,9 +524,11 @@ const Step12ThemenEdit = () => {
   };
 
   // PW-025 FIX: Use functional update to prevent stale closure issues
-  const handleToggleAufgabePriority = (themaId, aufgabeId, level) => {
+  // PW-214 FIX: Use string-based priority cycle: none → medium → high → none
+  const handleToggleAufgabePriority = (themaId, aufgabeId) => {
     if (!activeUrg) return;
     const urgId = activeUrg.id; // Capture before async
+    const priorityMap = { none: 'medium', medium: 'high', high: 'none' };
     updateWizardData(prev => {
       const currentThemen = prev.themenDraft[urgId] || [];
       return {
@@ -552,7 +540,7 @@ const Step12ThemenEdit = () => {
                   ...t,
                   aufgaben: (t.aufgaben || []).map(a =>
                     a.id === aufgabeId
-                      ? { ...a, priority: a.priority === level ? level - 1 : level }
+                      ? { ...a, priority: priorityMap[a.priority || 'none'] || 'medium' }
                       : a
                   )
                 }
@@ -687,7 +675,7 @@ const Step12ThemenEdit = () => {
                     thema={thema}
                     onAddAufgabe={(aufgabe) => handleAddAufgabe(thema.id, aufgabe)}
                     onToggleAufgabe={(aufgabeId) => handleToggleAufgabe(thema.id, aufgabeId)}
-                    onToggleAufgabePriority={(aufgabeId, level) => handleToggleAufgabePriority(thema.id, aufgabeId, level)}
+                    onToggleAufgabePriority={(aufgabeId) => handleToggleAufgabePriority(thema.id, aufgabeId)}
                     onDeleteAufgabe={(aufgabeId) => handleDeleteAufgabe(thema.id, aufgabeId)}
                     onDeleteThema={() => handleDeleteThema(thema.id)}
                   />

@@ -347,3 +347,172 @@ TESTPLAN:
 8. Screenshot-Upload → Fachname "Grundrechte" (existiert als URG)
 9. "Übernehmen" → URG "Grundrechte" wird zu selectedAreas hinzugefügt UND Titel gesetzt
 10. Bestehende Themenliste öffnen (ohne Titel) → Kein Crash, Fallback funktioniert
+
+
+================================================================================
+PW-213: Aufgaben-Priorität: Falscher Default und Anzeige-Zyklus
+================================================================================
+STATUS: OFFEN
+TYP: Bug
+PRIORITÄT: P1
+
+PROBLEM:
+- Ist: Neue Aufgaben werden mit falscher Priorität erstellt/angezeigt. Bei
+  priority 'none' wird trotzdem ein Ausrufezeichen angezeigt. Der Klick-Zyklus
+  funktioniert nicht wie erwartet (none → ! → !! → none).
+- Soll: Neue Aufgaben haben keine Priorität (keine Ausrufezeichen). Der
+  Klick-Zyklus ist: keine → ! (medium) → !! (high) → keine (none).
+- Kontext: Dashboard Session-Widget (Themenliste-Ansicht), Aufgaben-Verwaltung
+
+ROOT CAUSE (VERIFIZIERT):
+
+**Problem 1: Falsche Anzeige-Logik**
+Lage: src/components/dashboard/session-widget.jsx, Zeile 847
+
+```javascript
+{(aufgabe.priority || 'none') === 'none' ? '!' : aufgabe.priority === 'medium' ? '!' : '!!'}
+```
+
+Bei 'none' wird fälschlicherweise '!' angezeigt. Soll: Bei 'none' kein Symbol.
+
+**Problem 2: Falscher Default in Aufgaben-Verwaltung**
+Lage: src/components/verwaltung/aufgaben-content.jsx, Zeilen 85 und 229
+
+```javascript
+const [newTask, setNewTask] = useState({
+  ...
+  priority: 'medium',  // ← FALSCH, sollte 'none' sein
+  ...
+});
+```
+
+**Problem 3: Fehlender priority Default bei addAufgabeToPlan**
+Lage: src/contexts/calendar-context.jsx, Zeilen 2453-2457
+
+```javascript
+const newAufgabe = {
+  id: generateId(),
+  title: aufgabeData.title || '',
+  completed: false,
+  // ← priority fehlt komplett!
+};
+```
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ session-widget.jsx: Anzeige-Logik Zeile 847 korrigieren                  │
+│ ✅ aufgaben-content.jsx: Default priority auf 'none' ändern (Z. 85, 229)    │
+│ ✅ calendar-context.jsx: priority: 'none' in addAufgabeToPlan hinzufügen    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Refactoring von bestehenden Komponenten                                  │
+│ ❌ Neue Dependencies hinzufügen                                             │
+│ ❌ UI-Änderungen außerhalb der Prioritäts-Anzeige                           │
+│ ❌ API Contracts ändern                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+- src/components/dashboard/session-widget.jsx (Zeile 847)
+- src/components/verwaltung/aufgaben-content.jsx (Zeilen 85, 229)
+- src/contexts/calendar-context.jsx (Zeilen 2453-2457)
+
+CHANGE-BUDGET:
+- Max 3 Dateien
+- Max 20 geänderte Zeilen
+
+AKZEPTANZKRITERIEN:
+- [ ] Neue Aufgaben werden ohne Ausrufezeichen erstellt (priority: 'none')
+- [ ] Klick-Zyklus funktioniert: keine → ! → !! → keine
+- [ ] Bei priority 'none' wird kein Ausrufezeichen angezeigt
+- [ ] Bestehende Aufgaben mit gesetzter Priorität funktionieren weiterhin
+
+TESTPLAN:
+1. Themenliste öffnen → neue Aufgabe hinzufügen
+2. Erwartung: Kein Ausrufezeichen sichtbar
+3. Auf Prioritäts-Button klicken (1x)
+4. Erwartung: Ein Ausrufezeichen (!) erscheint
+5. Erneut klicken (2x)
+6. Erwartung: Zwei Ausrufezeichen (!!) erscheinen
+7. Erneut klicken (3x)
+8. Erwartung: Keine Ausrufezeichen mehr
+9. Aufgaben-Verwaltung → neue Aufgabe erstellen
+10. Erwartung: Priorität-Dropdown steht auf "Niedrig" (none)
+
+
+================================================================================
+PW-214: Aufgaben-Priority: Fehlende/inkonsistente Defaults an allen Erstellstellen
+================================================================================
+STATUS: OFFEN
+TYP: Bug
+PRIORITÄT: P1
+
+PROBLEM:
+- Ist: Aufgaben können an 10 verschiedenen Stellen im Code erstellt werden.
+  Nur 2 davon haben `priority: 'none'`. 6 Stellen haben gar kein priority-Feld,
+  2 Stellen (Wizard) verwenden `priority: 0` (numerisch statt string).
+  Dies führt zu inkonsistentem Verhalten je nachdem, wo die Aufgabe erstellt wird.
+- Soll: Alle Stellen, an denen Aufgaben erstellt werden, müssen konsistent
+  `priority: 'none'` (string) als Default verwenden.
+- Kontext: Aufgaben-Erstellung in verschiedenen App-Bereichen
+
+BETROFFENE STELLEN (10 total):
+
+┌───┬────────────────────────────────────────────────────────────┬─────────────────┐
+│ # │ Datei : Zeile                                              │ Aktueller Stand │
+├───┼────────────────────────────────────────────────────────────┼─────────────────┤
+│ 1 │ calendar-context.jsx:1441-1447 (addTask)                   │ ❌ Kein priority│
+│ 2 │ calendar-context.jsx:2453-2458 (addAufgabeToPlan)          │ ✅ 'none'       │
+│ 3 │ dashboard.jsx:385-391 (handleAddBlockTask)                 │ ✅ 'none'       │
+│ 4 │ themenliste-editor.jsx:773-776 (Screenshot-Import)         │ ❌ Kein priority│
+│ 5 │ themenliste-editor.jsx:793-796 (Screenshot-Import Kapitel) │ ❌ Kein priority│
+│ 6 │ calendar-plan-edit-card.jsx:434-438 (handleAddTask)        │ ❌ Kein priority│
+│ 7 │ create-repetition-session-dialog.jsx:171-176               │ ❌ Kein priority│
+│ 8 │ step-12-themen-edit-v2.jsx:399-404 (Wizard)                │ ⚠️ priority: 0  │
+│ 9 │ step-12-themen-edit.jsx:214-219 (Wizard alt)               │ ⚠️ priority: 0  │
+│10 │ manage-repetition-session-dialog.jsx:164-169               │ ❌ Kein priority│
+└───┴────────────────────────────────────────────────────────────┴─────────────────┘
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ Alle 8 Stellen: `priority: 'none'` hinzufügen/korrigieren                │
+│ ✅ Wizard-Stellen: `priority: 0` → `priority: 'none'` ändern                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Refactoring (keine zentrale createTask-Factory o.ä.)                     │
+│ ❌ Typ-Definitionen ändern                                                  │
+│ ❌ UI-Änderungen                                                            │
+│ ❌ Anzeige-Logik ändern (bereits in PW-213 behandelt)                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+- src/contexts/calendar-context.jsx (Zeile 1444)
+- src/pages/themenliste-editor.jsx (Zeilen 775, 795)
+- src/components/lernplan/calendar-plan-edit-card.jsx (Zeile 437)
+- src/features/calendar/components/create-repetition-session-dialog.jsx (Zeile 175)
+- src/features/lernplan-wizard/steps/step-12-themen-edit-v2.jsx (Zeile 403)
+- src/features/lernplan-wizard/steps/step-12-themen-edit.jsx (Zeile 218)
+- src/features/calendar/components/manage-repetition-session-dialog.jsx (Zeile 168)
+
+CHANGE-BUDGET:
+- Max 7 Dateien
+- Max 15 geänderte Zeilen (je 1-2 Zeilen pro Datei)
+
+AKZEPTANZKRITERIEN:
+- [ ] Alle 10 Aufgaben-Erstellstellen haben `priority: 'none'`
+- [ ] Wizard verwendet String 'none' statt numerisch 0
+- [ ] Keine Regression bei bestehenden Aufgaben
+- [ ] Neue Aufgaben haben überall keine Priorität (keine Ausrufezeichen)
+
+TESTPLAN:
+1. Dashboard → Block → "Neue Aufgabe" → Erwartung: Kein Ausrufezeichen
+2. Themenliste-Editor → Screenshot-Upload → Erwartung: Importierte Aufgaben ohne Prio
+3. Kalender → Lernplan-Block bearbeiten → Task hinzufügen → Erwartung: Kein Ausrufezeichen
+4. Wiederholungs-Session erstellen → Task hinzufügen → Erwartung: Kein Ausrufezeichen
+5. Wizard Step 12 → Aufgabe hinzufügen → Erwartung: Kein Ausrufezeichen
+6. Bestehende Aufgaben mit Priorität prüfen → Erwartung: Priorität bleibt erhalten

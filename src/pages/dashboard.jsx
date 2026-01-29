@@ -303,12 +303,28 @@ const DashboardPage = () => {
 
   // Handle toggling Aufgabe priority in the selected theme list
   // Cycles: none → medium (!) → high (!!) → none
+  // Uses flat themen structure (plan.themen[].aufgaben[])
   const handleToggleThemeListAufgabePriority = useCallback((unterrechtsgebietId, kapitelId, themaId, aufgabeId, currentPriority, rechtsgebietId) => {
     if (!selectedThemeListId) return;
+    const plan = contentPlans?.find(p => p.id === selectedThemeListId);
+    if (!plan) return;
+
     const priorityMap = { none: 'medium', medium: 'high', high: 'none' };
     const nextPriority = priorityMap[currentPriority] || 'medium';
-    updateAufgabeInPlan(selectedThemeListId, rechtsgebietId, unterrechtsgebietId, kapitelId, themaId, aufgabeId, { priority: nextPriority });
-  }, [selectedThemeListId, updateAufgabeInPlan]);
+
+    // Update using flat themen structure
+    const updatedThemen = (plan.themen || []).map(t => {
+      if (t.id !== themaId) return t;
+      return {
+        ...t,
+        aufgaben: (t.aufgaben || []).map(a =>
+          a.id === aufgabeId ? { ...a, priority: nextPriority } : a
+        ),
+      };
+    });
+
+    updateContentPlan(selectedThemeListId, { themen: updatedThemen });
+  }, [selectedThemeListId, contentPlans, updateContentPlan]);
 
   // PW-021: T5.1: Handle toggling Thema completed status - uses NEW T27 structure
   const handleToggleThemaCompleted = useCallback((unterrechtsgebietId, kapitelId, themaId, rechtsgebietId) => {

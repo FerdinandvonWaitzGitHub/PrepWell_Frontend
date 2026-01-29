@@ -588,7 +588,7 @@ const ThemenlisteEditorPage = () => {
     const newAufgabe = {
       id: genId(),
       name: aufgabenName,
-      priority: 'low',
+      priority: 'none',
       completed: false,
       order: 0,
     };
@@ -619,7 +619,7 @@ const ThemenlisteEditorPage = () => {
 
   // Toggle Aufgabe Priority
   const handleTogglePriority = useCallback((themaId, aufgabeId) => {
-    const priorities = ['low', 'medium', 'high'];
+    const priorities = ['none', 'medium', 'high'];
 
     const updatedThemen = contentPlan.themen.map(t => {
       if (t.id !== themaId) return t;
@@ -627,7 +627,7 @@ const ThemenlisteEditorPage = () => {
         ...t,
         aufgaben: (t.aufgaben || []).map(a => {
           if (a.id !== aufgabeId) return a;
-          const currentIdx = priorities.indexOf(a.priority || 'low');
+          const currentIdx = priorities.indexOf(a.priority || 'none');
           const nextPriority = priorities[(currentIdx + 1) % priorities.length];
           return { ...a, priority: nextPriority };
         }),
@@ -773,6 +773,7 @@ const ThemenlisteEditorPage = () => {
             id: `aufgabe-${Date.now()}-${order}-${idx}`,
             title: typeof aufgabe === 'string' ? aufgabe : aufgabe.name || '',
             completed: false,
+            priority: 'none',
           })),
         });
       }
@@ -793,6 +794,7 @@ const ThemenlisteEditorPage = () => {
               id: `aufgabe-${Date.now()}-${order}-${idx}`,
               title: typeof aufgabe === 'string' ? aufgabe : aufgabe.name || '',
               completed: false,
+              priority: 'none',
             })),
           });
         }

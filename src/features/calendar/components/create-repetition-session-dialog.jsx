@@ -172,7 +172,8 @@ const CreateRepetitionBlockDialog = ({
       id: `task-${Date.now()}`,
       text: newTaskText.trim(),
       difficulty: newTaskDifficulty,
-      completed: false
+      completed: false,
+      priority: 'none'
     };
 
     setTasks(prev => [...prev, newTask]);

@@ -145,24 +145,14 @@ const ThemaDetail = ({
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {/* Priority Buttons - T27: Two !! buttons */}
+                    {/* PW-215: Two exclamation marks design */}
                     <button
                       onClick={() => onTogglePriority(thema.id, aufgabe.id)}
-                      className={`px-1 py-0.5 text-xl font-semibold leading-none rounded transition-colors ${
-                        priority.color || 'text-neutral-200 hover:text-neutral-400'
-                      }`}
-                      title="Priorität ändern"
+                      className="flex items-center px-1 py-0.5 text-xl font-semibold leading-none rounded transition-colors"
+                      title={aufgabe.priority === 'high' ? 'Hohe Priorität' : aufgabe.priority === 'medium' ? 'Mittlere Priorität' : 'Keine Priorität'}
                     >
-                      !
-                    </button>
-                    <button
-                      onClick={() => onTogglePriority(thema.id, aufgabe.id)}
-                      className={`px-1 py-0.5 text-xl font-semibold leading-none rounded transition-colors ${
-                        aufgabe.priority === 'high' ? 'text-red-600' : 'text-neutral-200 hover:text-neutral-400'
-                      }`}
-                      title="Priorität ändern"
-                    >
-                      !
+                      <span className={aufgabe.priority === 'medium' || aufgabe.priority === 'high' ? 'text-amber-500' : 'text-neutral-300'}>!</span>
+                      <span className={aufgabe.priority === 'high' ? 'text-red-500' : 'text-neutral-300'}>!</span>
                     </button>
 
                     {/* Delete Button */}

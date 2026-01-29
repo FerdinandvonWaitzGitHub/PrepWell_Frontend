@@ -1443,6 +1443,7 @@ export const CalendarProvider = ({ children }) => {
       ...task,
       id: task.id || `task-${Date.now()}`,
       completed: false,
+      priority: task.priority || 'none',
       createdAt: new Date().toISOString(),
     };
 
@@ -2454,6 +2455,7 @@ export const CalendarProvider = ({ children }) => {
                         id: generateId(),
                         title: aufgabeData.title || '',
                         completed: false,
+                        priority: 'none',
                       };
                       return {
                         ...t,
@@ -2480,19 +2482,19 @@ export const CalendarProvider = ({ children }) => {
       if (plan.id !== planId) return plan;
       return {
         ...plan,
-        rechtsgebiete: plan.rechtsgebiete.map(rg => {
+        rechtsgebiete: (plan.rechtsgebiete || []).map(rg => {
           if (rg.id !== rechtsgebietId) return rg;
           return {
             ...rg,
-            unterrechtsgebiete: rg.unterrechtsgebiete.map(urg => {
+            unterrechtsgebiete: (rg.unterrechtsgebiete || []).map(urg => {
               if (urg.id !== unterrechtsgebietId) return urg;
               return {
                 ...urg,
-                kapitel: urg.kapitel.map(k => {
+                kapitel: (urg.kapitel || []).map(k => {
                   if (k.id !== kapitelId) return k;
                   return {
                     ...k,
-                    themen: k.themen.map(t => {
+                    themen: (k.themen || []).map(t => {
                       if (t.id !== themaId) return t;
                       return {
                         ...t,
