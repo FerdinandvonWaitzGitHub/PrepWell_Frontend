@@ -1,7 +1,7 @@
 /**
  * CompactStatItem - Statistic row for sidebar matching Figma design
  *
- * Layout: Label (100px) | Value + Referenzbereich | Trend arrow + Tendenzangabe
+ * Layout: Label (160px) | Value + Referenzbereich | Trend arrow + Tendenzangabe
  */
 const CompactStatItem = ({
   label,
@@ -33,9 +33,9 @@ const CompactStatItem = ({
 
   return (
     <div className="flex items-start gap-5 py-3">
-      {/* Left: Label (100px fixed width, allow wrapping) */}
-      <div className="w-[100px] flex-shrink-0 flex flex-col items-start pt-1 overflow-hidden">
-        <span className="text-neutral-900 text-sm font-normal leading-5 break-all hyphens-auto">
+      {/* Left: Label (160px fixed width, allow wrapping) */}
+      <div className="w-[160px] flex-shrink-0 flex flex-col items-start pt-1 overflow-hidden">
+        <span className="text-neutral-900 text-sm font-normal leading-5">
           {label}
         </span>
       </div>
