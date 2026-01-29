@@ -50,6 +50,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    // Handle chunk loading errors (stale deployment)
+    // When Vercel deploys a new version, old chunk files are deleted.
+    // Users with stale HTML will get 404s - auto-reload fixes this.
+    const isChunkError =
+      error.message.includes('Failed to fetch dynamically imported module') ||
+      error.message.includes('Loading chunk') ||
+      error.message.includes('Loading CSS chunk');
+
+    if (isChunkError) {
+      window.location.reload();
+      return;
+    }
+
     // Log error to console in development
     if (import.meta.env.DEV) {
       console.error('ErrorBoundary caught an error:', error);
