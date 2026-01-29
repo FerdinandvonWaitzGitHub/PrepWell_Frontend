@@ -1,10 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { X, Check, ChevronDown, Calendar } from 'lucide-react';
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
+  DialogContent
 } from '../../ui/dialog';
 
 // Available chart statistics with their categories
@@ -30,6 +28,21 @@ const CHART_STATISTICS = [
     description: 'Durchschnittliche Lernzeit pro Monat',
     category: 'Lernzeit',
     color: '#8B5CF6'
+  },
+  // Scores
+  {
+    id: 'prep-score',
+    label: 'PrepScore',
+    description: 'Dein Vorbereitungs-Score über Zeit',
+    category: 'Scores',
+    color: '#2563EB'
+  },
+  {
+    id: 'well-score',
+    label: 'WellScore',
+    description: 'Dein Wohlbefindens-Score über Zeit',
+    category: 'Scores',
+    color: '#16A34A'
   },
   // Zeitpunkte & Muster
   {
@@ -145,144 +158,357 @@ const CHART_STATISTICS = [
   }
 ];
 
+// Semester options
+const SEMESTER_OPTIONS = [
+  { id: 'all', label: 'Alle Semester' },
+  { id: 'current', label: 'Aktuelles Semester' },
+  { id: 'ws-2025', label: 'WS 2025/26' },
+  { id: 'ss-2025', label: 'SS 2025' },
+  { id: 'ws-2024', label: 'WS 2024/25' },
+  { id: 'ss-2024', label: 'SS 2024' },
+];
+
 /**
- * ChartSelectionDialog - Dialog to select which statistics to display in the chart
+ * ChartSelectionDialog - Dialog to configure chart display settings
+ *
+ * Figma Design: https://www.figma.com/design/vVbrqavbI9IKnC1KInXg3H/PrepWell-WebApp?node-id=2658-8982
+ *
+ * Features:
+ * - Select two graphs to display
+ * - Choose time frame (semester or custom date range)
  *
  * @param {boolean} open - Dialog open state
  * @param {Function} onOpenChange - Dialog open state change callback
- * @param {Array} selectedCharts - Currently selected chart IDs (max 3)
- * @param {Function} onSelectionChange - Callback with new selection array
+ * @param {Object} chartConfig - Current chart configuration
+ * @param {Function} onConfigChange - Callback with new configuration
  */
 const ChartSelectionDialog = ({
   open,
   onOpenChange,
-  selectedCharts = [],
-  onSelectionChange
+  chartConfig = {},
+  onConfigChange
 }) => {
-  const [localSelection, setLocalSelection] = useState(selectedCharts);
-  const MAX_SELECTIONS = 3;
+  const [firstGraph, setFirstGraph] = useState(chartConfig.firstGraph || 'prep-score');
+  const [secondGraph, setSecondGraph] = useState(chartConfig.secondGraph || 'well-score');
+  const [timeFrameType, setTimeFrameType] = useState(chartConfig.timeFrameType || 'custom');
+  const [selectedSemester, setSelectedSemester] = useState(chartConfig.selectedSemester || 'current');
+  const [startDate, setStartDate] = useState(chartConfig.startDate || '');
+  const [endDate, setEndDate] = useState(chartConfig.endDate || '');
 
-  // Reset local selection when dialog opens
+  // Dropdown open states
+  const [firstGraphOpen, setFirstGraphOpen] = useState(false);
+  const [secondGraphOpen, setSecondGraphOpen] = useState(false);
+  const [semesterOpen, setSemesterOpen] = useState(false);
+
+  // Reset state when dialog opens
   useEffect(() => {
     if (open) {
-      setLocalSelection(selectedCharts);
+      setFirstGraph(chartConfig.firstGraph || 'prep-score');
+      setSecondGraph(chartConfig.secondGraph || 'well-score');
+      setTimeFrameType(chartConfig.timeFrameType || 'custom');
+      setSelectedSemester(chartConfig.selectedSemester || 'current');
+      setStartDate(chartConfig.startDate || '');
+      setEndDate(chartConfig.endDate || '');
     }
-  }, [open, selectedCharts]);
-
-  // Group stats by category
-  const groupedStats = useMemo(() => {
-    const groups = {};
-    CHART_STATISTICS.forEach(stat => {
-      const category = stat.category || 'Sonstige';
-      if (!groups[category]) {
-        groups[category] = [];
-      }
-      groups[category].push(stat);
-    });
-    return groups;
-  }, []);
-
-  const handleToggle = (statId) => {
-    setLocalSelection(prev => {
-      if (prev.includes(statId)) {
-        return prev.filter(id => id !== statId);
-      }
-      // Only allow up to MAX_SELECTIONS
-      if (prev.length >= MAX_SELECTIONS) {
-        return prev;
-      }
-      return [...prev, statId];
-    });
-  };
+  }, [open, chartConfig]);
 
   const handleSave = () => {
-    onSelectionChange?.(localSelection);
+    onConfigChange?.({
+      firstGraph,
+      secondGraph,
+      timeFrameType,
+      selectedSemester,
+      startDate,
+      endDate
+    });
     onOpenChange?.(false);
   };
 
   const handleCancel = () => {
-    setLocalSelection(selectedCharts);
     onOpenChange?.(false);
   };
 
-  const isMaxReached = localSelection.length >= MAX_SELECTIONS;
+  const getStatLabel = (statId) => {
+    const stat = CHART_STATISTICS.find(s => s.id === statId);
+    return stat?.label || statId;
+  };
+
+  const getSemesterLabel = (semesterId) => {
+    const semester = SEMESTER_OPTIONS.find(s => s.id === semesterId);
+    return semester?.label || semesterId;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Diagramm-Statistiken auswählen</DialogTitle>
-          <DialogDescription>
-            Wähle bis zu {MAX_SELECTIONS} Statistiken aus, die im Diagramm angezeigt werden sollen.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl p-6 relative">
+        {/* Close Icon */}
+        <button
+          onClick={handleCancel}
+          className="absolute top-4 right-4 w-4 h-4 text-neutral-400 hover:text-neutral-600 transition-colors"
+          aria-label="Schließen"
+        >
+          <X className="w-4 h-4" />
+        </button>
 
-        <div className="flex-1 overflow-y-auto py-4 space-y-6">
-          {Object.entries(groupedStats).map(([category, stats]) => (
-            <div key={category}>
-              <h4 className="text-sm font-medium text-neutral-700 mb-3">{category}</h4>
-              <div className="space-y-2">
-                {stats.map(stat => {
-                  const isSelected = localSelection.includes(stat.id);
-                  const isDisabled = !isSelected && isMaxReached;
+        {/* Header */}
+        <div className="flex flex-col gap-1.5 mb-6">
+          <h2 className="text-lg font-light text-neutral-900 leading-none">
+            Graphen anpassen
+          </h2>
+          <p className="text-sm font-normal text-neutral-500 leading-5">
+            Wähle die Statistiken und den Zeitrahmen für die Graphen aus.
+          </p>
+        </div>
 
-                  return (
-                    <label
-                      key={stat.id}
-                      className={`
-                        flex items-center gap-3 p-3 rounded-lg border transition-colors
-                        ${isSelected
-                          ? 'border-blue-300 bg-blue-50 cursor-pointer'
-                          : isDisabled
-                            ? 'border-neutral-100 bg-neutral-50 cursor-not-allowed opacity-50'
-                            : 'border-neutral-200 hover:bg-neutral-50 cursor-pointer'
-                        }
-                      `}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isDisabled}
-                        onChange={() => handleToggle(stat.id)}
-                        className="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <div
-                        className="w-3 h-3 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: stat.color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm text-neutral-900">{stat.label}</span>
-                        {stat.description && (
-                          <p className="text-xs text-neutral-500 mt-0.5 truncate">{stat.description}</p>
-                        )}
-                      </div>
-                    </label>
-                  );
-                })}
+        {/* Content - Two Columns */}
+        <div className="flex gap-12">
+          {/* Left Column - Graph Selection */}
+          <div className="flex flex-col gap-8">
+            {/* First Graph */}
+            <div className="flex flex-col gap-3">
+              <label className="text-sm font-medium text-neutral-900">
+                Erster Graph
+              </label>
+              <div className="relative w-[200px]">
+                <button
+                  onClick={() => setFirstGraphOpen(!firstGraphOpen)}
+                  className="flex items-center justify-between w-full h-9 pl-4 pr-2 bg-white border border-neutral-200 rounded-lg shadow-sm hover:bg-neutral-50 transition-colors"
+                >
+                  <span className="text-sm font-medium text-neutral-900 truncate">
+                    {getStatLabel(firstGraph)}
+                  </span>
+                  <ChevronDown className="w-5 h-5 text-neutral-600 flex-shrink-0" />
+                </button>
+
+                {/* Dropdown */}
+                {firstGraphOpen && (
+                  <div className="absolute z-10 mt-1 w-64 max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg">
+                    {CHART_STATISTICS.map(stat => (
+                      <button
+                        key={stat.id}
+                        onClick={() => {
+                          setFirstGraph(stat.id);
+                          setFirstGraphOpen(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 ${
+                          firstGraph === stat.id ? 'bg-neutral-100 font-medium' : ''
+                        }`}
+                      >
+                        {stat.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
+
+            {/* Second Graph */}
+            <div className="flex flex-col gap-3">
+              <label className="text-sm font-medium text-neutral-900">
+                Zweiter Graph
+              </label>
+              <div className="relative w-[200px]">
+                <button
+                  onClick={() => setSecondGraphOpen(!secondGraphOpen)}
+                  className="flex items-center justify-between w-full h-9 pl-4 pr-2 bg-white border border-neutral-200 rounded-lg shadow-sm hover:bg-neutral-50 transition-colors"
+                >
+                  <span className="text-sm font-medium text-neutral-900 truncate">
+                    {getStatLabel(secondGraph)}
+                  </span>
+                  <ChevronDown className="w-5 h-5 text-neutral-600 flex-shrink-0" />
+                </button>
+
+                {/* Dropdown */}
+                {secondGraphOpen && (
+                  <div className="absolute z-10 mt-1 w-64 max-h-60 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg">
+                    {CHART_STATISTICS.map(stat => (
+                      <button
+                        key={stat.id}
+                        onClick={() => {
+                          setSecondGraph(stat.id);
+                          setSecondGraphOpen(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 ${
+                          secondGraph === stat.id ? 'bg-neutral-100 font-medium' : ''
+                        }`}
+                      >
+                        {stat.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Time Frame */}
+          <div className="flex flex-col gap-3 flex-1">
+            <label className="text-sm font-medium text-neutral-900">
+              Zeitrahmen
+            </label>
+
+            {/* Semester Option */}
+            <button
+              onClick={() => setTimeFrameType('semester')}
+              className={`flex gap-3 p-4 rounded-lg border transition-colors text-left ${
+                timeFrameType === 'semester'
+                  ? 'border-neutral-900'
+                  : 'border-neutral-200'
+              }`}
+            >
+              {/* Radio */}
+              <div className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center ${
+                timeFrameType === 'semester'
+                  ? 'border-neutral-900'
+                  : 'border-neutral-300'
+              }`}>
+                {timeFrameType === 'semester' && (
+                  <div className="w-2 h-2 rounded-full bg-neutral-900" />
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="flex flex-col gap-1.5 flex-1">
+                <span className={`text-sm font-medium leading-none ${
+                  timeFrameType === 'semester' ? 'text-neutral-900' : 'text-neutral-500'
+                }`}>
+                  Semester
+                </span>
+
+                {/* Semester Dropdown */}
+                <div className="relative mt-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTimeFrameType('semester');
+                      setSemesterOpen(!semesterOpen);
+                    }}
+                    className="flex items-center gap-2 h-9 px-4 bg-white border border-neutral-200 rounded-lg shadow-sm hover:bg-neutral-50 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-neutral-900">
+                      {getSemesterLabel(selectedSemester)}
+                    </span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTimeFrameType('semester');
+                      setSemesterOpen(!semesterOpen);
+                    }}
+                    className="absolute right-0 top-0 flex items-center justify-center w-9 h-9 bg-white border border-neutral-200 rounded-lg shadow-sm hover:bg-neutral-50 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-neutral-600" />
+                  </button>
+
+                  {/* Dropdown */}
+                  {semesterOpen && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg">
+                      {SEMESTER_OPTIONS.map(semester => (
+                        <button
+                          key={semester.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSemester(semester.id);
+                            setSemesterOpen(false);
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 ${
+                            selectedSemester === semester.id ? 'bg-neutral-100 font-medium' : ''
+                          }`}
+                        >
+                          {semester.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </button>
+
+            {/* Custom Date Range Option */}
+            <button
+              onClick={() => setTimeFrameType('custom')}
+              className={`flex gap-3 p-4 rounded-lg border transition-colors text-left ${
+                timeFrameType === 'custom'
+                  ? 'border-neutral-900'
+                  : 'border-neutral-200'
+              }`}
+            >
+              {/* Radio */}
+              <div className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center ${
+                timeFrameType === 'custom'
+                  ? 'border-neutral-900'
+                  : 'border-neutral-300'
+              }`}>
+                {timeFrameType === 'custom' && (
+                  <div className="w-2 h-2 rounded-full bg-neutral-900" />
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="flex flex-col gap-3 flex-1">
+                <span className={`text-sm font-medium leading-none ${
+                  timeFrameType === 'custom' ? 'text-neutral-900' : 'text-neutral-500'
+                }`}>
+                  Benutzerdefinierte Zeitrahmen
+                </span>
+
+                {/* Date Pickers */}
+                <div className="flex flex-col gap-4 w-[300px]">
+                  {/* Start Date */}
+                  <div className="flex items-center gap-2 h-9 px-3 bg-white border border-neutral-200 rounded-lg shadow-sm">
+                    <Calendar className="w-5 h-5 text-neutral-400" />
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setTimeFrameType('custom');
+                        setStartDate(e.target.value);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Beginn auswählen"
+                      className="flex-1 text-sm font-medium text-neutral-900 bg-transparent border-none focus:outline-none"
+                    />
+                  </div>
+
+                  {/* End Date */}
+                  <div className="flex items-center gap-2 h-9 px-3 bg-white border border-neutral-200 rounded-lg shadow-sm">
+                    <Calendar className="w-5 h-5 text-neutral-400" />
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => {
+                        setTimeFrameType('custom');
+                        setEndDate(e.target.value);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Ende auswählen"
+                      className="flex-1 text-sm font-medium text-neutral-900 bg-transparent border-none focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
-          <span className={`text-sm ${isMaxReached ? 'text-amber-600' : 'text-neutral-500'}`}>
-            {localSelection.length} / {MAX_SELECTIONS} ausgewählt
-          </span>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleCancel}
-              className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-800"
-            >
-              Abbrechen
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 text-sm font-medium text-white bg-neutral-900 rounded-lg hover:bg-neutral-800"
-            >
-              Speichern
-            </button>
-          </div>
+        <div className="flex items-center justify-end gap-2 mt-6">
+          {/* Cancel Button */}
+          <button
+            onClick={handleCancel}
+            className="h-9 px-4 py-2 text-sm font-medium text-neutral-900 bg-white border border-neutral-200 rounded-lg shadow-sm hover:bg-neutral-50 transition-colors"
+          >
+            Abbrechen
+          </button>
+
+          {/* Save Button */}
+          <button
+            onClick={handleSave}
+            className="h-9 px-4 py-2 flex items-center gap-2 text-sm font-medium text-red-50 bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            <span>Speichern</span>
+            <Check className="w-5 h-5" />
+          </button>
         </div>
       </DialogContent>
     </Dialog>

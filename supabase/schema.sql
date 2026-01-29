@@ -380,17 +380,57 @@ CREATE TABLE IF NOT EXISTS time_sessions (
 );
 
 -- Timer Sessions (for statistics)
+-- PW-035: Refactored schema with started_at/ended_at timestamps
 CREATE TABLE IF NOT EXISTS timer_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   lernplan_id UUID REFERENCES lernplaene(id) ON DELETE SET NULL,
   session_type timer_type DEFAULT 'pomodoro',
-  duration_seconds INT,
-  completed BOOLEAN DEFAULT FALSE,
-  session_date DATE,
-  session_time TIME,
+  -- Timestamps (NEU)
+  started_at TIMESTAMPTZ,
+  ended_at TIMESTAMPTZ,
+  duration_ms BIGINT,
+  -- Status: running, completed, cancelled (NEU)
+  status TEXT DEFAULT 'completed' CHECK (status IN ('running', 'completed', 'cancelled')),
+  -- Kontext (NEU)
+  task_id UUID,
+  task_title TEXT,
+  source TEXT DEFAULT 'web',
+  metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Indizes für timer_sessions
+CREATE INDEX IF NOT EXISTS idx_timer_sessions_user_started
+  ON timer_sessions (user_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_timer_sessions_status_running
+  ON timer_sessions (status) WHERE status = 'running';
+
+-- View für Tages-Statistiken
+CREATE OR REPLACE VIEW daily_timer_stats AS
+SELECT
+  user_id,
+  DATE(started_at) AS day,
+  COUNT(*) AS session_count,
+  SUM(duration_ms) AS total_duration_ms,
+  COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completed_count,
+  AVG(duration_ms) AS avg_duration_ms
+FROM timer_sessions
+WHERE started_at IS NOT NULL
+GROUP BY user_id, DATE(started_at);
+
+-- View für Wochen-Statistiken
+CREATE OR REPLACE VIEW weekly_timer_stats AS
+SELECT
+  user_id,
+  DATE_TRUNC('week', started_at)::date AS week_start,
+  COUNT(*) AS session_count,
+  SUM(duration_ms) AS total_duration_ms,
+  COUNT(DISTINCT DATE(started_at)) AS learning_days,
+  AVG(duration_ms) AS avg_duration_ms
+FROM timer_sessions
+WHERE started_at IS NOT NULL AND status = 'completed'
+GROUP BY user_id, DATE_TRUNC('week', started_at);
 
 -- Uebungsklausuren (Practice Exams - Exam Mode)
 CREATE TABLE IF NOT EXISTS uebungsklausuren (

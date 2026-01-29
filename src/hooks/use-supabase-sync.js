@@ -879,30 +879,22 @@ export function useCheckInSync() {
 
 /**
  * Hook for Timer Sessions (History)
- * Limited to 1000 most recent sessions to prevent Supabase timeout (57014)
+ * PW-035: DISABLED - Timer sessions are now managed directly in timer-context.jsx
+ * with the new schema (started_at, ended_at, duration_ms, status).
+ * This prevents duplicate sessions caused by bidirectional sync with ID mismatch.
  */
 export function useTimerHistorySync() {
-  return useSupabaseSync('timer_sessions', STORAGE_KEYS.timerHistory, [], {
-    orderBy: 'created_at',
-    orderDirection: 'desc',
-    limit: 1000, // Prevent statement timeout on large tables
-    transformToSupabase: (session) => ({
-      session_type: session.type || 'pomodoro',
-      duration_seconds: session.duration,
-      completed: session.completed || false,
-      session_date: session.date,
-      session_time: session.time,
-    }),
-    transformFromSupabase: (row) => ({
-      id: row.id,
-      type: row.session_type,
-      duration: row.duration_seconds,
-      completed: row.completed,
-      date: row.session_date,
-      time: row.session_time,
-      createdAt: row.created_at,
-    }),
-  });
+  // Return no-op interface - timer-context.jsx handles everything directly
+  return {
+    data: [],
+    loading: false,
+    error: null,
+    sync: () => Promise.resolve(),
+    saveItem: () => Promise.resolve(),
+    deleteItem: () => Promise.resolve(),
+    isAuthenticated: false,
+    isInitialized: true
+  };
 }
 
 /**

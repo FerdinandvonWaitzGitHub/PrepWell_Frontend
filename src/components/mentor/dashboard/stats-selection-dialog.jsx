@@ -1,15 +1,15 @@
 import { useState, useMemo, useEffect } from 'react';
+import { X, Check } from 'lucide-react';
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
+  DialogContent
 } from '../../ui/dialog';
 import { CHART_STATISTICS } from './chart-selection-dialog';
 
 /**
  * StatsSelectionDialog - Dialog to select which statistics to display in sidebar
+ *
+ * Figma Design: https://www.figma.com/design/vVbrqavbI9IKnC1KInXg3H/PrepWell-WebApp?node-id=2571-4886
  *
  * Uses the same statistics as the chart selection but allows up to 10 selections
  *
@@ -74,80 +74,102 @@ const StatsSelectionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Statistiken auswählen</DialogTitle>
-          <DialogDescription>
-            Wähle bis zu {MAX_SELECTIONS} Statistiken aus, die in der Sidebar angezeigt werden sollen.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col p-6 relative">
+        {/* Close Icon */}
+        <button
+          onClick={handleCancel}
+          className="absolute top-4 right-4 w-4 h-4 text-neutral-400 hover:text-neutral-600 transition-colors"
+          aria-label="Schließen"
+        >
+          <X className="w-4 h-4" />
+        </button>
 
-        <div className="flex-1 overflow-y-auto py-4 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-1.5 mb-6">
+          <h2 className="text-lg font-light text-neutral-900 leading-none">
+            Statistiken auswählen
+          </h2>
+          <p className="text-sm font-normal text-neutral-500 leading-5">
+            Wähle die Statistiken aus, die du angezeigt bekommen möchtest.
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto flex flex-col gap-2">
           {Object.entries(groupedStats).map(([category, stats]) => (
-            <div key={category}>
-              <h4 className="text-sm font-medium text-neutral-700 mb-3">{category}</h4>
-              <div className="space-y-2">
-                {stats.map(stat => {
-                  const isSelected = localSelection.includes(stat.id);
-                  const isDisabled = !isSelected && isMaxReached;
+            <div key={category} className="flex flex-col gap-2">
+              {/* Category Title */}
+              <p className="text-sm font-medium text-neutral-900 leading-5">
+                Statistiken zum Thema {category}
+              </p>
 
-                  return (
-                    <label
-                      key={stat.id}
-                      className={`
-                        flex items-center gap-3 p-3 rounded-lg border transition-colors
-                        ${isSelected
-                          ? 'border-blue-300 bg-blue-50 cursor-pointer'
-                          : isDisabled
-                            ? 'border-neutral-100 bg-neutral-50 cursor-not-allowed opacity-50'
-                            : 'border-neutral-200 hover:bg-neutral-50 cursor-pointer'
-                        }
-                      `}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isDisabled}
-                        onChange={() => handleToggle(stat.id)}
-                        className="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <div
-                        className="w-3 h-3 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: stat.color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm text-neutral-900">{stat.label}</span>
-                        {stat.description && (
-                          <p className="text-xs text-neutral-500 mt-0.5 truncate">{stat.description}</p>
-                        )}
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+              {/* Stats in this category */}
+              {stats.map(stat => {
+                const isSelected = localSelection.includes(stat.id);
+                const isDisabled = !isSelected && isMaxReached;
+
+                return (
+                  <button
+                    key={stat.id}
+                    onClick={() => !isDisabled && handleToggle(stat.id)}
+                    disabled={isDisabled}
+                    className={`
+                      flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-colors w-full text-left
+                      ${isDisabled
+                        ? 'border-neutral-100 bg-neutral-50 cursor-not-allowed opacity-50'
+                        : 'border-neutral-200 hover:bg-neutral-50 cursor-pointer'
+                      }
+                    `}
+                  >
+                    {/* Checkbox */}
+                    <div className={`
+                      w-4 h-4 rounded flex-shrink-0 border shadow-sm flex items-center justify-center
+                      ${isSelected
+                        ? 'bg-neutral-900 border-neutral-900'
+                        : 'bg-white border-neutral-200'
+                      }
+                    `}>
+                      {isSelected && (
+                        <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                      <span className="text-sm font-medium text-neutral-900 leading-none">
+                        {stat.label}
+                      </span>
+                      {stat.description && (
+                        <span className="text-sm font-normal text-neutral-500 leading-5 truncate">
+                          {stat.description}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
-          <span className={`text-sm ${isMaxReached ? 'text-amber-600' : 'text-neutral-500'}`}>
-            {localSelection.length} / {MAX_SELECTIONS} ausgewählt
-          </span>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleCancel}
-              className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-800"
-            >
-              Abbrechen
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 text-sm font-medium text-white bg-neutral-900 rounded-lg hover:bg-neutral-800"
-            >
-              Speichern
-            </button>
-          </div>
+        <div className="flex items-end justify-between h-10 mt-6">
+          {/* Cancel Button */}
+          <button
+            onClick={handleCancel}
+            className="h-9 px-4 py-2 text-sm font-medium text-neutral-900 bg-white border border-neutral-200 rounded-lg shadow-sm hover:bg-neutral-50 transition-colors"
+          >
+            Abbrechen
+          </button>
+
+          {/* Save Button */}
+          <button
+            onClick={handleSave}
+            className="h-9 px-4 py-2 flex items-center gap-2 text-sm font-medium text-red-50 bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            <span>Auswahl übernehmen</span>
+            <Check className="w-5 h-5" />
+          </button>
         </div>
       </DialogContent>
     </Dialog>

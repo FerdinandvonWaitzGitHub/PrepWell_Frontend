@@ -91,7 +91,7 @@ const MentorPage = () => {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden p-5">
         {isActivated ? (
           <MentorContent className="h-full" />
         ) : (

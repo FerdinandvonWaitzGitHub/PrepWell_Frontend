@@ -479,15 +479,15 @@ SCOPE-FENCE:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ ERLAUBT                                                                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ ✅ Alle 8 Stellen: `priority: 'none'` hinzufügen/korrigieren                │
-│ ✅ Wizard-Stellen: `priority: 0` → `priority: 'none'` ändern                │
+│ ✅ Alle 8 Stellen: `priority: 'none'` hinzufügen/korrigieren               │
+│ ✅ Wizard-Stellen: `priority: 0` → `priority: 'none'` ändern               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ VERBOTEN                                                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ ❌ Refactoring (keine zentrale createTask-Factory o.ä.)                     │
-│ ❌ Typ-Definitionen ändern                                                  │
-│ ❌ UI-Änderungen                                                            │
-│ ❌ Anzeige-Logik ändern (bereits in PW-213 behandelt)                       │
+│ ❌ Refactoring (keine zentrale createTask-Factory o.ä.)                    │
+│ ❌ Typ-Definitionen ändern                                                 │
+│ ❌ UI-Änderungen                                                           │
+│ ❌ Anzeige-Logik ändern (bereits in PW-213 behandelt)                      │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 BETROFFENE DATEIEN:
@@ -516,3 +516,844 @@ TESTPLAN:
 4. Wiederholungs-Session erstellen → Task hinzufügen → Erwartung: Kein Ausrufezeichen
 5. Wizard Step 12 → Aufgabe hinzufügen → Erwartung: Kein Ausrufezeichen
 6. Bestehende Aufgaben mit Priorität prüfen → Erwartung: Priorität bleibt erhalten
+
+
+================================================================================
+PW-032: Mentor-Dashboard - Unrealistische Stundenzahlen in Statistiken
+================================================================================
+STATUS: OFFEN
+TYP: Investigation / Bug
+PRIORITÄT: P1
+
+PROBLEM:
+In der Mentor-Statistik-Sidebar (rechte Seite) werden extreme, unrealistische
+Stundenzahlen angezeigt. Die Herkunft und Berechnung dieser Werte ist unklar.
+
+BEOBACHTUNG:
+- Sidebar zeigt Statistiken wie "Ø Lernzeit pro Tag", "Lernzeit diese Woche" etc.
+- Die angezeigten Werte scheinen unrealistisch hoch zu sein
+
+DATENFLUSS (VERIFIZIERT):
+```
+mentor-content.jsx (Zeile 39-46)
+  ↓ useStatistics() Hook
+  │
+  ↓ src/hooks/useStatistics.js (Zeile 21)
+  │   const { timerHistory, getTimerStats } = useTimer();
+  │
+  ↓ src/contexts/timer-context.jsx (Zeile 406-408)
+  │   timerHistory = isAuthenticated ? supabaseHistory : localTimerHistory
+  │
+  ↓ Datenquellen:
+  │   - LocalStorage: 'prepwell_timer_history'
+  │   - Supabase: 'timer_sessions' Tabelle (duration_seconds INT)
+  │
+  ↓ Transformation (src/hooks/use-supabase-sync.js, Zeile 884-905):
+  │   - Speichern: session.duration → duration_seconds (Sekunden)
+  │   - Laden: row.duration_seconds → duration (Sekunden)
+  │
+  ↓ Berechnung in lernzeitStats (useStatistics.js, Zeile 49-115):
+  │   - totalSeconds = sum of all session.duration
+  │   - learningDays = unique dates in timerHistory
+  │   - avgPerLearningDay = totalSeconds / learningDays
+  │   - avgPerWeek = totalSeconds / weeks
+  │   - avgPerMonth = totalSeconds / months
+  │
+  ↓ Sidebar-Anzeige (useStatistics.js, Zeile 1197-1286):
+  │   - 'lernzeit-per-day': formatDuration(totalSeconds / learningDays)
+  │   - 'lernzeit-per-week': formatDuration(thisWeekTime)
+  │
+  ↓ formatDuration (useStatistics.js, Zeile 543-550):
+      if (seconds < 60) return Xs
+      if (minutes < 60) return Xmin
+      return Xh Ymin
+```
+
+CODE-ANALYSE - DURATION SPEICHERUNG:
+Timer-Context speichert duration in SEKUNDEN (korrekt):
+- timer-context.jsx:755 → `duration: pomodoroSettings.sessionDuration * 60`
+- timer-context.jsx:767 → `duration: countdownSettings.duration * 60`
+- timer-context.jsx:1005 → `actualDuration = elapsedSeconds`
+
+Supabase Schema (supabase/schema.sql:388):
+- `duration_seconds INT` - Integer für Sekunden
+
+MÖGLICHE URSACHEN (nach Code-Analyse):
+
+1. **Alte Daten mit falschem Format**:
+   - Möglicherweise wurden in einer älteren Version Millisekunden gespeichert
+   - Diese alten Einträge würden 1000x zu hohe Werte liefern
+   - Beispiel: 25min = 1.500.000ms wird als 1.500.000 Sekunden gelesen = 416h
+
+2. **Divisor-Problem bei Durchschnittsberechnung**:
+   - `avgPerLearningDay = totalSeconds / learningDays`
+   - Wenn `learningDays = 1`, wird ALLES durch 1 geteilt
+   - Beispiel: 30h Gesamtzeit über Monate, aber nur 1 unique Date
+   - → "Ø 30h pro Tag" (weil Date-Keys fehlen oder korrupt sind)
+
+3. **Date-Parsing Bug** (useStatistics.js:57):
+   ```javascript
+   const learningDays = new Set(allSessions.map(s => s.date)).size;
+   ```
+   - Wenn `s.date` undefined/null ist → Set hat nur 1 Element (undefined)
+   - → Alle Sessions werden durch 1 geteilt
+
+4. **Wochen-Berechnung Bug** (useStatistics.js:60-64):
+   ```javascript
+   const weekNum = Math.ceil((date.getDate()) / 7);
+   ```
+   - Berechnet Wochennummer falsch (Tag des Monats / 7)
+   - Kalenderwochen über Monatsgrenzen werden nicht korrekt gezählt
+
+WAHRSCHEINLICHSTE URSACHE:
+**Fehlende oder ungültige `date` Felder in timerHistory**
+→ `learningDays.size = 1` → Gesamtzeit / 1 = extreme Werte
+
+INVESTIGATIONSSCHRITTE:
+1. Browser Console öffnen:
+   ```javascript
+   const h = JSON.parse(localStorage.getItem('prepwell_timer_history'));
+   console.log('Sessions:', h?.length);
+   console.log('Sample:', h?.slice(0, 3));
+   console.log('Dates:', [...new Set(h?.map(s => s.date))]);
+   console.log('Total duration (sek):', h?.reduce((s,x) => s + (x.duration||0), 0));
+   ```
+
+2. Prüfen:
+   - Haben alle Sessions ein `date` Feld?
+   - Sind die `duration` Werte plausibel? (25min = 1500, nicht 1500000)
+   - Wie viele unique Dates gibt es?
+
+3. Supabase Dashboard → timer_sessions:
+   - SELECT duration_seconds, session_date FROM timer_sessions LIMIT 10;
+   - Prüfen ob Werte in Sekunden sind (1500 für 25min)
+
+RELEVANTE DATEIEN:
+- src/hooks/useStatistics.js (Zeilen 49-115 - lernzeitStats)
+- src/hooks/useStatistics.js (Zeilen 543-550 - formatDuration)
+- src/hooks/useStatistics.js (Zeilen 1197-1286 - sidebarStats)
+- src/contexts/timer-context.jsx (Zeile 406-408 - timerHistory Auswahl)
+- src/contexts/timer-context.jsx (Zeilen 750-770 - Session speichern)
+- src/hooks/use-supabase-sync.js (Zeilen 884-905 - DB Transformation)
+
+AKZEPTANZKRITERIEN:
+- [ ] Root Cause identifiziert
+- [ ] Falls alte Daten korrupt: Migration/Cleanup durchführen
+- [ ] Falls Berechnung fehlerhaft: Fix implementieren
+- [ ] Angezeigte Stundenzahlen sind realistisch (1-4h/Tag, 10-30h/Woche)
+
+TESTPLAN:
+1. Console-Check (siehe INVESTIGATIONSSCHRITTE)
+2. Timer starten → 1 Minute warten → Session beenden
+3. Console: Neue Session prüfen → duration sollte ~60 sein
+4. Mentor-Dashboard → Sidebar-Statistiken prüfen
+5. Erwartung: Werte sind plausibel
+
+
+================================================================================
+PW-033: Code-Änderung - saveSession() Dual-Storage entfernt
+================================================================================
+STATUS: DURCHGEFÜHRT (29.01.2026)
+TYP: Code-Änderung / Potentieller Breaking Change
+PRIORITÄT: P0 - SOFORT PRÜFEN
+
+KONTEXT:
+Diese Änderung wurde als Fix für PW-032 (Duplikate in timer_sessions) durchgeführt.
+
+================================================================================
+ÄNDERUNG 1: timer-context.jsx (Zeile 564-588)
+================================================================================
+
+DATEI: src/contexts/timer-context.jsx
+FUNKTION: saveSession()
+
+VORHER (Zeile 564-587):
+```javascript
+// Function to save session to both localStorage and Supabase
+const saveSession = useCallback((session) => {
+  const sessionWithId = {
+    ...session,
+    id: `session-${Date.now()}`,
+    savedAt: new Date().toISOString()
+  };
+
+  // Save to localStorage
+  try {
+    const history = loadHistoryFromStorage();
+    history.push(sessionWithId);
+    const trimmedHistory = history.slice(-1000);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
+    setLocalTimerHistory(trimmedHistory);
+  } catch (error) {
+    console.error('Error saving timer session to localStorage:', error);
+  }
+
+  // Save to Supabase if authenticated
+  if (isAuthenticated) {
+    saveSessionToSupabase(sessionWithId);
+  }
+}, [isAuthenticated, saveSessionToSupabase]);
+```
+
+NACHHER (Zeile 564-588):
+```javascript
+// Function to save session to localStorage OR Supabase (not both!)
+// PW-032 FIX: Saving to both caused duplicate sessions due to ID mismatch
+const saveSession = useCallback((session) => {
+  const sessionWithId = {
+    ...session,
+    id: `session-${Date.now()}`,
+    savedAt: new Date().toISOString()
+  };
+
+  if (isAuthenticated) {
+    // Authenticated users: Save ONLY to Supabase (prevents duplicates)
+    saveSessionToSupabase(sessionWithId);
+  } else {
+    // Unauthenticated users: Save ONLY to localStorage
+    try {
+      const history = loadHistoryFromStorage();
+      history.push(sessionWithId);
+      const trimmedHistory = history.slice(-1000);
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
+      setLocalTimerHistory(trimmedHistory);
+    } catch (error) {
+      console.error('Error saving timer session to localStorage:', error);
+    }
+  }
+}, [isAuthenticated, saveSessionToSupabase]);
+```
+
+WAS WURDE GEÄNDERT:
+- VORHER: Session wurde IMMER in localStorage gespeichert UND zusätzlich in Supabase
+- NACHHER: Session wird ENTWEDER in localStorage ODER in Supabase gespeichert
+
+BEGRÜNDUNG:
+- localStorage verwendet ID-Format: `session-1706123456789`
+- Supabase generiert neue UUID: `abc-def-123-...`
+- Bei Sync wurden IDs verglichen → keine Übereinstimmung → Duplikate hochgeladen
+- Resultat: 11.000+ Duplikate in timer_sessions
+
+POTENTIELLE PROBLEME DURCH DIESE ÄNDERUNG:
+
+1. **Offline-Modus für eingeloggte User kaputt**:
+   - VORHER: Eingeloggte User hatten localStorage als Backup
+   - NACHHER: Eingeloggte User verlieren Session wenn offline
+   - BETROFFEN: Timer-Session wird nicht gespeichert wenn Supabase nicht erreichbar
+
+2. **localTimerHistory State wird nicht mehr aktualisiert**:
+   - VORHER: setLocalTimerHistory() wurde immer aufgerufen
+   - NACHHER: setLocalTimerHistory() nur für nicht-eingeloggte User
+   - POTENTIELL BETROFFEN: UI-Komponenten die localTimerHistory verwenden
+
+3. **Keine Migration bestehender localStorage-Daten**:
+   - Bestehende Sessions in localStorage werden ignoriert (nicht gelöscht)
+   - User die sich einloggen verlieren "Zugriff" auf alte localStorage-Daten
+
+================================================================================
+ÄNDERUNG 2: useStatistics.js (Zeile 59-69)
+================================================================================
+
+DATEI: src/hooks/useStatistics.js
+
+VORHER (Zeile 59-69 existierten):
+```javascript
+// PW-032 DEBUG: Statistik-Werte analysieren
+console.log('=== PW-032 DEBUG: lernzeitStats ===');
+console.log('Sessions count:', allSessions.length);
+console.log('Total seconds:', totalSeconds, '=', (totalSeconds / 3600).toFixed(2), 'h');
+console.log('Unique learning days:', learningDays);
+console.log('Avg per day (sek):', learningDays > 0 ? totalSeconds / learningDays : 0);
+console.log('Sample sessions:', allSessions.slice(0, 3));
+const suspicious = allSessions.filter(s => s.duration > 86400);
+if (suspicious.length > 0) console.warn('⚠️ Sessions > 24h:', suspicious);
+const missingDates = allSessions.filter(s => !s.date);
+if (missingDates.length > 0) console.warn('⚠️ Sessions ohne date:', missingDates.length);
+```
+
+NACHHER:
+Debug-Logs wurden komplett entfernt.
+
+================================================================================
+ROLLBACK-ANLEITUNG
+================================================================================
+
+Falls die Änderung Probleme verursacht, hier der Original-Code:
+
+```javascript
+// Function to save session to both localStorage and Supabase
+const saveSession = useCallback((session) => {
+  const sessionWithId = {
+    ...session,
+    id: `session-${Date.now()}`,
+    savedAt: new Date().toISOString()
+  };
+
+  // Save to localStorage
+  try {
+    const history = loadHistoryFromStorage();
+    history.push(sessionWithId);
+    const trimmedHistory = history.slice(-1000);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
+    setLocalTimerHistory(trimmedHistory);
+  } catch (error) {
+    console.error('Error saving timer session to localStorage:', error);
+  }
+
+  // Save to Supabase if authenticated
+  if (isAuthenticated) {
+    saveSessionToSupabase(sessionWithId);
+  }
+}, [isAuthenticated, saveSessionToSupabase]);
+```
+
+================================================================================
+TESTPLAN
+================================================================================
+
+1. **Eingeloggt - Online:**
+   - Timer starten → Session beenden
+   - Erwartung: Session erscheint in Supabase timer_sessions
+   - Prüfen: localStorage wurde NICHT aktualisiert
+
+2. **Eingeloggt - Offline (Netzwerk trennen):**
+   - Timer starten → Session beenden
+   - Erwartung: ??? (potentiell Session verloren)
+
+3. **Nicht eingeloggt:**
+   - Timer starten → Session beenden
+   - Erwartung: Session erscheint in localStorage
+   - Prüfen: Supabase wurde NICHT kontaktiert
+
+4. **UI-State nach Session:**
+   - Nach Timer-Session: Wird timerHistory in UI aktualisiert?
+   - Mentor-Dashboard: Zeigt neue Session an?
+
+================================================================================
+OFFENE FRAGEN
+================================================================================
+
+1. Wird saveSessionToSupabase() Fehler werfen wenn offline?
+2. Gibt es Error-Handling in saveSessionToSupabase()?
+3. Welche Komponenten nutzen localTimerHistory direkt?
+4. Soll es einen Offline-Fallback geben?
+
+
+================================================================================
+PW-034: Timer-System Refactoring - Vergleich IST vs SOLL
+================================================================================
+STATUS: ANALYSE
+TYP: Refactoring / Architektur
+PRIORITÄT: P1
+
+KONTEXT:
+Das aktuelle Timer-System hat fundamentale Architekturprobleme, die zu
+Duplikaten und falschen Statistiken führen (siehe PW-032, PW-033).
+Dieses Ticket dokumentiert den Vergleich zwischen IST und SOLL-Zustand.
+
+================================================================================
+AKTUELLES DATENMODELL (IST)
+================================================================================
+
+TABELLE: timer_sessions (supabase/schema.sql:383-393)
+```sql
+CREATE TABLE timer_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  lernplan_id UUID REFERENCES lernplaene(id),
+  session_type timer_type DEFAULT 'pomodoro',  -- enum
+  duration_seconds INT,                         -- ⚠️ Sekunden, nicht ms
+  completed BOOLEAN DEFAULT FALSE,
+  session_date DATE,                            -- ⚠️ Nur Datum, keine Zeit
+  session_time TIME,                            -- ⚠️ Separate Zeit-Spalte
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+PROBLEME MIT AKTUELLEM MODELL:
+
+1. **Keine started_at/ended_at Timestamps**
+   - Session-Start/-Ende nicht nachvollziehbar
+   - Pausen können nicht berechnet werden
+   - Keine Echtzeitverfolgung möglich
+
+2. **duration_seconds manuell berechnet**
+   - Frontend berechnet Dauer, nicht Backend
+   - Fehleranfällig bei Browser-Throttling
+   - Keine Validierung möglich
+
+3. **Kein status Feld**
+   - Keine Unterscheidung: running/completed/cancelled
+   - Abgebrochene Sessions nicht erkennbar
+
+4. **session_date + session_time getrennt**
+   - Sollte ein TIMESTAMPTZ sein
+   - Timezone-Probleme möglich
+
+5. **Kein metadata Feld**
+   - Pomodoro-Cycle, Phase nicht gespeichert
+   - Countdown-Target nicht gespeichert
+
+================================================================================
+VORGESCHLAGENES DATENMODELL (SOLL)
+================================================================================
+
+TABELLE: timer_sessions (NEU)
+```sql
+CREATE TABLE timer_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  -- Modus & Status
+  mode TEXT NOT NULL CHECK (mode IN ('pomodoro', 'count_up', 'count_down', 'logbook')),
+  status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'cancelled')),
+
+  -- Zeitstempel (WICHTIG: started_at + ended_at!)
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ended_at TIMESTAMPTZ,
+
+  -- Berechnete Dauer (beim Beenden setzen, in Millisekunden)
+  duration_ms BIGINT,
+
+  -- Kontext (optional)
+  task_id UUID,
+  task_title TEXT,
+  source TEXT DEFAULT 'web',
+
+  -- Flexibles Metadata für Mode-spezifische Daten
+  metadata JSONB DEFAULT '{}',
+  -- Beispiele:
+  -- Pomodoro: {"cycle": 3, "phase": "focus", "focus_minutes": 25, "break_minutes": 5}
+  -- Countdown: {"target_ms": 1800000}
+  -- Logbook: {"note": "...", "manual": true}
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index für Statistik-Abfragen
+CREATE INDEX idx_timer_sessions_user_day ON timer_sessions (user_id, DATE(started_at));
+CREATE INDEX idx_timer_sessions_status ON timer_sessions (status) WHERE status = 'running';
+```
+
+================================================================================
+VERGLEICH: IST vs SOLL
+================================================================================
+
+| Aspekt                  | IST (Aktuell)              | SOLL (Vorgeschlagen)       |
+|-------------------------|----------------------------|----------------------------|
+| Start-Zeitpunkt         | ❌ Nur created_at          | ✅ started_at              |
+| End-Zeitpunkt           | ❌ Nicht vorhanden         | ✅ ended_at                |
+| Dauer-Einheit           | ⚠️ Sekunden (INT)          | ✅ Millisekunden (BIGINT)  |
+| Dauer-Berechnung        | ❌ Frontend                | ✅ Backend (ended-started) |
+| Status                  | ❌ Nur completed Boolean   | ✅ running/completed/cancel|
+| Pausen-Tracking         | ❌ Nicht möglich           | ✅ Via metadata oder events|
+| Pomodoro-Phase          | ❌ Nicht gespeichert       | ✅ metadata.phase          |
+| Modus-Typen             | ⚠️ Enum (pomodoro/count*)  | ✅ Inkl. logbook           |
+| Timezone-Handling       | ⚠️ DATE + TIME getrennt   | ✅ TIMESTAMPTZ             |
+
+================================================================================
+AKTUELLER DATENFLUSS (PROBLEMATISCH)
+================================================================================
+
+```
+Frontend (timer-context.jsx)
+    │
+    ├── saveSession() ─────────────────────────────────────────┐
+    │   │                                                      │
+    │   ├── [War: IMMER] localStorage.setItem()                │
+    │   │   ID: session-{timestamp}                            │
+    │   │                                                      │
+    │   └── [Wenn auth] saveSessionToSupabase()                │
+    │       ID: Supabase generiert UUID                        │
+    │                                                          │
+    └── useSupabaseSync() ─────────────────────────────────────┤
+        │                                                      │
+        ├── Vergleicht localStorage vs Supabase                │
+        │   Problem: IDs stimmen nie überein!                  │
+        │                                                      │
+        └── Lädt "local-only" Items zu Supabase hoch ──────────┘
+            → DUPLIKATE!
+
+Resultat: 39.000+ Duplikate, Sync-Loop
+```
+
+================================================================================
+VORGESCHLAGENER DATENFLUSS (SAUBER)
+================================================================================
+
+```
+Frontend (timer-context.jsx)
+    │
+    ├── startTimer() ─────────────────────────────────────────┐
+    │   │                                                     │
+    │   └── INSERT timer_sessions (started_at=NOW, status='running')
+    │       ← Returns session_id                              │
+    │       → Store session_id in React state                 │
+    │                                                         │
+    ├── stopTimer() ──────────────────────────────────────────┤
+    │   │                                                     │
+    │   └── UPDATE timer_sessions                             │
+    │       SET ended_at=NOW,                                 │
+    │           duration_ms=EXTRACT(EPOCH FROM (ended_at-started_at))*1000,
+    │           status='completed'                            │
+    │       WHERE id=session_id                               │
+    │                                                         │
+    └── Statistik-Seite ──────────────────────────────────────┘
+        │
+        └── SELECT FROM daily_timer_stats (View/Aggregation)
+            Keine Berechnung im Frontend nötig!
+```
+
+VORTEILE:
+1. ✅ Keine Duplikate (ein INSERT pro Session)
+2. ✅ Server berechnet duration (kein Frontend-Fehler)
+3. ✅ Kein localStorage für Sessions (nur Supabase)
+4. ✅ Statistik via Views (performant)
+
+================================================================================
+IDENTIFIZIERTE ROOT CAUSES DER AKTUELLEN PROBLEME
+================================================================================
+
+1. **Dual-Storage ohne ID-Synchronisation**
+   - localStorage: `session-{timestamp}`
+   - Supabase: `gen_random_uuid()`
+   - Sync kann Duplikate nicht erkennen
+
+2. **Bidirektionaler Sync**
+   - useSupabaseSync lädt lokal→Supabase UND Supabase→lokal
+   - Bei Löschen in Supabase: Lokale Daten werden wieder hochgeladen
+   - Endlosschleife möglich
+
+3. **Frontend berechnet Dauer**
+   - Browser-Throttling verfälscht Zeiten
+   - Keine Server-Validierung
+
+4. **Keine echten Timestamps**
+   - `session_date` + `session_time` statt `started_at`
+   - Pausen/Unterbrechungen nicht trackbar
+
+5. **Statistik-Berechnung im Frontend**
+   - Jede Seiten-Ladung rechnet alle Sessions neu
+   - Keine Aggregations-Views in Supabase
+
+================================================================================
+MIGRATION-STRATEGIE
+================================================================================
+
+PHASE 1: Schema-Update
+1. Neue Spalten hinzufügen: started_at, ended_at, duration_ms, status, metadata
+2. Migration: Bestehende Daten konvertieren
+3. Alte Spalten (session_date, session_time, duration_seconds) deprecaten
+
+PHASE 2: Frontend-Refactoring
+1. saveSession() durch startSession() + stopSession() ersetzen
+2. localStorage für timer_sessions komplett entfernen
+3. useSupabaseSync für timer_sessions deaktivieren (direkter DB-Zugriff)
+
+PHASE 3: Statistik-Optimierung
+1. Supabase View: daily_timer_stats erstellen
+2. Frontend: useStatistics.js vereinfachen (nur View abfragen)
+3. Optional: Materialized View für Performance
+
+================================================================================
+ANTWORTEN AUF DEINE FRAGEN
+================================================================================
+
+1. **Speichert ihr aktuell Events oder nur Start/End?**
+   → Aktuell: Nur End (keine Events, kein Start-Timestamp)
+   → Problem: started_at fehlt komplett, nur created_at vorhanden
+
+2. **Soll Pomodoro Pausen mitgezählt werden oder nur Fokus?**
+   → Aktuell: Unklar/Inkonsistent
+   → Empfehlung: Nur Fokus-Sessions speichern (Option 2 aus deinem Handbuch)
+
+3. **Habt ihr schon mentor/mentee Zuordnung in der DB?**
+   → Nein, noch nicht implementiert
+   → profiles Tabelle existiert nicht in dieser Form
+
+================================================================================
+NÄCHSTE SCHRITTE
+================================================================================
+
+[ ] Entscheidung: Komplett-Refactoring oder Minimal-Fix?
+[ ] Wenn Refactoring: Schema-Migration planen
+[ ] Wenn Minimal-Fix: Nur Duplikat-Problem lösen (localStorage entfernen)
+[ ] Bestehende Daten bereinigen (TRUNCATE timer_sessions)
+
+================================================================================
+PRIORITÄT
+================================================================================
+
+Empfehlung: Zuerst Minimal-Fix (Duplikate stoppen), dann schrittweise
+Refactoring zum sauberen Modell.
+
+
+================================================================================
+PW-035: Timer-System Refactoring - Implementierungslücken & Fix-Plan
+================================================================================
+STATUS: OFFEN
+TYP: Bug / Implementierungslücken
+PRIORITÄT: P1
+
+KONTEXT:
+Die erste Implementierung des Timer-Refactorings (basierend auf PW-034) wurde
+durchgeführt, aber bei der Überprüfung wurden mehrere Abweichungen vom Plan
+und Qualitätsprobleme identifiziert. Dieses Ticket dokumentiert die Findings
+und den Fix-Plan.
+
+================================================================================
+FINDINGS - ABWEICHUNGEN VOM PLAN (PW-034)
+================================================================================
+
+┌──────────┬──────────────────────────────────────────────────────────────────┐
+│ SEVERITY │ FINDING                                                          │
+├──────────┼──────────────────────────────────────────────────────────────────┤
+│ HIGH     │ Start/Stop-Flow nicht verdrahtet                                 │
+│          │ - startTimerSession/stopTimerSession werden NIRGENDWO aufgerufen│
+│          │ - Stattdessen wird nur saveSession beim Abschluss genutzt       │
+│          │ - Es gibt NIE "running" Sessions in der DB                      │
+│          │ - Der zentrale Plan-Flow (INSERT running → UPDATE completed)    │
+│          │   bleibt komplett ungenutzt                                     │
+│          │ Dateien: timer-context.jsx:555, 774, 941                        │
+├──────────┼──────────────────────────────────────────────────────────────────┤
+│ HIGH     │ Dauerberechnung bleibt client-seitig                            │
+│          │ - saveSession setzt duration_ms aus session.duration            │
+│          │ - Keine serverseitige Berechnung/Validierung                    │
+│          │ - Widerspricht Plan: "Backend berechnet duration"               │
+│          │ Dateien: timer-context.jsx:784-799, Migration:11-15             │
+├──────────┼──────────────────────────────────────────────────────────────────┤
+│ MEDIUM   │ Statistiken nutzen Views nicht                                  │
+│          │ - useStatistics.js basiert weiterhin auf rohem timerHistory     │
+│          │ - daily_timer_stats/weekly_timer_stats Views ungenutzt          │
+│          │ - Plan-Vorgabe "Statistik via View" nicht erfüllt               │
+│          │ Dateien: useStatistics.js:21-55, schema.sql:409-433             │
+├──────────┼──────────────────────────────────────────────────────────────────┤
+│ MEDIUM   │ Schema weicht vom Soll-Modell ab                                │
+│          │ - Statt mode (inkl. logbook) gibt es session_type timer_type    │
+│          │ - Enum nur für pomodoro/countdown/countup                       │
+│          │ - Logbuch-Sessions können nicht über timer_sessions laufen      │
+│          │ Dateien: schema.sql:48, 384-399                                 │
+├──────────┼──────────────────────────────────────────────────────────────────┤
+│ MEDIUM   │ Offline-Sync schreibt immer status='completed'                  │
+│          │ - Auch wenn Session als cancelled gespeichert wurde             │
+│          │ - Verfälscht Statistik-Zahlen                                   │
+│          │ Dateien: timer-context.jsx:530-541                              │
+├──────────┼──────────────────────────────────────────────────────────────────┤
+│ LOW      │ saveSession ignoriert session.endTime                           │
+│          │ - ended_at wird immer auf "jetzt" gesetzt                       │
+│          │ - Auto-Saves (Mitternacht) werden zeitlich falsch abgelegt      │
+│          │ Dateien: timer-context.jsx:786-799, 952-956                     │
+├──────────┼──────────────────────────────────────────────────────────────────┤
+│ LOW      │ RLS erlaubt nur Self-Access                                     │
+│          │ - Mentor-Access (Mentee-Sessions) aus Plan fehlt                │
+│          │ Dateien: schema.sql:838-842                                     │
+└──────────┴──────────────────────────────────────────────────────────────────┘
+
+================================================================================
+OFFENE FRAGEN / DESIGN-ENTSCHEIDUNGEN
+================================================================================
+
+1. Soll `logbook` wirklich in timer_sessions konsolidiert werden (Plan),
+   oder bleibt das getrennt über logbuch_entries?
+   → Empfehlung: Getrennt lassen (unterschiedliche Semantik)
+
+2. Ist die Offline-Queue weiterhin gewollt, obwohl der Plan
+   "kein localStorage für Sessions" vorsieht?
+   → Empfehlung: Ja, für Zuverlässigkeit behalten (nur Queue, keine History)
+
+3. Soll Mentoren-Zugriff über profiles.mentor_id implementiert werden?
+   → Empfehlung: Später (separate Phase, eigenes Ticket)
+
+================================================================================
+FIX-PLAN - 5 KONKRETE ÄNDERUNGEN
+================================================================================
+
+PHASE A: Start/Stop-Flow verdrahten (HIGH Priority)
+─────────────────────────────────────────────────────────────────────────────
+
+PROBLEM: startTimerSession/stopTimerSession existieren aber werden nicht verwendet
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ startPomodoro/startCountdown/startCountup: startTimerSession aufrufen   │
+│ ✅ handleTimerComplete/stopTimer/resetTimer: stopTimerSession aufrufen     │
+│ ✅ Midnight-Handler: stopTimerSession statt saveSession                    │
+│ ✅ saveSession nur noch für Offline-Queue Fallback behalten                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Timer-UI ändern                                                         │
+│ ❌ Neue State-Variablen hinzufügen                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ÄNDERUNGEN:
+
+1. In startPomodoro (ca. Zeile 850):
+```javascript
+// Nach setTimerStartedAt:
+const dbSessionId = await startTimerSession({ mode: 'pomodoro' });
+setCurrentDbSessionId(dbSessionId);
+```
+
+2. In startCountdown (ca. Zeile 900):
+```javascript
+const dbSessionId = await startTimerSession({ mode: 'countdown' });
+setCurrentDbSessionId(dbSessionId);
+```
+
+3. In startCountup (ca. Zeile 930):
+```javascript
+const dbSessionId = await startTimerSession({ mode: 'countup' });
+setCurrentDbSessionId(dbSessionId);
+```
+
+4. In handleTimerComplete (ca. Zeile 760):
+```javascript
+// Statt saveSession:
+await stopTimerSession(currentDbSessionId, timerStartedAt, true);
+```
+
+5. In stopTimer/resetTimer:
+```javascript
+// Session als cancelled markieren wenn vorzeitig beendet:
+await stopTimerSession(currentDbSessionId, timerStartedAt, false);
+```
+
+BETROFFENE DATEIEN:
+- src/contexts/timer-context.jsx
+
+CHANGE-BUDGET:
+- Max 30 Zeilen geändert
+
+
+PHASE B: Offline-Queue Status-Bug fixen (MEDIUM Priority)
+─────────────────────────────────────────────────────────────────────────────
+
+PROBLEM: syncOfflineQueue schreibt immer status='completed'
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ syncOfflineQueue: status aus item.data.completed ableiten               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Queue-Format ändern                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ÄNDERUNG (timer-context.jsx, Zeile ~512):
+
+```javascript
+// ALT:
+status: 'completed',
+
+// NEU:
+status: item.data.completed ? 'completed' : 'cancelled',
+```
+
+CHANGE-BUDGET:
+- 1 Zeile
+
+
+PHASE C: saveSession endTime-Bug fixen (LOW Priority)
+─────────────────────────────────────────────────────────────────────────────
+
+PROBLEM: session.endTime wird ignoriert
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ saveSession: session.endTime verwenden wenn vorhanden                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Neue Parameter hinzufügen                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ÄNDERUNG (timer-context.jsx, Zeile ~577):
+
+```javascript
+// ALT:
+const endTime = new Date();
+
+// NEU:
+const endTime = session.endTime ? new Date(session.endTime) : new Date();
+```
+
+CHANGE-BUDGET:
+- 1 Zeile
+
+
+PHASE D: Statistiken auf Views umstellen (MEDIUM Priority) - OPTIONAL
+─────────────────────────────────────────────────────────────────────────────
+
+PROBLEM: useStatistics.js nutzt Views nicht
+
+HINWEIS: Diese Phase ist optional und kann später erfolgen. Die Frontend-
+Berechnung funktioniert korrekt, Views wären nur Performance-Optimierung.
+
+SCOPE-FENCE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ERLAUBT                                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ lernzeitStats: Optional Views abfragen wenn authenticated               │
+│ ✅ Fallback auf timerHistory behalten                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Bestehende Statistik-Logik entfernen                                    │
+│ ❌ UI ändern                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+BETROFFENE DATEIEN:
+- src/hooks/useStatistics.js
+
+CHANGE-BUDGET:
+- Max 50 Zeilen
+
+
+PHASE E: Mentor-RLS (LOW Priority) - SPÄTER
+─────────────────────────────────────────────────────────────────────────────
+
+PROBLEM: Mentor kann Mentee-Sessions nicht sehen
+
+HINWEIS: Erfordert erst profiles.mentor_id Mapping. Eigenes Ticket.
+
+================================================================================
+REIHENFOLGE DER IMPLEMENTATION
+================================================================================
+
+1. [HIGH]   Phase A: Start/Stop-Flow verdrahten
+2. [MEDIUM] Phase B: Offline-Queue Status-Bug
+3. [LOW]    Phase C: saveSession endTime-Bug
+4. [SPÄTER] Phase D: Views (optional)
+5. [SPÄTER] Phase E: Mentor-RLS (eigenes Ticket)
+
+================================================================================
+AKZEPTANZKRITERIEN
+================================================================================
+
+Phase A:
+- [ ] Timer-Start erzeugt Eintrag mit status='running' in timer_sessions
+- [ ] Timer-Stop/Complete updated Eintrag mit ended_at, duration_ms, status
+- [ ] Supabase Dashboard zeigt "running" Sessions während Timer läuft
+
+Phase B:
+- [ ] Offline-Queue synct cancelled Sessions mit status='cancelled'
+
+Phase C:
+- [ ] Mitternacht-Auto-Save hat korrektes ended_at (23:59:59)
+
+================================================================================
+TESTPLAN
+================================================================================
+
+1. Timer starten → Supabase prüfen → status='running', started_at gesetzt
+2. Timer stoppen → Supabase prüfen → ended_at, duration_ms, status='completed'
+3. Timer abbrechen → Supabase prüfen → status='cancelled'
+4. Offline: Timer starten+stoppen → Online gehen → Session erscheint in DB
+5. Mitternacht-Szenario: Session über Tageswechsel → Auto-Save prüfen

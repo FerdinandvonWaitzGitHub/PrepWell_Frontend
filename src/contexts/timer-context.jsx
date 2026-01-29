@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useTimerHistorySync, useUserSettingsSync } from '../hooks/use-supabase-sync';
+// PW-035: Removed useTimerHistorySync - now using direct Supabase calls with new schema
+import { useUserSettingsSync } from '../hooks/use-supabase-sync';
 import { supabase } from '../services/supabase';
 import { useAuth } from './auth-context';
 
@@ -8,6 +9,31 @@ const STORAGE_KEY = 'prepwell_timer_state';
 const HISTORY_STORAGE_KEY = 'prepwell_timer_history';
 const CONFIG_STORAGE_KEY = 'prepwell_timer_config';
 const USER_SETTINGS_KEY = 'prepwell_settings'; // BUG-015 FIX: Sync with settings page
+const OFFLINE_QUEUE_KEY = 'prepwell_timer_offline_queue'; // PW-035: Offline queue for timer sessions
+
+// PW-035: Offline Queue Functions
+const loadOfflineQueue = () => {
+  try {
+    return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+  } catch {
+    return [];
+  }
+};
+
+const saveToOfflineQueue = (item) => {
+  const queue = loadOfflineQueue();
+  queue.push({
+    ...item,
+    localId: `local-${Date.now()}`,
+    queuedAt: new Date().toISOString()
+  });
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+};
+
+const clearFromOfflineQueue = (localId) => {
+  const queue = loadOfflineQueue().filter(q => q.localId !== localId);
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+};
 
 /**
  * BUG-015 FIX: Load user settings (from settings page) to get pomodoro/break durations
@@ -356,12 +382,8 @@ export const TimerProvider = ({ children }) => {
   const savedState = loadFromStorage();
   const savedConfig = loadConfigFromStorage();
 
-  // Use Supabase sync for timer history
-  const {
-    data: supabaseHistory,
-    saveItem: saveSessionToSupabase,
-    isAuthenticated,
-  } = useTimerHistorySync();
+  // PW-035: Get auth state directly from useAuth (no more useTimerHistorySync)
+  const { user, isAuthenticated } = useAuth();
 
   // User settings sync hook (config managed via timerConfig state)
   useUserSettingsSync();
@@ -401,14 +423,16 @@ export const TimerProvider = ({ children }) => {
   // Visual notification state
   const [showNotification, setShowNotification] = useState(false);
 
+  // PW-035: Online/Offline state for reliable session saving
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [currentDbSessionId, setCurrentDbSessionId] = useState(null); // Track running session in Supabase
+
   // Timer history - use Supabase data if authenticated, otherwise localStorage
   const [localTimerHistory, setLocalTimerHistory] = useState(loadHistoryFromStorage);
-  const timerHistory = isAuthenticated && supabaseHistory?.length > 0
-    ? supabaseHistory
+  const [supabaseTimerHistory, setSupabaseTimerHistory] = useState([]);
+  const timerHistory = isAuthenticated && supabaseTimerHistory?.length > 0
+    ? supabaseTimerHistory
     : localTimerHistory;
-
-  // Get auth context for Supabase sync
-  const { user } = useAuth();
 
   // T16-W3: Calculate elapsed seconds from timestamps (accurate even after browser throttling)
   const calculateElapsedSeconds = useCallback(() => {
@@ -437,6 +461,194 @@ export const TimerProvider = ({ children }) => {
     const elapsed = calculateElapsedSeconds();
     return Math.max(0, totalDuration - elapsed);
   }, [timerStartedAt, timerType, isBreak, pomodoroSettings, countdownSettings, calculateElapsedSeconds, remainingSeconds]);
+
+  // PW-035: Online/Offline detection
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Sync offline queue when back online
+      syncOfflineQueue();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // PW-035: Fetch timer history directly from Supabase (new schema)
+  const fetchTimerHistory = useCallback(async () => {
+    if (!isAuthenticated || !user) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('timer_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('started_at', { ascending: false })
+        .limit(1000);
+
+      if (error) {
+        console.error('[Timer] Error fetching timer history:', error);
+        return [];
+      }
+
+      // Transform to frontend format
+      const transformed = (data || []).map(row => ({
+        id: row.id,
+        type: row.session_type,
+        duration: row.duration_ms ? Math.round(row.duration_ms / 1000) : 0,
+        completed: row.status === 'completed',
+        date: row.started_at?.split('T')[0],
+        startedAt: row.started_at,
+        endedAt: row.ended_at,
+        status: row.status,
+        metadata: row.metadata
+      }));
+
+      setSupabaseTimerHistory(transformed);
+      return transformed;
+    } catch (error) {
+      console.error('[Timer] Error fetching timer history:', error);
+      return [];
+    }
+  }, [isAuthenticated, user]);
+
+  // PW-035: Sync offline queue when back online
+  const syncOfflineQueue = useCallback(async () => {
+    if (!isAuthenticated || !isOnline || !user) return;
+
+    const queue = loadOfflineQueue();
+    if (queue.length === 0) return;
+
+    console.log(`[Timer] Syncing ${queue.length} offline sessions...`);
+
+    for (const item of queue) {
+      try {
+        if (item.action === 'complete_session') {
+          // PW-035 Phase B: Use item.data.completed to determine status
+          const status = item.data.completed ? 'completed' : 'cancelled';
+          await supabase.from('timer_sessions').insert({
+            user_id: user.id,
+            session_type: item.data.mode || 'pomodoro',
+            status,
+            started_at: item.data.startedAt,
+            ended_at: item.data.endedAt,
+            duration_ms: item.data.durationMs,
+            metadata: item.data.metadata || {},
+            source: 'web_offline'
+          });
+        }
+        clearFromOfflineQueue(item.localId);
+      } catch (error) {
+        console.error('[Timer] Failed to sync offline session:', error);
+      }
+    }
+
+    // Refresh history after sync
+    await fetchTimerHistory();
+  }, [isAuthenticated, isOnline, user, fetchTimerHistory]);
+
+  // PW-035: Start a timer session in Supabase (INSERT with status='running')
+  const startTimerSession = useCallback(async (sessionData) => {
+    const startTime = new Date().toISOString();
+
+    if (!isAuthenticated || !user) {
+      return null;
+    }
+
+    if (!isOnline) {
+      // Offline: will be saved as complete session when stopped
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('timer_sessions')
+        .insert({
+          user_id: user.id,
+          session_type: sessionData.mode || timerType || 'pomodoro',
+          status: 'running',
+          started_at: startTime,
+          metadata: sessionData.metadata || {},
+          source: 'web'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setCurrentDbSessionId(data.id);
+      return data.id;
+    } catch (error) {
+      console.error('[Timer] Failed to start session in DB:', error);
+      return null;
+    }
+  }, [isAuthenticated, isOnline, user, timerType]);
+
+  // PW-035: Stop a timer session in Supabase (UPDATE with ended_at, status='completed')
+  const stopTimerSession = useCallback(async (sessionId, sessionStartTime, wasCompleted = true) => {
+    const endTime = new Date();
+    const startTimeDate = sessionStartTime ? new Date(sessionStartTime) : new Date(timerStartedAt);
+    const durationMs = endTime.getTime() - startTimeDate.getTime();
+
+    if (!isAuthenticated || !user) return;
+
+    if (!isOnline || !sessionId) {
+      // Offline or no session ID: save complete session to queue
+      saveToOfflineQueue({
+        action: 'complete_session',
+        data: {
+          mode: timerType,
+          startedAt: startTimeDate.toISOString(),
+          endedAt: endTime.toISOString(),
+          durationMs,
+          completed: wasCompleted,
+          metadata: {}
+        }
+      });
+      setCurrentDbSessionId(null);
+      return;
+    }
+
+    try {
+      await supabase
+        .from('timer_sessions')
+        .update({
+          ended_at: endTime.toISOString(),
+          duration_ms: durationMs,
+          status: wasCompleted ? 'completed' : 'cancelled'
+        })
+        .eq('id', sessionId);
+
+      setCurrentDbSessionId(null);
+      await fetchTimerHistory();
+    } catch (error) {
+      console.error('[Timer] Failed to stop session:', error);
+      // On error: save to offline queue for later retry
+      saveToOfflineQueue({
+        action: 'complete_session',
+        data: {
+          mode: timerType,
+          startedAt: startTimeDate.toISOString(),
+          endedAt: endTime.toISOString(),
+          durationMs,
+          completed: wasCompleted
+        }
+      });
+      setCurrentDbSessionId(null);
+    }
+  }, [isAuthenticated, isOnline, user, timerType, timerStartedAt, fetchTimerHistory]);
+
+  // PW-035: Load timer history on mount and when user changes
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchTimerHistory();
+    }
+  }, [isAuthenticated, user, fetchTimerHistory]);
 
   // T16-W3: Save active timer to Supabase for persistence across browser restarts
   const saveActiveTimerToSupabase = useCallback(async () => {
@@ -561,30 +773,76 @@ export const TimerProvider = ({ children }) => {
     }
   }, [user, timerStartedAt, timerState, pausedAt, accumulatedPauseTime, isBreak, currentSession]);
 
-  // Function to save session to both localStorage and Supabase
-  const saveSession = useCallback((session) => {
+  // Function to save session to localStorage OR Supabase (not both!)
+  // PW-032 FIX: Saving to both caused duplicate sessions due to ID mismatch
+  // PW-035: Save completed session using new schema
+  const saveSession = useCallback(async (session) => {
     const sessionWithId = {
       ...session,
       id: `session-${Date.now()}`,
       savedAt: new Date().toISOString()
     };
 
-    // Save to localStorage
-    try {
-      const history = loadHistoryFromStorage();
-      history.push(sessionWithId);
-      const trimmedHistory = history.slice(-1000);
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
-      setLocalTimerHistory(trimmedHistory);
-    } catch (error) {
-      console.error('Error saving timer session to localStorage:', error);
-    }
+    if (isAuthenticated && user) {
+      // Authenticated users: Save directly to Supabase with new schema
+      const startTime = session.startTime ? new Date(session.startTime) : new Date();
+      // PW-035 Phase C: Use session.endTime if provided (for midnight auto-saves)
+      const endTime = session.endTime ? new Date(session.endTime) : new Date();
+      const durationMs = (session.duration || 0) * 1000; // Convert seconds to ms
 
-    // Save to Supabase if authenticated
-    if (isAuthenticated) {
-      saveSessionToSupabase(sessionWithId);
+      try {
+        if (isOnline) {
+          await supabase.from('timer_sessions').insert({
+            user_id: user.id,
+            session_type: session.type || 'pomodoro',
+            status: session.completed ? 'completed' : 'cancelled',
+            started_at: startTime.toISOString(),
+            ended_at: endTime.toISOString(),
+            duration_ms: durationMs,
+            metadata: {},
+            source: 'web'
+          });
+          await fetchTimerHistory();
+        } else {
+          // Offline: Queue for later sync
+          saveToOfflineQueue({
+            action: 'complete_session',
+            data: {
+              mode: session.type || 'pomodoro',
+              startedAt: startTime.toISOString(),
+              endedAt: endTime.toISOString(),
+              durationMs,
+              completed: session.completed
+            }
+          });
+        }
+      } catch (error) {
+        console.error('[Timer] Error saving session:', error);
+        // Fallback to offline queue
+        saveToOfflineQueue({
+          action: 'complete_session',
+          data: {
+            mode: session.type || 'pomodoro',
+            startedAt: startTime.toISOString(),
+            endedAt: endTime.toISOString(),
+            durationMs,
+            completed: session.completed
+          }
+        });
+      }
+    } else {
+      // Unauthenticated users: Save ONLY to localStorage
+      try {
+        const history = loadHistoryFromStorage();
+        history.push(sessionWithId);
+        const trimmedHistory = history.slice(-1000);
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedHistory));
+        setLocalTimerHistory(trimmedHistory);
+      } catch (error) {
+        console.error('Error saving timer session to localStorage:', error);
+      }
     }
-  }, [isAuthenticated, saveSessionToSupabase]);
+  }, [isAuthenticated, user, isOnline, fetchTimerHistory]);
 
   // Save state to localStorage whenever it changes
   useEffect(() => {
@@ -744,30 +1002,42 @@ export const TimerProvider = ({ children }) => {
     setShowNotification(true);
     setTimeout(() => setShowNotification(false), 3000);
 
-    // Save completed session to history (localStorage + Supabase)
+    // PW-035: Save completed session - use stopTimerSession if DB session exists, otherwise saveSession
     if (timerType === TIMER_TYPES.POMODORO && !isBreak) {
       // Save completed Pomodoro work session
-      const session = {
-        type: TIMER_TYPES.POMODORO,
-        date: new Date().toISOString().split('T')[0],
-        startTime: startTime?.toISOString(),
-        endTime: new Date().toISOString(),
-        duration: pomodoroSettings.sessionDuration * 60,
-        sessionNumber: currentSession,
-        completed: true
-      };
-      saveSession(session);
+      if (currentDbSessionId) {
+        // UPDATE existing session in Supabase
+        stopTimerSession(currentDbSessionId, startTime, true);
+      } else {
+        // INSERT new session (offline or unauthenticated)
+        const session = {
+          type: TIMER_TYPES.POMODORO,
+          date: new Date().toISOString().split('T')[0],
+          startTime: startTime?.toISOString(),
+          endTime: new Date().toISOString(),
+          duration: pomodoroSettings.sessionDuration * 60,
+          sessionNumber: currentSession,
+          completed: true
+        };
+        saveSession(session);
+      }
     } else if (timerType === TIMER_TYPES.COUNTDOWN) {
       // Save completed countdown session
-      const session = {
-        type: TIMER_TYPES.COUNTDOWN,
-        date: new Date().toISOString().split('T')[0],
-        startTime: startTime?.toISOString(),
-        endTime: new Date().toISOString(),
-        duration: countdownSettings.duration * 60,
-        completed: true
-      };
-      saveSession(session);
+      if (currentDbSessionId) {
+        // UPDATE existing session in Supabase
+        stopTimerSession(currentDbSessionId, startTime, true);
+      } else {
+        // INSERT new session (offline or unauthenticated)
+        const session = {
+          type: TIMER_TYPES.COUNTDOWN,
+          date: new Date().toISOString().split('T')[0],
+          startTime: startTime?.toISOString(),
+          endTime: new Date().toISOString(),
+          duration: countdownSettings.duration * 60,
+          completed: true
+        };
+        saveSession(session);
+      }
     }
 
     if (timerType === TIMER_TYPES.POMODORO) {
@@ -822,7 +1092,7 @@ export const TimerProvider = ({ children }) => {
       setPausedAt(null);
       setAccumulatedPauseTime(0);
     }
-  }, [timerType, isBreak, currentSession, totalSessions, pomodoroSettings, saveSession, startTime, countdownSettings.duration]);
+  }, [timerType, isBreak, currentSession, totalSessions, pomodoroSettings, saveSession, startTime, countdownSettings.duration, currentDbSessionId, stopTimerSession]);
 
   // Start Pomodoro timer
   // BUG-015 FIX: Always read latest user settings before starting
@@ -855,7 +1125,10 @@ export const TimerProvider = ({ children }) => {
     setPausedAt(null);
     setAccumulatedPauseTime(0);
     setTimerState(TIMER_STATES.RUNNING);
-  }, [pomodoroSettings]);
+
+    // PW-035: Start session in Supabase (INSERT with status='running')
+    startTimerSession({ mode: 'pomodoro' });
+  }, [pomodoroSettings, startTimerSession]);
 
   // Start Countdown timer
   const startCountdown = useCallback((durationMinutes) => {
@@ -871,7 +1144,10 @@ export const TimerProvider = ({ children }) => {
     setPausedAt(null);
     setAccumulatedPauseTime(0);
     setTimerState(TIMER_STATES.RUNNING);
-  }, []);
+
+    // PW-035: Start session in Supabase (INSERT with status='running')
+    startTimerSession({ mode: 'countdown' });
+  }, [startTimerSession]);
 
   // Start Count-up timer
   const startCountup = useCallback(() => {
@@ -886,7 +1162,10 @@ export const TimerProvider = ({ children }) => {
     setPausedAt(null);
     setAccumulatedPauseTime(0);
     setTimerState(TIMER_STATES.RUNNING);
-  }, []);
+
+    // PW-035: Start session in Supabase (INSERT with status='running')
+    startTimerSession({ mode: 'countup' });
+  }, [startTimerSession]);
 
   // Pause timer
   const pauseTimer = useCallback(() => {
@@ -958,22 +1237,35 @@ export const TimerProvider = ({ children }) => {
 
     // Save as cancelled session if at least 1 minute was spent
     if (actualDuration >= 60) {
-      const session = {
-        type: timerType,
-        date: new Date().toISOString().split('T')[0],
-        startTime: startTime?.toISOString(),
-        endTime: new Date().toISOString(),
-        duration: actualDuration,
-        completed: false,
-        cancelled: true // Mark as reset/cancelled
-      };
-      saveSession(session);
+      // PW-035: Use stopTimerSession if DB session exists, otherwise saveSession
+      if (currentDbSessionId) {
+        // UPDATE existing session in Supabase (cancelled)
+        stopTimerSession(currentDbSessionId, startTime, false);
+      } else {
+        // INSERT new session (offline or unauthenticated)
+        const session = {
+          type: timerType,
+          date: new Date().toISOString().split('T')[0],
+          startTime: startTime?.toISOString(),
+          endTime: new Date().toISOString(),
+          duration: actualDuration,
+          completed: false,
+          cancelled: true // Mark as reset/cancelled
+        };
+        saveSession(session);
+      }
+    } else if (currentDbSessionId) {
+      // PW-035: Even if < 1 minute, cancel the DB session
+      stopTimerSession(currentDbSessionId, startTime, false);
     }
 
     // Reset the timer (keep it active, just reset time)
+    // PW-035: Start a new DB session for the reset timer
+    const now = Date.now();
     if (timerType === TIMER_TYPES.COUNTUP) {
       setElapsedSeconds(0);
-      setStartTime(new Date());
+      setStartTime(new Date(now));
+      startTimerSession({ mode: 'countup' });
     } else if (timerType === TIMER_TYPES.POMODORO) {
       if (isBreak) {
         const isLongBreak = currentSession % pomodoroSettings.sessionsBeforeLongBreak === 0;
@@ -981,19 +1273,21 @@ export const TimerProvider = ({ children }) => {
           ? pomodoroSettings.longBreakDuration
           : pomodoroSettings.breakDuration;
         setRemainingSeconds(breakDuration * 60);
-        setEndTime(new Date(Date.now() + breakDuration * 60 * 1000));
+        setEndTime(new Date(now + breakDuration * 60 * 1000));
       } else {
         setRemainingSeconds(pomodoroSettings.sessionDuration * 60);
-        setEndTime(new Date(Date.now() + pomodoroSettings.sessionDuration * 60 * 1000));
+        setEndTime(new Date(now + pomodoroSettings.sessionDuration * 60 * 1000));
       }
-      setStartTime(new Date());
+      setStartTime(new Date(now));
+      startTimerSession({ mode: 'pomodoro' });
     } else if (timerType === TIMER_TYPES.COUNTDOWN) {
       setRemainingSeconds(countdownSettings.duration * 60);
-      setStartTime(new Date());
-      setEndTime(new Date(Date.now() + countdownSettings.duration * 60 * 1000));
+      setStartTime(new Date(now));
+      setEndTime(new Date(now + countdownSettings.duration * 60 * 1000));
+      startTimerSession({ mode: 'countdown' });
     }
   }, [timerType, elapsedSeconds, remainingSeconds, startTime, isBreak, currentSession,
-      pomodoroSettings, countdownSettings, saveSession]);
+      pomodoroSettings, countdownSettings, saveSession, currentDbSessionId, stopTimerSession, startTimerSession]);
 
   // Stop timer completely
   const stopTimer = useCallback(() => {
@@ -1011,15 +1305,25 @@ export const TimerProvider = ({ children }) => {
 
       // Only save if at least 1 minute was spent
       if (actualDuration >= 60) {
-        const session = {
-          type: timerType,
-          date: new Date().toISOString().split('T')[0],
-          startTime: startTime?.toISOString(),
-          endTime: new Date().toISOString(),
-          duration: actualDuration,
-          completed: false // manually stopped
-        };
-        saveSession(session);
+        // PW-035: Use stopTimerSession if DB session exists, otherwise saveSession
+        if (currentDbSessionId) {
+          // UPDATE existing session in Supabase (cancelled)
+          stopTimerSession(currentDbSessionId, startTime, false);
+        } else {
+          // INSERT new session (offline or unauthenticated)
+          const session = {
+            type: timerType,
+            date: new Date().toISOString().split('T')[0],
+            startTime: startTime?.toISOString(),
+            endTime: new Date().toISOString(),
+            duration: actualDuration,
+            completed: false // manually stopped
+          };
+          saveSession(session);
+        }
+      } else if (currentDbSessionId) {
+        // PW-035: Even if < 1 minute, cancel the DB session
+        stopTimerSession(currentDbSessionId, startTime, false);
       }
     }
 
@@ -1039,7 +1343,8 @@ export const TimerProvider = ({ children }) => {
     // T16-W3: Clear active timer from Supabase
     clearActiveTimerFromSupabase();
   }, [timerType, timerState, elapsedSeconds, remainingSeconds, startTime,
-      pomodoroSettings, countdownSettings, saveSession, clearActiveTimerFromSupabase]);
+      pomodoroSettings, countdownSettings, saveSession, clearActiveTimerFromSupabase,
+      currentDbSessionId, stopTimerSession]);
 
   // Get display info based on timer type
   const getDisplayInfo = useCallback(() => {

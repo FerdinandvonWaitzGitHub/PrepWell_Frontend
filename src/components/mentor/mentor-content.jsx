@@ -10,7 +10,7 @@ import {
 
 // LocalStorage keys
 const STORAGE_KEY_SELECTED_SIDEBAR_STATS = 'prepwell_mentor_selected_sidebar_stats';
-const STORAGE_KEY_SELECTED_CHARTS = 'prepwell_mentor_selected_charts';
+const STORAGE_KEY_CHART_CONFIG = 'prepwell_mentor_chart_config';
 
 // Default selected stats for sidebar (up to 10)
 const DEFAULT_SELECTED_SIDEBAR_STATS = [
@@ -22,11 +22,15 @@ const DEFAULT_SELECTED_SIDEBAR_STATS = [
   'pomodoro-sessions'
 ];
 
-// Default selected charts for line chart (up to 3)
-const DEFAULT_SELECTED_CHARTS = [
-  'lernzeit-per-day',
-  'task-completion-week'
-];
+// Default chart configuration
+const DEFAULT_CHART_CONFIG = {
+  firstGraph: 'prep-score',
+  secondGraph: 'well-score',
+  timeFrameType: 'custom',
+  selectedSemester: 'current',
+  startDate: '',
+  endDate: ''
+};
 
 /**
  * MentorContent component - Matching Figma design exactly
@@ -55,13 +59,13 @@ const MentorContent = ({ className = '' }) => {
     }
   });
 
-  // State for selected charts (line chart display, up to 3)
-  const [selectedChartIds, setSelectedChartIds] = useState(() => {
+  // State for chart configuration
+  const [chartConfig, setChartConfig] = useState(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_SELECTED_CHARTS);
-      return stored ? JSON.parse(stored) : DEFAULT_SELECTED_CHARTS;
+      const stored = localStorage.getItem(STORAGE_KEY_CHART_CONFIG);
+      return stored ? JSON.parse(stored) : DEFAULT_CHART_CONFIG;
     } catch {
-      return DEFAULT_SELECTED_CHARTS;
+      return DEFAULT_CHART_CONFIG;
     }
   });
 
@@ -74,8 +78,8 @@ const MentorContent = ({ className = '' }) => {
   }, [selectedSidebarStatsIds]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_SELECTED_CHARTS, JSON.stringify(selectedChartIds));
-  }, [selectedChartIds]);
+    localStorage.setItem(STORAGE_KEY_CHART_CONFIG, JSON.stringify(chartConfig));
+  }, [chartConfig]);
 
   // Calculate heatmap stats
   const heatmapStats = {
@@ -84,7 +88,8 @@ const MentorContent = ({ className = '' }) => {
     activeDays: heatmapData.stats.activeDays
   };
 
-  // Get chart series data for selected charts
+  // Get chart series data for selected charts (now from chartConfig)
+  const selectedChartIds = [chartConfig.firstGraph, chartConfig.secondGraph].filter(Boolean);
   const chartSeries = getChartSeriesForIds(selectedChartIds);
 
   // Get common x-labels from first series or default
@@ -99,11 +104,11 @@ const MentorContent = ({ className = '' }) => {
   const sidebarStats = getSidebarStatsForIds(selectedSidebarStatsIds);
 
   return (
-    <div className={`flex h-full overflow-hidden ${className}`}>
+    <div className={`flex gap-5 h-full overflow-hidden ${className}`}>
       {/* Left Column - Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col gap-5 overflow-hidden">
         {/* Top Row: Score Card + Heatmap */}
-        <div className="flex overflow-hidden">
+        <div className="flex gap-5 overflow-hidden">
           {/* Score Card - Fixed width */}
           <div className="w-96 flex-shrink-0">
             <ScoreCard
@@ -124,7 +129,7 @@ const MentorContent = ({ className = '' }) => {
         {/* Bottom: Line Chart Section */}
         <div className="flex-1 p-5 bg-white rounded-[10px] border border-neutral-200 flex flex-col overflow-hidden">
           <LineChart
-            title="Diagramm"
+            title="Statistik"
             series={chartSeries}
             xLabels={chartXLabels}
             yMax={chartYMax}
@@ -145,8 +150,8 @@ const MentorContent = ({ className = '' }) => {
       <ChartSelectionDialog
         open={isChartDialogOpen}
         onOpenChange={setIsChartDialogOpen}
-        selectedCharts={selectedChartIds}
-        onSelectionChange={setSelectedChartIds}
+        chartConfig={chartConfig}
+        onConfigChange={setChartConfig}
       />
     </div>
   );

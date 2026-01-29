@@ -54,12 +54,13 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
     <div className="flex-1 h-full p-5 bg-white rounded-[10px] border border-neutral-200 flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center gap-1.5">
-        <span className="text-neutral-900 text-lg font-light leading-4">
+        <span className="text-neutral-900 text-lg font-light leading-none">
           Performance letzte 30 Tage
         </span>
         <div className="p-px rounded-full flex justify-center items-center">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-neutral-400">
-            <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.33" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-neutral-400">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+            <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
       </div>
@@ -110,13 +111,13 @@ const PerformanceHeatmap = ({ data = [], stats = {} }) => {
       <div className="flex justify-center items-center gap-2">
         <button
           onClick={() => setIsYearViewOpen(true)}
-          className="px-5 py-2.5 rounded-full border border-neutral-300 flex items-center gap-2 hover:bg-neutral-50 transition-colors"
+          className="h-9 px-4 py-2 bg-white rounded-lg border border-neutral-200 shadow-sm flex items-center gap-2 hover:bg-neutral-50 transition-colors"
         >
-          <span className="text-neutral-900 text-sm font-light leading-5">
+          <span className="text-neutral-900 text-sm font-medium leading-5">
             Jahresansicht
           </span>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-neutral-900">
-            <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-neutral-900">
+            <path d="M21 3H15M21 3V9M21 3L13 11M10 3H3V21H21V14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </div>

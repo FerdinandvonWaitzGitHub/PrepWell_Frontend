@@ -19,18 +19,19 @@ const StatsSidebar = ({
     <div className="w-[500px] h-full p-5 bg-white rounded-[10px] border border-neutral-200 flex flex-col">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <span className="text-neutral-900 text-lg font-light leading-4">
+        <span className="text-neutral-900 text-lg font-light leading-none">
           Statistiken
         </span>
         <button
           onClick={() => setIsDialogOpen(true)}
-          className="px-5 py-2.5 rounded-full border border-neutral-300 flex items-center gap-2 hover:bg-neutral-50 transition-colors"
+          className="h-9 px-4 py-2 bg-white rounded-lg border border-neutral-200 shadow-sm flex items-center gap-2 hover:bg-neutral-50 transition-colors"
         >
-          <span className="text-neutral-900 text-sm font-light leading-5">
+          <span className="text-neutral-900 text-sm font-medium leading-5">
             Ansicht
           </span>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-neutral-900">
-            <path d="M2.67 10.67V13.33H5.33M13.33 5.33V2.67H10.67M2.67 5.33V2.67H5.33M13.33 10.67V13.33H10.67" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-neutral-900">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" strokeWidth="2" />
           </svg>
         </button>
       </div>

@@ -34,10 +34,11 @@ const ScoreSection = ({ title, score, trend }) => {
     <div className="flex flex-col overflow-hidden">
       {/* Title Row */}
       <div className="flex items-center gap-1.5">
-        <span className="text-neutral-900 text-lg font-light leading-4">{title}</span>
+        <span className="text-neutral-900 text-lg font-light leading-none">{title}</span>
         <div className="p-px rounded-full flex justify-center items-center">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-neutral-400">
-            <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.33" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-neutral-400">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+            <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
       </div>
