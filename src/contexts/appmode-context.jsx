@@ -87,14 +87,14 @@ export const AppModeProvider = ({ children }) => {
     }
   });
 
-  // User mode preference (null = automatic, 'normal' = force normal mode)
-  // Note: 'exam' preference only works if there's an active Lernplan
+  // User mode preference ('normal' = default, 'exam' = exam mode)
+  // Default is now 'normal' instead of automatic
   const [userModePreference, setUserModePreferenceState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_MODE_PREFERENCE);
-      return stored || null;
+      return stored || 'normal'; // Default: Normal-Modus
     } catch {
-      return null;
+      return 'normal';
     }
   });
 
@@ -350,8 +350,8 @@ export const useAppMode = () => {
         toggleMode: () => {},
         resetModePreference: () => {},
         canToggleMode: true,
-        isModeManuallySet: false,
-        userModePreference: null,
+        isModeManuallySet: true,
+        userModePreference: 'normal',
         currentSemester: 3,
         setSemester: () => {},
         subscriptionStatus: SUBSCRIPTION_STATUS.TRIAL,
